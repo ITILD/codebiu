@@ -1,0 +1,3 @@
+# 确保代码库中的文件使用 ​​一致的换行符（LF，Unix 风格）​​，避免不同操作系统（Windows/macOS/Linux）
+# 因换行符差异（CRLF/LF）导致的问题（如 ^M字符、文件差异混乱等）。
+* text=auto eol=lf
