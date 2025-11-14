@@ -1,0 +1,43 @@
+@import './base.css';
+
+/* 滚动条 */
+/* 滚动条所在容器 */
+.scroll {
+    overflow: overlay;
+    overflow-x: hidden;
+}
+
+/* 滚动条整体 高度写不写，都不影响，因为会根据内容的长度自动计算*/
+
+.scroll::-webkit-scrollbar {
+    /* width: 8px; */
+    width: 0px;
+}
+
+/* 两个滚动条交接处 -- x轴和y轴 */
+.scroll-container::-webkit-scrollbar-corner {
+    background-color: transparent;
+}
+
+/* 滚动条滑块 */
+.scroll::-webkit-scrollbar-thumb {
+    background: #111827d6;
+    border-radius: 10px;
+    -webkit-box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.2);
+}
+
+
+  /* 完全屏蔽 Grammarly 浏览器插件在当前网页上显示的所有视觉反 */
+  /* 隐藏Grammarly的UI元素 */
+  .gr_gramm,
+  .gr_gramm_r,
+  .gr_grammly_pink,
+  .gr_grammly_green,
+  .gr_grammly_underline {
+    display: none !important;
+  }
+
+  /* 隐藏Grammarly的弹出窗口 */
+  .gr_grammly_tooltip {
+    display: none !important;
+  }
