@@ -1,0 +1,57 @@
+state:
+  is_dev: false
+  config_path: config.dev.yaml
+server:
+  # 根路由代理
+  server_root_path: ''
+  host: 0.0.0.0
+  port: 2001
+# 网络代理配置
+# proxy:
+#   type: http
+#   host: 127.0.0.1
+#   port: 18081
+# 目录配置
+dir:
+  # 基础根目录
+  base: temp_source
+
+  # 子目录定义（按功能划分）
+  base_child:
+    source:     source      # 源代码/原始文件
+    upload:   upload    # 用户上传文件
+    log:        log         # 日志文件
+    sys_out:    sys_out     # 系统输出（如运行结果、导出文件）
+    temp:       temp        # 临时文件
+    db:         db          # 数据库文件（如 SQLite、缓存等）
+    test:       test        # 测试相关资源
+    model:      model       # 模型文件
+  public: public
+# 中间件配置 
+middleware:
+  cors: true
+  gzip: true
+# db_rel:
+#   type: postgres
+#   database: server_example
+#   host: ***
+#   port: ***
+#   user: ***
+#   password: ***
+db_rel:
+  type: sqlite
+  database: temp_source\db\data.db
+# redis:
+#   type: redis
+#   host: 127.0.0.1
+#   port: 6379
+#   db: 0
+redis:
+  type: fakeredis
+  database: temp_source\db\fakeredis.db
+# auth
+token:
+  secret_key: qwer1234
+  algorithm: HS256
+  expire_minutes: 30
+  refresh_expire_days: 20

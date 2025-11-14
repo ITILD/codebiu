@@ -1,0 +1,193 @@
+/* CSS 变量定义，方便统一修改主题 */
+:root {
+    --primary-color: #2e7d32;
+    --primary-light: #e8f5e9;
+    --text-color: #333;
+    --text-secondary: #555;
+    --background-color: #f4f7f6;
+    --card-background: #ffffff;
+    --border-color: #e0e0e0;
+    --color-success: #2e7d32;
+    --color-failure: #c62828;
+    --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* 1. 全局样式重置和基础设置 */
+body,
+html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: var(--font-family);
+    background-color: var(--background-color);
+    color: var(--text-color);
+    line-height: 1.6;
+}
+
+/* 2. 布局样式 */
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+    box-sizing: border-box;
+}
+
+.container {
+    width: 100%;
+    max-width: 900px;
+    height: 90vh;
+    background: var(--card-background);
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.content {
+    flex-grow: 1;
+    padding: 2rem;
+    overflow-y: auto;
+}
+
+section {
+    margin-bottom: 2.5rem;
+}
+
+/* 3. 头部和页脚 */
+header {
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+}
+
+header img {
+    height: 40px;
+}
+
+header h1 {
+    margin: 0;
+    font-size: 2rem;
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+footer {
+    padding: 1.5rem;
+    text-align: center;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    border-top: 1px solid var(--border-color);
+    background-color: #fcfcfc;
+}
+
+/* 4. 通用内容样式 */
+section>h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--primary-color);
+    margin: 0 0 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--primary-light);
+}
+
+p {
+    color: var(--text-secondary);
+}
+
+ul {
+    list-style: none;
+    padding: 0;
+}
+
+/* ✅ 修正点: 仅为带 .checklist 类的列表应用带图标的样式 */
+ul.checklist li {
+    position: relative;
+    padding: 10px 10px 10px 30px;
+    margin-bottom: 8px;
+    background-color: #f7f7f7;
+    border-radius: 8px;
+    border-left: 3px solid var(--primary-color);
+}
+
+ul.checklist li::before {
+    content: '✔';
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--primary-color);
+    font-weight: bold;
+}
+
+/* 5. 服务器状态区域特定样式 (这些列表没有图标) */
+.status-section h3 {
+    font-size: 1.2rem;
+    font-weight: 500;
+    color: #444;
+    margin: 1.5rem 0 0.5rem;
+}
+
+/* 状态列表的通用样式 */
+.status-section ul li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    /* 这里没有为图标留出左侧空间 */
+    margin-bottom: 10px;
+    background-color: #fafafa;
+    border-radius: 8px;
+    border-left: 3px solid var(--border-color);
+    /* 使用中性边框色 */
+}
+
+.network-status {
+    margin-top: 2rem;
+}
+
+.status-success {
+    color: var(--color-success);
+    font-weight: bold;
+}
+
+.status-failure {
+    color: var(--color-failure);
+    font-weight: bold;
+}
+
+.loading-message,
+.error-message {
+    padding: 1rem;
+    border-radius: 8px;
+    color: var(--text-secondary);
+    font-style: italic;
+    border: 1px solid var(--border-color);
+}
+
+.error-message {
+    border-color: var(--color-failure);
+    color: var(--color-failure);
+}
+
+/* 6. 滚动条美化 */
+.content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.content::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 4px;
+}
+
+.content::-webkit-scrollbar-thumb:hover {
+    background: #aaa;
+}

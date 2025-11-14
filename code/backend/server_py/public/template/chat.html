@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>talk</title>
+  <script src="../../common/assets/js/framework/vue.global.min.js"></script>
+  <link rel="stylesheet" href="./assets/css/index.css" />
+</head>
+<body>
+  <div id="app" class="container">
+    <h2>💬</h2>
+    <div>
+      <input type="text" v-model="name" placeholder="请输入你的昵称..." />
+      <button @click="connect">连接</button>
+      <button @click="disconnect">断开</button>
+    </div>
+
+    <div style="margin-top: 10px;">
+      <input type="text" v-model="newMessage" placeholder="输入消息..." @keypress.enter="sendMessage" />
+      <button @click="sendMessage">发送</button>
+    </div>
+
+    <div class="status">状态：<span>{{ status }}</span></div>
+    <div id="messages">
+      <div
+        v-for="(msg, index) in messages"
+        :key="index"
+        :class="msg.sender === name ? 'message sent' : 'message received'"
+      >
+        <strong v-if="msg.sender !== '系统'">[{{ msg.sender }}]</strong> {{ msg.message }}
+      </div>
+    </div>
+  </div>
+
+  <script>
+   
+  </script>
+  <script src="./assets/js/index.js"></script>
+</body>
+</html>
