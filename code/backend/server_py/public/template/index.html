@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>template table</title>
+  <script src="../../common/assets/js/framework/vue.global.min.js"></script>
+  <link rel="stylesheet" href="./index/css/index.css" />
+</head>
+<body>
+  <div id="app" class="container">    
+    <!-- 消息提示 -->
+    <div v-if="error" class="error">{{ error }}</div>
+    <div v-if="success" class="success">{{ success }}</div>
+    
+    <!-- 操作按钮 -->
+    <div style="margin-bottom: 20px;">
+      <button @click="openCreateModal">create</button>
+      <button @click="fetchTemplates" :disabled="loading">refresh</button>
+      <button @click="toggleListMode">{{ listMode === 'pagination' ? '切换滚动模式' : '切换列表模式' }}</button>
+    </div>
+    
+    <!-- 模板列表 -->
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>名称</th>
+            <th>描述</th>
+            <th>数值</th>
+            <th>状态</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="template in templates" :key="template.id">
+            <td>{{ template.id }}</td>
+            <td>{{ template.name || '-' }}</td>
+            <td>{{ template.description || '-' }}</td>
+            <td>{{ template.value }}</td>
+            <td>{{ template.is_active ? '激活' : '禁用' }}</td>
+            <td class="actions">
+              <button @click="openEditModal(template.id)">编辑</button>
+              <button class="danger" @click="openDeleteModal(template.id)">删除</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      
+      <!-- 加载状态 -->
+      <div v-if="loading" class="loading">加载中...</div>
+      <div v-else-if="templates.length === 0" class="loading">暂无数据</div>
+    </div>
+    
+    <!-- 滚动加载提示 -->
+    <div v-if="listMode === 'scroll' && loading && hasMore" class="loading">加载更多...</div>
+    <div v-if="listMode === 'scroll' && !hasMore && templates.length > 0" class="loading">没有更多数据了</div>
+    
+    <!-- 分页 -->
+    <div v-if="listMode === 'pagination' && totalCount > 0" class="pagination">
+      <button @click="goToPage(1)" :disabled="currentPage === 1">首页</button>
+      <button @click="goToPage(currentPage - 1)" :disabled="currentPage === 1">上一页</button>
+      
+      <span v-for="page in pageRange" :key="page">
+        <button 
+          @click="goToPage(page)" 
+          :style="{ backgroundColor: currentPage === page ? '#2980b9' : '#3498db' }"
+        >
+          {{ page }}
+        </button>
+      </span>
+      
+      <button @click="goToPage(currentPage + 1)" :disabled="currentPage === totalPages">下一页</button>
+      <button @click="goToPage(totalPages)" :disabled="currentPage === totalPages">尾页</button>
+      
+      <span style="margin-left: 20px;">
+        共 {{ totalCount }} 条数据，第 {{ currentPage }} / {{ totalPages }} 页
+      </span>
+    </div>
+    
+    <!-- 创建/编辑模态框 -->
+    <div v-if="showModal" class="modal" @click.self="showModal = false">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>{{ editMode ? '编辑模板' : '创建模板' }}</h2>
+          <button @click="showModal = false">×</button>
+        </div>
+        
+        <div class="form-group">
+          <label for="name">名称</label>
+          <input id="name" v-model="formData.name" placeholder="请输入模板名称" />
+        </div>
+        
+        <div class="form-group">
+          <label for="description">描述</label>
+          <textarea id="description" v-model="formData.description" placeholder="请输入模板描述" rows="3"></textarea>
+        </div>
+        
+        <div class="form-group">
+          <label for="value">数值</label>
+          <input id="value" type="number" v-model.number="formData.value" placeholder="请输入数值" />
+        </div>
+        
+        <div class="form-group">
+          <label>
+            <input type="checkbox" v-model="formData.is_active" />
+            激活状态
+          </label>
+        </div>
+        
+        <div class="modal-footer">
+          <button class="secondary" @click="showModal = false">取消</button>
+          <button :disabled="loading" @click="editMode ? updateTemplate() : createTemplate()">
+            {{ loading ? '处理中...' : (editMode ? '更新' : '创建') }}
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 删除确认模态框 -->
+    <div v-if="showDeleteModal" class="modal" @click.self="showDeleteModal = false">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>确认删除</h2>
+          <button @click="showDeleteModal = false">×</button>
+        </div>
+        
+        <p>确定要删除这条模板吗？此操作不可撤销。</p>
+        
+        <div class="modal-footer">
+          <button class="secondary" @click="showDeleteModal = false">取消</button>
+          <button class="danger" :disabled="loading" @click="deleteTemplate">
+            {{ loading ? '处理中...' : '删除' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+   
+  </script>
+  <script src="./index/js/index.js"></script>
+</body>
+</html>

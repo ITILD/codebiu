@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>当前工程介绍</title>
+    <link rel="icon" href="common/assets/img/ion/favicon.svg" />
+    <link rel="stylesheet" href="static/assets/css/index.css" />
+  </head>
+
+  <body>
+    <div class="container">
+      <!-- 头部 -->
+      <header>
+        <img
+          src="common/assets/img/ion/favicon.svg"
+          alt="工程Logo"
+        />
+        <h1>base_server</h1>
+      </header>
+
+      <!-- 内容区域 -->
+      <div class="content">
+        <section>
+          <h2>工程概述</h2>
+          <p>
+            欢迎来到当前工程介绍页面。本工程旨在开发一个高效、可靠的系统，用于解决特定领域的问题。以下是工程的详细信息。
+          </p>
+        </section>
+
+        <section>
+          <h2>工程目标</h2>
+          <!-- ✅ 修改点：添加 "checklist" 类 -->
+          <ul class="checklist">
+            <li>提高系统的性能和稳定性。</li>
+            <li>优化用户体验，提供直观的界面。</li>
+            <li>实现模块化设计，便于后续扩展和维护。</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>技术栈</h2>
+          <!-- ✅ 修改点：添加 "checklist" 类 -->
+          <ul class="checklist">
+            <li>前端：HTML5, CSS3, JavaScript (Vue 3)</li>
+            <li>后端：fastapi, sqlmodel</li>
+            <li>数据库：postgresql, sqlite</li>
+            <li>版本控制：Git</li>
+          </ul>
+        </section>
+
+        <!-- Vue 应用挂载点 -->
+        <section id="app" class="status-section">
+          <h2>服务器状态 (每60秒更新)</h2>
+          <div v-if="loading" class="loading-message">
+            正在加载服务器状态...
+          </div>
+          <div v-if="error" class="error-message">{{ error }}</div>
+
+          <div v-if="status">
+            <!-- 硬件状态 -->
+            <div v-if="status.hardware">
+              <h3>硬件状态</h3>
+              <!-- 这里是状态列表，没有 checklist 类 -->
+              <ul>
+                <li>
+                  <span
+                    ><strong>CPU:</strong> {{ status.hardware.cpu.percent }}%
+                    ({{ status.hardware.cpu.cores }} 核 / {{
+                    status.hardware.cpu.threads }} 线程)</span
+                  >
+                </li>
+                <li>
+                  <span
+                    ><strong>内存:</strong> {{ status.hardware.memory.percent
+                    }}% (已用 {{ status.hardware.memory.used }} GB / 总计 {{
+                    status.hardware.memory.total }} GB)</span
+                  >
+                </li>
+                <li>
+                  <span
+                    ><strong>磁盘:</strong> {{ status.hardware.disk.percent }}%
+                    (已用 {{ status.hardware.disk.used }} GB / 总计 {{
+                    status.hardware.disk.total }} GB)</span
+                  >
+                </li>
+              </ul>
+            </div>
+
+            <!-- 网络连通性 -->
+            <div v-if="status.network" class="network-status">
+              <h3>网络连通性</h3>
+              <!-- 这里是状态列表，没有 checklist 类 -->
+              <ul>
+                <li v-for="net in status.network" :key="net.url">
+                  <span>{{ net.url }}</span>
+                  <span
+                    :class="{'status-success': net.connect_success, 'status-failure': !net.connect_success}"
+                  >
+                    {{ net.connect_success ? '连接成功' : '连接失败' }}
+                  </span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- 页脚 -->
+      <footer>
+        <p>© 2025 Current Project Team. All rights reserved.</p>
+      </footer>
+    </div>
+
+    <!-- 引入 JS 文件 -->
+    <script src="common/assets/js/framework/vue.global.min.js"></script>
+    <script src="static/assets/js/index.js"></script>
+  </body>
+</html>
