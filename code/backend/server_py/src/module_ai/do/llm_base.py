@@ -37,7 +37,7 @@ class ChatRequest(BaseModel):
     """聊天请求模型"""
 
     model_id: str = Field(..., description="模型配置ID或模型标识名称")
-    messages: list[Message] = Field(..., description="消息内容")
+    messages: list[Message | BaseMessage] = Field(..., description="消息内容")
     streaming: bool = Field(False, description="是否启用流式响应")
 
     @field_validator("messages", mode="before")
@@ -50,7 +50,13 @@ class ChatRequest(BaseModel):
         """
         if isinstance(v, str):
             # 将字符串转换为包含单个用户消息的列表
-            return [Message(role="user", content=v)]
+            return [HumanMessage(content=v)]
+        elif isinstance(v[0], Message):
+            messages = [msg.to_langchain_message() for msg in v]
+            return messages
+        else:
+            # 保持列表原样
+            return v
 
 
 class EmbeddingRequest(BaseModel):

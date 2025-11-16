@@ -5,6 +5,7 @@ from module_ai.do.ocr import Base64File
 from module_ai.service.ocr import OcrService
 from common.utils.media.FileFormat import bytes_to_cv2
 from module_ai.config.ocr import conf_ocr_languages
+from common.utils.code.language.lang2lang import Language
 import logging
 
 logger = logging.getLogger(__name__)
@@ -83,7 +84,7 @@ async def layout(
 )
 async def ocr_all(
     image: UploadFile,
-    lang: str = Form(),
+    lang: Language = Form(),
     ocr_service: OcrService = Depends(get_ocr_service),
 ):
     try:
