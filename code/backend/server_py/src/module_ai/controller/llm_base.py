@@ -69,7 +69,7 @@ async def chat_completion(
             )
         else:
             # 非流式响应
-            return await responses
+            return responses
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:

@@ -5,7 +5,7 @@ from common.config.server import app
 
 # 引入路由
 from module_template.controller import static,template,template_ex,template_test  # noqa: F401
-from module_ai.controller import static as ai_static,model_config,llm_base,ocr  # noqa: F401
+from module_ai.controller import static as ai_static,model_config,llm_base,ocr,translate  # noqa: F401
 from module_file.controller import file  # noqa: F401
 from module_main.controller import static as main_static, status, db  # noqa: F401
 from module_authorization.controller import token, casbin_rule, permission, role, user,auth  # noqa: F401
