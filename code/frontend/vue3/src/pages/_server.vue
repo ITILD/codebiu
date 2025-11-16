@@ -103,6 +103,19 @@ const menuItems = ref([
         ]
     },
     {
+        index: '/ai',
+        title: 'AI',
+        icon: Setting,
+        children: [
+            {
+                index: '/_server/ai/ocr',
+                title: 'ocr',
+                disabled: false,
+                children: null
+            }
+        ]
+    },
+    {
         index: '/_server/test',
         title: 'test',
         icon: Menu,
