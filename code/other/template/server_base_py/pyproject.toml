@@ -1,0 +1,11 @@
+[project]
+name = "server-base-py"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "dynaconf>=3.2.12",
+    "fastapi>=0.121.2",
+    "uvicorn>=0.30.0",
+]

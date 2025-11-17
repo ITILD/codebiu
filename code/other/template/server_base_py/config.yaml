@@ -1,0 +1,23 @@
+state:
+  is_dev: true
+server:
+  # 根路由代理
+  server_root_path: ''
+  host: 0.0.0.0
+  port: 3002
+# 网络代理配置
+# proxy:
+#   type: http
+#   host: 127.0.0.1
+#   port: 18081
+# 目录配置
+dir:
+  # 临时文件夹基础根目录
+  base: temp
+  # 子目录配置
+  base_child:
+    log: logs
+# 中间件配置 
+middleware:
+  cors: true
+  gzip: true
