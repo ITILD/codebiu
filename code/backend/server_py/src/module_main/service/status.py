@@ -53,3 +53,15 @@ class StatusService:
         hardware = await self.hardware_status()
         network = await self.network_status()
         return StatusServer(hardware=hardware, network=network)
+    
+    # 查看挂载对象
+    async def mount_count(self, app: FastAPI) -> list[dict]:
+        mounts = []
+        for route in app.routes:
+            if isinstance(route, Mount):
+                mounts.append({
+                    "path": route.path,
+                    "endpoint": route.endpoint,
+                    "methods": route.methods,
+                })
+        return mounts
