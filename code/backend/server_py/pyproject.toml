@@ -48,3 +48,8 @@ dependencies = [
 [[tool.uv.index]]
 url = "https://pypi.tuna.tsinghua.edu.cn/simple"
 default = true
+
+[tool.ruff.lint.per-file-ignores]
+# 起始函数验证规则排除
+"app.py" = ["F401"]
+"__init__.py" = ["F401"]

@@ -9,3 +9,7 @@ dependencies = [
     "fastapi>=0.121.2",
     "uvicorn>=0.30.0",
 ]
+[tool.ruff.lint.per-file-ignores]
+# 起始函数验证规则排除
+"app.py" = ["F401"]
+"__init__.py" = ["F401"]
