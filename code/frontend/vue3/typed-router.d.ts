@@ -19,13 +19,10 @@ declare module 'vue-router/auto-routes' {
    */
   export interface RouteNamedMap {
     '/': RouteRecordInfo<'/', '/', Record<never, never>, Record<never, never>>,
-    '/_server': RouteRecordInfo<'/_server', '/_server', Record<never, never>, Record<never, never>, '/_server/' | '/_server/database/overview' | '/_server/database/template' | '/_server/test' | '/_server/test1' | '/_server/test2'>,
+    '/_server': RouteRecordInfo<'/_server', '/_server', Record<never, never>, Record<never, never>, '/_server/' | '/_server/database/overview' | '/_server/database/template'>,
     '/_server/': RouteRecordInfo<'/_server/', '/_server', Record<never, never>, Record<never, never>>,
     '/_server/database/overview': RouteRecordInfo<'/_server/database/overview', '/_server/database/overview', Record<never, never>, Record<never, never>>,
     '/_server/database/template': RouteRecordInfo<'/_server/database/template', '/_server/database/template', Record<never, never>, Record<never, never>>,
-    '/_server/test': RouteRecordInfo<'/_server/test', '/_server/test', Record<never, never>, Record<never, never>>,
-    '/_server/test1': RouteRecordInfo<'/_server/test1', '/_server/test1', Record<never, never>, Record<never, never>>,
-    '/_server/test2': RouteRecordInfo<'/_server/test2', '/_server/test2', Record<never, never>, Record<never, never>>,
     '/[..all]': RouteRecordInfo<'/[..all]', '/:ll(.*)', { ll: ParamValue<true> }, { ll: ParamValue<false> }>,
     '/AboutView': RouteRecordInfo<'/AboutView', '/AboutView', Record<never, never>, Record<never, never>>,
   }
@@ -46,7 +43,7 @@ declare module 'vue-router/auto-routes' {
       views: never
     }
     'src/pages/_server.vue': {
-      routes: '/_server' | '/_server/' | '/_server/database' | '/_server/database/overview' | '/_server/database/template' | '/_server/test' | '/_server/test1' | '/_server/test2'
+      routes: '/_server' | '/_server/' | '/_server/database' | '/_server/database/overview' | '/_server/database/template'
       views: 'default'
     }
     'src/pages/_server/index.vue': {
@@ -59,18 +56,6 @@ declare module 'vue-router/auto-routes' {
     }
     'src/pages/_server/database/template.vue': {
       routes: '/_server/database/template'
-      views: never
-    }
-    'src/pages/_server/test.vue': {
-      routes: '/_server/test'
-      views: never
-    }
-    'src/pages/_server/test1.vue': {
-      routes: '/_server/test1'
-      views: never
-    }
-    'src/pages/_server/test2.vue': {
-      routes: '/_server/test2'
       views: never
     }
     'src/pages/[..all].vue': {
