@@ -16,12 +16,14 @@ const languageObj = {
   titleDemo: ['标题', 'タイトル', 'title'],
   // 首页
   username: ['用户名', 'ユーザー名', 'username'],
+  email: ['邮箱', 'メール', 'email'],
   sign_in: ['登录', 'ログイン', 'sign in'],
   sign_up: ['注册', '登録する', 'sign up'],
+  back_to_login: ['返回登录', 'ログインに戻る', 'back to login'],
   search:['搜索', 'サーチ', 'search'],
   // 后台管理
   admin: ['后台管理', '管理画面', 'admin'],
-} as any
+} as Record<string, string[]>
 // 语言对照选择格式
 const languageOptions: {
   value: string
@@ -36,7 +38,7 @@ const i18n = createI18n({
 })
 for (let index = 0; index < languageObj.languageTypeArray.length; index++) {
   const languageType = languageObj.languageTypeArray[index]
-  const thisLanguageTypeObj = {} as any
+  const thisLanguageTypeObj = {} as Record<string, string>
   // 循环 languageObj
   for (const key in languageObj) {
     thisLanguageTypeObj[key] = languageObj[key][index]
