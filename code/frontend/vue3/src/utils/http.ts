@@ -59,8 +59,8 @@ class HttpClient {
       headers.append('Authorization', `Bearer ${token}`);
     }
 
-    // // 默认 JSON 内容类型
-    if (!headers.has('Content-Type')) {
+    // // 默认 JSON 内容类型，但FormData除外
+    if (!(config.body instanceof FormData) && !headers.has('Content-Type')) {
       headers.append('Content-Type', 'application/json');
     }
 
@@ -114,9 +114,12 @@ class HttpClient {
   }
 
   post<T>(endpoint: string, body?: any, config?: RequestConfig): Promise<T> {
+    // 对于FormData，不进行JSON序列化
+    const requestBody = body instanceof FormData ? body : JSON.stringify(body);
+    
     return this.request(endpoint, {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: requestBody,
       ...config,
     });
   }
@@ -136,4 +139,4 @@ class HttpClient {
 
 // 创建单例实例
 // export const http_base_server = new HttpClient({ apiPrefix: '/base_server' });
-export const http_base_server = new HttpClient({ apiPrefix: '/base_server' });
+export const http_base_server = new HttpClient({ apiPrefix: '/base_server',timeout:300000 });
