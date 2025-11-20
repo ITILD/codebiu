@@ -46,6 +46,7 @@ dependencies = [
     "polars>=1.35.2",
     "openpyxl>=3.1.5",
     "fastexcel>=0.17.2",
+    "xlsxwriter>=3.2.9",
 ]
 
 [[tool.uv.index]]
