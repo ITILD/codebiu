@@ -19,8 +19,11 @@ declare module 'vue-router/auto-routes' {
    */
   export interface RouteNamedMap {
     '/': RouteRecordInfo<'/', '/', Record<never, never>, Record<never, never>>,
-    '/_server': RouteRecordInfo<'/_server', '/_server', Record<never, never>, Record<never, never>, '/_server/' | '/_server/database/overview' | '/_server/database/template'>,
+    '/_server': RouteRecordInfo<'/_server', '/_server', Record<never, never>, Record<never, never>, '/_server/' | '/_server/ai/chat' | '/_server/ai/ocr' | '/_server/database/model_config' | '/_server/database/overview' | '/_server/database/template'>,
     '/_server/': RouteRecordInfo<'/_server/', '/_server', Record<never, never>, Record<never, never>>,
+    '/_server/ai/chat': RouteRecordInfo<'/_server/ai/chat', '/_server/ai/chat', Record<never, never>, Record<never, never>>,
+    '/_server/ai/ocr': RouteRecordInfo<'/_server/ai/ocr', '/_server/ai/ocr', Record<never, never>, Record<never, never>>,
+    '/_server/database/model_config': RouteRecordInfo<'/_server/database/model_config', '/_server/database/model_config', Record<never, never>, Record<never, never>>,
     '/_server/database/overview': RouteRecordInfo<'/_server/database/overview', '/_server/database/overview', Record<never, never>, Record<never, never>>,
     '/_server/database/template': RouteRecordInfo<'/_server/database/template', '/_server/database/template', Record<never, never>, Record<never, never>>,
     '/[..all]': RouteRecordInfo<'/[..all]', '/:ll(.*)', { ll: ParamValue<true> }, { ll: ParamValue<false> }>,
@@ -43,11 +46,23 @@ declare module 'vue-router/auto-routes' {
       views: never
     }
     'src/pages/_server.vue': {
-      routes: '/_server' | '/_server/' | '/_server/database' | '/_server/database/overview' | '/_server/database/template'
+      routes: '/_server' | '/_server/' | '/_server/ai' | '/_server/ai/chat' | '/_server/database' | '/_server/database/model_config' | '/_server/ai/ocr' | '/_server/database/overview' | '/_server/database/template'
       views: 'default'
     }
     'src/pages/_server/index.vue': {
       routes: '/_server/'
+      views: never
+    }
+    'src/pages/_server/ai/chat.vue': {
+      routes: '/_server/ai/chat'
+      views: never
+    }
+    'src/pages/_server/ai/ocr.vue': {
+      routes: '/_server/ai/ocr'
+      views: never
+    }
+    'src/pages/_server/database/model_config.vue': {
+      routes: '/_server/database/model_config'
       views: never
     }
     'src/pages/_server/database/overview.vue': {
