@@ -27,7 +27,6 @@ import { SysSettingStore } from '@/stores/sys'
 const router = useRouter()
 const sysSettingStore = SysSettingStore()
 const sysStyle = sysSettingStore.sysStyle
-const showFun1 = ref(false)
 const closeUserControlShow = () => sysStyle.isUserControlShow = false
 
 const openSysSettingShow = () => {
@@ -39,7 +38,7 @@ const openSysSettingShow = () => {
 const buttonList = ref([{
   name: '项目列表1',
   icon: SettingSVG,
-  clickFuc: (item: any) => { item.isShow = !item.isShow },
+  clickFuc: (item: { isShow: boolean }) => { item.isShow = !item.isShow },
   isShow: false,
   child: [
     { name: '项目列表1-1', icon: null, url: '/' },
