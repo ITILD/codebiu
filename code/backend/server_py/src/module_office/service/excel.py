@@ -37,11 +37,11 @@ class ExcelService:
             numeric_columns = df.select(pl.col(pl.NUMERIC_DTYPES)).columns
             if numeric_columns:
                 stats = df.select([
-                    pl.col(numeric_columns).mean().suffix("_mean"),
-                    pl.col(numeric_columns).median().suffix("_median"),
-                    pl.col(numeric_columns).std().suffix("_std"),
-                    pl.col(numeric_columns).min().suffix("_min"),
-                    pl.col(numeric_columns).max().suffix("_max")
+                    pl.col(numeric_columns).mean().name.suffix("_mean"),
+                    pl.col(numeric_columns).median().name.suffix("_median"),
+                    pl.col(numeric_columns).std().name.suffix("_std"),
+                    pl.col(numeric_columns).min().name.suffix("_min"),
+                    pl.col(numeric_columns).max().name.suffix("_max")
                 ])
                 analysis_result["numeric_stats"] = stats.to_dict(as_series=False)
             
@@ -75,13 +75,26 @@ class ExcelService:
             # 生成带时间戳的新文件名
             base_name = os.path.splitext(os.path.basename(file_path))[0]
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_filename = f"{base_name}_analysis_{timestamp}.json"
+            output_filename = f"{base_name}_analysis_{timestamp}.xlsx"
             output_path = os.path.join(output_dir, output_filename)
             
-            # 保存分析结果到JSON文件
-            import json
-            with open(output_path, 'w', encoding='utf-8') as f:
-                json.dump(analysis_result, f, ensure_ascii=False, indent=2)
+            # 准备适合保存到Excel的数据格式
+            # 将复杂的数据结构转换为字符串表示形式
+            simplified_result = {}
+            for key, value in analysis_result.items():
+                if isinstance(value, dict):
+                    # 将字典转换为格式化的JSON字符串
+                    simplified_result[key] = [str(value)]
+                elif isinstance(value, (list, tuple)):
+                    # 将列表或元组转换为字符串
+                    simplified_result[key] = [str(value)]
+                else:
+                    # 保持其他类型的值不变，但确保是列表形式
+                    simplified_result[key] = [str(value)]
+            
+            # 保存分析结果到excel文件
+            df = pl.DataFrame(simplified_result)
+            df.write_excel(output_path)
             
             return output_path
             
