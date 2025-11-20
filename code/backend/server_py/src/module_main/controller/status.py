@@ -47,7 +47,7 @@ async def network_status(
 @router.get("/mount_count", summary="查看app挂载路由")
 async def mount_count(
     status_service: StatusService = Depends(get_status_service_singleton),
-) -> list[dict]:
+) -> list:
     try:
         return await status_service.mount_count(app)
     except Exception as e:

@@ -6,7 +6,8 @@ from common.utils.sys.do.status import HardwareStatus, NetworkStatus
 from common.utils.sys.platform import PlatformUtils
 from common.utils.sys.status import SystemMonitor
 from module_main.do.status import StatusServer
-
+from fastapi import FastAPI
+from fastapi.routing import Mount
 
 class StatusService:
     def __init__(self):
@@ -55,13 +56,9 @@ class StatusService:
         return StatusServer(hardware=hardware, network=network)
     
     # 查看挂载对象
-    async def mount_count(self, app: FastAPI) -> list[dict]:
+    async def mount_count(self, app: FastAPI) -> list:
         mounts = []
         for route in app.routes:
             if isinstance(route, Mount):
-                mounts.append({
-                    "path": route.path,
-                    "endpoint": route.endpoint,
-                    "methods": route.methods,
-                })
+                mounts.append(route.path)
         return mounts

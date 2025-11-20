@@ -11,8 +11,8 @@
         </el-icon>
       </button>
 
-      <el-drawer v-model="showMobileMenu" title="服务菜单"  direction="ltr" size="70%">
-        <MenuLarge max-h-14  :mode="false" />
+      <el-drawer v-model="showMobileMenu" title="服务菜单" direction="ltr" size="70%">
+        <MenuLarge max-h-14 :mode="false" />
       </el-drawer>
 
 
@@ -58,17 +58,26 @@
           </MinPopover>
         </template>
         <template v-else>
-          <button flex items-center justify-center hover:shadow mx-1 hover:bg-deep-3>
+          <button flex items-center justify-center hover:shadow mx-1 hover:bg-deep-3 @click="showLoginDialog = true">
             <span text-deep-2 px-2 py-1 w-18>
+              <!-- 登录 -->
               {{ $t('sign_in') }}
             </span>
           </button>
           <!-- 注册按钮  小屏幕：隐藏 -->
-          <button max-lg:hidden flex items-center justify-center shadow mx-1 border-1 border-gray-300 hover:bg-deep-3>
+          <button max-lg:hidden flex items-center justify-center shadow mx-1 border-1 border-gray-300 hover:bg-deep-3
+            @click="handleRegister">
             <span text-deep-2 px-2 py-1 w-18>
               {{ $t('sign_up') }}
             </span>
           </button>
+
+          <!-- 登录弹窗 -->
+          <LoginDialog v-model="showLoginDialog" @login="handleLogin" @register="handleRegister" />
+
+          <!-- 注册弹窗 -->
+          <RegisterDialog v-model="showRegisterDialog" @register-success="handleRegisterSuccess"
+            @back-to-login="showRegisterDialog = false; showLoginDialog = true" />
         </template>
       </div>
     </div>
@@ -79,40 +88,42 @@
 // 样式控制
 import { SysSettingStore } from '@/stores/sys'
 import { Search, Menu } from '@element-plus/icons-vue'
+import LoginDialog from './head/LoginDialog.vue'
+import RegisterDialog from './head/RegisterDialog.vue'
+
 const sysSettingStore = SysSettingStore()
 const sysStyle = sysSettingStore.sysStyle
-const router = useRouter()
 const showMobileMenu = ref(false)
 const isLogin = ref(false)
+const showLoginDialog = ref(false)
+const showRegisterDialog = ref(false)
 const TITLE = ref(import.meta.env.VITE_GLOB_APP_TITLE)
 // 搜索
 const searchText = ref('')
-// 两级父子对象
-const buttonList = ref([
-  {
-    name: 'home',
-    path: '/',
-  },
-  {
-    name: 'mini组件',
-    path: '/component_mini',
-  },
-  {
-    name: 'lib组件',
-    path: '/component_lib',
-  },
-])
-
-
-const clickButton = ref(buttonList.value[0])
-const handleClick = (item: any) => {
-  clickButton.value = item
-  // 如果有url，则跳转url
-  item.path && router.push(item.path)
-  item.clickFuc && item.clickFuc(item)
+// 处理登录
+const handleLogin = (userInfo: { username: string }) => {
+  // 设置登录状态
+  isLogin.value = true
+  console.log('用户登录成功:', userInfo)
+  // 这里可以添加登录后的逻辑，比如保存用户信息到store等
 }
 
+// 处理注册
+const handleRegister = () => {
+  showLoginDialog.value = false
+  showRegisterDialog.value = true
+  console.log('跳转到注册页面')
+  // 这里可以添加跳转到注册页面的逻辑
+}
 
+// 处理注册成功
+const handleRegisterSuccess = (userInfo: { username: string }) => {
+  // 注册成功后自动登录
+  isLogin.value = true
+  showRegisterDialog.value = false
+  console.log('注册成功:', userInfo)
+  // 这里可以添加注册成功后的逻辑，比如自动登录等
+}
 </script>
 
 <style scoped></style>
