@@ -27,7 +27,7 @@ class ExcelService:
             # 基本信息分析
             analysis_result = {
                 "shape": df.shape,  # (行数, 列数)
-                "columns": df.columns.tolist(),
+                "columns": df.columns,
                 "data_types": {col: str(dtype) for col, dtype in zip(df.columns, df.dtypes)},
                 "null_counts": df.null_count().to_dict(as_series=False),
                 "sample_data": df.head().to_dict(as_series=False)
