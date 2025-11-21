@@ -45,7 +45,7 @@ def get_platform_specific_args():
         return [
             # "--windows-icon-from-ico=source/img/ion/favicon.ico",
             "--windows-disable-console",  # GUI应用时使用
-            "--msvc=latest",  # Python 3.13下需要指定MSVC编译器
+            # "--msvc=latest",  # Python 3.13下需要指定MSVC编译器
         ]
     elif system.startswith("darwin"):
         # macOS 平台参数
