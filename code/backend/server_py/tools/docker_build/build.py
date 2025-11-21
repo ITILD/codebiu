@@ -133,7 +133,7 @@ def main():
     """主函数"""
     # 定义编译配置
     source_file = "src/app.py"
-    target_dir = "dist_nuitka/app.dist"
+    target_dir = "dist_nuitka"
     
     # 配置包含的模块
     include_modules = [
