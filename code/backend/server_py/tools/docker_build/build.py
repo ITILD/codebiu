@@ -44,7 +44,7 @@ def get_platform_specific_args():
         # Windows 平台参数
         return [
             # "--windows-icon-from-ico=source/img/ion/favicon.ico",
-            "--windows-disable-console",  # GUI应用时使用
+            # "--windows-disable-console",  # GUI应用时使用
             # "--msvc=latest",  # Python 3.13下需要指定MSVC编译器
         ]
     elif system.startswith("darwin"):
@@ -63,7 +63,8 @@ def build_with_nuitka(
     include_packages=None,
     include_modules=None,
     exclude_modules=None,
-    data_files=None
+    data_files=None,
+    data_dirs=None
 ):
     """
     使用Nuitka编译Python应用
@@ -77,7 +78,7 @@ def build_with_nuitka(
         data_files: 数据文件映射 {源文件: 目标文件名}
     """
     # 清空目标目录
-    clean_directory(target_dir)
+    # clean_directory(target_dir)
     
     print("开始使用Nuitka编译...")
     
@@ -85,7 +86,7 @@ def build_with_nuitka(
     cmd = [
         sys.executable, "-m", "nuitka",
         "--show-progress",
-        "--jobs=8",
+        "--jobs=32",
         "--standalone",
         "--lto=no",  # 禁用链接时优化以提高兼容性
         f"--output-dir={target_dir}",
@@ -113,6 +114,12 @@ def build_with_nuitka(
     if data_files:
         for src, dst in data_files.items():
             cmd.append(f"--include-data-file={src}={dst}")
+    # 添加包含的静态文件夹
+    if data_dirs:
+        # 复制静态文件夹到目标目录
+        for data_dir in data_dirs:
+            shutil.copytree(data_dir, os.path.join(target_dir, data_dir))
+    
     
     # 添加源文件
     cmd.append(source_file)
@@ -171,6 +178,9 @@ def main():
         "config.dev.yaml": "config.dev.yaml"
     }
     
+    # 配置静态文件夹
+    data_dirs = ["public","temp_source"]
+    
     # 执行编译
     build_with_nuitka(
         source_file=source_file,
@@ -178,7 +188,8 @@ def main():
         include_packages=include_packages,
         include_modules=include_modules,
         exclude_modules=exclude_modules,
-        data_files=data_files
+        data_files=data_files,
+        data_dirs=data_dirs
     )
 
 
