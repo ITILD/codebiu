@@ -1,14 +1,14 @@
 <template>
   <div p-2 w-full>
     <!-- 搜索栏 -->
-    <div class="search-bar">
-      <el-input v-model="searchQuery" placeholder="输入模板名称搜索" clearable @clear="handleSearch" @keyup.enter="handleSearch"
-        style="width: 300px">
+    <div mb-5 flex items-center>
+      <el-input w-5 v-model="searchQuery" placeholder="输入模板名称搜索" clearable @clear="handleSearch" @keyup.enter="handleSearch"
+      >
         <template #append>
           <el-button :icon="Search" @click="handleSearch" />
         </template>
       </el-input>
-      <el-button type="primary" @click="handleCreate" style="margin-left: 16px;">
+      <el-button type="primary" @click="handleCreate" ml-16>
         新增模板
       </el-button>
     </div>
@@ -37,14 +37,14 @@
     </el-table>
 
     <!-- 分页 -->
-    <div class="pagination">
+    <div mt-20 flex justify-end>
       <el-pagination v-model:current-page="pagination.page" v-model:page-size="pagination.size"
         :page-sizes="[10, 20, 50, 100]" :total="total" layout="total, sizes, prev, pager, next, jumper"
         @size-change="fetchData" @current-change="fetchData" />
     </div>
 
     <!-- 编辑/创建对话框 -->
-    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="500px">
+    <el-dialog v-model="dialogVisible" :title="dialogTitle" w-500>
       <el-form :model="form" :rules="rules" ref="formRef" label-width="80px">
         <template v-for="column in tableColumns" :key="column.prop">
           <el-form-item v-if="column.edit" :prop="column.prop" :label="column.label">
@@ -53,12 +53,12 @@
               :type="column.edit.props?.type" :rows="column.edit.props?.rows" :placeholder="column.edit.placeholder" />
             <!-- 数值输入框 -->
             <el-input-number v-if="column.edit.component == 'el-input-number'" v-model="form[column.prop]"
-              :min="column.edit.props?.min" :step="column.edit.props?.step" style="width: 100%" />
+              :min="column.edit.props?.min" :step="column.edit.props?.step" w-full />
           </el-form-item>
         </template>
       </el-form>
       <template #footer>
-        <span class="dialog-footer">
+        <span>
           <el-button @click="dialogVisible = false">取消</el-button>
           <el-button type="primary" @click="handleSubmit" :loading="submitting">
             确认
@@ -71,15 +71,15 @@
 
 <script setup lang="ts">
 import { Search } from '@element-plus/icons-vue'
-import { createTemplate, deleteTemplate, updateTemplate, getTemplate, listTemplates } from '@/api/template'
+import { createTemplate, deleteTemplate, updateTemplate, getTemplate, listTemplates } from '@/api/template/template'
 import {
   // type InfiniteScrollParams,
   // type InfiniteScrollResponse,
   type PaginationParams,
   type PaginationResponse,
 } from '@/types/common';
-import type { Template, TemplateCreate, TemplateUpdate } from '@/types/template';
-import { config, rules, formBase } from '@/types/template';
+import type { Template, TemplateCreate, TemplateUpdate } from '@/types/template/template';
+import { config, rules, formBase } from '@/types/template/template';
 import {
   ElMessage, ElMessageBox, type FormInstance,
   // type FormRules
@@ -274,19 +274,9 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.template-container {
-  padding: 20px;
+/* 覆盖 Element Plus 组件样式 */
+:deep(.el-input) {
+  width: 20rem !important; /* w-5 对应的宽度 */
 }
 
-.search-bar {
-  margin-bottom: 20px;
-  display: flex;
-  align-items: center;
-}
-
-.pagination {
-  margin-top: 20px;
-  display: flex;
-  justify-content: flex-end;
-}
 </style>

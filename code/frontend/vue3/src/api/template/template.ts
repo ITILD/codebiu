@@ -6,7 +6,7 @@ import {
   type PaginationParams,
   type PaginationResponse,
 } from '@/types/common';
-import type { Template, TemplateCreate, TemplateUpdate } from '@/types/template';
+import type { Template, TemplateCreate, TemplateUpdate } from '@/types/template/template';
 
 /**
  * 创建新模板
