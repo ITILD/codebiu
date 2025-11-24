@@ -82,7 +82,7 @@ class TemplateDao:
     @DaoRel
     async def list(
         self, pagination: PaginationParams, session: AsyncSession | None = None
-    ) -> str:
+    ) -> list[Template]:
         """
         分页查询模板列表
         :param pagination: 分页参数
@@ -96,7 +96,7 @@ class TemplateDao:
     @DaoRel
     async def get_scroll(
         self, params: InfiniteScrollParams, session: AsyncSession | None = None
-    ) -> list:
+    ) -> list[Template]:
         """
         无限滚动分页查询  先查询最新的 滚下拉更早的
         :param last_id: 最后收到的模板ID（None表示第一页）
@@ -137,7 +137,7 @@ class TemplateDao:
         return result.all()
 
     @DaoRel
-    async def count(self, session: AsyncSession | None = None) -> str:
+    async def count(self, session: AsyncSession | None = None) -> int:
         """
         统计模板总数
         :param session: 可选数据库会话

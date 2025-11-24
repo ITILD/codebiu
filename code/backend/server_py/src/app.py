@@ -9,7 +9,7 @@ from common.config.server import app
 # from module_file.controller import file
 from module_main.controller import static as main_static, status, db
 # from module_authorization.controller import token, casbin_rule, permission, role, user,auth
-
+from module_dev_tools.controller import template_string
 import logging
 logger = logging.getLogger(__name__)
 
