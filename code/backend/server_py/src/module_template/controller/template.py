@@ -65,7 +65,7 @@ async def list_templates(
     :return: 分页响应结果
     """
     try:
-        pagination_response: PaginationResponse = await service.list(pagination)
+        pagination_response: PaginationResponse = await service.list_all(pagination)
         return pagination_response
     except Exception as e:
         raise HTTPException(

@@ -39,8 +39,8 @@ class FileService:
     async def get(self, id: str) -> File | None:
         return await self.file_dao.get(id)
     
-    async def list(self, pagination: PaginationParams):
-        items = await self.file_dao.list(pagination)
+    async def list_all(self, pagination: PaginationParams):
+        items = await self.file_dao.list_all(pagination)
         total = await self.file_dao.count()
         return PaginationResponse.create(items, total, pagination)
     

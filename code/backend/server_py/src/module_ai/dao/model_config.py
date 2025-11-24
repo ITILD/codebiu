@@ -76,7 +76,7 @@ class ModelConfigDao:
 
 
     @DaoRel
-    async def list(self, pagination: PaginationParams, session: AsyncSession | None = None) -> list[ModelConfig]:
+    async def list_all(self, pagination: PaginationParams, session: AsyncSession | None = None) -> list[ModelConfig]:
         """
         分页获取模型配置列表
         :param pagination: 分页参数

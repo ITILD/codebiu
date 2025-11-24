@@ -59,13 +59,13 @@ class TemplateStringService:
         """
         return await self.template_string_dao.get(id)
 
-    async def list(self, pagination: PaginationParams) -> PaginationResponse:
+    async def list_all(self, pagination: PaginationParams) -> PaginationResponse:
         """
         分页查询模板字符串列表
         :param pagination: 分页参数
         :return: 分页响应结果
         """
-        items = await self.template_string_dao.list(pagination)
+        items = await self.template_string_dao.list_all(pagination)
         total = await self.template_string_dao.count()
         return PaginationResponse.create(items, total, pagination)
 

@@ -77,7 +77,7 @@ class FileDao:
         return await session.get(File, id)
 
     @DaoRel
-    async def list(
+    async def list_all(
         self, pagination: PaginationParams, session: AsyncSession | None = None
     ) ->list:
         """

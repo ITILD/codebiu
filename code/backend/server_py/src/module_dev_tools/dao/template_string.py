@@ -80,7 +80,7 @@ class TemplateStringDao:
         return await session.get(TemplateString, id)
 
     @DaoRel
-    async def list(
+    async def list_all(
         self, pagination: PaginationParams, session: AsyncSession | None = None
     ) -> list[TemplateString]:
         """
@@ -96,7 +96,7 @@ class TemplateStringDao:
     @DaoRel
     async def get_scroll(
         self, params: InfiniteScrollParams, session: AsyncSession | None = None
-    ) -> list[TemplateString]:
+    ) -> list:
         """
         无限滚动分页查询
         :param params: 滚动参数
