@@ -85,6 +85,20 @@ const menuItems = ref([
         children: null
     },
     {
+        index:'/authorization',
+        title: 'Authorization',
+        icon: Setting,
+        disabled: false,
+        children: [
+            {
+                index: '/_server/authorization/user',
+                title: 'user',
+                disabled: false,
+                children: null
+            }
+        ]
+    },
+    {
         index: '/db',
         title: 'DataBase',
         icon: Setting,
@@ -96,14 +110,22 @@ const menuItems = ref([
                 children: null
             },
             {
-                index: '/_server/database/template',
-                title: 'template',
-                disabled: false,
-                children: null
-            },
-            {
                 index: '/_server/database/model_config',
                 title: 'model_config',
+                disabled: false,
+                children: null
+            }
+        ]
+    },
+    {
+        index: '/template',
+        title: 'Template',
+        icon: Setting,
+        children: [
+
+            {
+                index: '/_server/template/template',
+                title: 'template',
                 disabled: false,
                 children: null
             }

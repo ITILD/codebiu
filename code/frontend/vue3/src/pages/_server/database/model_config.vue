@@ -84,7 +84,6 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive, computed } from 'vue'
 import { Search } from '@element-plus/icons-vue'
 import { createModelConfig, deleteModelConfig, updateModelConfig, getModelConfig, listModelConfigs } from '@/api/model_config'
 import {
@@ -98,7 +97,7 @@ import {
 } from 'element-plus'
 
 // 表格行
-const tableColumns: any = ref(config.tableColumns);
+const tableColumns = ref(config.tableColumns);
 // 搜索条件
 const searchQuery = ref('')
 
@@ -286,7 +285,8 @@ const handleDelete = async (row: ModelConfig) => {
 
     fetchData() // 刷新数据
   } catch (error) {
-    console.log('取消删除或删除失败')
+    console.log('取消删除或删除失败:', error)
+    ElMessage.error('删除失败，请重试')
   }
 }
 
