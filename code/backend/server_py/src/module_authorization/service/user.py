@@ -57,13 +57,13 @@ class UserService:
         """
         return await self.user_dao.get_by_username(username)
 
-    async def list(self, pagination: PaginationParams) -> PaginationResponse:
+    async def list_all(self, pagination: PaginationParams) -> PaginationResponse:
         """
         分页获取用户列表
         :param pagination: 分页参数
         :return: 分页用户列表
         """
-        items = await self.user_dao.list(pagination)
+        items = await self.user_dao.list_all(pagination)
         total = await self.user_dao.count()
         return PaginationResponse.create(items, total, pagination)
 

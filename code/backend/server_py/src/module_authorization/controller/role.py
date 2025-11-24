@@ -30,7 +30,7 @@ async def create_role(
 @router.get(
     "/list", summary="分页查询角色列表", response_model=PaginationResponse
 )
-async def list_roles(
+async def list_all(
     pagination: PaginationParams = Depends(),
     service: RoleService = Depends(get_role_service)
 ):
@@ -41,7 +41,7 @@ async def list_roles(
     :return: 分页响应结果
     """
     try:
-        return await service.list(pagination)
+        return await service.list_all(pagination)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)

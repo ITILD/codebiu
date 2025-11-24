@@ -68,7 +68,7 @@ async def list_model_configs(
     :return: 分页响应数据
     """
     try:
-        return await service.list(params)
+        return await service.list_all(params)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)

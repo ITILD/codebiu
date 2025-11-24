@@ -48,13 +48,13 @@ class PermissionService:
         """
         return await self.permission_dao.get_by_code(code)
 
-    async def list(self, pagination: PaginationParams) -> PaginationResponse:
+    async def list_all(self, pagination: PaginationParams) -> PaginationResponse:
         """
         分页获取权限列表
         :param pagination: 分页参数
         :return: 分页权限列表
         """
-        items = await self.permission_dao.list(pagination)
+        items = await self.permission_dao.list_all(pagination)
         total = await self.permission_dao.count()
         return PaginationResponse.create(items, total, pagination)
 

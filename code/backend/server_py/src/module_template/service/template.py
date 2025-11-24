@@ -25,8 +25,8 @@ class TemplateService:
     async def get(self, id: str) -> Template | None:
         return await self.template_dao.get(id)
     # 
-    async def list(self, pagination: PaginationParams):
-        items = await self.template_dao.list(pagination)
+    async def list_all(self, pagination: PaginationParams):
+        items = await self.template_dao.list_all(pagination)
         total = await self.template_dao.count()
         return PaginationResponse.create(items, total,pagination)
     async def get_scroll(self, params: InfiniteScrollParams):

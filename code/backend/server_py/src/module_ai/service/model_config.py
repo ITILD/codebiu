@@ -46,13 +46,13 @@ class ModelConfigService:
         return await self.model_config_dao.get(id)
 
 
-    async def list(self, pagination: PaginationParams) -> PaginationResponse:
+    async def list_all(self, pagination: PaginationParams) -> PaginationResponse:
         """
         分页获取模型配置列表
         :param pagination: 分页参数
         :return: 分页响应数据
         """
-        items = await self.model_config_dao.list(pagination)
+        items = await self.model_config_dao.list_all(pagination)
         total = await self.model_config_dao.count()
         return PaginationResponse.create(items, total, pagination)
 
