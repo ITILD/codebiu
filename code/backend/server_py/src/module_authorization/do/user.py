@@ -8,9 +8,9 @@ class UserBase(SQLModel):
 
     username: str = Field(..., max_length=50, description="用户名")
     password: str = Field(..., max_length=255, description="密码")
-    email: str | None = Field( max_length=100, description="邮箱")
-    phone: str | None = Field( max_length=20, description="电话号码")
-    nickname: str | None = Field( max_length=50, description="昵称")
+    email: str | None = Field(default=None,max_length=100, description="邮箱")
+    phone: str | None = Field(default=None,max_length=20, description="电话号码")
+    nickname: str | None = Field(default=None, max_length=50, description="昵称")
     avatar: str | None = Field(default=None, max_length=255, description="头像")
     is_active: bool = Field(default=True, description="是否激活")
 

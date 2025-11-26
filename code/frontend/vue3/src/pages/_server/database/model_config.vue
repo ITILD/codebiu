@@ -38,7 +38,7 @@
           </template>
           <!-- 默认显示 -->
           <span v-else>
-            {{ row[column.prop] }}
+            {{ column.prop === 'api_key' && row[column.prop] ? '******' : row[column.prop] }}
           </span>
         </template>
       </el-table-column>
