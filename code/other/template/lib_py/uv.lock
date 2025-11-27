@@ -1,0 +1,25 @@
+version = 1
+revision = 2
+requires-python = ">=3.13"
+
+[manifest]
+members = [
+    "lib-py",
+    "test-project",
+]
+
+[[package]]
+name = "lib-py"
+version = "0.1.0"
+source = { virtual = "." }
+
+[[package]]
+name = "test-project"
+version = "0.1.0"
+source = { virtual = "test_project" }
+dependencies = [
+    { name = "lib-py" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "lib-py", virtual = "." }]
