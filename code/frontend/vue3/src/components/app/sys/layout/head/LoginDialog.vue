@@ -4,17 +4,13 @@
     :title="$t('sign_in')"
     :width="dialogWidth"
     :modal="true"
+    :close-on-click-modal="true"
     draggable
     class="login-dialog"
     @close="handleClose"
   >
-    <!-- 自定义头部以实现拖拽功能 -->
     <template #header="{ close, titleId, titleClass }">
-      <div 
-        class="dialog-header draggable-area" 
-        @mousedown="startDrag"
-        style="cursor: move; user-select: none;"
-      >
+      <div class="dialog-header">
         <span :id="titleId" :class="titleClass">{{ $t('sign_in') }}</span>
         <button class="el-dialog__headerbtn" @click="close" aria-label="Close">
           <el-icon><Close /></el-icon>
@@ -75,7 +71,14 @@
 
 <script setup lang="ts">
 import { Close } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import type { FormInstance } from 'element-plus'
+import { loginUser } from '@/api/authorization/auth'
+import type { AuthLoginRequest } from '@/types/authorization/auth'
+// 用户信息和token设置
+import { UserStore } from '@/stores/user'
+const userStore = UserStore()
+const userState = userStore.userState
 
 // 定义组件属性
 const props = defineProps<{
@@ -122,59 +125,6 @@ const loginRules = {
 // 对话框宽度
 const dialogWidth = ref('400px')
 
-// 拖拽相关变量
-let isDragging = false
-let dragOffset = { x: 0, y: 0 }
-
-// 开始拖拽
-const startDrag = (e: MouseEvent) => {
-  // 确保只在标题栏上按下鼠标左键才开始拖拽
-  if (e.button !== 0) return
-  
-  isDragging = true
-  const dialog = document.querySelector('.login-dialog .el-dialog') as HTMLElement
-  if (!dialog) return
-  
-  // 获取对话框当前位置
-  const rect = dialog.getBoundingClientRect()
-  dragOffset = {
-    x: e.clientX - rect.left,
-    y: e.clientY - rect.top
-  }
-  
-  // 添加全局事件监听器
-  document.addEventListener('mousemove', handleDrag)
-  document.addEventListener('mouseup', stopDrag)
-  
-  // 防止文本选择
-  e.preventDefault()
-}
-
-// 处理拖拽
-const handleDrag = (e: MouseEvent) => {
-  if (!isDragging) return
-  
-  const dialog = document.querySelector('.login-dialog .el-dialog') as HTMLElement
-  if (!dialog) return
-  
-  // 计算新的位置
-  const x = e.clientX - dragOffset.x
-  const y = e.clientY - dragOffset.y
-  
-  // 设置位置
-  dialog.style.position = 'fixed'
-  dialog.style.left = `${x}px`
-  dialog.style.top = `${y}px`
-  dialog.style.transform = 'none' // 移除原有的transform
-}
-
-// 停止拖拽
-const stopDrag = () => {
-  isDragging = false
-  document.removeEventListener('mousemove', handleDrag)
-  document.removeEventListener('mouseup', stopDrag)
-}
-
 // 关闭弹窗
 const handleClose = () => {
   visible.value = false
@@ -190,13 +140,23 @@ const handleLogin = async () => {
     if (valid) {
       loading.value = true
       try {
-        // 模拟登录请求
-        await new Promise(resolve => setTimeout(resolve, 1000))
+        // 准备登录数据
+        const loginData: AuthLoginRequest = {
+          username: loginForm.username,
+          password: loginForm.password
+        }
+        
+        // 调用登录API
+        const response = await loginUser(loginData)
+        
         // 发射登录事件
         emit('login', { username: loginForm.username })
         handleClose()
-      } catch (error) {
+      } catch (error: any) {
+        debugger
         console.error('登录失败:', error)
+        // 添加错误提示
+        ElMessage.error(error.message || '登录失败，请检查用户名和密码')
       } finally {
         loading.value = false
       }
@@ -210,11 +170,7 @@ const handleRegister = () => {
   emit('register')
 }
 
-// 组件卸载时清理事件监听器
-onUnmounted(() => {
-  document.removeEventListener('mousemove', handleDrag)
-  document.removeEventListener('mouseup', stopDrag)
-})
+
 </script>
 
 <style scoped>
