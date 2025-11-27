@@ -6,19 +6,18 @@
     :modal="true"
     :close-on-click-modal="true"
     draggable
-    class="login-dialog"
     @close="handleClose"
   >
     <template #header="{ close, titleId, titleClass }">
-      <div class="dialog-header">
-        <span :id="titleId" :class="titleClass">{{ $t('sign_in') }}</span>
-        <button class="el-dialog__headerbtn" @click="close" aria-label="Close">
+      <div flex justify-between items-center>
+        <span :id="titleId" :titleClass>{{ $t('sign_in') }}</span>
+        <button el-dialog__headerbtn @click="close" aria-label="Close">
           <el-icon><Close /></el-icon>
         </button>
       </div>
     </template>
     
-    <div class="login-form">
+    <div p-10px>
       <el-form 
         ref="loginFormRef" 
         :model="loginForm" 
@@ -51,7 +50,7 @@
         <el-form-item>
           <el-button 
             type="primary" 
-            class="w-full" 
+            w-full 
             :loading="loading" 
             @click="handleLogin"
           >
@@ -60,7 +59,7 @@
         </el-form-item>
       </el-form>
       
-      <div class="login-footer">
+      <div text-center mt-20px>
         <el-button type="info" link @click="handleRegister">
           {{ $t('sign_up') }}
         </el-button>
@@ -174,44 +173,4 @@ const handleRegister = () => {
 </script>
 
 <style scoped>
-.login-dialog :deep(.el-dialog) {
-  border-radius: 8px;
-  backdrop-filter: blur(10px);
-  background: rgba(255, 255, 255, 0.8);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-}
-
-.login-dialog :deep(.el-dialog__header) {
-  padding: 16px 20px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-}
-
-.login-dialog :deep(.el-dialog__body) {
-  padding: 20px;
-}
-
-.dialog-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.login-form {
-  padding: 10px 0;
-}
-
-.login-footer {
-  text-align: center;
-  margin-top: 20px;
-}
-
-/* 暗色主题适配 */
-.dark .login-dialog :deep(.el-dialog) {
-  background: rgba(30, 30, 30, 0.8);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-}
-
-.dark .login-dialog :deep(.el-dialog__header) {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
 </style>
