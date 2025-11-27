@@ -1,0 +1,20 @@
+FROM ubuntu:22.04
+
+# 安装运行时依赖（如果有）
+RUN apt-get update && \
+    rm -rf /var/lib/apt/lists/*
+
+# 复制编译后的文件到容器
+COPY dist_nuitka/app.dist /app
+
+# 设置工作目录
+WORKDIR /app
+
+# 暴露端口
+EXPOSE 8600
+# 字符集
+ENV LANG C.UTF-8
+# 设置容器启动时执行的命令
+# 注意：确保app.bin有可执行权限，如果没有需要添加：
+# RUN chmod +x app.bin
+CMD ["./app.bin"]

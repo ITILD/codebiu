@@ -1,0 +1,6 @@
+include README.md
+include pyproject.toml
+recursive-include src/lib_py *.py
+prune test_project
+prune dist
+prune .venv
