@@ -1,95 +1,68 @@
 "use client";
 
 import Link from "next/link";
-import { Card, Typography, Button, Space } from "antd";
-import { GithubOutlined } from "@ant-design/icons";
-
-const { Title, Paragraph } = Typography;
+import { Button } from "antd";
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <div className="w-full max-w-4xl">
-        <div className="text-center mb-12">
-          <Title level={1} className="!text-4xl !font-bold !mb-4">
-            React 组件库演示平台
-          </Title>
-          <Paragraph className="text-lg text-gray-600 max-w-2xl mx-auto">
-            探索不同的前端技术和组件库实现，包括 Ant Design、Ant Design X 和 UnoCSS
-          </Paragraph>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Ant Design 卡片 */}
-          <Card 
-            hoverable 
-            className="shadow-lg rounded-xl overflow-hidden"
-            cover={
-              <div className="bg-gradient-to-r from-blue-500 to-indigo-600 h-32 flex items-center justify-center">
-                <span className="text-white text-2xl font-bold">Ant Design</span>
-              </div>
-            }
-          >
-            <Card.Meta
-              title="Ant Design 页面"
-              description="体验经典的 Ant Design 组件库，包含丰富的 UI 组件和设计规范"
-            />
-            <Link href="/antd-page" className="block mt-4">
-              <Button type="primary" block>访问页面</Button>
-            </Link>
-          </Card>
-
-          {/* Ant Design X 卡片 */}
-          <Card 
-            hoverable 
-            className="shadow-lg rounded-xl overflow-hidden"
-            cover={
-              <div className="bg-gradient-to-r from-purple-500 to-pink-600 h-32 flex items-center justify-center">
-                <span className="text-white text-2xl font-bold">Ant Design X</span>
-              </div>
-            }
-          >
-            <Card.Meta
-              title="Ant Design X 页面"
-              description="探索下一代 Ant Design X 组件库，提供更多现代化的交互体验"
-            />
-            <Link href="/antdx-page" className="block mt-4">
-              <Button type="primary" block>访问页面</Button>
-            </Link>
-          </Card>
-
-          {/* UnoCSS 卡片 */}
-          <Card 
-            hoverable 
-            className="shadow-lg rounded-xl overflow-hidden"
-            cover={
-              <div className="bg-gradient-to-r from-green-500 to-teal-600 h-32 flex items-center justify-center">
-                <span className="text-white text-2xl font-bold">UnoCSS</span>
-              </div>
-            }
-          >
-            <Card.Meta
-              title="UnoCSS 页面"
-              description="体验原子化 CSS 框架 UnoCSS，极简的样式解决方案"
-            />
-            <Link href="/unocss-page" className="block mt-4">
-              <Button type="primary" block>访问页面</Button>
-            </Link>
-          </Card>
-        </div>
-
-        <div className="mt-12 text-center">
-          <Space size="large">
-            <Button 
-              icon={<GithubOutlined />} 
-              href="https://github.com/codebiu" 
-              target="_blank"
-            >
-              查看 GitHub
-            </Button>
-          </Space>
+    <div className="w-full p-10">
+      <div className="hero-section">
+        <h2 className="text-4xl font-bold mb-4">欢迎来到网站首页</h2>
+        <p className="text-xl mb-8 max-w-2xl mx-auto">首页示例，您可以通过顶部导航栏切换到服务器管理页面。</p>
+        <Link href="/_server">
+          <Button type="primary" size="large" className="bg-blue-600 hover:bg-blue-700">
+            前往服务器管理
+          </Button>
+        </Link>
+      </div>
+      
+      <div className="features-section mt-12">
+        <h3 className="text-3xl font-bold text-center mb-8">主要功能</h3>
+        <div className="features-grid grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="feature-card bg-gray-100 p-6 rounded-lg text-center transition-transform duration-300 hover:translate-y-[-5px] hover:shadow-lg">
+            <h4 className="text-xl font-semibold text-blue-700 mb-3">简单易用</h4>
+            <p className="text-gray-600">直观的界面设计，让您轻松上手。</p>
+          </div>
+          <div className="feature-card bg-gray-100 p-6 rounded-lg text-center transition-transform duration-300 hover:translate-y-[-5px] hover:shadow-lg">
+            <h4 className="text-xl font-semibold text-blue-700 mb-3">服务器管理</h4>
+            <p className="text-gray-600">查看和管理您的服务器资源。</p>
+          </div>
+          <div className="feature-card bg-gray-100 p-6 rounded-lg text-center transition-transform duration-300 hover:translate-y-[-5px] hover:shadow-lg">
+            <h4 className="text-xl font-semibold text-blue-700 mb-3">响应式设计</h4>
+            <p className="text-gray-600">在各种设备上都能获得良好的体验。</p>
+          </div>
         </div>
       </div>
+      
+      <style jsx global>{`
+        .hero-section {
+          text-align: center;
+          padding: 3rem 0;
+          margin-bottom: 2rem;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          border-radius: 8px;
+        }
+        
+        .hero-section h2 {
+          font-size: 2.5rem;
+          margin-bottom: 1rem;
+        }
+        
+        .hero-section p {
+          font-size: 1.2rem;
+          margin-bottom: 2rem;
+          max-width: 600px;
+          margin-left: auto;
+          margin-right: auto;
+        }
+        
+        .features-section h3 {
+          text-align: center;
+          font-size: 1.8rem;
+          margin-bottom: 2rem;
+        }
+      `}</style>
     </div>
   );
 }
