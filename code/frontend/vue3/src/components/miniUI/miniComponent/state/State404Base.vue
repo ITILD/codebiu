@@ -1,7 +1,7 @@
 <template>
     <section w-full h-full flex bg-deep-2>
   
-      <div mx-auto text-center class="mt-10%">
+      <div mx-auto text-center mt-10%>
         <h1 mb-4 text-7xl tracking-tight font-extrabold lg:text-9xl text-primary-600 dark:text-primary-500>
           404
         </h1>

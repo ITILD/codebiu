@@ -4,12 +4,12 @@
     <div flex w-full>
         <!-- 左侧菜单 -->
         <el-menu h-full :default-active="routerStore.routerPath.now" :router="true" overflow-y-auto
-            :collapse="isCollapse" :class="!isCollapse ? 'w-60' : ''" @select="handleSelect">
+            :collapse="isCollapse" :w="!isCollapse ? '60' : ''" @select="handleSelect">
             <!-- Logo 区域（折叠时隐藏文字） -->
             <div flex items-center justify-between p-3 border-b h-12>
                 <div flex items-center transition-all duration-300 ease-in-out>
                     <transition name="fade" mode="out-in">
-                        <span v-if="!isCollapse" class="pl-4 text-xl font-bold whitespace-nowrap">Server State</span>
+                        <span v-if="!isCollapse" pl-4 text-xl font-bold whitespace-nowrap>Server State</span>
                     </transition>
                 </div>
                 <el-button transition-all duration-300 hover:scale-110 @click="isCollapse = !isCollapse"
@@ -52,7 +52,7 @@
         <!-- 右侧菜单 -->
         <div flex-1 min-w-0 overflow-auto>
             <!-- flex剩余 -->
-            <router-view class="w-full h-full"></router-view>
+            <router-view w-full h-full></router-view>
         </div>
     </div>
 </template>

@@ -1,14 +1,14 @@
 <template>
-  <div p-2 w-full>
+  <div p-20px>
     <!-- 搜索栏 -->
-    <div class="search-bar">
+    <div flex items-center mb-20px>
       <el-input v-model="searchQuery" placeholder="输入模板名称搜索" clearable @clear="handleSearch" @keyup.enter="handleSearch"
-        style="width: 300px">
+        w-300px>
         <template #append>
           <el-button :icon="Search" @click="handleSearch" />
         </template>
       </el-input>
-      <el-button type="primary" @click="handleCreate" style="margin-left: 16px;">
+      <el-button type="primary" @click="handleCreate" ml-16px>
         新增模板
       </el-button>
     </div>
@@ -37,7 +37,7 @@
     </el-table>
 
     <!-- 分页 -->
-    <div class="pagination">
+    <div mt-20px flex justify-end>
       <el-pagination v-model:current-page="pagination.page" v-model:page-size="pagination.size"
         :page-sizes="[10, 20, 50, 100]" :total="total" layout="total, sizes, prev, pager, next, jumper"
         @size-change="fetchData" @current-change="fetchData" />
@@ -53,12 +53,12 @@
               :type="column.edit.props?.type" :rows="column.edit.props?.rows" :placeholder="column.edit.placeholder" />
             <!-- 数值输入框 -->
             <el-input-number v-if="column.edit.component == 'el-input-number'" v-model="form[column.prop]"
-              :min="column.edit.props?.min" :step="column.edit.props?.step" style="width: 100%" />
+              :min="column.edit.props?.min" :step="column.edit.props?.step" w-full />
           </el-form-item>
         </template>
       </el-form>
       <template #footer>
-        <span class="dialog-footer">
+        <span mt-20px text-right>
           <el-button @click="dialogVisible = false">取消</el-button>
           <el-button type="primary" @click="handleSubmit" :loading="submitting">
             确认
@@ -274,19 +274,4 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.template-container {
-  padding: 20px;
-}
-
-.search-bar {
-  margin-bottom: 20px;
-  display: flex;
-  align-items: center;
-}
-
-.pagination {
-  margin-top: 20px;
-  display: flex;
-  justify-content: flex-end;
-}
 </style>
