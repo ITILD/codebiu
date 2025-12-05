@@ -48,7 +48,7 @@ declare module 'vue-router/auto-routes' {
       views: never
     }
     'src/pages/_server.vue': {
-      routes: '/_server' | '/_server/' | '/_server/ai' | '/_server/authorization' | '/_server/ai/chat' | '/_server/database' | '/_server/database/model_config' | '/_server/ai/ocr' | '/_server/database/overview' | '/_server/template' | '/_server/template/template' | '/_server/database/template' | '/_server/authorization/user'
+      routes: '/_server' | '/_server/' | '/_server/ai' | '/_server/authorization' | '/_server/ai/chat' | '/_server/database' | '/_server/database/model_config' | '/_server/ai/ocr' | '/_server/database/overview' | '/_server/database/template' | '/_server/template' | '/_server/template/template' | '/_server/authorization/user'
       views: 'default'
     }
     'src/pages/_server/index.vue': {

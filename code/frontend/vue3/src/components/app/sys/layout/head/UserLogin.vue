@@ -1,20 +1,22 @@
 <template>
   <div>
     <div v-if="userState.img">
-      <img w-full h-full src="" alt="" srcset="" />
+      <img w-full h-full :src="userState.img" alt="" srcset="" />
     </div>
     <!--游客图标 -->
-    <UserSVG w-full h-full v-else />
+    <!-- <UserSVG w-full h-full v-else /> -->
+    <el-avatar :icon="UserFilled" v-else />
   </div>
 </template>
 <script setup lang="ts">
 // 样式控制
+import { UserFilled } from '@element-plus/icons-vue'
 import { UserStore } from '@/stores/user'
 const userStore = UserStore()
 const userState = userStore.userState
 /**
  * 用户头像 登陆状态
  */
-onMounted(() => {})
+onMounted(() => { })
 </script>
 <style scoped></style>
