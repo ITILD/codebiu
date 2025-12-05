@@ -47,7 +47,7 @@
         <ButtonSwitch v-model="sysSettingStore.sysStyle.theme.isDark"
           @change="sysSettingStore.changeThemeValueByIsDark" />
         <!-- 登录/用户 -->
-        <template v-if="isLogin">
+        <template v-if="userState.isLogin">
           <!-- 用户图标 -->
           <UserLogin @click="sysStyle.isUserControlShow = !sysStyle.isUserControlShow" pointer-default w-7 h-7 />
           <!-- 大屏幕下 点击用户图标下拉 导航栏-->
@@ -90,11 +90,12 @@ import { SysSettingStore } from '@/stores/sys'
 import { Search, Menu } from '@element-plus/icons-vue'
 import LoginDialog from './head/LoginDialog.vue'
 import RegisterDialog from './head/RegisterDialog.vue'
-
+import { UserStore } from '@/stores/user'
+const userStore = UserStore()
+const userState = userStore.userState
 const sysSettingStore = SysSettingStore()
 const sysStyle = sysSettingStore.sysStyle
 const showMobileMenu = ref(false)
-const isLogin = ref(false)
 const showLoginDialog = ref(false)
 const showRegisterDialog = ref(false)
 const TITLE = ref(import.meta.env.VITE_GLOB_APP_TITLE)
@@ -102,14 +103,8 @@ const TITLE = ref(import.meta.env.VITE_GLOB_APP_TITLE)
 const searchText = ref('')
 // 处理登录
 const handleLogin = (userInfo: { username: string }) => {
-
-
-
-  
-  // 设置登录状态
-  isLogin.value = true
+  // 登陆事件
   console.log('用户登录成功:', userInfo)
-  // 这里可以添加登录后的逻辑，比如保存用户信息到store等
 }
 
 // 处理注册
@@ -123,10 +118,9 @@ const handleRegister = () => {
 // 处理注册成功
 const handleRegisterSuccess = (userInfo: { username: string }) => {
   // 注册成功后自动登录
-  isLogin.value = true
+  userState.isLogin = true
   showRegisterDialog.value = false
   console.log('注册成功:', userInfo)
-  // 这里可以添加注册成功后的逻辑，比如自动登录等
 }
 </script>
 

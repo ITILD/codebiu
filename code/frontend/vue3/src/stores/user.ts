@@ -1,12 +1,18 @@
-const UserStore = defineStore('user', () => {
-  const userState = ref({
-    img: null,
-    loginState: false,
-    userId: null,
-    userName: '游客'
-  })
+const UserStore = defineStore(
+  'user',
+  () => {
+    const userState = ref({
+      img: null,
+      isLogin: false,
+      userId: null,
+      userName: '游客',
+    })
 
-  return { userState }
-})
+    return { userState }
+  },
+  {
+    persist: true,
+  },
+)
 
 export { UserStore }
