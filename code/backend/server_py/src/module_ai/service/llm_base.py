@@ -1,18 +1,23 @@
 from langchain_core.runnables import RunnableSequence
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langchain_core.output_parsers import StrOutputParser
-from module_ai.do.model_config import ModelConfig,ModelConfigCreateRequest
+from module_ai.do.model_config import ModelConfig, ModelConfigCreateRequest
 from module_ai.service.model_config import ModelConfigService
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_aws import BedrockEmbeddings, ChatBedrock
 from module_ai.do.llm_base import (
     Message,
     ChatRequest,
     EmbeddingRequest,
     CacheClearRequest,
 )
+from pydantic import SecretStr
 from module_ai.utils.llm.do.model_type import ModelType, ModelServerType
 import logging
+
 logger = logging.getLogger(__name__)
+
+
 class LLMBaseService:
     """
     LLM基础服务类，提供统一的大语言模型调用接口
@@ -44,13 +49,12 @@ class LLMBaseService:
             self._model_cache: dict[str, RunnableSequence] = {}
             self.__class__._initialized = True
 
-
-    async def check_config(self,model_config_create_request: ModelConfigCreateRequest):
+    async def check_config(self, model_config_create_request: ModelConfigCreateRequest):
         llm_chain = self._llm_by_config(model_config_create_request)
-        result = await llm_chain.ainvoke('1+1=? only return result number')
+        result = await llm_chain.ainvoke("1+1=? only return result number")
         # 判断包含2
-        return '2' in result.content
-    
+        return "2" in result.content
+
     async def get_llm(self, model_id: str, streaming: bool = True):
         """
         获取LLM处理链的基础llm对象
@@ -81,9 +85,7 @@ class LLMBaseService:
     async def chat_completion(self, request: ChatRequest):
         """聊天完成接口"""
         # 获取LLM处理链
-        llm_chain = await self.get_llm(
-            request.model_id, streaming=request.streaming
-        )
+        llm_chain = await self.get_llm(request.model_id, streaming=request.streaming)
         # 由于ChatRequest的验证器已自动处理消息转换，messages现在一定是Message列表
         messages = [msg.to_langchain_message() for msg in request.messages]
         try:
@@ -113,7 +115,7 @@ class LLMBaseService:
         else:
             # 清除所有缓存
             self._model_cache.clear()
-    
+
     def _llm_by_config(self, config: ModelConfig, streaming: bool = True):
         """将数据库模型配置转换为LLM配置对象"""
         # Ollama模型检测   ChatOpenAI, OpenAIEmbeddings
@@ -138,6 +140,22 @@ class LLMBaseService:
         elif config.server_type == ModelServerType.VLLM:
             pass
         elif config.server_type == ModelServerType.AWS:
+            # if config.model_type == ModelType.CHAT:
+            #     return ChatBedrock(
+            #     provider="anthropic",
+            #     model_id=config.model,
+            #     aws_access_key_id=SecretStr(config.aws_access_key_id),
+            #     aws_secret_access_key=SecretStr(config.aws_secret_access_key),
+            #     region=config.region_name,
+            #     streaming=streaming,
+            # )
+            # elif config.model_type == ModelType.EMBEDDINGS:
+            # result_embeddings = BedrockEmbeddings(
+            #     model_id="amazon.titan-embed-text-v2:0",
+            #     aws_access_key_id=SecretStr(""),
+            #     aws_secret_access_key=SecretStr(""),
+            #     region_name="ap-northeast-1",
+            # )
             pass
 
 
