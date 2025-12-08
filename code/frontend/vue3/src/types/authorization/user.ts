@@ -20,15 +20,7 @@ interface UserCreate extends UserBase {
   password: string; // 必填字段
 }
 
-interface UserUpdate {
-  username?: string;
-  password?: string;
-  email?: string;
-  phone?: string;
-  nickname?: string;
-  avatar?: string;
-  is_active?: boolean;
-}
+interface UserUpdate extends UserBase { }
 
 // 通用配置对象
 const config = {

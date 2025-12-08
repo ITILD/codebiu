@@ -11,11 +11,10 @@ from redis.asyncio import Redis
 import logging
 
 logger = logging.getLogger(__name__)
-# 数据库对象
+# 关系型数据库(sqlite/postgresql/mysql)
 db_rel: DBRelationInterface = None
 # 事务管理注解
 DaoRel: wraps = None
-
 if conf.db_rel.type:
     db_rel_config: DBConfig = DBEX.get_config(conf.db_rel.type, conf.db_rel)
     db_rel:DBRelationInterface = DBFactory.create_rel(db_rel_config)
@@ -23,15 +22,18 @@ if conf.db_rel.type:
     # 增强版异步事务装饰器类
     DaoRel = AsyncTransactional(db_rel.session_factory).transaction
 
+# 缓存数据库(Fakeredis/redis)
 db_cache: DBCacheInterface = None
 async_redis:Redis = None
-# redis
 if conf.redis.type:
     redis_config: DBConfig = DBEX.get_config(conf.redis.type, conf.redis)
     db_cache = DBFactory.create_cache(redis_config)
     db_cache.connect(is_dev)
     async_redis = db_cache.async_redis
-    
+
+# 向量化数据库(pymilvus)
+
+#  图数据库(neo4j/kuzu)
     
 if __name__ == "__main__":
     from common.config import log

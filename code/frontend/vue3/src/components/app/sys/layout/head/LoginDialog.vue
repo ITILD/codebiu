@@ -49,7 +49,6 @@ import { Close } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import { loginUser } from '@/api/authorization/auth'
-import type { AuthLoginRequest } from '@/types/authorization/auth'
 // 用户信息和token设置
 import { UserStore } from '@/stores/user'
 import type {
