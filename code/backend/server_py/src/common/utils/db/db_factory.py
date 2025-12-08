@@ -7,6 +7,9 @@ from common.utils.db.session.interface.db_relational_interface import (
 from common.utils.db.session.impl.db_cache_redis import DBCacheRedis
 from common.utils.db.session.impl.db_cache_fakeredis import DBCacheFakeredis
 from common.utils.db.session.interface.db_cache_interface import DBCacheInterface
+from common.utils.db.session.interface.db_vector_interface import DBVectorInterface
+from common.utils.db.session.interface.db_graph_interface import DBGraphInterface
+
 
 
 class DBFactory:
@@ -30,3 +33,15 @@ class DBFactory:
         else:
             db_cache = DBCacheFakeredis(db_config)
         return db_cache
+    
+    @classmethod
+    def create_milvus(cls, db_config: DBConfig) -> DBVectorInterface:
+        # from common.utils.db.session.impl.db_vector_milvus import DBVectorMilvus
+        # return DBVectorMilvus(db_config)
+        pass
+    
+    @classmethod
+    def create_graph(cls, db_config: DBConfig) -> DBGraphInterface:
+        # from common.utils.db.session.impl.db_graph_kuzu import DBGraphKuzu
+        # return DBGraphKuzu(db_config)
+        pass
