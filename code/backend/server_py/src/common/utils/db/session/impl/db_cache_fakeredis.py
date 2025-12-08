@@ -25,4 +25,5 @@ class DBCacheFakeredis(DBCacheInterface):
     # 持久化
     def persist(self):
         """将缓存数据持久化到文件"""
+        self.async_redis.save()
         
