@@ -12,6 +12,6 @@ docker rm -f ${PROJECT_NAME}_${PROJECT_VERSION_OLD}
 docker rmi ${PROJECT_NAME}:${PROJECT_VERSION}
 
 # 构建镜像
-docker build -f build/docker_dev/Dockerfile.dev -t ${PROJECT_NAME}:${PROJECT_VERSION} .
+docker build -f tools/docker_build/docker_dev/Dockerfile.dev -t ${PROJECT_NAME}:${PROJECT_VERSION} .
 # # log
 # docker logs ${PROJECT_NAME}_${PROJECT_VERSION}
