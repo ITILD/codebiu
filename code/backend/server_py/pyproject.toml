@@ -41,7 +41,6 @@ dependencies = [
     "lxml>=6.0.2",
     "playwright>=1.55.0",
     "brotlicffi>=1.1.0.0",
-    
     "polars>=1.35.2",
     "openpyxl>=3.1.5",
     "fastexcel>=0.17.2",
@@ -56,6 +55,7 @@ dependencies = [
     "neo4j>=6.0.3",
     "aiosqlite>=0.21.0",
     "asyncpg>=0.30.0",
+    "universal-pathlib>=0.3.7",
 ]
 
 [[tool.uv.index]]
@@ -66,3 +66,10 @@ default = true
 # 起始函数验证规则排除
 "app.py" = ["F401"]
 "__init__.py" = ["F401"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"  # 可选值："auto", "strict", "off"
+testpaths = ["tests"]
+pythonpath = ".src"
+# ; 设置输出
+addopts = "-v -s --log-cli-level=INFO"

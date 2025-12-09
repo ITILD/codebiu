@@ -12,7 +12,7 @@ docker rm -f ${PROJECT_NAME}_${PROJECT_VERSION_OLD}
 docker rmi ${PROJECT_NAME}:${PROJECT_VERSION_OLD}
 
 # 构建镜像
-docker build -f build/docker_dev/Dockerfile.dist -t ${PROJECT_NAME}:${PROJECT_VERSION} .
+docker build -f tools/docker_build/Dockerfile.dist -t ${PROJECT_NAME}:${PROJECT_VERSION} .
 
 # 构建容器
 # docker run -d -p 8600:8600 --name ${PROJECT_NAME}_${PROJECT_VERSION} ${PROJECT_NAME}:${PROJECT_VERSION}

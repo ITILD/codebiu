@@ -31,34 +31,15 @@ if conf.db_cache.type:
     db_cache = DBFactory.create_cache(db_cache_config)
     db_cache.connect(is_dev)
     async_redis = db_cache.async_redis
-# 向量化数据库(pymilvus)
-db_vector: DBVectorInterface = None
-if conf.db_vector.type:
-    db_vector_config: DBConfig = DBEX.get_config(conf.db_vector.type, conf.db_vector)
-    db_vector = DBFactory.create_milvus(db_vector_config)
-    db_vector.connect(is_dev)
-#  图数据库(neo4j/kuzu)
-db_graph: DBGraphInterface = None
-if conf.db_graph.type:
-    db_graph_config: DBConfig = DBEX.get_config(conf.db_graph.type, conf.db_graph)
-    db_graph = DBFactory.create_graph(db_graph_config)
-    db_graph.connect(is_dev)
-
-if __name__ == "__main__":
-    from common.config import log
-    async def test_redis():
-        logger.info("测试")
-        try:
-            await async_redis.ping()
-            logger.info("Redis连接成功")
-        except Exception as e:
-            logger.error(f"Redis连接失败: {e}")
-        # 测试redis set get
-        try:
-            await async_redis.set("test", "123")
-            value = await async_redis.get("test")
-            logger.info(f"Redis set get 测试成功: {value}")
-        except Exception as e:
-            logger.error(f"Redis set get 测试失败: {e}")
-    import asyncio
-    asyncio.run(test_redis())
+# # 向量化数据库(pymilvus)
+# db_vector: DBVectorInterface = None
+# if conf.db_vector.type:
+#     db_vector_config: DBConfig = DBEX.get_config(conf.db_vector.type, conf.db_vector)
+#     db_vector = DBFactory.create_milvus(db_vector_config)
+#     db_vector.connect(is_dev)
+# #  图数据库(neo4j/kuzu)
+# db_graph: DBGraphInterface = None
+# if conf.db_graph.type:
+#     db_graph_config: DBConfig = DBEX.get_config(conf.db_graph.type, conf.db_graph)
+#     db_graph = DBFactory.create_graph(db_graph_config)
+#     db_graph.connect(is_dev)
