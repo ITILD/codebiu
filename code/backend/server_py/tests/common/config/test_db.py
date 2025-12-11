@@ -1,5 +1,8 @@
 import pytest
-from src.common.config.db import async_redis, logger
+from src.common.config.db import async_redis
+from tests.conftest import setup_logging
+import logging
+logger = logging.getLogger(__name__)
 
 async def test_redis_connection():
     """测试Redis连接是否正常"""
@@ -11,7 +14,7 @@ async def test_redis_connection():
         logger.error(f"Redis连接失败: {e}")
         pytest.fail(f"Redis连接失败: {e}")
 
-
+@pytest.mark.asyncio
 async def test_redis_set_get():
     """测试Redis的set和get操作"""
     logger.info("开始测试Redis set get操作")
