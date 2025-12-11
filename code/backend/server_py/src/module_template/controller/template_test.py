@@ -47,7 +47,7 @@ async def async_endpoint(id: str, duration_use: float):
     log_info("Async", id, elapsed)
     return {"id": id, "result": f"Async task {id} completed"}
 
-# duration_use. 异步中调用同步任务（阻塞事件循环）
+# duration_use. 异步中调用同步任务(阻塞事件循环)
 @router.get("/async_sync/{id}/{duration_use}")
 async def async_sync_endpoint(id: str, duration_use: float):
     log_info("Async-Sync", id)

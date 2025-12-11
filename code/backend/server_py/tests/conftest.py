@@ -44,7 +44,7 @@ def setup_logging():
         """日志轮转时的钩子"""
         logging.info("...new log")
 
-    # INFO 日志（记录 INFO 及以上）
+    # INFO 日志(记录 INFO 及以上)
     info_log_path = DIR_LOG / "test_info_%Y-%m-%d.log"
     info_handler = CustomTimedRotatingFileHandler(
         file=info_log_path,
@@ -57,7 +57,7 @@ def setup_logging():
     info_handler.setLevel(logging.INFO)
     logger.addHandler(info_handler)
 
-    # ERROR 日志（只记录 ERROR 及以上）
+    # ERROR 日志(只记录 ERROR 及以上)
     error_log_path = DIR_LOG / "test_error_%Y-%m-%d.log"
     error_handler = CustomTimedRotatingFileHandler(
         file=error_log_path,

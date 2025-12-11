@@ -60,7 +60,7 @@ class VectorPG(UserDefinedType):
         """自定义比较操作符工厂类"""
         
         def l2(self, other):
-            """L2距离（欧氏距离）运算符 <-> 
+            """L2距离(欧氏距离)运算符 <-> 
             返回两个向量之间的欧氏距离
             越小表示越相似
             """
@@ -68,7 +68,7 @@ class VectorPG(UserDefinedType):
 
         def ip(self, other):
             """最大内积运算符 <#> 
-            返回负内积（用于近似最近邻搜索）
+            返回负内积(用于近似最近邻搜索)
             值越小表示相似度越高
             """
             return self.op("<#>", return_type=Float)(other)
@@ -81,7 +81,7 @@ class VectorPG(UserDefinedType):
             return self.op("<=>", return_type=Float)(other)
 
         def l1(self, other):
-            """L1距离（曼哈顿距离）运算符 <+>
+            """L1距离(曼哈顿距离)运算符 <+>
             返回两个向量之间的曼哈顿距离
             越小表示越相似
             """

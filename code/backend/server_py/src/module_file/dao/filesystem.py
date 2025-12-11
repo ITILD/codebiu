@@ -53,7 +53,7 @@ class FileDao:
         :return: 更新成功的文件ID
         :raises: ValueError 如果文件不存在
         """
-        # 准备更新数据（排除未设置的字段）
+        # 准备更新数据(排除未设置的字段)
         update_data = file.model_dump(exclude_unset=True)
 
         # 执行直接更新
@@ -145,7 +145,7 @@ class FileDao:
     @DaoRel
     async def get_by_md5(self, md5: str, session: AsyncSession | None = None) -> File | None:
         """
-        根据MD5查询文件（用于文件去重）
+        根据MD5查询文件(用于文件去重)
         :param md5: 文件MD5值
         :param session: 可选数据库会话
         :return: 文件对象，未找到返回None

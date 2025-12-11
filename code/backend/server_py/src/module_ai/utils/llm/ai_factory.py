@@ -37,7 +37,7 @@ class AIFactory:
 
         parameters:
             model_config: 模型配置对象，决定创建哪种LLM实例
-            streaming: 是否启用流式响应（默认True）
+            streaming: 是否启用流式响应(默认True)
 
         returns:
             对应的LLM实例对象
@@ -114,13 +114,13 @@ class AIFactory:
         streaming: bool = True,
     ) -> RunnableSequence:
         """
-        创建基础LLM处理链（Prompt + LLM + Parser）
+        创建基础LLM处理链(Prompt + LLM + Parser)
 
         parameters:
             config: 模型配置对象
             prompt_template: 提示模板字符串
-            streaming: 是否启用流式响应（默认True）
-            no_think: 是否启用no_think解析器（默认False 简单文本化解析器）
+            streaming: 是否启用流式响应(默认True)
+            no_think: 是否启用no_think解析器(默认False 简单文本化解析器)
         """
         chain = cls.create_llm(config, streaming=streaming)
 

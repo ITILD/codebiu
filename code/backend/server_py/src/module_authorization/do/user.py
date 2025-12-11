@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 
 class UserBase(SQLModel):
-    """用户基础模型（不含数据库表配置）"""
+    """用户基础模型(不含数据库表配置)"""
 
     username: str = Field(..., max_length=50, description="用户名")
     password: str = Field(..., max_length=255, description="密码")
@@ -16,7 +16,7 @@ class UserBase(SQLModel):
 
 
 class User(UserBase, table=True):
-    """用户数据库模型（对应数据库表）"""
+    """用户数据库模型(对应数据库表)"""
 
     id: str = Field(
         default_factory=lambda: uuid4().hex,

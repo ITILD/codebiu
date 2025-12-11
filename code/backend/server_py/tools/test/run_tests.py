@@ -15,7 +15,7 @@ def run_pytest(test_path: str, verbose: bool = False, log_level: str = "INFO") -
     运行pytest测试
     
     Args:
-        test_path: 测试路径（文件或目录）
+        test_path: 测试路径(文件或目录)
         verbose: 是否显示详细输出
         log_level: 日志级别
         
@@ -75,7 +75,7 @@ def main():
         "test_path", 
         nargs="?", 
         default="tests",
-        help="测试路径（文件或目录），默认为整个tests目录"
+        help="测试路径(文件或目录)，默认为整个tests目录"
     )
     parser.add_argument(
         "-v", "--verbose", 
@@ -86,7 +86,7 @@ def main():
         "-l", "--log-level", 
         default="INFO",
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-        help="日志级别（默认: INFO）"
+        help="日志级别(默认: INFO)"
     )
     parser.add_argument(
         "--list", 

@@ -47,7 +47,7 @@ async def test_performance():
 
             # 保存结果
             results[name] = total_time
-    # 最后统一断言（即使某个失败，也继续检查其他）
+    # 最后统一断言(即使某个失败，也继续检查其他)
     for name, total_time in results.items():
         try:
             assert (

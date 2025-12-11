@@ -40,7 +40,7 @@ class ConfigManagerYaml:
             return default
 
     def set(self, key, value):
-        """设置配置项（不立即保存）"""
+        """设置配置项(不立即保存)"""
         keys = key.split('.')
         current = self.config
         for k in keys[:-1]:

@@ -16,7 +16,7 @@ class TokenService:
 
     def __init__(self, token_dao: TokenDao):
         self.token_dao = token_dao
-        # 初始化TokenUtil工具类（使用BaseModel配置类）
+        # 初始化TokenUtil工具类(使用BaseModel配置类)
         self.token_util = TokenUtil(token_config)
 
     async def create_token(self, request: TokenCreateRequest) -> TokenResponseBase:
@@ -59,7 +59,7 @@ class TokenService:
         验证 JWT 令牌并检查其状态。
         :param token: 待验证的令牌字符串
         :param token_type: 令牌类型，必须为 access 或 refresh
-        :return: 令牌载荷（用户ID等信息）
+        :return: 令牌载荷(用户ID等信息)
         :raises jwt.JWTError: 令牌无效、过期或已被撤销
         """
         try:
@@ -68,7 +68,7 @@ class TokenService:
             if not user_id:
                 raise jwt.JWTError("Invalid token payload: missing 'sub'")
 
-            # 刷新令牌必须检查数据库状态（是否被撤销）
+            # 刷新令牌必须检查数据库状态(是否被撤销)
             if token_type == TokenType.refresh:
                 token_info = await self.token_dao.get_token_by_user_id(user_id)
                 if not token_info or token_info.is_revoked:

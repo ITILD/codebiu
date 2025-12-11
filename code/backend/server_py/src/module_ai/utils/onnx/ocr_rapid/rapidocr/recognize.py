@@ -32,7 +32,7 @@ class CTCLabelDecode:
         
         Args:
             preds: 模型预测结果
-            label: 真实标签（可选）
+            label: 真实标签(可选)
             
         Returns:
             解码后的文本结果，如果提供了标签则返回预测结果和真实标签
@@ -47,7 +47,7 @@ class CTCLabelDecode:
 
     def add_special_char(self, dict_character):
         """
-        添加特殊字符（CTC空白符）
+        添加特殊字符(CTC空白符)
         
         Args:
             dict_character: 原始字符列表
@@ -60,7 +60,7 @@ class CTCLabelDecode:
 
     def get_ignored_tokens(self):
         """
-        获取需要忽略的token（CTC空白符）
+        获取需要忽略的token(CTC空白符)
         
         Returns:
             需要忽略的token索引列表
@@ -73,8 +73,8 @@ class CTCLabelDecode:
         
         Args:
             text_index: 文本索引数组
-            text_prob: 对应的概率数组（可选）
-            is_remove_duplicate: 是否移除重复字符（用于预测时）
+            text_prob: 对应的概率数组(可选)
+            is_remove_duplicate: 是否移除重复字符(用于预测时)
             
         Returns:
             包含文本和置信度的结果列表
@@ -171,7 +171,7 @@ class TextRecognizer:
             # 对当前批次图像进行归一化处理
             for ino in range(beg_img_no, end_img_no):
                 img_c, img_h, img_w = self.rec_image_shape
-                # 根据最大宽高比动态计算新宽度（基准高度32像素）解决文本行长度不一致的问题
+                # 根据最大宽高比动态计算新宽度(基准高度32像素)解决文本行长度不一致的问题
                 img_w = int((32 * max_wh_ratio))
                 # 强制固定高度，用于批量处理和标准OCR模型
                 norm_img = resize_norm_img(img_list[indices[ino]], img_w, img_h, img_c)

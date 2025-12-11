@@ -6,7 +6,7 @@ from common.utils.security.token_util import TokenType
 
 
 class TokenBase(SQLModel):
-    """令牌基础模型（不含数据库表配置）"""
+    """令牌基础模型(不含数据库表配置)"""
 
     user_id: str = Field(..., description="用户ID")
     token: str = Field(..., description="访问令牌")
@@ -17,7 +17,7 @@ class TokenBase(SQLModel):
 
 
 class Token(TokenBase, table=True):
-    """令牌数据库模型（对应数据库表）"""
+    """令牌数据库模型(对应数据库表)"""
 
     id: str = Field(
         default_factory=lambda: uuid4().hex,

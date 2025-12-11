@@ -49,14 +49,14 @@ class TemplateDao:
         session: AsyncSession | None = None,
     ) -> str:
         """
-        直接更新模板记录（不先查询）
+        直接更新模板记录(不先查询)
         :param template_id: 要更新的模板ID
         :param template: 模板更新数据
         :param session: 可选数据库会话
         :return: 更新成功的模板ID
         :raises: ValueError 如果模板不存在
         """
-        # 准备更新数据（排除未设置的字段）
+        # 准备更新数据(排除未设置的字段)
         update_data = template.model_dump(exclude_unset=True)
 
         # 执行直接更新
@@ -99,7 +99,7 @@ class TemplateDao:
     ) -> list[Template]:
         """
         无限滚动分页查询  先查询最新的 滚下拉更早的
-        :param last_id: 最后收到的模板ID（None表示第一页）
+        :param last_id: 最后收到的模板ID(None表示第一页)
         :param limit: 每页最大记录数
         :param session: 可选数据库会话
         :return: 模板列表

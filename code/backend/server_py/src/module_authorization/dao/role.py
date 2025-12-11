@@ -44,14 +44,14 @@ class RoleDao:
         session: AsyncSession | None = None,
     ):
         """
-        直接更新角色记录（不先查询）
+        直接更新角色记录(不先查询)
         :param role_id: 要更新的角色ID
         :param role: 角色更新数据
         :param session: 可选数据库会话
         :return: 更新成功的角色ID
         :raises: ValueError 如果角色不存在
         """
-        # 准备更新数据（排除未设置的字段）
+        # 准备更新数据(排除未设置的字段)
         update_data = role.model_dump(exclude_unset=True)
 
         # 执行直接更新

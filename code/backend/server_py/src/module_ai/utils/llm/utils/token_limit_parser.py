@@ -74,7 +74,7 @@ class TokenLimitParser(BaseTransformOutputParser):
             截断后的文本
         """
         # 这是一个简化的实现，实际实现可能需要更复杂的token计算和截断逻辑
-        # 这里假设我们可以简单地按字符比例截断（不精确）
+        # 这里假设我们可以简单地按字符比例截断(不精确)
         current_tokens = LLMUtils.count_tokens(text)
         if current_tokens <= _input_tokens:
             return text
