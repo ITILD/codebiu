@@ -40,7 +40,7 @@ class NoThinkTagsParser(BaseTransformOutputParser):
         if self._out_tag and open_pos == -1:
             return buffer, ""
 
-        # 情况2：开始标签（无论是否在标签内）
+        # 情况2：开始标签(无论是否在标签内)
         if open_pos != -1:
             # 无结束
             if close_pos == -1:
@@ -52,7 +52,7 @@ class NoThinkTagsParser(BaseTransformOutputParser):
                     open_pos : close_pos + 8
                 ]
 
-        # 情况3：遇到结束标签（且当前在标签内）
+        # 情况3：遇到结束标签(且当前在标签内)
         if close_pos != -1 and not self._out_tag:
             self._out_tag = True
             return buffer[close_pos + 8 :], ""
@@ -114,7 +114,7 @@ logger = logging.getLogger(__name__)
         #
         streaming_chain = (
             prompt
-            | llm  # 你的模型（如 Ollama/OpenAI）
+            | llm  # 你的模型(如 Ollama/OpenAI)
             | no_think_tags_parser
         )
         # # 1. 简单streaming_chain同步调用

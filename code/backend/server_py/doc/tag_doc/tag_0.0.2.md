@@ -71,7 +71,7 @@ setting.json 配置添加
 ```json
   "python.testing.pytestArgs": [
     "-v",          // 显示详细输出
-    "-s",          // 禁用输出捕获（关键！）
+    "-s",          // 禁用输出捕获(关键！)
     "--log-cli-level=INFO"  //  启用日志输出到控制台
   ]
 }

@@ -26,7 +26,7 @@ class PaginationParams(BaseModel):
 
     @field_validator("size")
     def validate_size(cls, v):
-        """确保 size >= 1 且 <= 100（防止查询过大）"""
+        """确保 size >= 1 且 <= 100(防止查询过大)"""
         if v < 1:
             raise ValueError("size 必须大于等于 1")
         if v > 100:
@@ -85,10 +85,10 @@ class InfiniteScrollResponse(BaseModel):
         """
         创建无限滚动响应对象
         """
-        # 1. 判断是否有更多数据（通过查询limit+1条来判断）
+        # 1. 判断是否有更多数据(通过查询limit+1条来判断)
         has_more = len(items) > limit
         
-        # 2. 截取实际要返回的数据（只返回limit条）
+        # 2. 截取实际要返回的数据(只返回limit条)
         items_result = items[:limit] if has_more else items
         
         # 3. 设置游标：根据方向确定使用第一条还是最后一条数据的ID
@@ -96,10 +96,10 @@ class InfiniteScrollResponse(BaseModel):
             last_id = None
         else:
             if direction == ScrollDirection.UP:
-                # 升序：返回最后一条数据的ID（更大的值）
+                # 升序：返回最后一条数据的ID(更大的值)
                 last_id = items_result[-1].id
             else:
-                # 降序：返回第一条数据的ID（更小的值）
+                # 降序：返回第一条数据的ID(更小的值)
                 last_id = items_result[0].id
         
         return cls(

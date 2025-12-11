@@ -12,7 +12,7 @@ createApp({
     const currentPage = ref(1);
     const pageSize = ref(10);
     const totalCount = ref(0);
-    // 新增：列表模式（'pagination' 或 'scroll'）
+    // 新增：列表模式('pagination' 或 'scroll')
     const listMode = ref('pagination');
 
     // 表单数据
@@ -33,7 +33,7 @@ createApp({
     // API基础URL
     const API_BASE_URL = '../templates';
 
-    // 获取模板列表（分页）
+    // 获取模板列表(分页)
     const fetchTemplates = async () => {
       try {
         loading.value = true;
@@ -102,7 +102,7 @@ createApp({
         const data = await response.json();
         
         if (data.items.length > pageSize.value) {
-          // 去掉多余的一条（用于判断是否还有更多）
+          // 去掉多余的一条(用于判断是否还有更多)
           templates.value = [...templates.value, ...data.items.slice(0, -1)];
           lastId.value = data.items[data.items.length - 2].id;
           hasMore.value = true;

@@ -1,10 +1,10 @@
 # 导入必要的模块
-import operator  # 用于状态合并操作（如列表拼接）
+import operator  # 用于状态合并操作(如列表拼接)
 from typing import Annotated, List, Literal, TypedDict  # 类型提示支持
 
 # 从 LangChain 导入文档合并相关的异步工具函数
 from langchain.chains.combine_documents.reduce import (
-    acollapse_docs,  # 异步合并一组文档（reduce 操作）
+    acollapse_docs,  # 异步合并一组文档(reduce 操作)
     split_list_of_docs,  # 根据 token 数量将文档列表拆分成多个小组
 )
 
@@ -30,14 +30,14 @@ class OverallState(TypedDict):
     整个图的状态容器 主图的状态结构，包含整个流程所需的所有数据。
     """
 
-    # 原始输入的多个文档内容（字符串列表）
+    # 原始输入的多个文档内容(字符串列表)
     contents: List[str]
 
-    # 存放所有生成的中间摘要（使用 operator.add 实现自动累加合并）
+    # 存放所有生成的中间摘要(使用 operator.add 实现自动累加合并)
     # 每次 generate_summary 返回的摘要都会被 "+=" 追加到这里
     summaries: Annotated[list, operator.add]
 
-    # 当前待处理的摘要文档列表（Document 类型），用于递归合并
+    # 当前待处理的摘要文档列表(Document 类型)，用于递归合并
     collapsed_summaries: List[Document]
 
     # 最终生成的综合摘要结果
@@ -73,7 +73,7 @@ class MapReduce:
 
         参数:
             token_max: 每个文档块最大 token 数
-            chunk_overlap_ratio: 重叠比例（默认 10%）
+            chunk_overlap_ratio: 重叠比例(默认 10%)
             summaries_retries: 最大合并重试次数
             llm: 使用的基础LLM或 CHAIN
         """
@@ -104,7 +104,7 @@ class MapReduce:
         # 创建一个以 OverallState 为状态类型的图
         graph = StateGraph(OverallState)
 
-        # 添加四个处理节点（函数）
+        # 添加四个处理节点(函数)
         graph.add_node("generate_summary", self.generate_summary)  # 并行生成摘要
         graph.add_node("collect_summaries", self.collect_summaries)  # 收集所有摘要
         graph.add_node("collapse_summaries", self.collapse_summaries)  # 合并过长摘要
@@ -112,7 +112,7 @@ class MapReduce:
             "generate_final_summary", self.generate_final_summary
         )  # 生成最终摘要
 
-        # 添加边（流程控制逻辑）
+        # 添加边(流程控制逻辑)
 
         # 实现“一拆多”的 Map 操作  返回多个 Send，每个都会触发一次 generate_summary 执行
         graph.add_conditional_edges(START, self.map_summaries, ["generate_summary"])
@@ -146,7 +146,7 @@ class MapReduce:
         """
         文档内容生成摘要。
         """
-        # 调用预定义的 map_chain（通常是用于摘要的 LLM 链）进行异步推理
+        # 调用预定义的 map_chain(通常是用于摘要的 LLM 链)进行异步推理
         response = await self.map_chain.ainvoke(state["content"])
         # 返回结果，key 必须是 "summaries" 才能触发 operator.add 合并
         return {"summaries": [response]}
@@ -176,7 +176,7 @@ class MapReduce:
 
     async def collapse_summaries(self, state: OverallState):
         """
-        合并过长的摘要（Reduce 阶段），但先确保每个文档都不超过 TOKEN_MAX
+        合并过长的摘要(Reduce 阶段)，但先确保每个文档都不超过 TOKEN_MAX
         """
         # Step 1: 检查每个摘要是否超长，如果超长则拆分成多个小块
         split_docs = []
@@ -230,7 +230,7 @@ class MapReduce:
         当所有中间摘要已经足够短时，调用 reduce_chain 生成最终摘要。
 
         参数:
-            state["collapsed_summaries"]: 当前所有摘要（已压缩到安全长度）
+            state["collapsed_summaries"]: 当前所有摘要(已压缩到安全长度)
 
         返回:
             dict: 包含最终摘要的字段 {"final_summary": "..."}
@@ -242,7 +242,7 @@ class MapReduce:
 
 if __name__ == "__main__":
     # ======================================================================================
-    # ✅ 使用说明（示例）
+    # ✅ 使用说明(示例)
     # ======================================================================================
     """
     # 假设你已经定义好了：
@@ -273,7 +273,7 @@ if __name__ == "__main__":
 在设计诱发事件的时候，问自己以下问题：
 
 主人公对他们的生活有哪些不满？
-要怎样才能让主人公找到满足感？(这就是他们的目标）
+要怎样才能让主人公找到满足感？(这就是他们的目标)
 主人公最大的恐惧和性格缺陷是什么？
 主人公为找到满足感而需要采取的行动将如何迫使他们直面自己的恐惧和性格缺陷？""",
         ]

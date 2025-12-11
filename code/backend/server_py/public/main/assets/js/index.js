@@ -24,7 +24,7 @@ createApp({
                 // 使用 fetch API 调用后端的 /server_status/status_cache 接口
                 const response = await fetch('./server_status/status_cache');
 
-                // 如果网络请求失败（如404, 500等），则抛出错误
+                // 如果网络请求失败(如404, 500等)，则抛出错误
                 if (!response.ok) {
                     throw new Error(`网络请求失败，状态码: ${response.status}`);
                 }

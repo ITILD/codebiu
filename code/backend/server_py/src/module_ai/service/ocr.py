@@ -10,13 +10,13 @@ layout_engine = RapidLayout(model_path=path_lout_model)
 
 class OcrService:
     def ocr(self,image_cv: any, detect: bool, classify: bool, lang: str, inpaint=False):
-        """执行文字识别（OCR）处理，支持多语言识别、文本检测和分类
+        """执行文字识别(OCR)处理，支持多语言识别、文本检测和分类
 
         Args:
             image_cv (Any): 输入图像，支持OpenCV格式(numpy.ndarray)或文件路径(str)
-            detect (bool): 是否启用文本检测（定位文字区域）
-            classify (bool): 是否启用文本分类（识别文本类型如标题/正文）
-            lang (str): 目标语言代码（如'en'/'zh'），支持多语言混合识别
+            detect (bool): 是否启用文本检测(定位文字区域)
+            classify (bool): 是否启用文本分类(识别文本类型如标题/正文)
+            lang (str): 目标语言代码(如'en'/'zh')，支持多语言混合识别
             inpaint (bool, optional): 是否启用图像去除检测位置，默认False
         """
         # 开始识别 ocr ja true true

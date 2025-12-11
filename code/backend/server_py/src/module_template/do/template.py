@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 class TemplateBase(SQLModel):
     """
-    模板基础模型（不含数据库表配置）
+    模板基础模型(不含数据库表配置)
     """
 
     pid: str | None = Field(None, description="父级ID")
@@ -19,7 +19,7 @@ class TemplateBase(SQLModel):
 
 class Template(TemplateBase, table=True):
     """
-    模板数据库模型（对应数据库表）
+    模板数据库模型(对应数据库表)
     """
 
     id: str = Field(

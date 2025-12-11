@@ -159,5 +159,5 @@ class LLMBaseService:
             pass
 
 
-# 全局服务实例（通过单例模式确保全局唯一）
+# 全局服务实例(通过单例模式确保全局唯一)
 llm_base_service = LLMBaseService()

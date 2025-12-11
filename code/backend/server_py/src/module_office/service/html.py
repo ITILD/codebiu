@@ -19,7 +19,7 @@ class HtmlService:
         async with async_playwright() as p:
             browser = None
             try:
-                # 启动本机 Edge 浏览器（无头模式）
+                # 启动本机 Edge 浏览器(无头模式)
                 browser = await p.chromium.launch(
                     # playwright install chromium 可以不指定
                     # channel=BrowserType.EDGE,
@@ -43,7 +43,7 @@ class HtmlService:
                 # 分块提取结果文本 SearchResult
                 results: list[SearchResult] = []
                 # 提取结果文本
-                # 提取所有搜索结果项（根据实际 HTML 调整 selector）
+                # 提取所有搜索结果项(根据实际 HTML 调整 selector)
                 result_elements = await page.query_selector_all(
                     self.html_search_config.elements_selector
                 )  # 示例选择器

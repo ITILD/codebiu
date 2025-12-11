@@ -6,7 +6,7 @@ from common.utils.db.do.vector_pg import VectorPG
 
 
 class VectorMixin(SQLModel):
-    """向量混合类（通过类属性动态设置维度）"""
+    """向量混合类(通过类属性动态设置维度)"""
 
     embedding: list[float] | None = Field(
         default=None,

@@ -28,7 +28,7 @@ class VectorSqlite(UserDefinedType):
 
     def get_col_spec(self, **kw):
         """生成DDL语句中的类型定义
-        SQLite中向量存储为TEXT格式（JSON字符串）
+        SQLite中向量存储为TEXT格式(JSON字符串)
         """
         return "TEXT"  # SQLite中存储为JSON字符串
 
@@ -64,7 +64,7 @@ class VectorSqlite(UserDefinedType):
         """将Python对象转换为数据库存储格式
         1. 转换为numpy数组并展平
         2. 验证维度一致性
-        3. 转换为JSON字符串格式（用于普通表存储）
+        3. 转换为JSON字符串格式(用于普通表存储)
         """
         if value is None:
             return None
@@ -76,7 +76,7 @@ class VectorSqlite(UserDefinedType):
         if self.dim and len(arr) != self.dim:
             raise ValueError(f"维度必须为 {self.dim}")
         
-        # 转换为JSON字符串格式（sqlite-vec扩展期望JSON格式）
+        # 转换为JSON字符串格式(sqlite-vec扩展期望JSON格式)
         # 示例: [1.0, 2.0, 3.0] -> '[1.0, 2.0, 3.0]'
         return json.dumps(arr.tolist())
     
@@ -115,7 +115,7 @@ class VectorSqlite(UserDefinedType):
             """sqlite-vec扩展的MATCH操作符
             用于向量相似度搜索，支持多种距离度量
             语法: embedding MATCH query_vector
-            返回: 距离值（越小表示越相似）
+            返回: 距离值(越小表示越相似)
             """
             return self.op("MATCH", return_type=Float)(other)
 

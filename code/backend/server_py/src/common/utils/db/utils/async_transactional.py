@@ -59,7 +59,7 @@ class AsyncTransactional:
                 )
             return kwargs["session"]
 
-        # 情况2：从args中检测（从后向前扫描）
+        # 情况2：从args中检测(从后向前扫描)
         for arg in reversed(args):
             if isinstance(arg, AsyncSession):
                 return arg

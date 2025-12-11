@@ -76,7 +76,7 @@ class DocumentsSplitterUtils:
             current_batch.append(chunk)
             current_token_count += chunk_tokens
 
-        # 添加最后一个批次（如果非空）
+        # 添加最后一个批次(如果非空)
         if current_batch:
             batches.append(current_batch)
         return batches

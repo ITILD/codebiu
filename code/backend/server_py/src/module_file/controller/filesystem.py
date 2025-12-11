@@ -1,6 +1,6 @@
 from module_file.config.server import module_app
 from module_file.dependencies.file import get_file_service
-from module_file.service.file import FileService
+from module_file.service.filesystem import FileService
 from module_file.do.file import File, FileCreate, FileUpdate
 from common.utils.db.schema.pagination import (
     InfiniteScrollParams,
@@ -139,7 +139,7 @@ async def delete_file(
     service: FileService = Depends(get_file_service),
 ):
     """
-    删除文件（同时删除物理文件和数据库记录）
+    删除文件(同时删除物理文件和数据库记录)
     :param file_id: 文件ID
     :param service: 文件服务依赖注入
     """
@@ -188,4 +188,4 @@ async def update_file(
         )
 
 # 将路由注册到模块应用
-module_app.include_router(router, prefix="", tags=["文件管理"])
+module_app.include_router(router, prefix="/filesystem", tags=["文件管理"])

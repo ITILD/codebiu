@@ -51,7 +51,7 @@ class ModelConfigDao:
         :param model_config: 模型配置更新数据
         :param session: 可选数据库会话
         """
-        # 准备更新数据（排除未设置的字段）
+        # 准备更新数据(排除未设置的字段)
         update_data = model_config.model_dump(exclude_unset=True)
 
         # 执行直接更新

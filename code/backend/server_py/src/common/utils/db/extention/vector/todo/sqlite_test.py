@@ -20,7 +20,7 @@ class VectorSqlite(UserDefinedType):
         self.dim = dim
 
     def get_col_spec(self, **kw):
-        """在SQLite中，向量存储为TEXT（JSON字符串格式）"""
+        """在SQLite中，向量存储为TEXT(JSON字符串格式)"""
         return "TEXT"  # SQLite中存储为JSON字符串
 
     def bind_processor(self, dialect):
@@ -34,7 +34,7 @@ class VectorSqlite(UserDefinedType):
             if value is None:
                 return None
             if isinstance(value, bytes):
-                # 如果是bytes格式（sqlite-vec），转换为数组
+                # 如果是bytes格式(sqlite-vec)，转换为数组
                 return self._from_bytes(value)
             elif isinstance(value, str):
                 # 如果是JSON字符串格式
@@ -76,7 +76,7 @@ class VectorSqlite(UserDefinedType):
         return json.dumps(arr_list)
 
     def _to_bytes(self, arr):
-        """转换为bytes格式（用于sqlite-vec）"""
+        """转换为bytes格式(用于sqlite-vec)"""
         return struct.pack("%sf" % len(arr), *arr)
 
     def _from_bytes(self, data):
@@ -87,7 +87,7 @@ class VectorSqlite(UserDefinedType):
         """自定义比较操作符工厂类"""
         
         def cosine_distance(self, other):
-            """余弦距离比较（sqlite-vec使用MATCH操作）"""
+            """余弦距离比较(sqlite-vec使用MATCH操作)"""
             from sqlalchemy import func
             # sqlite-vec 使用 MATCH 操作符
             return func.cosine_distance(self, other)

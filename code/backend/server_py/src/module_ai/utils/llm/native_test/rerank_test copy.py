@@ -5,7 +5,7 @@ from urllib.error import URLError, HTTPError
 encode = "utf-8"
 url = "http://172.16.25.84:1107/v2/rerank"
 
-# 正确的请求数据结构（注意v2接口需要"queries"和"documents"）
+# 正确的请求数据结构(注意v2接口需要"queries"和"documents")
 data = {
     "model": "bge-reranker-v2-m3",
     "query": "工资申报者管理业务 业务概要",

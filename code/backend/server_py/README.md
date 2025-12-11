@@ -7,7 +7,7 @@
 
 ## 开发
 ```bash
-# 拉取基础代码（如果需要）
+# 拉取基础代码(如果需要)
 git clone http://zwork1.w1.luyouxia.net/gitea/codebiu_2025/base_server.git
 
 # 版本和三方库在pyproject.toml里，安装依赖(需要uv包管理 ) 
@@ -25,7 +25,7 @@ uv sync
 {
   "python.testing.pytestArgs": [
     "-v",          // 显示详细输出
-    "-s",          // 禁用输出捕获（关键！）
+    "-s",          // 禁用输出捕获(关键！)
     "--log-cli-level=INFO"  //  启用日志输出到控制台
   ]
 }

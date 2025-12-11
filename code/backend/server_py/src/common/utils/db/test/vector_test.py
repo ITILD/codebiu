@@ -15,7 +15,7 @@ sqlite_version, vec_version = conn.execute(
 ).fetchone()
 print(f"sqlite_version={sqlite_version}, vec_version={vec_version}")
 
-# 创建虚拟表（8维向量）
+# 创建虚拟表(8维向量)
 conn.execute("CREATE VIRTUAL TABLE vec_examples USING vec0(sample_embedding float[8] distance_metric=cosine)")
 
 # 创建 SQLModel 引擎
