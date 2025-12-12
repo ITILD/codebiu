@@ -1,7 +1,7 @@
 from fastapi import Depends
 
-from module_file.dao.file import FileDao
-from module_file.service.file import FileService
+from module_file.dao.filesystem import FileDao
+from module_file.service.filesystem import FileService
 
 async def get_file_dao() -> FileDao:
     """DAO工厂"""

@@ -13,6 +13,7 @@ from redis.asyncio import Redis
 import logging
 
 logger = logging.getLogger(__name__)
+
 # 关系型数据库(sqlite/postgresql/mysql)
 db_rel: DBRelationInterface = None
 DaoRel: wraps = None  # 事务管理注解
@@ -37,7 +38,7 @@ db_vector: DBVectorInterface = None
 if conf.db_vector.type:
     db_vector_config: DBConfig = DBEX.get_config(conf.db_vector.type, conf.db_vector)
     db_vector = DBFactory.create_vector(db_vector_config)
-    db_vector.connect(is_dev)
+    # db_vector.connect(is_dev)
     
 #  图数据库(neo4j/kuzu)
 db_graph: DBGraphInterface = None

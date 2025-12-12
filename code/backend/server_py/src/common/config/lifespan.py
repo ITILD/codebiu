@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from common.config import db
 import logging
 
 from module_main.service.db import TableService
@@ -10,6 +11,8 @@ async def server_start():
     try:
         await TableService.create()
         logger.info("Database tables init successfully.")
+        # Milvus
+        await db.db_vector.connect()
     except Exception as e:
         logger.error(f"server_start error: {e}")
         

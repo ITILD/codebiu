@@ -6,13 +6,13 @@ from common.utils.db.schema.pagination import (
     ScrollDirection,
 )
 from common.config.db import DaoRel
-from module_file.do.file import File, FileCreate, FileUpdate
+from module_file.do.filesystem import FileEntry, FileEntryCreate, FileEntryUpdate
 
 
 class FileDao:
     @DaoRel
     async def add(
-        self, file: FileCreate, session: AsyncSession | None = None
+        self, file: FileEntryCreate, session: AsyncSession | None = None
     ) -> str:
         """
         新增文件记录
@@ -20,7 +20,7 @@ class FileDao:
         :param session: 可选数据库会话
         :return: 新创建文件的ID
         """
-        db_file = File.model_validate(file.model_dump(exclude_unset=True))
+        db_file = FileEntry.model_validate(file.model_dump(exclude_unset=True))
         session.add(db_file)
         await session.flush()
         return db_file.id
@@ -32,7 +32,7 @@ class FileDao:
         :param id: 要删除的文件ID
         :param session: 可选数据库会话
         """
-        file = await session.get(File, id)
+        file = await session.get(FileEntry, id)
         if not file:
             raise ValueError(f"未找到ID为 {id} 的文件")
         await session.delete(file)
@@ -42,7 +42,7 @@ class FileDao:
     async def update(
         self,
         file_id: str,
-        file: FileUpdate,
+        file: FileEntryUpdate,
         session: AsyncSession | None = None,
     ) -> str:
         """
@@ -57,7 +57,7 @@ class FileDao:
         update_data = file.model_dump(exclude_unset=True)
 
         # 执行直接更新
-        stmt = update(File).where(File.id == file_id).values(**update_data)
+        stmt = update(FileEntry).where(FileEntry.id == file_id).values(**update_data)
 
         result = await session.exec(stmt)
 
@@ -67,14 +67,14 @@ class FileDao:
         await session.flush()
 
     @DaoRel
-    async def get(self, id, session: AsyncSession | None = None) -> File | None:
+    async def get(self, id, session: AsyncSession | None = None) -> FileEntry | None:
         """
         查询单个文件
         :param id: 要查询的文件ID
         :param session: 可选数据库会话
         :return: 文件对象，未找到返回None
         """
-        return await session.get(File, id)
+        return await session.get(FileEntry, id)
 
     @DaoRel
     async def list_all(
@@ -86,7 +86,7 @@ class FileDao:
         :param session: 可选数据库会话
         :return: 文件列表
         """
-        statement = select(File).offset(pagination.offset).limit(pagination.limit)
+        statement = select(FileEntry).offset(pagination.offset).limit(pagination.limit)
         result = await session.exec(statement)
         return result.all()
 
@@ -100,18 +100,18 @@ class FileDao:
         :param session: 可选数据库会话
         :return: 文件列表
         """
-        statement = select(File)
+        statement = select(FileEntry)
         # 设置默认排序字段为 created_at
         sort_by = params.sort_by if params.sort_by else "created_at"
         # 根据游标
         if params.last_id:
-            last_file = await session.get(File, params.last_id)
+            last_file = await session.get(FileEntry, params.last_id)
             if not last_file:
                 raise ValueError(f"未找到ID为 {params.last_id} 的文件")
             
             # 获取排序字段的值
             sort_value = getattr(last_file, sort_by)
-            search_value = getattr(File, sort_by)
+            search_value = getattr(FileEntry, sort_by)
             condition = None
             if params.direction == ScrollDirection.UP:
                 condition = search_value > sort_value
@@ -122,9 +122,9 @@ class FileDao:
         order = None
         if params.direction == ScrollDirection.UP:
             # 升序：从小到大，从早到晚
-            order = getattr(File, sort_by).asc()
+            order = getattr(FileEntry, sort_by).asc()
         else:
-            order = getattr(File, sort_by).desc()
+            order = getattr(FileEntry, sort_by).desc()
         statement = statement.order_by(order)
         # 限制结果数量  实际查询 limit + 1 条
         statement = statement.limit(params.limit + 1)
@@ -138,18 +138,18 @@ class FileDao:
         :param session: 可选数据库会话
         :return: 文件总数
         """
-        statement = select(func.count(File.id))
+        statement = select(func.count(FileEntry.id))
         result = await session.exec(statement)
         return result.one()
 
     @DaoRel
-    async def get_by_md5(self, md5: str, session: AsyncSession | None = None) -> File | None:
+    async def get_by_md5(self, md5: str, session: AsyncSession | None = None) -> FileEntry | None:
         """
         根据MD5查询文件(用于文件去重)
         :param md5: 文件MD5值
         :param session: 可选数据库会话
         :return: 文件对象，未找到返回None
         """
-        statement = select(File).where(File.md5 == md5)
+        statement = select(FileEntry).where(FileEntry.md5 == md5)
         result = await session.exec(statement)
         return result.first()

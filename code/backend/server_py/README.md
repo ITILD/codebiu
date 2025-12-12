@@ -4,8 +4,8 @@
 
 ## 项目结构
 
-
 ## 开发
+
 ```bash
 # 拉取基础代码(如果需要)
 git clone http://zwork1.w1.luyouxia.net/gitea/codebiu_2025/base_server.git
@@ -19,6 +19,7 @@ uv sync
 ```
 
 ## 测试
+
 ```sh
 # pytest配置
 # .vscode\settings.json里添加
@@ -30,13 +31,20 @@ uv sync
   ]
 }
 ```
+
 ## 打包exe或docker
+
 ```sh
 # dev
 bash build/docker_dev/build.sh
 # 构建 exe bin
 bash build/docker_build/linux_build.sh
 bash build/docker_build/build.sh
+
+# 运行
+docker compose up
+docker compose down
+docker compose 
 ```
 
 ## 基础mvc分层
@@ -47,20 +55,21 @@ graph TD
     B -->|调用| C[Service]
     C -->|调用| D[DAO]
     D -->|操作| E[数据库]
-    
+  
     F[dependence] -.->|依赖注入| B
     F -.->|依赖注入| C  
     F -.->|依赖注入| D
-    
+  
     subgraph "数据和相关的行为"
         G[DO<br/>Domain Object]
     end
-    
+  
     G -.->|数据传输| B
     G -.->|数据处理| C
     G -.->|数据持久化| D
 ```
 
 ## 项目文档
+
 - [版本信息](./doc/tag_doc/version_info.md)
 - [依赖库](./doc/env/lib.md)

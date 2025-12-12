@@ -17,9 +17,9 @@ class DBVectorMilvus(DBVectorInterface):
             milvus_config: Milvus数据库配置对象
         """
         self.milvus_config = milvus_config
-        self.client = None
+        self.async_client  = None
 
-    async def connect(self, log_bool=False):
+    def connect(self, log_bool=False):
         """
         建立数据库连接
 
