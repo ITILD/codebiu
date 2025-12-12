@@ -1,13 +1,15 @@
 from pymilvus import AsyncMilvusClient, DataType, CollectionSchema, FieldSchema, connections
 from common.utils.db.do.db_config import MilvusLiteConfig
 from common.utils.db.session.interface.db_vector_interface import DBVectorInterface
-
+from pathlib import Path
 
 class DBVectorMilvusLite(DBVectorInterface):
     """
     Milvus Lite向量数据库实现
     封装向量数据库操作
     """
+    database:str = None
+    async_client:AsyncMilvusClient = None
 
     def __init__(self, milvus_config: MilvusLiteConfig):
         """
@@ -16,8 +18,7 @@ class DBVectorMilvusLite(DBVectorInterface):
         Args:
             milvus_config: Milvus Lite数据库配置对象
         """
-        self.milvus_config = milvus_config
-        self.client = None
+        self.database = Path(milvus_config.database).absolute().as_posix()
 
     async def connect(self, log_bool=False):
         """
@@ -28,10 +29,10 @@ class DBVectorMilvusLite(DBVectorInterface):
         """
         try:
             # 创建Milvus客户端实例
-            self.client = AsyncMilvusClient(self.milvus_config.database)
+            self.async_client = AsyncMilvusClient(self.database)
 
             if log_bool:
-                print(f"Milvus Lite数据库连接成功: {self.milvus_config.database}")
+                print(f"Milvus Lite数据库连接成功: {self.database}")
         except Exception as e:
             raise Exception(f"Milvus Lite数据库连接失败: {e}")
 

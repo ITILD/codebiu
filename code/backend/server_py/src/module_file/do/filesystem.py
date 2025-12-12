@@ -1,4 +1,4 @@
-from sqlmodel import Column, DateTime, Field, SQLModel, Relationship
+from sqlmodel import Column, DateTime, Field, SQLModel
 from uuid import uuid4
 from datetime import datetime, timezone
 from enum import Enum
@@ -73,7 +73,6 @@ class FileEntry(FileEntryBase, table=True):
     # === 关联字段 ===
     pid: str | None = Field(
         default=None,
-        foreign_key="fsentry.id",
         description="父条目ID",
     )
 
