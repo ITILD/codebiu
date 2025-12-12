@@ -38,7 +38,6 @@ db_vector: DBVectorInterface = None
 if conf.db_vector.type:
     db_vector_config: DBConfig = DBEX.get_config(conf.db_vector.type, conf.db_vector)
     db_vector = DBFactory.create_vector(db_vector_config)
-    # db_vector.connect(is_dev)
     
 #  图数据库(neo4j/kuzu)
 db_graph: DBGraphInterface = None
@@ -46,3 +45,14 @@ if conf.db_graph.type:
     db_graph_config: DBConfig = DBEX.get_config(conf.db_graph.type, conf.db_graph)
     db_graph = DBFactory.create_graph(db_graph_config)
     db_graph.connect(is_dev)
+
+
+async def dbs_start():
+    # 创建所有数据库表
+    await db_rel.create_all()
+    # 向量数据库连接
+    await db_vector.connect()
+
+async def dbs_end():
+    # 部分嵌入式数据库存储
+    pass

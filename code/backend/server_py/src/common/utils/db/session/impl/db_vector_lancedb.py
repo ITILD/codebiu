@@ -21,7 +21,7 @@ class DBVectorLancedb(DBVectorInterface):
         Args:
             lancedb_config: LanceDB数据库配置对象
         """
-        self.database = Path(lancedb_config.database).absolute().as_posix()
+        self.database = Path(lancedb_config.database).resolve().as_posix()
 
     async def connect(self, log_bool=False):
         """
@@ -38,3 +38,4 @@ class DBVectorLancedb(DBVectorInterface):
                 logger.info(f"LanceDB数据库连接成功: {self.database}")
         except Exception as e:
             raise Exception(f"LanceDB数据库连接失败: {e}")
+    

@@ -84,7 +84,7 @@ class DBEX:
         # db_vector
         elif type == "milvus":
             return MilvusConfig.model_validate(config_dict)
-        elif type == "milvus_lite":
+        elif type == "lancedb":
             return LancedbConfig.model_validate(config_dict)
         else:
             raise ValueError(f"get_config 未知模型类型:{type}")
