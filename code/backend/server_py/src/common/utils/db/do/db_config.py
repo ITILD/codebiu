@@ -46,7 +46,7 @@ class MilvusConfig(DBConfig):
     database: str = Field(..., description="数据库名/持久化地址")
 
 
-class MilvusLiteConfig(DBConfig):
+class LancedbConfig(DBConfig):
     """Milvus Lite数据库配置"""
 
     database: str = Field(..., description="数据库名/持久化地址")
@@ -85,6 +85,6 @@ class DBEX:
         elif type == "milvus":
             return MilvusConfig.model_validate(config_dict)
         elif type == "milvus_lite":
-            return MilvusLiteConfig.model_validate(config_dict)
+            return LancedbConfig.model_validate(config_dict)
         else:
             raise ValueError(f"get_config 未知模型类型:{type}")

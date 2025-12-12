@@ -16,7 +16,7 @@ from common.utils.db.session.interface.db_cache_interface import DBCacheInterfac
 from common.utils.db.session.interface.db_vector_interface import DBVectorInterface
 from common.utils.db.session.interface.db_graph_interface import DBGraphInterface
 from common.utils.db.session.impl.db_vector_milvus import DBVectorMilvus
-from common.utils.db.session.impl.db_vector_milvus_lite import DBVectorMilvusLite
+from common.utils.db.session.impl.db_vector_lancedb import DBVectorLancedb
 from common.utils.db.session.impl.db_graph_neo4j import DBGraphNeo4j
 from common.utils.db.session.impl.db_graph_kuzu import DBGraphKuzu
 
@@ -48,7 +48,7 @@ class DBFactory:
         if isinstance(db_config, MilvusConfig):
             db_vector = DBVectorMilvus(db_config)
         else:
-            db_vector = DBVectorMilvusLite(db_config)
+            db_vector = DBVectorLancedb(db_config)
         return db_vector
 
     @classmethod
