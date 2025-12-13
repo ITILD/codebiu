@@ -69,7 +69,7 @@ class SystemMonitor:
 
     async def _get_gpu_info(self) -> list[GPUInfo]:
         """
-        获取 GPU 信息（自动检测 NVIDIA 或 AMD）
+        获取 GPU 信息(自动检测 NVIDIA 或 AMD)
 
         返回:
             list: GPU 信息列表，若未检测到 GPU 则返回空列表
@@ -155,7 +155,7 @@ class SystemMonitor:
             return []
 
     async def get_process_info(self, pid, interval=0.2) -> ProcessInfo | None:
-        """获取指定进程的详细信息（更精确的CPU使用率计算）"""
+        """获取指定进程的详细信息(更精确的CPU使用率计算)"""
         try:
             p = psutil.Process(pid)
 
@@ -182,7 +182,7 @@ class SystemMonitor:
             return None
 
     async def get_top_processes(self, count=5, interval=1.0) -> list[TopProcessInfo]:
-        """获取资源占用最高的进程列表（改进版）"""
+        """获取资源占用最高的进程列表(改进版)"""
         # 第一次采样
         first_sample = {}
         for p in psutil.process_iter(["pid", "cpu_times"]):

@@ -13,9 +13,9 @@ class CasbinRuleService:
         """添加策略规则
 
         Args:
-            sub: 主体（用户或角色）
-            obj: 对象（资源）
-            act: 动作（操作）
+            sub: 主体(用户或角色)
+            obj: 对象(资源)
+            act: 动作(操作)
 
         Returns:
             是否添加成功
@@ -35,9 +35,9 @@ class CasbinRuleService:
         """删除策略规则
 
         Args:
-            sub: 主体（用户或角色）
-            obj: 对象（资源）
-            act: 动作（操作）
+            sub: 主体(用户或角色)
+            obj: 对象(资源)
+            act: 动作(操作)
 
         Returns:
             是否删除成功
@@ -123,8 +123,8 @@ class CasbinRuleService:
 
         Args:
             user_id: 用户ID
-            obj: 对象（资源）
-            act: 动作（操作）
+            obj: 对象(资源)
+            act: 动作(操作)
 
         Returns:
             是否有权限

@@ -41,7 +41,7 @@ async def list_permissions(
     :return: 分页响应结果
     """
     try:
-        return await service.list(pagination)
+        return await service.list_all(pagination)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)

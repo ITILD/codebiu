@@ -48,11 +48,11 @@ class VectorSqlite(UserDefinedType):
             raise NotImplementedError("Use VecItemManager.search() instead")
 
 
-# 注册类型（可选，主要用于反射）
+# 注册类型(可选，主要用于反射)
 ischema_names["vector"] = VectorSqlite
 
 
-# 普通表：只存原始数据（vector 以 BLOB 存，但不用于搜索）
+# 普通表：只存原始数据(vector 以 BLOB 存，但不用于搜索)
 class VecItem(SQLModel, table=True):
     __tablename__ = "vec_items"
     id: int | None = Field(default=None, primary_key=True)
@@ -85,13 +85,13 @@ class VecItemManager:
         self.conn.commit()
 
     def add_item(self, item_id: int, vector: list[float], content: str | None = None):
-        # 1. 插入到普通表（用于存储元数据）
+        # 1. 插入到普通表(用于存储元数据)
         with Session(self.engine) as session:
             item = VecItem(id=item_id, embedding=vector, content=content)
             session.add(item)
             session.commit()
 
-        # 2. 插入到虚拟表（用于向量搜索）
+        # 2. 插入到虚拟表(用于向量搜索)
         blob = struct.pack(f"{len(vector)}f", *np.array(vector, dtype=np.float32))
         self.conn.execute(
             f"INSERT INTO {self.table_name}_vec(rowid, embedding) VALUES (?, ?)",

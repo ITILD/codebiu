@@ -43,5 +43,14 @@ async def network_status(
         return await status_service.network_status()
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+# 查看挂载数量
+@router.get("/mount_count", summary="查看app挂载路由")
+async def mount_count(
+    status_service: StatusService = Depends(get_status_service_singleton),
+) -> list:
+    try:
+        return await status_service.mount_count(app)
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 app.include_router(router, prefix="/server_status", tags=["server_status"])

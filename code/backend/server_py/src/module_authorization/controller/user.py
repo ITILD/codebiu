@@ -8,7 +8,7 @@ from module_authorization.config.server import module_app
 router = APIRouter()
 
 @router.post(
-    "", summary="创建用户", status_code=status.HTTP_201_CREATED, response_model=str
+    "", summary="创建用户", status_code=status.HTTP_201_CREATED
 )
 async def create_user(
     user: UserCreate,
@@ -43,13 +43,13 @@ async def list_users(
     :return: 分页响应结果
     """
     try:
-        return await service.list(pagination)
+        return await service.list_all(pagination)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
-@router.get("/{user_id}", summary="获取单个用户", response_model=User)
+@router.get("/{user_id}", summary="获取单个用户")
 async def get_user(
     user_id: str,
     service: UserService = Depends(get_user_service)

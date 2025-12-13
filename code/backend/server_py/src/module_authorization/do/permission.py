@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 
 class PermissionBase(SQLModel):
-    """权限基础模型（不含数据库表配置）"""
+    """权限基础模型(不含数据库表配置)"""
     
     name: str = Field(..., max_length=100, description="权限名称")
     code: str = Field(..., max_length=100, description="权限代码")
@@ -16,7 +16,7 @@ class PermissionBase(SQLModel):
 
 
 class Permission(PermissionBase, table=True):
-    """权限数据库模型（对应数据库表）"""
+    """权限数据库模型(对应数据库表)"""
     
     id: str = Field(
         default_factory=lambda: uuid4().hex,

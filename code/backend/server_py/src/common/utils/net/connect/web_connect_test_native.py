@@ -48,7 +48,7 @@ class WebConnectTestNative:
                 port = 443
             else:
                 port = 80
-        # 创建SSL上下文（如果需要）
+        # 创建SSL上下文(如果需要)
         ssl_context = None
         if parsed.scheme == "https":
             ssl_context = ssl.create_default_context()

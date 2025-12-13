@@ -64,7 +64,7 @@ if __name__ == "__main__":
 
     # 测试
     print(sync_func(2))  # 会打印"计算同步函数..."
-    print(sync_func(2))  # 5秒内不会打印（使用缓存）
+    print(sync_func(2))  # 5秒内不会打印(使用缓存)
 
     import asyncio
 

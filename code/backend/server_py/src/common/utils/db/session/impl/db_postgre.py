@@ -76,7 +76,7 @@ class DBPostgre(DBRelationInterface):
             await conn.run_sync(SQLModel.metadata.drop_all)
 
     async def exec(self, sql, session: AsyncSession = None):
-        """执行原生SQL（支持外部传入session以支持事务）
+        """执行原生SQL(支持外部传入session以支持事务)
 
         Args:
             sql: SQL语句
@@ -124,7 +124,7 @@ class DBPostgre(DBRelationInterface):
         return result.rowcount
 
     async def upsert(self, model, data, session: AsyncSession):
-        """更新或插入数据（排除未设置的字段)
+        """更新或插入数据(排除未设置的字段)
         return: 更新1或插入0
         """
         update_data = data.model_dump(exclude_unset=True)
@@ -142,7 +142,7 @@ class DBPostgre(DBRelationInterface):
     async def upsert_batch(self, model, data_list, session: AsyncSession):
         """
         通用的批量插入/更新方法
-        适用于大多数SQL数据库（不依赖特定数据库功能）
+        适用于大多数SQL数据库(不依赖特定数据库功能)
 
         参数:
             model: SQLModel 表模型类

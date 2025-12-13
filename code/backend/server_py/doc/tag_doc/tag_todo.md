@@ -5,7 +5,7 @@
 
 在我们开始编码之前，先简单理解一下这三个核心组件：
 
-  * **FastAPI**: 一个现代、快速（高性能）的 Python Web 框架，用于构建 API。它基于标准的 Python类型提示，可以自动生成交互式 API 文档（Swagger UI 和 ReDoc）。
+  * **FastAPI**: 一个现代、快速(高性能)的 Python Web 框架，用于构建 API。它基于标准的 Python类型提示，可以自动生成交互式 API 文档(Swagger UI 和 ReDoc)。
   * **SQLModel**: 由 FastAPI 的作者创建，它结合了 SQLAlchemy 和 Pydantic 的优点。你可以用它来创建同时具备数据库模型和数据校验功能的 Python 类，从而减少代码冗余。
   * **Casbin**: 一个强大且高效的开源访问控制库。其核心思想是将访问控制模型、策略和请求进行解耦。它支持多种访问控制模型，如 ACL, RBAC, ABAC 等。我们这里主要使用 RBAC。
 
@@ -67,7 +67,7 @@ e = some(where (p.eft == allow))
 
 # Matchers
 # 匹配器：定义如何匹配请求和策略
-# r.sub == p.sub：请求的主体（用户/角色）与策略中的主体匹配
+# r.sub == p.sub：请求的主体(用户/角色)与策略中的主体匹配
 # r.obj == p.obj：请求的资源与策略中的资源匹配
 # r.act == p.act：请求的动作与策略中的动作匹配
 # g(r.sub, p.sub) 是一个关键函数，表示 r.sub (请求者) 是否属于 p.sub (策略中定义的角色)

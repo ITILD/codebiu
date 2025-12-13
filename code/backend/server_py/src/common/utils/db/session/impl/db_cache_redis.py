@@ -6,7 +6,8 @@ from common.utils.db.do.db_config import RedisConfig
 
 class DBCacheRedis(DBCacheInterface):
     """Redis 缓存实现类"""
-
+    async_redis: AsyncRedis = None
+    
     def __init__(self, redis_config: RedisConfig):
         """初始化 Redis 缓存连接
 

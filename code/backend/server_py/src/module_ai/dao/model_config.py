@@ -51,7 +51,7 @@ class ModelConfigDao:
         :param model_config: 模型配置更新数据
         :param session: 可选数据库会话
         """
-        # 准备更新数据（排除未设置的字段）
+        # 准备更新数据(排除未设置的字段)
         update_data = model_config.model_dump(exclude_unset=True)
 
         # 执行直接更新
@@ -76,7 +76,7 @@ class ModelConfigDao:
 
 
     @DaoRel
-    async def list(self, pagination: PaginationParams, session: AsyncSession | None = None) -> list[ModelConfig]:
+    async def list_all(self, pagination: PaginationParams, session: AsyncSession | None = None) -> list[ModelConfig]:
         """
         分页获取模型配置列表
         :param pagination: 分页参数

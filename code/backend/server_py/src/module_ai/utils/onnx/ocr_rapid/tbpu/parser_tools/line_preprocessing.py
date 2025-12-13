@@ -24,7 +24,7 @@ def _calculateAngle(box):
         angle_rad = atan2(box[2][1] - box[1][1], box[2][0] - box[1][0])
     else:
         angle_rad = atan2(box[1][1] - box[0][1], box[1][0] - box[0][0])
-    # 标准化角度到[-pi/2, pi/2)范围（加上阈值）
+    # 标准化角度到[-pi/2, pi/2)范围(加上阈值)
     if angle_rad < -pi / 2 + angle_threshold_rad:
         angle_rad += pi
     elif angle_rad >= pi / 2 + angle_threshold_rad:
@@ -40,9 +40,9 @@ def _estimateRotation(textBlocks):
     return median_angle
 
 
-# 获取旋转后的标准bbox。angle_threshold为执行旋转的阈值（最小角度值）。
+# 获取旋转后的标准bbox。angle_threshold为执行旋转的阈值(最小角度值)。
 def _getBboxes(textBlocks, rotation_rad):
-    # 角度低于阈值（接近0°），则不进行旋转，以提高性能。
+    # 角度低于阈值(接近0°)，则不进行旋转，以提高性能。
     if abs(rotation_rad) <= angle_threshold_rad:
         bboxes = [
             (  # 直接构造bbox

@@ -33,9 +33,9 @@ def resize_norm_img(img, img_w, img_h, img_c):
 
     参数：
         img: 输入图像，形状为 (height, width, channels)
-        img_w: 目标宽度（网络输入要求）
-        img_h: 目标高度（网络输入要求）
-        img_c: 目标通道数（网络输入要求）
+        img_w: 目标宽度(网络输入要求)
+        img_h: 目标高度(网络输入要求)
+        img_c: 目标通道数(网络输入要求)
 
     返回：
         预处理后的图像，形状为 (channels, height, width)

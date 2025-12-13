@@ -1,4 +1,10 @@
-from common.utils.db.do.db_config import DBConfig, PostgresConfig, RedisConfig
+from common.utils.db.do.db_config import (
+    DBConfig,
+    PostgresConfig,
+    RedisConfig,
+    MilvusConfig,
+    Neo4jConfig,
+)
 from common.utils.db.session.impl.db_postgre import DBPostgre
 from common.utils.db.session.impl.db_sqlite import DBSqlite
 from common.utils.db.session.interface.db_relational_interface import (
@@ -7,6 +13,12 @@ from common.utils.db.session.interface.db_relational_interface import (
 from common.utils.db.session.impl.db_cache_redis import DBCacheRedis
 from common.utils.db.session.impl.db_cache_fakeredis import DBCacheFakeredis
 from common.utils.db.session.interface.db_cache_interface import DBCacheInterface
+from common.utils.db.session.interface.db_vector_interface import DBVectorInterface
+from common.utils.db.session.interface.db_graph_interface import DBGraphInterface
+from common.utils.db.session.impl.db_vector_milvus import DBVectorMilvus
+from common.utils.db.session.impl.db_vector_lancedb import DBVectorLancedb
+from common.utils.db.session.impl.db_graph_neo4j import DBGraphNeo4j
+from common.utils.db.session.impl.db_graph_kuzu import DBGraphKuzu
 
 
 class DBFactory:
@@ -30,3 +42,22 @@ class DBFactory:
         else:
             db_cache = DBCacheFakeredis(db_config)
         return db_cache
+
+    @classmethod
+    def create_vector(cls, db_config: DBConfig) -> DBVectorInterface:
+        if isinstance(db_config, MilvusConfig):
+            db_vector = DBVectorMilvus(db_config)
+        else:
+            db_vector = DBVectorLancedb(db_config)
+        return db_vector
+
+    @classmethod
+    def create_graph(cls, db_config: DBConfig) -> DBGraphInterface:
+        if isinstance(
+            db_config,
+            Neo4jConfig,
+        ):
+            db_graph = DBGraphNeo4j(db_config)
+        else:
+            db_graph = DBGraphKuzu(db_config)
+        return db_graph

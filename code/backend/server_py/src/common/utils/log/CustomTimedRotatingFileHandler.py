@@ -9,7 +9,7 @@ from pathlib import Path
 
 class CustomTimedRotatingFileHandler(TimedRotatingFileHandler):
     def __init__(self, file:Path, when, interval, backupCount, custom_function=None, **kwargs):
-        # 将 filename_pattern 转换为字符串（兼容 Path 对象）
+        # 将 filename_pattern 转换为字符串(兼容 Path 对象)
         file_str = file.as_posix()
         # 使用当前时间格式化文件名作为初始文件名
         initial_filename = datetime.now().strftime(file_str)

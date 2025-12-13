@@ -47,14 +47,14 @@ class UserDao:
         session: AsyncSession | None = None,
     ):
         """
-        直接更新用户记录（不先查询）
+        直接更新用户记录(不先查询)
         :param user_id: 要更新的用户ID
         :param user: 用户更新数据
         :param session: 可选数据库会话
         :return: 更新成功的用户ID
         :raises: ValueError 如果用户不存在
         """
-        # 准备更新数据（排除未设置的字段）
+        # 准备更新数据(排除未设置的字段)
         update_data = user.model_dump(exclude_unset=True)
 
         # 执行直接更新
@@ -94,7 +94,7 @@ class UserDao:
         return result.first()
 
     @DaoRel
-    async def list(
+    async def list_all(
         self, pagination: PaginationParams, session: AsyncSession | None = None
     ):
         """

@@ -1,9 +1,10 @@
 state:
   is_dev: false
-  config_path: config.dev.yaml
+  # config_path: config.dev.yaml
+  config_path: false
 server:
   # 根路由代理
-  server_root_path: ''
+  server_root_path: ""
   host: 0.0.0.0
   port: 2001
 # 网络代理配置
@@ -26,32 +27,42 @@ dir:
     db:         db          # 数据库文件（如 SQLite、缓存等）
     test:       test        # 测试相关资源
     model:      model       # 模型文件
+    lib_third:  lib_third   # 第三方库文件
   public: public
-# 中间件配置 
+# 中间件配置
 middleware:
   cors: true
   gzip: true
+####################### 数据库配置
 # db_rel:
 #   type: postgres
 #   database: server_example
-#   host: ***
-#   port: ***
-#   user: ***
-#   password: ***
+#   host: localhost
+#   port: 5432
+#   user: postgres
+#   password: '123456'
 db_rel:
   type: sqlite
   database: temp_source\db\data.db
-# redis:
-#   type: redis
-#   host: 127.0.0.1
-#   port: 6379
-#   db: 0
-redis:
+db_cache:
   type: fakeredis
   database: temp_source\db\fakeredis.db
-# auth
+db_vector:
+  type: lancedb
+  database: temp_source\db\lancedb.db
+db_graph:
+  type: kuzu
+  database: temp_source\db\kuzu.db
+####################### auth 配置
 token:
   secret_key: qwer1234
   algorithm: HS256
-  expire_minutes: 30
+  expire_minutes: 30000
   refresh_expire_days: 20
+# 邮箱配置
+email:
+  smtp_server: todo
+  smtp_port: 465
+  sender_email: todo
+  sender_password: todo # 授权码
+  sender_name: todo # 发件人 可以不写

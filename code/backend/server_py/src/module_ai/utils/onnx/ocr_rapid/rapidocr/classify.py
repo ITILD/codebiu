@@ -28,7 +28,7 @@ class ClsPostProcess:
         
         Args:
             preds: 模型预测结果，形状为 [batch_size, num_classes]
-            label: 真实标签（可选）
+            label: 真实标签(可选)
             
         Returns:
             如果只提供了预测结果，则返回解码后的预测结果列表，每个元素为(标签, 置信度)
@@ -139,7 +139,7 @@ class TextClassifier:
             # 后处理分类结果
             cls_result = self.postprocess_op(prob_out)
 
-            # 处理分类结果并进行图像旋转（如果需要）
+            # 处理分类结果并进行图像旋转(如果需要)
             for rno in range(len(cls_result)):
                 label, score = cls_result[rno]
                 # 保存分类结果到对应位置

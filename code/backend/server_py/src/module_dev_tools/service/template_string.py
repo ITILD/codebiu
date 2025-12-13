@@ -112,7 +112,7 @@ class TemplateStringService:
             else:
                 variables_missing.append(var)
         
-        # 渲染模板（即使有缺失变量也尝试渲染）
+        # 渲染模板(即使有缺失变量也尝试渲染)
         try:
             rendered_content = template_obj.safe_substitute(render_request.variables)
         except Exception as e:

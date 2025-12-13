@@ -19,7 +19,7 @@
 本地或 Git 托管网站上创建项目：
 
 ```bash
-# 拉取基础代码（如果需要）
+# 拉取基础代码(如果需要)
 git clone http://zwork1.w1.luyouxia.net/gitea/codebiu_2025/base_server.git
 ```
 
@@ -44,14 +44,14 @@ uv add fastapi pydantic sqlmodel uvicorn --default-index https://pypi.tuna.tsing
 如果需要将生成的项目迁移到其他目录：
 
 ```bash
-# 删除main.py文件（Windows系统）
+# 删除main.py文件(Windows系统)
 del main.py
 # rm -rf ./main.py
 # 创建src
 mkdir src
 # 添加基础app.py
 # touch src/app.py
-# 添加基础app.py（Windows系统）
+# 添加基础app.py(Windows系统)
 echo "" > src/app.py
 ```
 

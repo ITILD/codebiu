@@ -69,7 +69,7 @@ async def verify_token(
     """
     验证访问令牌的有效性
     
-    - **token_access**: 要验证的访问令牌（通过查询参数传递）
+    - **token_access**: 要验证的访问令牌(通过查询参数传递)
     
     返回令牌中的有效载荷数据
     """
@@ -130,7 +130,7 @@ async def get_token_info(
     """
     获取令牌的详细信息
     
-    - **token_access**: 访问令牌（通过查询参数传递）
+    - **token_access**: 访问令牌(通过查询参数传递)
     
     返回令牌在数据库中的完整信息
     """
