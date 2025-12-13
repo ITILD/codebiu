@@ -44,14 +44,14 @@ class PermissionDao:
         session: AsyncSession | None = None,
     ):
         """
-        直接更新权限记录（不先查询）
+        直接更新权限记录(不先查询)
         :param permission_id: 要更新的权限ID
         :param permission: 权限更新数据
         :param session: 可选数据库会话
         :return: 更新成功的权限ID
         :raises: ValueError 如果权限不存在
         """
-        # 准备更新数据（排除未设置的字段）
+        # 准备更新数据(排除未设置的字段)
         update_data = permission.model_dump(exclude_unset=True)
 
         # 执行直接更新
@@ -87,7 +87,7 @@ class PermissionDao:
         return result.first()
 
     @DaoRel
-    async def list(
+    async def list_all(
         self, pagination: PaginationParams, session: AsyncSession | None = None
     ):
         """

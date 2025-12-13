@@ -15,7 +15,7 @@ class DBRelationInterface(ABC):
         初始化方法。
 
         子类必须实现此方法，通常用于接收数据库连接所需的配置参数
-        （例如：主机地址、端口、用户名、密码、数据库名等）。
+        (例如：主机地址、端口、用户名、密码、数据库名等)。
         """
         raise NotImplementedError("子类必须实现 __init__ 方法")
 
@@ -44,7 +44,7 @@ class DBRelationInterface(ABC):
         重新连接数据库。
 
         通常在连接丢失或需要刷新连接时调用。
-        子类需要实现断开现有连接（如果需要）并重新建立连接的逻辑。
+        子类需要实现断开现有连接(如果需要)并重新建立连接的逻辑。
         """
         raise NotImplementedError("子类必须实现 reconnect 方法")
 

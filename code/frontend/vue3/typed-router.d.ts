@@ -19,13 +19,15 @@ declare module 'vue-router/auto-routes' {
    */
   export interface RouteNamedMap {
     '/': RouteRecordInfo<'/', '/', Record<never, never>, Record<never, never>>,
-    '/_server': RouteRecordInfo<'/_server', '/_server', Record<never, never>, Record<never, never>, '/_server/' | '/_server/database/overview' | '/_server/database/template' | '/_server/test' | '/_server/test1' | '/_server/test2'>,
+    '/_server': RouteRecordInfo<'/_server', '/_server', Record<never, never>, Record<never, never>, '/_server/' | '/_server/ai/chat' | '/_server/ai/ocr' | '/_server/authorization/user' | '/_server/database/model_config' | '/_server/database/overview' | '/_server/database/template' | '/_server/template/template'>,
     '/_server/': RouteRecordInfo<'/_server/', '/_server', Record<never, never>, Record<never, never>>,
+    '/_server/ai/chat': RouteRecordInfo<'/_server/ai/chat', '/_server/ai/chat', Record<never, never>, Record<never, never>>,
+    '/_server/ai/ocr': RouteRecordInfo<'/_server/ai/ocr', '/_server/ai/ocr', Record<never, never>, Record<never, never>>,
+    '/_server/authorization/user': RouteRecordInfo<'/_server/authorization/user', '/_server/authorization/user', Record<never, never>, Record<never, never>>,
+    '/_server/database/model_config': RouteRecordInfo<'/_server/database/model_config', '/_server/database/model_config', Record<never, never>, Record<never, never>>,
     '/_server/database/overview': RouteRecordInfo<'/_server/database/overview', '/_server/database/overview', Record<never, never>, Record<never, never>>,
     '/_server/database/template': RouteRecordInfo<'/_server/database/template', '/_server/database/template', Record<never, never>, Record<never, never>>,
-    '/_server/test': RouteRecordInfo<'/_server/test', '/_server/test', Record<never, never>, Record<never, never>>,
-    '/_server/test1': RouteRecordInfo<'/_server/test1', '/_server/test1', Record<never, never>, Record<never, never>>,
-    '/_server/test2': RouteRecordInfo<'/_server/test2', '/_server/test2', Record<never, never>, Record<never, never>>,
+    '/_server/template/template': RouteRecordInfo<'/_server/template/template', '/_server/template/template', Record<never, never>, Record<never, never>>,
     '/[..all]': RouteRecordInfo<'/[..all]', '/:ll(.*)', { ll: ParamValue<true> }, { ll: ParamValue<false> }>,
     '/AboutView': RouteRecordInfo<'/AboutView', '/AboutView', Record<never, never>, Record<never, never>>,
   }
@@ -46,11 +48,27 @@ declare module 'vue-router/auto-routes' {
       views: never
     }
     'src/pages/_server.vue': {
-      routes: '/_server' | '/_server/' | '/_server/database' | '/_server/database/overview' | '/_server/database/template' | '/_server/test' | '/_server/test1' | '/_server/test2'
+      routes: '/_server' | '/_server/' | '/_server/ai' | '/_server/authorization' | '/_server/ai/chat' | '/_server/database' | '/_server/database/model_config' | '/_server/ai/ocr' | '/_server/database/overview' | '/_server/database/template' | '/_server/template' | '/_server/template/template' | '/_server/authorization/user'
       views: 'default'
     }
     'src/pages/_server/index.vue': {
       routes: '/_server/'
+      views: never
+    }
+    'src/pages/_server/ai/chat.vue': {
+      routes: '/_server/ai/chat'
+      views: never
+    }
+    'src/pages/_server/ai/ocr.vue': {
+      routes: '/_server/ai/ocr'
+      views: never
+    }
+    'src/pages/_server/authorization/user.vue': {
+      routes: '/_server/authorization/user'
+      views: never
+    }
+    'src/pages/_server/database/model_config.vue': {
+      routes: '/_server/database/model_config'
       views: never
     }
     'src/pages/_server/database/overview.vue': {
@@ -61,16 +79,8 @@ declare module 'vue-router/auto-routes' {
       routes: '/_server/database/template'
       views: never
     }
-    'src/pages/_server/test.vue': {
-      routes: '/_server/test'
-      views: never
-    }
-    'src/pages/_server/test1.vue': {
-      routes: '/_server/test1'
-      views: never
-    }
-    'src/pages/_server/test2.vue': {
-      routes: '/_server/test2'
+    'src/pages/_server/template/template.vue': {
+      routes: '/_server/template/template'
       views: never
     }
     'src/pages/[..all].vue': {

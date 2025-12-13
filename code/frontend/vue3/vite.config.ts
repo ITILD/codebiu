@@ -16,8 +16,8 @@ import IconsResolver from 'unplugin-icons/resolver' //图标插件
 import path from 'path'
 const pathSrc = path.resolve(__dirname, 'src')
 // 代理
-import { createProxy } from './build/vite/proxy'; // 代理
-import { killPort } from './build/vite/kill_port';
+import { createProxy } from './tools/vite/proxy'; // 代理
+import { killPort } from './tools/vite/kill_port';
 // https://vite.dev/config/
 export default defineConfig(
   ({ mode }) => {

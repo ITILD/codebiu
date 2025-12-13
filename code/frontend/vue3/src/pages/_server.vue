@@ -4,12 +4,12 @@
     <div flex w-full>
         <!-- 左侧菜单 -->
         <el-menu h-full :default-active="routerStore.routerPath.now" :router="true" overflow-y-auto
-            :collapse="isCollapse" :class="!isCollapse ? 'w-60' : ''" @select="handleSelect">
+            :collapse="isCollapse" :w="!isCollapse ? '60' : ''" @select="handleSelect">
             <!-- Logo 区域（折叠时隐藏文字） -->
             <div flex items-center justify-between p-3 border-b h-12>
                 <div flex items-center transition-all duration-300 ease-in-out>
                     <transition name="fade" mode="out-in">
-                        <span v-if="!isCollapse" class="pl-4 text-xl font-bold whitespace-nowrap">Server State</span>
+                        <span v-if="!isCollapse" pl-4 text-xl font-bold whitespace-nowrap>Server State</span>
                     </transition>
                 </div>
                 <el-button transition-all duration-300 hover:scale-110 @click="isCollapse = !isCollapse"
@@ -32,16 +32,17 @@
                         <span>{{ item.title }}</span>
                     </template>
 
+                    <!-- 子菜单项 -->
                     <template v-for="child in item.children" :key="child.index">
                         <el-menu-item v-if="!child.children" :index="child.index" :disabled="child.disabled">
                             {{ child.title }}
                         </el-menu-item>
-
                         <el-sub-menu v-else :index="child.index">
+                            <!-- 子子菜单 -->
                             <template #title>{{ child.title }}</template>
-                            <el-menu-item v-for="grandChild in child.children" :key="grandChild.index"
-                                :index="grandChild.index" :disabled="grandChild.disabled">
-                                {{ grandChild.title }}
+                            <el-menu-item v-for="grandChild in child.children" :key="(grandChild as any).index"
+                                :index="(grandChild as any).index" :disabled="(grandChild as any).disabled">
+                                {{ (grandChild as any).title }}
                             </el-menu-item>
                         </el-sub-menu>
                     </template>
@@ -51,7 +52,7 @@
         <!-- 右侧菜单 -->
         <div flex-1 min-w-0 overflow-auto>
             <!-- flex剩余 -->
-            <router-view class="w-full h-full"></router-view>
+            <router-view w-full h-full></router-view>
         </div>
     </div>
 </template>
@@ -84,6 +85,20 @@ const menuItems = ref([
         children: null
     },
     {
+        index:'/authorization',
+        title: 'Authorization',
+        icon: Setting,
+        disabled: false,
+        children: [
+            {
+                index: '/_server/authorization/user',
+                title: 'user',
+                disabled: false,
+                children: null
+            }
+        ]
+    },
+    {
         index: '/db',
         title: 'DataBase',
         icon: Setting,
@@ -95,7 +110,21 @@ const menuItems = ref([
                 children: null
             },
             {
-                index: '/_server/database/template',
+                index: '/_server/database/model_config',
+                title: 'model_config',
+                disabled: false,
+                children: null
+            }
+        ]
+    },
+    {
+        index: '/template',
+        title: 'Template',
+        icon: Setting,
+        children: [
+
+            {
+                index: '/_server/template/template',
                 title: 'template',
                 disabled: false,
                 children: null
@@ -110,6 +139,12 @@ const menuItems = ref([
             {
                 index: '/_server/ai/ocr',
                 title: 'ocr',
+                disabled: false,
+                children: null
+            },
+            {
+                index: '/_server/ai/chat',
+                title: 'chat',
                 disabled: false,
                 children: null
             }

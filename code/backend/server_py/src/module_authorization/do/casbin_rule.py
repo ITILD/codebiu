@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 
 class CasbinRuleBase(SQLModel):
-    """Casbin规则基础模型（不含数据库表配置）"""
+    """Casbin规则基础模型(不含数据库表配置)"""
     ptype: str = Field(default="", max_length=255, description="策略类型")
     v0: str = Field(default="", max_length=255, description="主体")
     v1: str = Field(default="", max_length=255, description="对象")
@@ -15,7 +15,7 @@ class CasbinRuleBase(SQLModel):
 
 
 class CasbinRule(CasbinRuleBase, table=True):
-    """Casbin规则数据库模型（对应数据库表）"""
+    """Casbin规则数据库模型(对应数据库表)"""
     __tablename__ = "casbin_rule"
     __table_args__ = {'extend_existing': True}
     
@@ -62,9 +62,9 @@ class CasbinRuleResponse(CasbinRuleBase):
 # 策略模型
 class PolicyBase(BaseModel):
     """添加策略请求模型"""
-    sub: str  # 主体（用户或角色）
-    obj: str  # 对象（资源）
-    act: str  # 动作（操作）
+    sub: str  # 主体(用户或角色)
+    obj: str  # 对象(资源)
+    act: str  # 动作(操作)
     
     
 # 请求模型

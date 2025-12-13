@@ -4,12 +4,14 @@ from langchain_core.output_parsers import StrOutputParser
 from module_ai.do.model_config import ModelConfig, ModelConfigCreateRequest
 from module_ai.service.model_config import ModelConfigService
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_aws import BedrockEmbeddings, ChatBedrock
 from module_ai.do.llm_base import (
     Message,
     ChatRequest,
     EmbeddingRequest,
     CacheClearRequest,
 )
+from pydantic import SecretStr
 from module_ai.utils.llm.do.model_type import ModelType, ModelServerType
 import logging
 
@@ -84,7 +86,8 @@ class LLMBaseService:
         """聊天完成接口"""
         # 获取LLM处理链
         llm_chain = await self.get_llm(request.model_id, streaming=request.streaming)
-        messages = request.messages
+        # 由于ChatRequest的验证器已自动处理消息转换，messages现在一定是Message列表
+        messages = [msg.to_langchain_message() for msg in request.messages]
         try:
             # 调用模型
             if request.streaming:
@@ -138,8 +141,24 @@ class LLMBaseService:
         elif config.server_type == ModelServerType.VLLM:
             pass
         elif config.server_type == ModelServerType.AWS:
+            # if config.model_type == ModelType.CHAT:
+            #     return ChatBedrock(
+            #     provider="anthropic",
+            #     model_id=config.model,
+            #     aws_access_key_id=SecretStr(config.aws_access_key_id),
+            #     aws_secret_access_key=SecretStr(config.aws_secret_access_key),
+            #     region=config.region_name,
+            #     streaming=streaming,
+            # )
+            # elif config.model_type == ModelType.EMBEDDINGS:
+            # result_embeddings = BedrockEmbeddings(
+            #     model_id="amazon.titan-embed-text-v2:0",
+            #     aws_access_key_id=SecretStr(""),
+            #     aws_secret_access_key=SecretStr(""),
+            #     region_name="ap-northeast-1",
+            # )
             pass
 
 
-# 全局服务实例（通过单例模式确保全局唯一）
+# 全局服务实例(通过单例模式确保全局唯一)
 llm_base_service = LLMBaseService()

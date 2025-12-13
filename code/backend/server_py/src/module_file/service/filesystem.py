@@ -1,7 +1,7 @@
 # self
 from common.utils.db.schema.pagination import InfiniteScrollParams, InfiniteScrollResponse, PaginationParams, PaginationResponse
-from module_file.do.file import File, FileCreate, FileUpdate
-from module_file.dao.file import FileDao
+from module_file.do.filesystem import FileEntry, FileEntryCreate, FileEntryUpdate
+from module_file.dao.filesystem import FileDao
 import hashlib
 import secrets  # 导入secrets模块
 from fastapi import UploadFile, HTTPException
@@ -16,7 +16,7 @@ class FileService:
         self.file_dao = file_dao or FileDao()
         self.upload_dir = Path(DIR_UPLOAD)
 
-    async def add(self, file: FileCreate) -> str:
+    async def add(self, file: FileEntryCreate) -> str:
         return await self.file_dao.add(file)
 
     async def delete(self, id: str):
@@ -33,14 +33,14 @@ class FileService:
             # 删除数据库记录
             await self.file_dao.delete(id)
 
-    async def update(self, file_id: str, file: FileUpdate):
+    async def update(self, file_id: str, file: FileEntryUpdate):
         await self.file_dao.update(file_id, file)
 
-    async def get(self, id: str) -> File | None:
+    async def get(self, id: str) -> FileEntry | None:
         return await self.file_dao.get(id)
     
-    async def list(self, pagination: PaginationParams):
-        items = await self.file_dao.list(pagination)
+    async def list_all(self, pagination: PaginationParams):
+        items = await self.file_dao.list_all(pagination)
         total = await self.file_dao.count()
         return PaginationResponse.create(items, total, pagination)
     
@@ -65,7 +65,7 @@ class FileService:
         file: UploadFile,
         description: str = None,
         uploaded_by: str = None
-    ) -> File:
+    ) -> FileEntry:
         """
         上传文件
         :param file: 上传的文件对象
@@ -86,7 +86,7 @@ class FileService:
         # 计算MD5值
         md5 = hashlib.md5(content).hexdigest()
 
-        # 检查文件是否已存在（通过MD5）
+        # 检查文件是否已存在(通过MD5)
         existing_file = await self.file_dao.get_by_md5(md5)
         if existing_file:
             # 如果文件已存在，删除刚刚上传的文件返回存在的
@@ -94,7 +94,7 @@ class FileService:
             return existing_file
 
         # 创建文件记录
-        file_create = FileCreate(
+        file_create = FileEntryCreate(
             file_name=file.filename,
             file_path=str(file_path),
             file_size=len(content),

@@ -5,23 +5,32 @@
 FROM ubuntu:24.04
 # 设置环境变量
 ENV DEBIAN_FRONTEND=noninteractive \
+    TZ=Asia/Shanghai\
     PYTHON_VERSION=3.13 \
     UV_VERSION=latest
 # # 使用清华大学的apt源
 # RUN sed -i 's/http:\/\/archive.ubuntu.com/http:\/\/mirrors.tuna.tsinghua.edu.cn\/ubuntu/g' /etc/apt/sources.list
+
 # 安装基础依赖并清理缓存
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    ca-certificates \
     ca-certificates \
     curl \
     wget \
     gnupg \
+    libpq-dev \
+    gcc \
     lsb-release \
     build-essential \
     libssl-dev \
     zlib1g-dev \
     libffi-dev \
+    tzdata \
+    libpq5 \ 
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
+
 # 安装 uv (Python 包管理器)
 RUN echo "开始安装 uv..." && \
     curl -fsSL https://astral.sh/uv/install.sh | sh
@@ -35,11 +44,17 @@ RUN uv venv --python python${PYTHON_VERSION} /opt/venv
 COPY . /app
 # 查看复制了哪些文件
 RUN ls -la /app
+
+# 暴露必要的端口
 # 配置开发环境
 WORKDIR /app
+
+
 # 创建并激活虚拟环境
 RUN uv sync
+
 EXPOSE 8600
+
 # 字符集
 ENV LANG C.UTF-8
 # .venv/bin/python3.13 src/app.py

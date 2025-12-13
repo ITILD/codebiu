@@ -73,7 +73,12 @@ class HttpClient {
   // 响应拦截器
   private async responseInterceptor<T>(response: Response) {
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      let msg = `HTTP error! status: ${response.status}`;
+      try {
+        const err = await response.json();
+        if (typeof err.detail === 'string') msg = err.detail;
+      } catch { }
+      throw new Error(msg);
     }
     // 检查是否为 204 No Content 不需要返回任何实体内容
     if (response.status === 204) return null;
@@ -116,7 +121,6 @@ class HttpClient {
   post<T>(endpoint: string, body?: any, config?: RequestConfig): Promise<T> {
     // 对于FormData，不进行JSON序列化
     const requestBody = body instanceof FormData ? body : JSON.stringify(body);
-    
     return this.request(endpoint, {
       method: 'POST',
       body: requestBody,
@@ -139,4 +143,4 @@ class HttpClient {
 
 // 创建单例实例
 // export const http_base_server = new HttpClient({ apiPrefix: '/base_server' });
-export const http_base_server = new HttpClient({ apiPrefix: '/base_server',timeout:300000 });
+export const http_base_server = new HttpClient({ apiPrefix: '/base_server', timeout: 300000 });

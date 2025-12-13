@@ -1,27 +1,27 @@
 <template>
-  <div class="ocr-container">
-    <h1 class="text-center mb-5 text-2xl font-bold">OCR 文字识别</h1>
+  <div>
+    <h1 text-center mb-5 text-2xl font-bold>OCR 文字识别</h1>
 
     <!-- 文件上传和语言选择区域 -->
-    <el-card class="mb-5">
-      <div class="flex flex-col gap-4">
+    <el-card mb-5>
+      <div flex flex-col gap-4>
         <!-- 文件选择 -->
-        <div class="flex items-center gap-3">
+        <div flex items-center gap-3>
           <el-button type="primary" @click="triggerFileInput">
-            选择图片 <span class="text-xs ml-1">支持拖拽</span>
+            选择图片 <span text-xs ml-1>支持拖拽</span>
           </el-button>
           <input
             ref="fileInputRef"
             type="file"
-            class="hidden"
+            hidden
             accept="image/*"
             @change="handleFileChange"
           />
-          <span v-if="targetFile" class="text-gray-600">{{ targetFile.name }}</span>
+          <span v-if="targetFile" text-gray-600>{{ targetFile.name }}</span>
         </div>
 
         <!-- 识别语言选择 -->
-        <div class="flex items-center gap-3">
+        <div flex items-center gap-3>
           <span>识别语言:</span>
           <el-radio-group v-model="selectedLang">
             <el-radio
@@ -44,7 +44,7 @@
         </div>
 
         <!-- 翻译语言选择 -->
-        <div class="flex items-center gap-3">
+        <div flex items-center gap-3>
           <span>翻译语言:</span>
           <el-radio-group v-model="selectedLangTranslate">
             <el-radio
@@ -69,36 +69,43 @@
     </el-card>
 
     <!-- 结果展示区域 -->
-    <div v-if="targetFile" class="flex flex-col lg:flex-row gap-5">
+    <div v-if="targetFile" flex flex-col lg:flex-row gap-5>
       <!-- 图片预览和检测结果 -->
-      <el-card class="flex-1">
-        <div class="font-bold mb-3">文 本 检 测 结 果</div>
-        <div class="relative">
+      <el-card flex-1>
+        <div font-bold mb-3>文 本 检 测 结 果</div>
+        <div relative>
           <img
             :src="imageSrc"
             alt="目标图片"
-            class="max-w-full hidden"
+            max-w-full
+            hidden
             @load="onImageLoad"
           />
-          <canvas ref="canvasRef" class="max-w-full"></canvas>
+          <canvas ref="canvasRef" max-w-full></canvas>
           <div
             v-if="isProcessing"
-            class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30"
+            absolute
+            inset-0
+            flex
+            items-center
+            justify-center
+            bg-black
+            bg-opacity-30
           >
-            <el-icon class="is-loading text-white" size="48">
+            <el-icon is-loading text-white size="48">
               <Loading /></el-icon>
           </div>
         </div>
       </el-card>
 
       <!-- 识别结果表格 -->
-      <el-card class="flex-1">
-        <div class="font-bold mb-3">
+      <el-card flex-1>
+        <div font-bold mb-3>
           文 本 识 别 结果
           <span v-if="processingTime"> (Total: {{ processingTime.toFixed(3) }}s)</span>
         </div>
 
-        <div v-if="results.length" class="mb-3">
+        <div v-if="results.length" mb-3>
           <el-descriptions :column="3" size="small" border>
             <el-descriptions-item label="Det位置检测">{{ detectionTime.toFixed(3) }}s</el-descriptions-item>
             <el-descriptions-item label="Cls方向检测">{{ classificationTime.toFixed(3) }}s</el-descriptions-item>
@@ -127,12 +134,15 @@
     </div>
 
     <!-- 翻译背景图 -->
-    <el-card v-if="bgImage" class="mt-5">
-      <div class="font-bold mb-3">翻译背景图</div>
+    <el-card v-if="bgImage" mt-5>
+      <div font-bold mb-3>翻译背景图</div>
       <img
         :src="bgImage"
         alt="翻译背景图"
-        class="w-full border border-gray-300 rounded"
+        w-full
+        border
+        border-gray-300
+        rounded
       />
     </el-card>
   </div>

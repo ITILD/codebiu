@@ -1,5 +1,6 @@
-from common.config.index import conf
 from common.utils.security.token_util import TokenConfig
+# 从配置文件中读取token配置
+from common.config.index import conf
 import logging
 logger = logging.getLogger(__name__)
 token_config: TokenConfig = None

@@ -38,7 +38,7 @@ class TokenUtil:
         self.ACCESS_TOKEN_EXPIRE_MINUTES = config.expire_minutes
         self.REFRESH_TOKEN_EXPIRE_DAYS = config.refresh_expire_days
         # 加密 密码加密 Header和Payload部分分别进行Base64Url编码成消息字符串。
-        # 使用指定的算法（例如HMAC SHA256）和密钥对消息字符串进行签名
+        # 使用指定的算法(例如HMAC SHA256)和密钥对消息字符串进行签名
 
     def data2token(self, data: dict) -> str:
         """

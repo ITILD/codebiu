@@ -21,13 +21,13 @@ class CPUInfo(BaseModel):
 
 # GPU 信息模型
 class GPUInfo(BaseModel):
-    vendor: str           # GPU 厂商（NVIDIA 或 AMD）
+    vendor: str           # GPU 厂商(NVIDIA 或 AMD)
     id: int               # GPU ID
     name: str             # GPU 名称
-    total: float          # 显存总量（单位：MB）
-    used: float           # 已用显存（单位：MB）
+    total: float          # 显存总量(单位：MB)
+    used: float           # 已用显存(单位：MB)
     percent: float        # 显存使用率百分比
-    temp: float           # GPU 温度（单位：°C）
+    temp: float           # GPU 温度(单位：°C)
 
 # 硬件状态模型
 class HardwareStatus(BaseModel):
@@ -50,7 +50,7 @@ class ProcessInfo(BaseModel):
     status: str
     cpu_percent: float    # CPU 使用率百分比
     memory_percent: float # 内存使用率百分比
-    memory_rss: float     # RSS 内存占用（单位：MB）
+    memory_rss: float     # RSS 内存占用(单位：MB)
     create_time: datetime # 进程创建时间
     exe: str              # 可执行文件路径
     cmdline: list[str]    # 命令行参数
@@ -62,4 +62,4 @@ class TopProcessInfo(BaseModel):
     name: str
     cpu: float            # CPU 使用率百分比
     memory: float         # 内存使用率百分比
-    rss_mb: float         # RSS 内存占用（单位：MB）
+    rss_mb: float         # RSS 内存占用(单位：MB)

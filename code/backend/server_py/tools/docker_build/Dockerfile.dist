@@ -1,6 +1,6 @@
 FROM ubuntu:22.04
 
-# 安装运行时依赖（如果有）
+# 安装运行时依赖(如果有)
 RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 

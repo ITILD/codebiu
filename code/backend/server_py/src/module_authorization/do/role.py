@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 
 class RoleBase(SQLModel):
-    """角色基础模型（不含数据库表配置）"""
+    """角色基础模型(不含数据库表配置)"""
     
     name: str = Field(..., max_length=50, description="角色名称")
     description: str | None = Field( max_length=255, description="角色描述")
@@ -12,7 +12,7 @@ class RoleBase(SQLModel):
 
 
 class Role(RoleBase, table=True):
-    """角色数据库模型（对应数据库表）"""
+    """角色数据库模型(对应数据库表)"""
     
     id: str = Field(
         default_factory=lambda: uuid4().hex,

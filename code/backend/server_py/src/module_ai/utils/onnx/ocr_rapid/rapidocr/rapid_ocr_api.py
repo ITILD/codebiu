@@ -22,10 +22,6 @@ def get_rotate_crop_image(img, points, params_retry=None):
                 np.linalg.norm(points[1] - points[2]),
             )
         )
-        # 0.045
-        # 0.02
-        # 0.1
-        #  0.01
         # x方向倍数
         tempAddX = img_crop_height * params_retry[0]
         tempAddY = img_crop_height * params_retry[1]

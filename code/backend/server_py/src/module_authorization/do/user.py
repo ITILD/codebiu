@@ -4,19 +4,19 @@ from datetime import datetime, timezone
 
 
 class UserBase(SQLModel):
-    """用户基础模型（不含数据库表配置）"""
+    """用户基础模型(不含数据库表配置)"""
 
     username: str = Field(..., max_length=50, description="用户名")
     password: str = Field(..., max_length=255, description="密码")
-    email: str | None = Field( max_length=100, description="邮箱")
-    phone: str | None = Field( max_length=20, description="电话号码")
-    nickname: str | None = Field( max_length=50, description="昵称")
-    avatar: str | None = Field( max_length=255, description="头像")
+    email: str | None = Field(default=None,max_length=100, description="邮箱")
+    phone: str | None = Field(default=None,max_length=20, description="电话号码")
+    nickname: str | None = Field(default=None, max_length=50, description="昵称")
+    avatar: str | None = Field(default=None, max_length=255, description="头像")
     is_active: bool = Field(default=True, description="是否激活")
 
 
 class User(UserBase, table=True):
-    """用户数据库模型（对应数据库表）"""
+    """用户数据库模型(对应数据库表)"""
 
     id: str = Field(
         default_factory=lambda: uuid4().hex,
@@ -46,10 +46,16 @@ class UserCreate(UserBase):
     pass
 
 
-class UserUpdate(UserBase):
+class UserUpdate(SQLModel):
     """更新用户的请求模型"""
 
-    pass
+    username: str | None = Field(None, max_length=50, description="用户名")
+    password: str | None = Field(None, max_length=255, description="密码")
+    email: str | None = Field(None, max_length=100, description="邮箱")
+    phone: str | None = Field(None, max_length=20, description="电话号码")
+    nickname: str | None = Field(None, max_length=50, description="昵称")
+    avatar: str | None = Field(None, max_length=255, description="头像")
+    is_active: bool | None = Field(None, description="是否激活")
 
 
 class UserResponse(SQLModel):
