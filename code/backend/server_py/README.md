@@ -72,4 +72,5 @@ graph TD
 ## 项目文档
 
 - [版本信息](./doc/tag_doc/version_info.md)
-- [依赖库](./doc/env/lib.md)
+- [依赖库](./doc/dev/lib.md)
+- [项目目录](./doc/dev/dir.md)

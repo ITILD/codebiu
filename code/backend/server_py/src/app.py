@@ -5,7 +5,8 @@ from common.config.server import app
 
 # 引入路由
 from module_template.controller import static,template,template_ex,template_test
-from module_ai.controller import static as ai_static,model_config,llm_base,ocr 
+from module_ai.controller import static as ai_static,model_config,llm_base
+# ,ocr 
 from module_file.controller import filesystem
 from module_main.controller import static as main_static, status, db
 from module_authorization.controller import token, casbin_rule, permission, role, user,auth
