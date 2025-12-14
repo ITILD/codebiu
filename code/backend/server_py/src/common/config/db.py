@@ -44,7 +44,7 @@ db_graph: DBGraphInterface = None
 if conf.db_graph.type:
     db_graph_config: DBConfig = DBEX.get_config(conf.db_graph.type, conf.db_graph)
     db_graph = DBFactory.create_graph(db_graph_config)
-    db_graph.connect(is_dev)
+    # db_graph.connect(is_dev)
 
 
 async def dbs_start():
