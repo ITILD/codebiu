@@ -75,3 +75,5 @@ testpaths = ["tests"]
 pythonpath = ["src"]
 # ; 设置输出
 addopts = "-v -s --log-cli-level=INFO"
+# --maxfail: 出现几个失败才终止
+maxfail = 2

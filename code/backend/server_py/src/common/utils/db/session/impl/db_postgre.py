@@ -26,6 +26,8 @@ class DBPostgre(DBRelationInterface):
             self.url,
             # 开发模式下打印SQL语句
             echo=log_bool,
+            # 连接池检查连接是否有效
+            pool_pre_ping=True
         )
         self.session_factory = sessionmaker(
             self.engine, expire_on_commit=False, class_=AsyncSession

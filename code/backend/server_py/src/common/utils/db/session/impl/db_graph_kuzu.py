@@ -20,7 +20,7 @@ class DBGraphKuzu(DBGraphInterface):
         self.database = None
         self.connection = None
 
-    async def connect(self, log_bool=False):
+    def connect(self, log_bool=False):
         """
         建立数据库连接
 
