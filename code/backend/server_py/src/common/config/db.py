@@ -35,6 +35,7 @@ if conf.db_cache.type:
     
 # 向量化数据库(pymilvus)
 db_vector: DBVectorInterface = None
+
 if conf.db_vector.type:
     db_vector_config: DBConfig = DBEX.get_config(conf.db_vector.type, conf.db_vector)
     db_vector = DBFactory.create_vector(db_vector_config)
