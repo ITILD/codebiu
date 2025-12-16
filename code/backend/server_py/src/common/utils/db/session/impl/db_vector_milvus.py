@@ -3,15 +3,9 @@ from pymilvus import AsyncMilvusClient, DataType, CollectionSchema, FieldSchema,
 from common.utils.db.do.db_config import MilvusConfig
 from common.utils.db.session.interface.db_vector_interface import DBVectorInterface
 
-
 class VectorBase(BaseModel):
-    """向量基类"""
-    content_vec: DataType.FLOAT_VECTOR = FieldSchema(
-        name="content_vec",
-        dtype=DataType.FLOAT_VECTOR,
-        dim=1024,
-        description="向量字段",
-    )
+    """向量基类"""    
+    content_vec: list[float]
 
 class DBVectorMilvus(DBVectorInterface):
     """

@@ -58,6 +58,7 @@ dependencies = [
     "universal-pathlib>=0.3.7",
     "lancedb>=0.25.3",
     "pymilvus>=2.6.5",
+    "pyarrow>=22.0.0",
 ]
 
 [[tool.uv.index]]

@@ -31,7 +31,7 @@ if conf.db_cache.type:
     db_cache_config: DBConfig = DBEX.get_config(conf.db_cache.type, conf.db_cache)
     db_cache = DBFactory.create_cache(db_cache_config)
     db_cache.connect(is_dev)
-    async_cache = db_cache.async_redis
+    async_cache = db_cache.async_cache
     
 # 向量化数据库(pymilvus)
 db_vector: DBVectorInterface = None
