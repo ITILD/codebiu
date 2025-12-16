@@ -1,9 +1,12 @@
 import pytest
 from src.common.config.db import db_rel, async_cache,db_vector
 from sqlmodel import Column, DateTime, Field, SQLModel
+from pydantic import BaseModel
 from datetime import datetime, timezone
 from uuid import uuid4
 import logging
+
+# import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -74,11 +77,24 @@ async def test_db_vector_connection():
     try:
         await db_vector.connect()
         logger.info("db_vector connection success")
-        # TODO 动态类型 后续支持pgvector
-        # class Content(LanceModel): 
-        #     id: int
-        #     vector: Vector(128)
+        class TestVectorBase(BaseModel):
+            id: str = Field(
+                default_factory=lambda: uuid4().hex,
+                primary_key=True,  # 主键
+                index=True,  # 索引
+                description="唯一标识符",
+            )
+            vector: list[float] = Field(default_factory=lambda: [0.1] * 1024, description="向量字段")
 
+        #  async_table =
+        await db_vector.create_table(TestVectorBase,{"vector": 1024 })
+        logger.info("db_vector create table success")
+        table =await db_vector.async_vector.open_table("testvectorbase")
+        await table.add([TestVectorBase(id="test", vector=[0.1] * 1024).model_dump()])
+        # 查询
+        result = await table.search([0.1] * 1024).select(["id", "_distance"]).limit(1).to_list()
+        assert result[0].id == "test", f"expect 'test', but got '{result[0].id}'"
+        logger.info(f"db_vector query operation success: {result[0].id}")
                 
     except Exception as e:
         logger.error(f"db_vector connection fail: {e}")

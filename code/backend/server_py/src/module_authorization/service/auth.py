@@ -9,7 +9,7 @@ from module_authorization.do.token import (
 from module_authorization.do.auth import AuthResponse, AuthLogoutRequest
 
 # db_cache redis客户端 用于存储已吊销的 access_token 的黑名单
-from common.config.db import async_redis
+from common.config.db import db_cache 
 from module_authorization.config.token import token_config
 
 import logging
@@ -104,7 +104,7 @@ class AuthService:
             raise ValueError("访问令牌无效")
         try:
             # 对于安全性要求较高的系统，采用黑名单/废止列表来使 access_token 立即失效
-            await async_redis.set(
+            await db_cache .set(
                 logout_request.token_access,
                 "revoked",
                 ex=token_config.expire_minutes * 60,
@@ -128,9 +128,9 @@ class AuthService:
         """
         try:
             # 黑名单 检查令牌是否已被吊销
-            revoked = await async_redis.get(token_access)
+            revoked = await db_cache .get(token_access)
             # 查看所有async_redis内的键值对
-            logger.info(f"async_redis 内的键值对: {await async_redis.keys()}")
+            logger.info(f"db_cache  内的键值对: {await db_cache .keys()}")
             if revoked == b"revoked":
                 raise ValueError("令牌已被吊销")
             return await self.token_service.verify_token(token_access)

@@ -8,7 +8,7 @@ class DBGraphNeo4j(DBGraphInterface):
     Neo4j图数据库实现
     封装图数据库操作
     """
-
+    async_graph: AsyncDriver = None
     def __init__(self, neo4j_config: Neo4jConfig):
         """
         初始化Neo4j图数据库连接
@@ -17,7 +17,7 @@ class DBGraphNeo4j(DBGraphInterface):
             neo4j_config: Neo4j数据库配置对象
         """
         self.neo4j_config = neo4j_config
-        self.driver: AsyncDriver = None
+        self.async_graph: AsyncDriver = None
         self.uri = f"bolt://{neo4j_config.host}:{neo4j_config.port}"
 
     def connect(self, log_bool=False):
@@ -29,7 +29,7 @@ class DBGraphNeo4j(DBGraphInterface):
         """
         try:
             # 创建Neo4j驱动程序实例
-            self.driver = GraphDatabase.driver(
+            self.async_graph = GraphDatabase.driver(
                 self.uri,
                 auth=(self.neo4j_config.user, self.neo4j_config.password)
             )
@@ -46,11 +46,11 @@ class DBGraphNeo4j(DBGraphInterface):
         Returns:
             bool: 如果连接有效则返回True，否则返回False
         """
-        if not self.driver:
+        if not self.async_graph:
             return False
         try:
             # 尝试验证连接
-            async with self.driver.session() as session:
+            async with self.async_graph.session() as session:
                 await session.run("RETURN 1")
             return True
         except Exception:
@@ -67,8 +67,8 @@ class DBGraphNeo4j(DBGraphInterface):
         """
         断开数据库连接
         """
-        if self.driver:
-            await self.driver.close()
+        if self.async_graph:
+            await self.async_graph.close()
             self.driver = None
 
     async def get_info(self):
@@ -96,11 +96,11 @@ class DBGraphNeo4j(DBGraphInterface):
         Returns:
             查询结果
         """
-        if not self.driver:
+        if not self.async_graph:
             raise Exception("数据库未连接")
         
         try:
-            async with self.driver.session() as session:
+            async with self.async_graph.session() as session:
                 if parameters:
                     result = await session.run(query, parameters)
                 else:

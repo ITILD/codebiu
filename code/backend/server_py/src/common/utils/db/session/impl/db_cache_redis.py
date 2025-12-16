@@ -6,7 +6,7 @@ from common.utils.db.do.db_config import RedisConfig
 
 class DBCacheRedis(DBCacheInterface):
     """Redis 缓存实现类"""
-    async_redis: AsyncRedis = None
+    async_cache: AsyncRedis = None
     
     def __init__(self, redis_config: RedisConfig):
         """初始化 Redis 缓存连接
@@ -23,7 +23,7 @@ class DBCacheRedis(DBCacheInterface):
         self.database = redis_config.database
 
     def connect(self, log_bool=False):
-        self.async_redis = AsyncRedis(
+        self.async_cache = AsyncRedis(
             host=self.host,
             port=self.port,
             db=self.db,
@@ -31,4 +31,4 @@ class DBCacheRedis(DBCacheInterface):
         
     # 持久化
     def persist(self):
-        self.async_redis.save()
+        self.async_cache.save()

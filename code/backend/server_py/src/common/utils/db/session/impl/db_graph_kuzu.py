@@ -1,4 +1,4 @@
-import kuzu
+from kuzu import AsyncConnection, Database
 from common.utils.db.do.db_config import KuzuConfig
 from common.utils.db.session.interface.db_graph_interface import DBGraphInterface
 
@@ -8,6 +8,7 @@ class DBGraphKuzu(DBGraphInterface):
     Kuzu图数据库实现
     封装图数据库操作
     """
+    async_graph: AsyncConnection = None
 
     def __init__(self, kuzu_config: KuzuConfig):
         """
@@ -18,7 +19,7 @@ class DBGraphKuzu(DBGraphInterface):
         """
         self.kuzu_config = kuzu_config
         self.database = None
-        self.connection = None
+        self.async_graph = None
 
     def connect(self, log_bool=False):
         """
@@ -29,9 +30,9 @@ class DBGraphKuzu(DBGraphInterface):
         """
         try:
             # 创建Kuzu数据库实例
-            self.database = kuzu.Database(self.kuzu_config.database)
+            self.database = Database(self.kuzu_config.database)
             # 创建连接
-            self.connection = kuzu.AsyncConnection(
+            self.async_graph = AsyncConnection(
                 self.database,
                 # 最大并发查询数
                 max_concurrent_queries=4,
