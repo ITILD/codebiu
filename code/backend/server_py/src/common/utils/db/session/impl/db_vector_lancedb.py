@@ -1,9 +1,17 @@
 from lancedb import connect_async, AsyncConnection
+from lancedb.pydantic import LanceModel, Vector
 from common.utils.db.do.db_config import LancedbConfig
 from common.utils.db.session.interface.db_vector_interface import DBVectorInterface
 from pathlib import Path
 import logging
+
 logger = logging.getLogger(__name__)
+
+
+class VectorBase(LanceModel):
+    """向量基类"""
+    content_vec: Vector = Vector(1024)
+
 
 class DBVectorLancedb(DBVectorInterface):
     """
@@ -38,4 +46,8 @@ class DBVectorLancedb(DBVectorInterface):
                 logger.info(f"LanceDB数据库连接成功: {self.database}")
         except Exception as e:
             raise Exception(f"LanceDB数据库连接失败: {e}")
-    
+        
+        async def create_all(self):
+            """创建所有表结构"""
+            pass
+
