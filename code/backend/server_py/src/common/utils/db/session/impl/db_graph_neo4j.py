@@ -8,7 +8,9 @@ class DBGraphNeo4j(DBGraphInterface):
     Neo4j图数据库实现
     封装图数据库操作
     """
+
     async_graph: AsyncDriver = None
+
     def __init__(self, neo4j_config: Neo4jConfig):
         """
         初始化Neo4j图数据库连接
@@ -30,10 +32,9 @@ class DBGraphNeo4j(DBGraphInterface):
         try:
             # 创建Neo4j驱动程序实例
             self.async_graph = GraphDatabase.driver(
-                self.uri,
-                auth=(self.neo4j_config.user, self.neo4j_config.password)
+                self.uri, auth=(self.neo4j_config.user, self.neo4j_config.password)
             )
-            
+
             if log_bool:
                 print(f"Neo4j数据库连接成功: {self.uri}")
         except Exception as e:
@@ -85,7 +86,7 @@ class DBGraphNeo4j(DBGraphInterface):
             "connected": connected,
         }
 
-    async def execute_query(self, query: str, parameters=None):
+    async def execute_query(self, query: str, parameters: dict | None = None):
         """
         执行Cypher查询
 
@@ -96,17 +97,24 @@ class DBGraphNeo4j(DBGraphInterface):
         Returns:
             查询结果
         """
-        if not self.async_graph:
-            raise Exception("数据库未连接")
-        
         try:
             async with self.async_graph.session() as session:
-                if parameters:
-                    result = await session.run(query, parameters)
-                else:
-                    result = await session.run(query)
+                result = await session.run(query, parameters)
                 # 获取所有记录
                 records = await result.data()
                 return records
+        except Exception as e:
+            raise Exception(f"查询执行失败: {e}")
+
+    async def match_query(self, query: str, params: dict | None = None) -> list[dict]:
+        """异步执行Cypher查询并返回记录列表"""
+        try:
+            async with self.driver.session() as session:
+                result = await session.run(query, params)
+                results = []
+                async for record in result:
+                    data = record.data()
+                    results.append(data)
+                return results
         except Exception as e:
             raise Exception(f"查询执行失败: {e}")

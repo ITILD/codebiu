@@ -1,6 +1,9 @@
 from kuzu import AsyncConnection, Database
 from common.utils.db.do.db_config import KuzuConfig
 from common.utils.db.session.interface.db_graph_interface import DBGraphInterface
+import logging
+
+logger = logging.getLogger(__name__)
 
 # https://kuzudb.github.io/docs/client-apis/python/
 class DBGraphKuzu(DBGraphInterface):
@@ -39,7 +42,7 @@ class DBGraphKuzu(DBGraphInterface):
             )
 
             if log_bool:
-                print(f"Kuzu数据库连接成功: {self.kuzu_config.database}")
+                logger.info(f"Kuzu数据库连接成功: {self.kuzu_config.database}")
         except Exception as e:
             raise Exception(f"Kuzu数据库连接失败: {e}")
 
@@ -50,7 +53,7 @@ class DBGraphKuzu(DBGraphInterface):
         Returns:
             bool: 如果连接有效则返回True，否则返回False
         """
-        return self.connection is not None
+        return self.async_graph is not None
 
     async def reconnect(self):
         """
@@ -63,9 +66,9 @@ class DBGraphKuzu(DBGraphInterface):
         """
         断开数据库连接
         """
-        if self.connection:
+        if self.async_graph:
             # Kuzu的连接不需要显式关闭
-            self.connection = None
+            self.async_graph = None
         if self.database:
             # Kuzu的数据库不需要显式关闭
             self.database = None
@@ -83,7 +86,7 @@ class DBGraphKuzu(DBGraphInterface):
             "connected": await self.is_connected(),
         }
 
-    async def execute_query(self, query: str, parameters=None):
+    async def execute_query(self, query: str, parameters: dict | None = None):
         """
         执行Cypher查询
 
@@ -94,14 +97,29 @@ class DBGraphKuzu(DBGraphInterface):
         Returns:
             查询结果
         """
-        if not self.connection:
-            raise Exception("数据库未连接")
-
         try:
-            if parameters:
-                result = await self.connection.execute(query, parameters)
-            else:
-                result = await self.connection.execute(query)
+            result = await self.async_graph.execute(query, parameters)
             return result
         except Exception as e:
             raise Exception(f"查询执行失败: {e}")
+        
+    async def create_table(self, table_name: str, schema: str):
+        """
+        创建表
+
+        Args:
+            table_name: 表名
+            schema: 表结构定义
+        """
+        try:
+            # https://github.com/lance-format/lance-graph
+            # https://github.com/LadybugDB/ladybug
+            # conn.execute("CREATE NODE TABLE User(name STRING PRIMARY KEY, age INT64)")
+            # conn.execute("CREATE NODE TABLE City(name STRING PRIMARY KEY, population INT64)")
+            # conn.execute("CREATE REL TABLE Follows(FROM User TO User, since INT64)")
+            # conn.execute("CREATE REL TABLE LivesIn(FROM User TO City)")
+            
+            
+            await self.async_graph.execute(f"CREATE TABLE {table_name} ({schema})")
+        except Exception as e:
+            raise Exception(f"创建表失败: {e}")
