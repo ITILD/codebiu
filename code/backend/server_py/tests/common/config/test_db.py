@@ -109,18 +109,76 @@ async def test_db_graph_connection():
     """test db_graph connection"""
     logger.info("test db_graph connection start")
     try:
-        await db_graph.connect()
-        # 插入三个节点两个边,都带属性字段
-        G = nx.Graph()
-        G.add_node(1, label="A", type="node")
-        G.add_node(2, label="B", type="node")
-        G.add_node(3, label="C", type="node")
-        G.add_edge(1, 2, weight=0.5)
-        G.add_edge(2, 3, weight=0.7)
+        db_graph.connect()
+
+        class TestGraphNodeCity(BaseModel):
+            id: str = Field(
+                default_factory=lambda: uuid4().hex,
+                primary_key=True,  # 主键
+                index=True,  # 索引
+                description="唯一标识符",
+            )
+            name: str = Field(default="", description="城市名称")
+
+        class TestGraphNodeUser(BaseModel):
+            id: str = Field(
+                default_factory=lambda: uuid4().hex,
+                primary_key=True,  # 主键
+                index=True,  # 索引
+                description="唯一标识符",
+            )
+            name: str = Field(default="", description="用户名称")
+            age: int = Field(default=0, description="用户年龄")
+
+        class TestGraphEdgeFollows(BaseModel):
+            id: str = Field(
+                default_factory=lambda: uuid4().hex,
+                primary_key=True,  # 主键
+                index=True,  # 索引
+                description="唯一标识符",
+            )
+            source: TestGraphNodeUser = Field(default="", description="源节点ID")
+            target: TestGraphNodeUser = Field(default="", description="目标节点ID")
+
+        class TestGraphEdgeLivesIn(BaseModel):
+            id: str = Field(
+                default_factory=lambda: uuid4().hex,
+                primary_key=True,  # 主键
+                index=True,  # 索引
+                description="唯一标识符",
+            )
+            source: TestGraphNodeUser = Field(default="", description="源节点ID")
+            target: TestGraphNodeCity = Field(default="", description="目标节点ID")
+            weight: float = Field(default=0.0, description="边权重")
+
+        node_city_dalian = TestGraphNodeCity(id="dalian", name=" Dalian")
+        node_user_zhangsan = TestGraphNodeUser(id="zhangsan", name=" Zhangsan", age=18)
+        edge_lives_in_zhangsan_dalian = TestGraphEdgeLivesIn(
+            source=node_user_zhangsan, target=node_city_dalian, weight=0.5
+        )
+
+        # # 插入三个节点两个边,都带属性字段
+        # G = nx.Graph()
+        # G.add_node(1, label="A", type="node")
+        # G.add_edge(2, 3, weight=0.7)
         # 插入图
-        await db_graph.async_graph.add_graph(G)
+        # await db_graph.async_graph.add_graph(G)
+
+        # 创建表
+        await db_graph.create_table_node(TestGraphNodeCity)
+        await db_graph.create_table_node(TestGraphNodeUser)
+        await db_graph.create_table_edge(TestGraphEdgeFollows)
+        await db_graph.create_table_edge(TestGraphEdgeLivesIn)
         
+        # 添加数据
+        await db_graph.add_node(node_city_dalian)
+        await db_graph.add_node(node_user_zhangsan)
+        await db_graph.add_edge(edge_lives_in_zhangsan_dalian)
         
+        # 查找数据
+        result = await db_graph.query_node(TestGraphNodeCity, "dalian")
+        assert result[0].id == "dalian", f"expect 'dalian', but got '{result[0].id}'"
+
         logger.info("db_graph connection success")
     except Exception as e:
         logger.error(f"db_graph connection fail: {e}")

@@ -18,7 +18,7 @@ from common.utils.db.session.interface.db_graph_interface import DBGraphInterfac
 from common.utils.db.session.impl.db_vector_milvus import DBVectorMilvus
 from common.utils.db.session.impl.db_vector_lancedb import DBVectorLancedb
 from common.utils.db.session.impl.db_graph_neo4j import DBGraphNeo4j
-from common.utils.db.session.impl.db_graph_kuzu import DBGraphKuzu
+from common.utils.db.session.impl.db_graph_local import DBGraphLocal
 
 
 class DBFactory:
@@ -59,5 +59,5 @@ class DBFactory:
         ):
             db_graph = DBGraphNeo4j(db_config)
         else:
-            db_graph = DBGraphKuzu(db_config)
+            db_graph = DBGraphLocal(db_config)
         return db_graph

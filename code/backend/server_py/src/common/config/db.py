@@ -40,7 +40,7 @@ if conf.db_vector.type:
     db_vector_config: DBConfig = DBEX.get_config(conf.db_vector.type, conf.db_vector)
     db_vector = DBFactory.create_vector(db_vector_config)
     
-#  图数据库(neo4j/kuzu)
+#  图数据库(neo4j/graph_local)
 db_graph: DBGraphInterface = None
 if conf.db_graph.type:
     db_graph_config: DBConfig = DBEX.get_config(conf.db_graph.type, conf.db_graph)
