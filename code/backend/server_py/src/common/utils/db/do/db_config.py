@@ -43,16 +43,15 @@ class MilvusConfig(DBConfig):
     port: int = Field(..., description="数据库端口")
     user: str = Field(..., description="数据库用户名")
     password: str = Field(..., description="数据库密码")
-    database: str = Field(..., description="数据库名/持久化地址")
 
 
 class LancedbConfig(DBConfig):
     """Milvus Lite数据库配置"""
 
-    database: str = Field(..., description="数据库名/持久化地址")
+    pass
 
 
-class KuzuConfig(DBConfig):
+class GraphLocalConfig(DBConfig):
     """Kuzu数据库配置"""
 
     pass
@@ -79,8 +78,8 @@ class DBEX:
         elif type == "fakeredis":
             return FakeredisConfig.model_validate(config_dict)
         # db_graph
-        elif type == "kuzu":
-            return KuzuConfig.model_validate(config_dict)
+        elif type == "graph_local":
+            return GraphLocalConfig.model_validate(config_dict)
         # db_vector
         elif type == "milvus":
             return MilvusConfig.model_validate(config_dict)

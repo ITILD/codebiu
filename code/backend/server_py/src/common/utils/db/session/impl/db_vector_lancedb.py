@@ -77,7 +77,9 @@ class DBVectorLancedb(DBVectorInterface):
             raise Exception(f"LanceDB创建表失败: {e}") from e
 
     def _convert_to_lance_model(
-        self, schema_cls: type[BaseModel], vector_dims: dict[str, int]
+        self,
+        schema_cls: type[BaseModel],
+        vector_dims: dict[str, int] = {"vector": 1024},
     ) -> type[LanceModel]:
         """
         将 Pydantic BaseModel 类转换为 LanceModel 子类。
@@ -101,6 +103,7 @@ class DBVectorLancedb(DBVectorInterface):
                 "__doc__": f"Lance model for {schema_cls.__name__}",
             },
         )
+
     async def add(
         self,
         data_list_class: list[BaseModel],

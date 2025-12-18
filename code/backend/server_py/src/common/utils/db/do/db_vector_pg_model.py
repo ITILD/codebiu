@@ -2,7 +2,7 @@ import uuid
 from sqlmodel import SQLModel, Field, Column
 
 #
-from common.utils.db.do.vector_pg import VectorPG
+from common.utils.db.do.db_vector_pg_type import VectorPG
 
 
 class VectorMixin(SQLModel):

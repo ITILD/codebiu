@@ -51,8 +51,8 @@ db_vector:
   type: lancedb
   database: temp_source\db\lancedb.db
 db_graph:
-  type: kuzu
-  database: temp_source\db\kuzu.db
+  type: graph_local
+  database: temp_source\db\graph_local.db
 ####################### auth 配置
 token:
   secret_key: qwer1234
