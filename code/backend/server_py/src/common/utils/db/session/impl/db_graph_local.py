@@ -4,6 +4,7 @@ from common.utils.db.session.interface.db_graph_interface import DBGraphInterfac
 import logging
 from bidict import bidict
 from pydantic import BaseModel
+from pydantic.fields import FieldInfo
 
 logger = logging.getLogger(__name__)
 
@@ -147,7 +148,7 @@ class DBGraphLocal(DBGraphInterface):
             return "STRING", str(data)
         return sql_type, data
 
-    async def is_table_exist(self, table_name: str) -> bool:
+    async def check_table_exists(self, table_name: str) -> bool:
         """
         检查表是否存在
 
@@ -157,9 +158,17 @@ class DBGraphLocal(DBGraphInterface):
         Returns:
             bool: 如果表存在则返回True，否则返回False
         """
-        """检查指定的表是否存在于 Kùzu 数据库中"""
-        result = await self.async_graph.execute("CALL show_tables() RETURN *;")
-        return bool(result.get_as_df().iloc[0][0])
+        try:
+            # 检查指定的表是否存在于 Kùzu 数据库中
+            result = await self.async_graph.execute("CALL show_tables() RETURN *;")
+            arr = result.get_as_arrow()
+
+            # 获取表名列表并检查是否包含指定的表名（忽略大小写）
+            table_name_list = arr["name"].to_pylist()
+            return table_name.lower() in table_name_list
+        except Exception as e:
+            logger.error(f"检查表 {table_name} 是否存在时出错: {e}")
+            return False
 
     async def create_table_node(self, schema_cls: type[BaseModel]):
         """
@@ -181,16 +190,20 @@ class DBGraphLocal(DBGraphInterface):
         try:
             table_name = schema_cls.__name__.lower()
             # 检查表是否存在
-            if await self.is_table_exist(table_name):
+            if await self.check_table_exists(table_name):
                 logger.warning(f"表 {table_name} 已存在，跳过创建")
                 return
             # 构建schema
             schema = ""
             for name, field in schema_cls.model_fields.items():
+                field: FieldInfo
                 sql_type, _ = await self._convert_py_type_to_sql_type(
                     field.annotation.__name__, None
                 )
-                schema += f"{name} {sql_type}, "
+                if field.primary_key == True:
+                    schema += f"{name} {sql_type} PRIMARY KEY, "
+                else:
+                    schema += f"{name} {sql_type}, "
             schema = schema.rstrip(", ")
             sql = f"CREATE NODE TABLE {table_name} ({schema})"
             await self.async_graph.execute(sql)
@@ -212,7 +225,7 @@ class DBGraphLocal(DBGraphInterface):
         try:
             table_name = schema_cls.__name__.lower()
             # 检查表是否存在
-            if await self.is_table_exist(table_name):
+            if await self.check_table_exists(table_name):
                 logger.warning(f"表 {table_name} 已存在，跳过创建")
                 return
             # 构建schema   conn.execute("CREATE REL TABLE LivesIn(FROM User TO City)")
@@ -240,31 +253,63 @@ class DBGraphLocal(DBGraphInterface):
         except Exception as e:
             raise Exception(f"创建关系表失败: {e}")
 
-    async def add_node(self, data: BaseModel):
-        """添加数据"""
-        table_name = data.__class__.__name__.lower()
-        # 构建INSERT语句
-        columns = ", ".join(data.model_dump().keys())
-        placeholders = ", ".join([f":{col}" for col in data.model_dump().keys()])
-        query = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
-        # 执行INSERT语句
+    async def add_node(self, data: BaseModel) -> None:
+        """
+        添加节点到图数据库（使用 CREATE）
+
+        Args:
+            data: Pydantic 模型实例，其类名作为节点标签
+        """
+        # 安全处理标签名：仅允许字母、数字、下划线
+        label = data.__class__.__name__
+        if not label.replace("_", "").isalnum():
+            raise ValueError(f"Invalid label name: {label}")
+
+        # 使用参数化属性：{prop: $prop}
+        props = ", ".join(f"{k}: ${k}" for k in data.model_dump().keys())
+        query = f"CREATE (n:`{label}` {{{props}}})"
+
         await self.async_graph.execute(query, data.model_dump())
 
     async def add_edge(self, data: BaseModel):
-        """添加关系数据"""
-        table_name = data.__class__.__name__.lower()
-        # 构建INSERT语句
-        columns = ", ".join(data.model_dump().keys())
-        placeholders = ", ".join([f":{col}" for col in data.model_dump().keys()])
-        query = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
-        # 执行INSERT语句
-        await self.async_graph.execute(query, data.model_dump())
+        """添加关系数据 CREATE (a:Label1 {id: $id1})-[:REL_TYPE {props}]->(b:Label2 {id: $id2})"""
+        # 安全处理标签名：仅允许字母、数字、下划线
+        label = data.__class__.__name__.lower()
+        if not label.replace("_", "").isalnum():
+            raise ValueError(f"Invalid label name: {label}")
+        # node_source_field_name = "source"
+        # node_target_field_name = "target"
+        node_source_query = (
+            f"(a:{data.source.__class__.__name__.lower()} {{id: '{data.source.id}'}})"
+        )
+        node_target_query = (
+            f"(b:{data.target.__class__.__name__.lower()} {{id: '{data.target.id}'}})"
+        )
+        # edge_query = f"-[:{label} {{{props}}}]->"
+        props = ""
+        for k in data.model_dump().keys():
+            if k not in ["source", "target"]:
+                props += f"{k}: ${k}, "
+        props = props.rstrip(", ")
+        if props:
+            props = f"{{{props}}}"
+        edge_query = f"-[:{label} {props}]->"
+        query = f"CREATE {node_source_query}{edge_query}{node_target_query}"
+
+        data_dict = data.model_dump()
+        await self.async_graph.execute(query, data_dict)
 
     async def query_node(self, schema_cls: type[BaseModel], node_id: str):
         """查询节点数据"""
         table_name = schema_cls.__name__.lower()
-        query = f"MATCH (n:{table_name} {{id: '{node_id}'}}) RETURN n;"
+        query = f"MATCH (n:{table_name} {{id: '{node_id}'}}) RETURN *;"
         result = await self.async_graph.execute(query)
+        test = result.get_as_arrow()
+        test1 = result.get_as_networkx()
+        test1_nodes = test1.nodes()
+        all = []
+        for row in result:
+            all.append(row)
         return result
 
     # async def get_as_networkx(self, query: str):
@@ -280,12 +325,23 @@ class DBGraphLocal(DBGraphInterface):
         """列出所有表"""
         tables = await self.async_graph.execute("CALL show_tables() RETURN *;")
         return tables
+    async def list_tables_edges(self):
+        """列出所有关系表"""
+        tables = await self.async_graph.execute("CALL show_tables() WHERE type = 'REL' RETURN *;")
+        return tables
+    async def list_tables_nodes(self):
+        """列出所有关系表"""
+        tables = await self.async_graph.execute("CALL show_tables() WHERE type = 'NODE' RETURN *;")
+        return tables
 
     async def drop_tables_all(self):
         """清空标签和数据"""
-        tables = await self.list_tables()
-        for table in tables:
-            await self.drop_table_node(table["name"])
+        tables_edges = await self.list_tables_edges()
+        for table_edge in tables_edges:
+            await self.drop_table_node(table_edge[1])
+        tables_nodes = await self.list_tables_nodes()
+        for table_node in tables_nodes:
+            await self.drop_table_node(table_node[1])
 
     async def clear_data(self):
         """清空数据"""
