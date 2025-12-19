@@ -6,6 +6,10 @@ from common.utils.log.ColoredConsoleHandler import ColoredConsoleHandler
 from common.utils.log.CustomTimedRotatingFileHandler import (
     CustomTimedRotatingFileHandler,
 )
+"""
+conftest.py pytest 默认测试配置文件
+所有同目录测试文件运行前都会执行conftest.py文件 不需要import导入
+"""
 
 def setup_logging():
     """
@@ -82,7 +86,7 @@ def setup_logging():
     # ==================== 启动日志 ====================
     logger.info("test log is set up ok")
     logger.info("运行环境: %s", "测试 (tests)")
-
+    
 # 立即配置日志系统
 setup_logging()
 logger = logging.getLogger(__name__)
