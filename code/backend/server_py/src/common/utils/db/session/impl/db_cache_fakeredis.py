@@ -7,7 +7,7 @@ from common.utils.db.do.db_config import FakeredisConfig
 class DBCacheFakeredis(DBCacheInterface):
     """Fakeredis 缓存实现类"""
 
-    async_redis: FakeAsyncRedis = None
+    async_cache: FakeAsyncRedis = None
 
     def __init__(self, redis_config: FakeredisConfig):
         """初始化 Fakeredis 缓存连接
@@ -22,9 +22,9 @@ class DBCacheFakeredis(DBCacheInterface):
 
     def connect(self, log_bool=False):
         """连接 Fakeredis 缓存"""
-        self.async_redis = FakeAsyncRedis()
+        self.async_cache = FakeAsyncRedis()
 
     # 持久化
     def persist(self):
         """将缓存数据持久化到文件"""
-        self.async_redis.save()
+        self.async_cache.save()

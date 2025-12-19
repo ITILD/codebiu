@@ -58,6 +58,9 @@ dependencies = [
     "universal-pathlib>=0.3.7",
     "lancedb>=0.25.3",
     "pymilvus>=2.6.5",
+    "pyarrow>=22.0.0",
+    "networkx>=3.6.1",
+    "bidict>=0.23.1",
 ]
 
 [[tool.uv.index]]
@@ -75,3 +78,5 @@ testpaths = ["tests"]
 pythonpath = ["src"]
 # ; 设置输出
 addopts = "-v -s --log-cli-level=INFO"
+# --maxfail: 出现几个失败才终止
+maxfail = 2
