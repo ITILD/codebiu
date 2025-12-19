@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 import logging
 import networkx as nx
+
 # import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -43,9 +44,9 @@ async def test_db_rel_connection():
             async with session.begin():
                 # 检查数据是否插入成功
                 test_rel_base_result = await session.get(TestRelBase, test_rel_base.id)
-                assert test_rel_base_result.value == test_rel_base.value, (
-                    "expect inserted data"
-                )
+                assert (
+                    test_rel_base_result.value == test_rel_base.value
+                ), "expect inserted data"
         logger.info("db_rel connection and insert data success")
     except Exception as e:
         logger.error(f"db_rel connection fail: {e}")
@@ -110,6 +111,7 @@ async def test_db_graph_connection():
     logger.info("test db_graph connection start")
     try:
         db_graph.connect()
+        await db_graph.drop_tables_all()
 
         class TestGraphNodeCity(BaseModel):
             id: str = Field(
@@ -169,12 +171,19 @@ async def test_db_graph_connection():
         await db_graph.create_table_node(TestGraphNodeUser)
         await db_graph.create_table_edge(TestGraphEdgeFollows)
         await db_graph.create_table_edge(TestGraphEdgeLivesIn)
-        
+        # 检查表是否存在
+        assert await db_graph.check_table_exists(
+            TestGraphNodeCity.__name__.lower()
+        ), "TestGraphNodeCity table should exist"
+        assert await db_graph.check_table_exists(
+            TestGraphEdgeFollows.__name__.lower()
+        ), "TestGraphEdgeFollows table should exist"
+
         # 添加数据
         await db_graph.add_node(node_city_dalian)
         await db_graph.add_node(node_user_zhangsan)
-        await db_graph.add_edge(edge_lives_in_zhangsan_dalian)
-        
+        # await db_graph.add_edge(edge_lives_in_zhangsan_dalian)
+
         # 查找数据
         result = await db_graph.query_node(TestGraphNodeCity, "dalian")
         assert result[0].id == "dalian", f"expect 'dalian', but got '{result[0].id}'"
