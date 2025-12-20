@@ -299,18 +299,15 @@ class DBGraphLocal(DBGraphInterface):
         data_dict = data.model_dump()
         await self.async_graph.execute(query, data_dict)
 
-    async def query_node(self, schema_cls: type[BaseModel], node_id: str):
-        """查询节点数据"""
+    async def query_node_by_id(self, schema_cls: type[BaseModel], node_id: str) -> list[BaseModel]:
+        """
+        根据节点 ID 查询图数据库中的节点，并返回其对应 Pydantic 模型实例列表。
+        """
         table_name = schema_cls.__name__.lower()
-        query = f"MATCH (n:{table_name} {{id: '{node_id}'}}) RETURN *;"
-        result = await self.async_graph.execute(query)
-        test = result.get_as_arrow()
-        test1 = result.get_as_networkx()
-        test1_nodes = test1.nodes()
-        all = []
-        for row in result:
-            all.append(row)
-        return result
+        # 使用参数化查询防止 Cypher 注入（假设驱动支持）
+        query = f"MATCH (n:{table_name} {{id: $node_id}}) RETURN n"
+        result = await self.async_graph.execute(query, parameters={"node_id": node_id})
+        return schema_cls.model_validate(result.get_all()[0][0])
 
     # async def get_as_networkx(self, query: str):
     #     """执行查询并返回NetworkX图"""
@@ -325,13 +322,19 @@ class DBGraphLocal(DBGraphInterface):
         """列出所有表"""
         tables = await self.async_graph.execute("CALL show_tables() RETURN *;")
         return tables
+
     async def list_tables_edges(self):
         """列出所有关系表"""
-        tables = await self.async_graph.execute("CALL show_tables() WHERE type = 'REL' RETURN *;")
+        tables = await self.async_graph.execute(
+            "CALL show_tables() WHERE type = 'REL' RETURN *;"
+        )
         return tables
+
     async def list_tables_nodes(self):
         """列出所有关系表"""
-        tables = await self.async_graph.execute("CALL show_tables() WHERE type = 'NODE' RETURN *;")
+        tables = await self.async_graph.execute(
+            "CALL show_tables() WHERE type = 'NODE' RETURN *;"
+        )
         return tables
 
     async def drop_tables_all(self):
