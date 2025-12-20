@@ -185,8 +185,8 @@ async def test_db_graph_connection():
         # await db_graph.add_edge(edge_lives_in_zhangsan_dalian)
 
         # 查找数据
-        result = await db_graph.query_node(TestGraphNodeCity, "dalian")
-        assert result[0].id == "dalian", f"expect 'dalian', but got '{result[0].id}'"
+        result = await db_graph.query_node_by_id(TestGraphNodeCity, "dalian")
+        assert result.id == "dalian", f"expect 'dalian', but got '{result.id}'"
 
         logger.info("db_graph connection success")
     except Exception as e:
