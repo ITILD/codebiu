@@ -280,23 +280,21 @@ class DBGraphLocal(DBGraphInterface):
         # node_source_field_name = "source"
         # node_target_field_name = "target"
         node_source_query = (
-            f"(a:{data.source.__class__.__name__.lower()} {{id: '{data.source.id}'}})"
+            f"MATCH (a:{data.source.__class__.__name__.lower()} {{id: '{data.source.id}'}})\n"
         )
         node_target_query = (
-            f"(b:{data.target.__class__.__name__.lower()} {{id: '{data.target.id}'}})"
+            f"MATCH (b:{data.target.__class__.__name__.lower()} {{id: '{data.target.id}'}})\n"
         )
         # edge_query = f"-[:{label} {{{props}}}]->"
+        data_dict = data.model_dump(exclude={"source", "target"})
         props = ""
-        for k in data.model_dump().keys():
-            if k not in ["source", "target"]:
-                props += f"{k}: ${k}, "
+        for k in data_dict.keys():
+            props += f"{k}: ${k}, "
         props = props.rstrip(", ")
         if props:
             props = f"{{{props}}}"
-        edge_query = f"-[:{label} {props}]->"
-        query = f"CREATE {node_source_query}{edge_query}{node_target_query}"
-
-        data_dict = data.model_dump()
+        edge_query = f"MERGE (a)-[:{label} {props}]->(b)"
+        query = f" {node_source_query}{node_target_query}{edge_query}"
         await self.async_graph.execute(query, data_dict)
 
     async def query_node_by_id(self, schema_cls: type[BaseModel], node_id: str) -> list[BaseModel]:
@@ -309,10 +307,6 @@ class DBGraphLocal(DBGraphInterface):
         result = await self.async_graph.execute(query, parameters={"node_id": node_id})
         return schema_cls.model_validate(result.get_all()[0][0])
 
-    # async def get_as_networkx(self, query: str):
-    #     """执行查询并返回NetworkX图"""
-    #     result = await self.async_graph.execute(query)
-    #     return result.get_as_networkx()
 
     async def drop_table_node(self, table_name):
         """删除表"""
