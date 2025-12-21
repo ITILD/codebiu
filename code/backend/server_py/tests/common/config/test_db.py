@@ -182,7 +182,7 @@ async def test_db_graph_connection():
         # 添加数据
         await db_graph.add_node(node_city_dalian)
         await db_graph.add_node(node_user_zhangsan)
-        # await db_graph.add_edge(edge_lives_in_zhangsan_dalian)
+        await db_graph.add_edge(edge_lives_in_zhangsan_dalian)
 
         # 查找数据
         result = await db_graph.query_node_by_id(TestGraphNodeCity, "dalian")
