@@ -1,7 +1,8 @@
 state:
-  is_dev: false
+  is_dev: true
   # config_path: config.dev.yaml
   config_path: false
+  check_db: true
 server:
   # 根路由代理
   server_root_path: ""
@@ -34,16 +35,16 @@ middleware:
   cors: true
   gzip: true
 ####################### 数据库配置
-# db_rel:
-#   type: postgres
-#   database: server_example
-#   host: localhost
-#   port: 5432
-#   user: postgres
-#   password: '123456'
 db_rel:
-  type: sqlite
-  database: temp_source\db\data.db
+  type: postgres
+  database: server_example
+  host: localhost
+  port: 5432
+  user: postgres
+  password: '123456'
+# db_rel:
+#   type: sqlite
+#   database: temp_source\db\data.db
 db_cache:
   type: fakeredis
   database: temp_source\db\fakeredis.db

@@ -23,3 +23,4 @@ if __name__ == "__main__":
 
     # dev启动服务
     uvicorn.run(app, host=conf.server.host, port=conf.server.port)
+    # uvicorn.run("src.app:app", host=conf.server.host, port=conf.server.port, reload=True)

@@ -15,8 +15,13 @@ from common.utils.db.schema.pagination import (
 )
 
 from fastapi import APIRouter, HTTPException, status, Depends
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 router = APIRouter()
+
 
 def get_current_user_id() -> str:
     """
@@ -25,6 +30,7 @@ def get_current_user_id() -> str:
     mock 数据: admin
     """
     return "admin"  # 示例用户ID，实际应从认证系统获取
+
 
 @router.post(
     "",
@@ -45,7 +51,8 @@ async def create_model_config(
     """
     try:
         model_config_create = ModelConfigCreate(
-            **model_config.model_dump(), user_id=current_user_id  # 直接使用ID
+            **model_config.model_dump(),
+            user_id=current_user_id,  # 直接使用ID
         )
         return await service.add(model_config_create)
     except Exception as e:
@@ -54,9 +61,7 @@ async def create_model_config(
         )
 
 
-@router.get(
-    "/list", summary="分页获取模型配置列表", response_model=PaginationResponse
-)
+@router.get("/list", summary="分页获取模型配置列表", response_model=PaginationResponse)
 async def list_model_configs(
     params: PaginationParams = Depends(),
     service: ModelConfigService = Depends(get_model_config_service),
@@ -94,9 +99,7 @@ async def infinite_scroll_model_configs(
         )
 
 
-@router.get(
-    "/{id}", summary="获取单个模型配置", response_model=ModelConfig
-)
+@router.get("/{id}", summary="获取单个模型配置", response_model=ModelConfig)
 async def get_model_config(
     id: str, service: ModelConfigService = Depends(get_model_config_service)
 ) -> ModelConfig:
@@ -122,9 +125,7 @@ async def get_model_config(
         )
 
 
-@router.put(
-    "/{id}", summary="更新模型配置", status_code=status.HTTP_204_NO_CONTENT
-)
+@router.put("/{id}", summary="更新模型配置", status_code=status.HTTP_204_NO_CONTENT)
 async def update_model_config(
     id: str,
     model_config: ModelConfigUpdate,
@@ -144,9 +145,7 @@ async def update_model_config(
         )
 
 
-@router.delete(
-    "/{id}", summary="删除模型配置", status_code=status.HTTP_204_NO_CONTENT
-)
+@router.delete("/{id}", summary="删除模型配置", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_model_config(
     id: str, service: ModelConfigService = Depends(get_model_config_service)
 ):
@@ -162,6 +161,32 @@ async def delete_model_config(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
+# 根据码表选取模型获取默认参数
+@router.get("/default_params/{model_name}", summary="获取默认模型参数kv")
+async def get_default_model_params(
+    model_name: str,
+    service: ModelConfigService = Depends(get_model_config_service),
+):
+    """
+    获取指定模型名称的默认参数
+    :param model_name: 模型名称
+    :param service: 模型配置服务依赖注入
+    :return: 模型默认参数
+    """
+    try:
+        params = await service.get_default_params(model_name)
+        if not params:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"未找到模型 {model_name} 的默认参数",
+            )
+        return {"params": params}
+    except Exception as e:
+        logger.error(f"获取模型 {model_name} 默认参数失败: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取模型 {model_name} 默认参数失败: {str(e)}",
+        )
 
 
 # 将路由注册到模块应用

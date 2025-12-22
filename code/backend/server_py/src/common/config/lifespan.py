@@ -9,7 +9,6 @@ logger = logging.getLogger(__name__)
 async def server_start():
     logger.info("server_start...")
     try:
-        # await TableService.create()
         await db.dbs_start()
         logger.info("Database tables init successfully.")
     except Exception as e:

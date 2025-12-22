@@ -32,14 +32,14 @@ if conf.db_cache.type:
     db_cache = DBFactory.create_cache(db_cache_config)
     db_cache.connect(is_dev)
     async_cache = db_cache.async_cache
-    
+
 # 向量化数据库(pymilvus)
 db_vector: DBVectorInterface = None
 
 if conf.db_vector.type:
     db_vector_config: DBConfig = DBEX.get_config(conf.db_vector.type, conf.db_vector)
     db_vector = DBFactory.create_vector(db_vector_config)
-    
+
 #  图数据库(neo4j/graph_local)
 db_graph: DBGraphInterface = None
 if conf.db_graph.type:
@@ -48,11 +48,19 @@ if conf.db_graph.type:
     # db_graph.connect(is_dev)
 
 
-async def dbs_start():
+async def dbs_create_all():
     # 创建所有数据库表
     await db_rel.create_all()
+
+
+async def dbs_start():
+    if conf.state.check_db:
+        # 检查版本
+        await dbs_create_all()
+        # 检查是否有系统表初始化数据
     # 向量数据库连接
     await db_vector.connect()
+
 
 async def dbs_end():
     # 部分嵌入式数据库存储

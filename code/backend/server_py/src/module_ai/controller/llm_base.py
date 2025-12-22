@@ -9,6 +9,7 @@ from module_ai.do.llm_base import (
 from module_ai.config.server import module_app
 from module_ai.do.model_config import ModelConfigCreateRequest
 import logging
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
@@ -39,7 +40,7 @@ async def check_config(
     - **model_config**: 模型配置对象，包含模型类型、服务类型、URL、API密钥等信息
     """
     try:
-        result:bool = await llm_service.check_config(model_config)
+        result: bool = await llm_service.check_config(model_config)
         return {"message": "配置校验通过" if result else "配置校验失败:智能程度低"}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
