@@ -3,6 +3,7 @@
 提供模板管理和渲染功能
 """
 
+import re
 from string import Template
 from common.utils.db.schema.pagination import (
     InfiniteScrollParams,
@@ -25,7 +26,7 @@ class TemplateStringService:
     模板字符串服务
     """
 
-    def __init__(self, template_string_dao: TemplateStringDao):
+    def __init__(self, template_string_dao: TemplateStringDao = None):
         self.template_string_dao = template_string_dao or TemplateStringDao()
 
     async def add(self, template_string: TemplateStringCreate) -> str:
@@ -34,7 +35,21 @@ class TemplateStringService:
         :param template_string: 模板字符串创建数据
         :return: 创建的模板字符串ID
         """
+        # 如果没有tags 从template_content 中提取
+        if not template_string.tags:
+            template_string.tags = await self._extract_tags_from_content(
+                template_string.template_content
+            )
         return await self.template_string_dao.add(template_string)
+
+    async def _extract_tags_from_content(self, content: str) -> list[str]:
+        """
+        从模板内容中提取标签
+        :param content: 模板内容
+        :return: 提取的标签列表
+        """
+        # 简单实现：假设标签以${}格式出现
+        return [match.group(1) for match in re.finditer(r"\${(\w+)}", content)]
 
     async def delete(self, id: str) -> None:
         """
@@ -43,7 +58,9 @@ class TemplateStringService:
         """
         await self.template_string_dao.delete(id)
 
-    async def update(self, template_string_id: str, template_string: TemplateStringUpdate) -> None:
+    async def update(
+        self, template_string_id: str, template_string: TemplateStringUpdate
+    ) -> None:
         """
         更新模板字符串
         :param template_string_id: 模板字符串ID
@@ -78,7 +95,9 @@ class TemplateStringService:
         items = await self.template_string_dao.get_scroll(params)
         return InfiniteScrollResponse.create(items, params.limit)
 
-    async def render_template(self, render_request: TemplateRenderRequest) -> TemplateRenderResponse:
+    async def render_template(
+        self, render_request: TemplateRenderRequest
+    ) -> TemplateRenderResponse:
         """
         渲染模板
         :param render_request: 渲染请求
@@ -86,7 +105,7 @@ class TemplateStringService:
         """
         template_content = render_request.template_content
         template_id = render_request.template_id
-        
+
         # 如果提供了模板ID，从数据库获取模板内容
         if template_id and not template_content:
             template = await self.template_string_dao.get(template_id)
@@ -95,34 +114,34 @@ class TemplateStringService:
             template_content = template.template_content
         elif not template_content:
             raise ValueError("必须提供模板ID或模板内容")
-        
+
         # 使用string.Template进行模板渲染
         template_obj = Template(template_content)
-        
+
         # 提取模板中的变量
         template_variables = self._extract_template_variables(template_content)
-        
+
         # 检查变量是否完整
         variables_used = []
         variables_missing = []
-        
+
         for var in template_variables:
             if var in render_request.variables:
                 variables_used.append(var)
             else:
                 variables_missing.append(var)
-        
+
         # 渲染模板(即使有缺失变量也尝试渲染)
         try:
             rendered_content = template_obj.safe_substitute(render_request.variables)
         except Exception as e:
             raise ValueError(f"模板渲染失败: {str(e)}")
-        
+
         return TemplateRenderResponse(
             rendered_content=rendered_content,
             template_id=template_id,
             variables_used=variables_used,
-            variables_missing=variables_missing
+            variables_missing=variables_missing,
         )
 
     async def get_by_category(self, category: str) -> list:
@@ -133,8 +152,6 @@ class TemplateStringService:
         """
         return await self.template_string_dao.get_by_category(category)
 
-
-
     def _extract_template_variables(self, template_content: str) -> list:
         """
         从模板内容中提取变量名
@@ -142,8 +159,9 @@ class TemplateStringService:
         :return: 变量名列表
         """
         import re
+
         # 匹配 ${variable} 格式的变量
-        pattern = r'\$\{([^}]+)\}'
+        pattern = r"\$\{([^}]+)\}"
         variables = re.findall(pattern, template_content)
         return list(set(variables))  # 去重
 
@@ -156,14 +174,10 @@ class TemplateStringService:
         try:
             Template(template_content)
             variables = self._extract_template_variables(template_content)
-            return {
-                "valid": True,
-                "variables": variables,
-                "message": "模板语法正确"
-            }
+            return {"valid": True, "variables": variables, "message": "模板语法正确"}
         except Exception as e:
             return {
                 "valid": False,
                 "variables": [],
-                "message": f"模板语法错误: {str(e)}"
+                "message": f"模板语法错误: {str(e)}",
             }
