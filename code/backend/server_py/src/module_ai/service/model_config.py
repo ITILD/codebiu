@@ -65,6 +65,14 @@ class ModelConfigService:
         items = await self.model_config_dao.get_scroll(params)
         return InfiniteScrollResponse.create(items, params.limit)
     
+    async def get_default_params(self) -> list[dict]:
+        """
+        获取当前所有注册的默认模型服务参数kv列表
+        :return: 默认模型服务参数kv列表
+        """
+        # return await self.model_config_dao.get_default_params()
+        pass
+    
 
 if __name__ == "__main__":
     import asyncio

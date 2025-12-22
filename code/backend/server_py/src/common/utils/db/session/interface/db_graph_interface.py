@@ -146,3 +146,47 @@ class DBGraphInterface(ABC):
         清空数据。
         """
         raise NotImplementedError("子类必须实现 clear_data 方法")
+
+    @abstractmethod
+    async def add_node(self, node: BaseModel):
+        """
+        添加节点。
+
+        Args:
+            node: 节点对象
+        """
+        raise NotImplementedError("子类必须实现 add_node 方法")
+
+    @abstractmethod
+    async def add_edge(self, edge: BaseModel):
+        """
+        添加边。
+
+        Args:
+            edge: 边对象
+        """
+        raise NotImplementedError("子类必须实现 add_edge 方法")
+    
+    @abstractmethod
+    async def query_node_by_uuid(self, node_cls: type[BaseModel], node_uuid: str):
+        """
+        查询节点。
+
+        Args:
+            node_cls: 节点类
+            node_uuid: 节点UUID
+
+        Returns:
+            节点对象
+        """
+        raise NotImplementedError("子类必须实现 query_node_by_uuid 方法")
+    
+    @abstractmethod
+    async def list_tables_edges(self):
+        """
+        列出所有边表。
+
+        Returns:
+            所有边表的列表
+        """
+        raise NotImplementedError("子类必须实现 list_tables_edges 方法")

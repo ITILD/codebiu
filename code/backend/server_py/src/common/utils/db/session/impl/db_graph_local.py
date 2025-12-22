@@ -200,7 +200,7 @@ class DBGraphLocal(DBGraphInterface):
                 sql_type, _ = await self._convert_py_type_to_sql_type(
                     field.annotation.__name__, None
                 )
-                if field.primary_key == True:
+                if field.primary_key is True:
                     schema += f"{name} {sql_type} PRIMARY KEY, "
                 else:
                     schema += f"{name} {sql_type}, "
@@ -272,19 +272,15 @@ class DBGraphLocal(DBGraphInterface):
         await self.async_graph.execute(query, data.model_dump())
 
     async def add_edge(self, data: BaseModel):
-        """添加关系数据 CREATE (a:Label1 {id: $id1})-[:REL_TYPE {props}]->(b:Label2 {id: $id2})"""
+        """添加关系数据 CREATE (a:Label1 {uuid: $id1})-[:REL_TYPE {props}]->(b:Label2 {uuid: $id2})"""
         # 安全处理标签名：仅允许字母、数字、下划线
         label = data.__class__.__name__.lower()
         if not label.replace("_", "").isalnum():
             raise ValueError(f"Invalid label name: {label}")
         # node_source_field_name = "source"
         # node_target_field_name = "target"
-        node_source_query = (
-            f"MATCH (a:{data.source.__class__.__name__.lower()} {{id: '{data.source.id}'}})\n"
-        )
-        node_target_query = (
-            f"MATCH (b:{data.target.__class__.__name__.lower()} {{id: '{data.target.id}'}})\n"
-        )
+        node_source_query = f"MATCH (a:{data.source.__class__.__name__.lower()} {{uuid: '{data.source.uuid}'}})\n"
+        node_target_query = f"MATCH (b:{data.target.__class__.__name__.lower()} {{uuid: '{data.target.uuid}'}})\n"
         # edge_query = f"-[:{label} {{{props}}}]->"
         data_dict = data.model_dump(exclude={"source", "target"})
         props = ""
@@ -297,16 +293,21 @@ class DBGraphLocal(DBGraphInterface):
         query = f" {node_source_query}{node_target_query}{edge_query}"
         await self.async_graph.execute(query, data_dict)
 
-    async def query_node_by_id(self, schema_cls: type[BaseModel], node_id: str) -> list[BaseModel]:
+    async def query_node_by_uuid(
+        self, schema_cls: type[BaseModel], node_uuid: str
+    ) -> list[BaseModel]:
         """
-        根据节点 ID 查询图数据库中的节点，并返回其对应 Pydantic 模型实例列表。
+        根据节点 UUID 查询图数据库中的节点，并返回其对应 Pydantic 模型实例列表。
         """
         table_name = schema_cls.__name__.lower()
         # 使用参数化查询防止 Cypher 注入（假设驱动支持）
-        query = f"MATCH (n:{table_name} {{id: $node_id}}) RETURN n"
-        result = await self.async_graph.execute(query, parameters={"node_id": node_id})
+        query = f"MATCH (n:{table_name} {{uuid: $node_uuid}}) RETURN n"
+        result = await self.async_graph.execute(
+            query, parameters={"node_uuid": node_uuid}
+        )
         return schema_cls.model_validate(result.get_all()[0][0])
-
+    
+    # 获取关联
 
     async def drop_table_node(self, table_name):
         """删除表"""
@@ -315,7 +316,8 @@ class DBGraphLocal(DBGraphInterface):
     async def list_tables(self):
         """列出所有表"""
         tables = await self.async_graph.execute("CALL show_tables() RETURN *;")
-        return tables
+        tables_list = tables.get_all()
+        return tables_list
 
     async def list_tables_edges(self):
         """列出所有关系表"""
@@ -332,7 +334,10 @@ class DBGraphLocal(DBGraphInterface):
         return tables
 
     async def drop_tables_all(self):
-        """清空标签和数据"""
+        """清空标签和数据  kuzu必须先清理REL 再NODE"""
+        # tables_list = await self.list_tables()
+        # for table in tables_list:
+        #     await self.drop_table_node(table[1])
         tables_edges = await self.list_tables_edges()
         for table_edge in tables_edges:
             await self.drop_table_node(table_edge[1])
@@ -341,5 +346,5 @@ class DBGraphLocal(DBGraphInterface):
             await self.drop_table_node(table_node[1])
 
     async def clear_data(self):
-        """清空数据"""
+        """TODO 清空数据"""
         await self.async_graph.execute("MATCH (n) DETACH DELETE n")

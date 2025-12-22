@@ -112,9 +112,9 @@ async def test_db_graph_connection():
     try:
         db_graph.connect()
         await db_graph.drop_tables_all()
-
+        assert await db_graph.list_tables() == [], "expect empty list"
         class TestGraphNodeCity(BaseModel):
-            id: str = Field(
+            uuid: str = Field(
                 default_factory=lambda: uuid4().hex,
                 primary_key=True,  # 主键
                 index=True,  # 索引
@@ -123,7 +123,7 @@ async def test_db_graph_connection():
             name: str = Field(default="", description="城市名称")
 
         class TestGraphNodeUser(BaseModel):
-            id: str = Field(
+            uuid: str = Field(
                 default_factory=lambda: uuid4().hex,
                 primary_key=True,  # 主键
                 index=True,  # 索引
@@ -133,7 +133,7 @@ async def test_db_graph_connection():
             age: int = Field(default=0, description="用户年龄")
 
         class TestGraphEdgeFollows(BaseModel):
-            id: str = Field(
+            uuid: str = Field(
                 default_factory=lambda: uuid4().hex,
                 primary_key=True,  # 主键
                 index=True,  # 索引
@@ -143,7 +143,7 @@ async def test_db_graph_connection():
             target: TestGraphNodeUser = Field(default="", description="目标节点ID")
 
         class TestGraphEdgeLivesIn(BaseModel):
-            id: str = Field(
+            uuid: str = Field(
                 default_factory=lambda: uuid4().hex,
                 primary_key=True,  # 主键
                 index=True,  # 索引
@@ -153,8 +153,8 @@ async def test_db_graph_connection():
             target: TestGraphNodeCity = Field(default="", description="目标节点ID")
             weight: float = Field(default=0.0, description="边权重")
 
-        node_city_dalian = TestGraphNodeCity(id="dalian", name=" Dalian")
-        node_user_zhangsan = TestGraphNodeUser(id="zhangsan", name=" Zhangsan", age=18)
+        node_city_dalian = TestGraphNodeCity(uuid="dalian", name=" Dalian")
+        node_user_zhangsan = TestGraphNodeUser(uuid="zhangsan", name=" Zhangsan", age=18)
         edge_lives_in_zhangsan_dalian = TestGraphEdgeLivesIn(
             source=node_user_zhangsan, target=node_city_dalian, weight=0.5
         )
@@ -185,8 +185,8 @@ async def test_db_graph_connection():
         await db_graph.add_edge(edge_lives_in_zhangsan_dalian)
 
         # 查找数据
-        result = await db_graph.query_node_by_id(TestGraphNodeCity, "dalian")
-        assert result.id == "dalian", f"expect 'dalian', but got '{result.id}'"
+        result = await db_graph.query_node_by_uuid(TestGraphNodeCity, "dalian")
+        assert result.uuid == "dalian", f"expect 'dalian', but got '{result.uuid}'"
 
         logger.info("db_graph connection success")
     except Exception as e:
