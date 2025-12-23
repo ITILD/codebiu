@@ -56,6 +56,8 @@ class ModelConfigBase(SQLModel):
             url = "http://localhost:8000/v1"
         elif server_type == ModelServerType.AWS and url is None:
             url = "https://bedrock-runtime.us-east-1.amazonaws.com"
+        elif server_type == ModelServerType.OLLAMA and url is None:
+            url = "http://localhost:11434/v1"
 
         # 构造完整参数
         kwargs = {
