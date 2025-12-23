@@ -37,7 +37,9 @@ class ChatRequest(BaseModel):
     """聊天请求模型"""
 
     model_id: str = Field(..., description="模型配置ID或模型标识名称")
-    messages: list[Message | BaseMessage] = Field(..., description="消息内容")
+    messages: list[Message | HumanMessage | AIMessage | SystemMessage] | str = Field(
+        ..., description="消息内容"
+    )
     streaming: bool = Field(False, description="是否启用流式响应")
 
     @field_validator("messages", mode="before")
@@ -72,3 +74,21 @@ class CacheClearRequest(BaseModel):
     model_id: str | None = Field(
         None, description="模型配置ID或模型标识名称，为空则清除所有缓存"
     )
+
+
+class ModelChatCheckFormat(BaseModel):
+    """
+    校验模型格式化能力的模型
+    """
+
+    name: str = Field(..., description="名字")
+    age: int = Field(..., description="年龄")
+
+
+class ModelConfigCheckResponse(BaseModel):
+    """
+    校验模型配置的响应模型
+    """
+
+    is_valid: bool = Field(False, description="模型配置是否有效")
+    is_format: bool = Field(False, description="模型支持格式化")
