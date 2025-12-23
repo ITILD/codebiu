@@ -5,6 +5,7 @@ from module_ai.do.model_config import ModelConfig, ModelConfigCreateRequest
 from module_ai.service.model_config import ModelConfigService
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_aws import BedrockEmbeddings, ChatBedrockConverse
+from langchain_ollama import ChatOllama, OllamaEmbeddings
 from langchain.agents import create_agent
 from module_ai.do.llm_base import (
     Message,
@@ -28,6 +29,7 @@ class LLMBaseService:
     集成模型配置管理、AI工厂创建和基础调用方法
     使用单例模式确保全局唯一实例
     """
+
     def __init__(
         self,
         model_config_service: ModelConfigService | None = None,
@@ -180,7 +182,19 @@ class LLMBaseService:
                     dimensions=config.out_tokens,
                 )
         elif config.server_type == ModelServerType.OLLAMA:
-            pass
+            if config.model_type == ModelType.CHAT:
+                return ChatOllama(
+                    model=config.model,
+                    base_url=config.url,
+                    streaming=streaming,
+                    temperature=config.temperature,
+                )
+            elif config.model_type == ModelType.EMBEDDINGS:
+                return OllamaEmbeddings(
+                    model=config.model,
+                    base_url=config.url,
+                    dimensions=config.out_tokens,
+                )
         elif config.server_type == ModelServerType.VLLM:
             pass
         elif config.server_type == ModelServerType.AWS:
