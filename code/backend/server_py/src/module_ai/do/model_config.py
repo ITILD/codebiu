@@ -2,7 +2,7 @@ from sqlmodel import Column, DateTime, Field, SQLModel, JSON
 from uuid import uuid4
 from datetime import datetime, timezone
 from module_ai.utils.llm.do.model_type import ModelType, ModelServerType
-
+from pydantic import model_validator
 
 class ModelConfigBase(SQLModel):
     """
@@ -38,37 +38,25 @@ class ModelConfigBase(SQLModel):
         description="额外配置",
     )
 
+    @model_validator(mode='before')
     @classmethod
-    def create(
-        cls,
-        model: str,
-        server_type: ModelServerType = ModelServerType.OPENAI,
-        url: str | None = None,
-        api_key: str | None = None,
-        # ... 其他参数 ...
-        **extra_kwargs,
-    ) -> "ModelConfigBase":
-        """工厂方法：安全地创建实例并设置默认 URL"""
-        # 智能设置默认 URL（仅当用户未提供时）
-        if server_type == ModelServerType.OPENAI and url is None:
-            url = "https://api.openai.com/v1"
-        elif server_type == ModelServerType.VLLM and url is None:
-            url = "http://localhost:8000/v1"
-        elif server_type == ModelServerType.AWS and url is None:
-            url = "https://bedrock-runtime.us-east-1.amazonaws.com"
-        elif server_type == ModelServerType.OLLAMA and url is None:
-            url = "http://localhost:11434/v1"
+    def set_default_url(cls, data: dict[str, any]) -> dict[str, any]:
+        """在验证前根据 server_type 设置默认 url"""
+        server_type = data.get("server_type", ModelServerType.OPENAI)
+        url = data.get("url")
 
-        # 构造完整参数
-        kwargs = {
-            "model": model,
-            "server_type": server_type,
-            "url": url,
-            "api_key": api_key,
-            # ... 其他字段 ...
-            **extra_kwargs,
-        }
-        return cls(**kwargs)
+        # 仅当 url 未提供时才设置默认值
+        if url is None:
+            if server_type == ModelServerType.OPENAI:
+                data["url"] = "https://api.openai.com/v1"
+            elif server_type == ModelServerType.VLLM:
+                data["url"] = "http://localhost:8000/v1"
+            elif server_type == ModelServerType.AWS:
+                data["url"] = "https://bedrock-runtime.us-east-1.amazonaws.com"
+            elif server_type == ModelServerType.OLLAMA:
+                data["url"] = "http://localhost:11434/v1"
+
+        return data
 
 
 class ModelConfig(ModelConfigBase, table=True):
