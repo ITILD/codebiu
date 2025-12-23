@@ -5,6 +5,7 @@ from module_ai.do.llm_base import (
     ChatRequest,
     EmbeddingRequest,
     CacheClearRequest,
+    ModelConfigCheckResponse,
 )
 from module_ai.config.server import module_app
 from module_ai.do.model_config import ModelConfigCreateRequest
@@ -33,14 +34,34 @@ async def streaming_generator(responses):
 async def check_config(
     model_config: ModelConfigCreateRequest,
     llm_service: LLMBaseService = Depends(get_llm_base_service),
-):
+) -> ModelConfigCheckResponse:
     """
     校验模型配置是否有效
 
     - **model_config**: 模型配置对象，包含模型类型、服务类型、URL、API密钥等信息
     """
     try:
-        result: bool = await llm_service.check_config(model_config)
+        result: ModelConfigCheckResponse = await llm_service.check_config(model_config)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"配置校验失败: {e}")
+        raise HTTPException(status_code=500, detail=f"配置校验失败: {str(e)}")
+
+
+@router.post("/check_config_by_model_id", summary="配置校验")
+async def check_config_by_model_id(
+    model_id: str,
+    llm_service: LLMBaseService = Depends(get_llm_base_service),
+):
+    """
+    校验模型配置是否有效
+
+    - **model_id**: 模型配置ID或模型标识名称
+    """
+    try:
+        result: bool = await llm_service.check_config_by_model_id(model_id)
         return {"message": "配置校验通过" if result else "配置校验失败:智能程度低"}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

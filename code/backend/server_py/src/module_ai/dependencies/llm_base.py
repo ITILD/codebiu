@@ -1,6 +1,21 @@
 # LLM基础服务依赖注入
-from module_ai.service.llm_base import LLMBaseService, llm_base_service
+from module_ai.service.llm_base import LLMBaseService
+from module_ai.dao.llm_base_prompt import LLMBasePrompt
+# from fastapi import Depends
 
+def get_llm_base_prompt():
+    """
+    获取LLM基础提示实例
+    
+    此函数作为FastAPI依赖项，提供对LLM基础提示的访问。
+    
+    Returns:
+        LLMBasePrompt实例
+    """
+    return LLMBasePrompt()
+
+# 全局服务实例(通过单例模式确保全局唯一)
+llm_base_service = LLMBaseService()
 
 def get_llm_base_service():
     """

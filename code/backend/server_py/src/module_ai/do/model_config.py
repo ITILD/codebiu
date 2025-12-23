@@ -25,16 +25,48 @@ class ModelConfigBase(SQLModel):
 
     # 配置
     input_tokens: int | None = Field(8192, description="输入最大token数")
-    out_tokens: int | None = Field(8192, gt=0, description="生成最大token数/向量化模型是维度")
+    out_tokens: int | None = Field(
+        8192, gt=0, description="生成最大token数/向量化模型是维度"
+    )
     temperature: float | None = Field(0.7, ge=0, le=2, description="生成温度系数")
     timeout: int | None = Field(60, gt=0, description="请求超时时间(秒)")
-    no_think: bool | None  = Field(False, description="是否禁用思考 默认否不考虑")
+    no_think: bool | None = Field(False, description="是否禁用思考 默认否不考虑")
     # 其余配置统一放在json字段中,使用时遍历
     extra: dict | None = Field(
         default=None,
         sa_column=Column(JSON, nullable=True),  # ！
         description="额外配置",
     )
+
+    @classmethod
+    def create(
+        cls,
+        model: str,
+        server_type: ModelServerType = ModelServerType.OPENAI,
+        url: str | None = None,
+        api_key: str | None = None,
+        # ... 其他参数 ...
+        **extra_kwargs,
+    ) -> "ModelConfigBase":
+        """工厂方法：安全地创建实例并设置默认 URL"""
+        # 智能设置默认 URL（仅当用户未提供时）
+        if server_type == ModelServerType.OPENAI and url is None:
+            url = "https://api.openai.com/v1"
+        elif server_type == ModelServerType.VLLM and url is None:
+            url = "http://localhost:8000/v1"
+        elif server_type == ModelServerType.AWS and url is None:
+            url = "https://bedrock-runtime.us-east-1.amazonaws.com"
+
+        # 构造完整参数
+        kwargs = {
+            "model": model,
+            "server_type": server_type,
+            "url": url,
+            "api_key": api_key,
+            # ... 其他字段 ...
+            **extra_kwargs,
+        }
+        return cls(**kwargs)
 
 
 class ModelConfig(ModelConfigBase, table=True):
@@ -85,6 +117,7 @@ class ModelConfigUpdate(SQLModel):
     """
     更新模型配置的请求模型
     """
+
     model_type: ModelType | None = None
     # type openai  vllm 枚举
     server_type: ModelServerType | None = None

@@ -9,6 +9,8 @@ async def get_model_config_dao() -> ModelConfigDao:
     return ModelConfigDao()
 
 
-async def get_model_config_service(dao: ModelConfigDao = Depends(get_model_config_dao)) -> ModelConfigService:
+async def get_model_config_service(
+    dao: ModelConfigDao = Depends(get_model_config_dao),
+) -> ModelConfigService:
     """Service工厂"""
     return ModelConfigService(dao)
