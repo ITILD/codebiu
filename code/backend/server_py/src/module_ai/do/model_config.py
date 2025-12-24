@@ -54,7 +54,7 @@ class ModelConfigBase(SQLModel):
             elif server_type == ModelServerType.AWS:
                 data["url"] = "https://bedrock-runtime.us-east-1.amazonaws.com"
             elif server_type == ModelServerType.OLLAMA:
-                data["url"] = "http://localhost:11434/v1"
+                data["url"] = "http://localhost:11434"
 
         return data
 
