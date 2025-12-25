@@ -16,3 +16,20 @@ echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.
 
 sudo apt-get update 
 sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+
+# Docker Pull 加速
+
+sudo mkdir -p /etc/docker
+
+sudo tee /etc/docker/daemon.json <<EOF
+{
+"registry-mirrors": [
+"https://docker.1ms.run",
+"https://docker.xuanyuan.me"
+]
+}
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl restart docker
