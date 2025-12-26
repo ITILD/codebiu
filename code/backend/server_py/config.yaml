@@ -47,13 +47,20 @@ db_rel:
 #   database: temp_source\db\data.db
 db_cache:
   type: fakeredis
-  database: temp_source\db\fakeredis.db
+  # database: temp_source\db\fakeredis.db
 db_vector:
   type: lancedb
   database: temp_source\db\lancedb.db
 db_graph:
   type: graph_local
   database: temp_source\db\graph_local.db
+# db_graph:
+#   type: neo4j
+#   host: 127.0.0.1
+#   port: 7687
+#   user: neo4j
+#   password: 123456
+#   database: neo4j
 ####################### auth 配置
 token:
   secret_key: qwer1234
