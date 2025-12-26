@@ -80,6 +80,8 @@ class DBEX:
         # db_graph
         elif type == "graph_local":
             return GraphLocalConfig.model_validate(config_dict)
+        elif type == "neo4j":
+            return Neo4jConfig.model_validate(config_dict)
         # db_vector
         elif type == "milvus":
             return MilvusConfig.model_validate(config_dict)

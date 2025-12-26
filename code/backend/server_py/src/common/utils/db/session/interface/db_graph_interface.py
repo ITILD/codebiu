@@ -190,3 +190,16 @@ class DBGraphInterface(ABC):
             所有边表的列表
         """
         raise NotImplementedError("子类必须实现 list_tables_edges 方法")
+    
+    @abstractmethod
+    async def check_table_exists(self, table_name: str):
+        """
+        检查表是否存在。
+
+        Args:
+            table_name: 表名
+
+        Returns:
+            bool: 如果表存在则返回True，否则返回False
+        """
+        raise NotImplementedError("子类必须实现 check_table_exists 方法")
