@@ -28,6 +28,8 @@ class RedisConfig(DBConfig):
     db: int = Field(0, description="数据库索引")
     host: str = Field(..., description="数据库地址")
     port: int = Field(..., description="数据库端口")
+    password: str | None = Field(..., description="数据库密码")
+
 
 
 class FakeredisConfig(DBConfig):

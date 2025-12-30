@@ -45,6 +45,13 @@ db_rel:
 # db_rel:
 #   type: sqlite
 #   database: temp_source\db\data.db
+# db_cache:
+#   type: redis
+#   db: 0
+#   host: localhost
+#   port: 6379
+#   password: ''
+#   database: temp_source\db\redis.db # 缓存持久化地址
 db_cache:
   type: fakeredis
   database: temp_source\db\fakeredis.db

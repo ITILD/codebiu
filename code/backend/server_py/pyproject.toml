@@ -62,6 +62,7 @@ dependencies = [
     "networkx>=3.6.1",
     "bidict>=0.23.1",
     "langchain-ollama>=1.0.1",
+    "celery>=5.6.1",
 ]
 
 [[tool.uv.index]]
