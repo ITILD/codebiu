@@ -1,4 +1,5 @@
 from neo4j import AsyncGraphDatabase, AsyncDriver
+from neo4j.graph import Node, Relationship
 from common.utils.db.do.db_config import Neo4jConfig
 from common.utils.db.session.interface.db_graph_interface import DBGraphInterface
 import logging
@@ -167,11 +168,14 @@ class DBGraphNeo4j(DBGraphInterface):
         try:
             # Neo4j没有表的概念，使用标签（Label）来表示节点类型
             # 查询特定标签的节点是否存在
-            query = (
-                "CALL db.labels() YIELD label RETURN $table_name IN collect(label) AS exists"
-            )
-            result = await self.execute_query(query, {"table_name": table_name})
-            is_exists:bool = result[0]["exists"]
+            query_node = "CALL db.labels() YIELD label RETURN $table_name IN collect(label) AS exists"
+            result = await self.execute_query(query_node, {"table_name": table_name})
+            is_exists_node: bool = result[0]["exists"]
+            query_edge = "CALL db.relationshipTypes() YIELD relationshipType RETURN $table_name IN collect(relationshipType) AS exists"
+            result = await self.execute_query(query_edge, {"table_name": table_name})
+            is_exists_edge: bool = result[0]["exists"]
+            # 是否存在一个
+            is_exists = is_exists_node or is_exists_edge
             return is_exists
         except Exception as e:
             logger.error(f"检查标签 {table_name} 是否存在时出错: {e}")
@@ -231,7 +235,7 @@ class DBGraphNeo4j(DBGraphInterface):
             data: Pydantic 模型实例，其类名作为节点标签
         """
         # 安全处理标签名：仅允许字母、数字、下划线
-        label = data.__class__.__name__
+        label = data.__class__.__name__.lower()
         if not label.replace("_", "").isalnum():
             raise ValueError(f"Invalid label name: {label}")
 
@@ -261,9 +265,9 @@ class DBGraphNeo4j(DBGraphInterface):
 
         # 构建查询语句
         query = f"""
-        MATCH (a:`{data.source.__class__.__name__}` {{uuid: $source_uuid}})
-        MATCH (b:`{data.target.__class__.__name__}` {{uuid: $target_uuid}})
-        MERGE (a)-[:`{label.upper()}` {props}]->(b)
+        MATCH (a:`{data.source.__class__.__name__.lower()}` {{uuid: $source_uuid}})
+        MATCH (b:`{data.target.__class__.__name__.lower()}` {{uuid: $target_uuid}})
+        MERGE (a)-[:`{label}` {props}]->(b)
         """
 
         # 准备参数
@@ -281,24 +285,41 @@ class DBGraphNeo4j(DBGraphInterface):
         """
         根据节点 UUID 查询图数据库中的节点，并返回其对应 Pydantic 模型实例。
         """
-        label = schema_cls.__name__
+        label = schema_cls.__name__.lower()
         # 使用参数化查询防止 Cypher 注入
         query = f"MATCH (n:`{label}` {{uuid: $node_uuid}}) RETURN n"
-        result = await self.execute_query(query, {"node_uuid": node_uuid})
+        result = await self.execute_query(query, {"node_uuid": node_uuid}) 
 
         if not result:
             return None
 
         # 提取节点属性并创建模型实例
-        node_data = result[0]["n"]  # Neo4j返回的节点数据
-        # 如果返回的是字典格式，直接使用；否则需要提取属性
-        if isinstance(node_data, dict):
-            node_props = node_data
-        else:
-            # 假设返回的是节点对象，需要提取属性
-            node_props = dict(node_data)
-
-        return schema_cls.model_validate(node_props)
+        node_data:Node = result[0]["n"]  # Neo4j返回的节点数据
+        node_data_dict = dict(node_data)
+        return schema_cls.model_validate(node_data_dict)
+    
+    async def query_single_step_graph_by_node(
+        self,  node_uuid: str
+    ) -> list[BaseModel]:
+        """
+        根据节点 UUID 查询图数据库中的节点，并返回其对应 Pydantic 模型实例。
+        """
+        query = """
+        MATCH (n{uuid: $node_uuid})
+        MATCH (n)-[r]-(m)
+        RETURN r,m
+        """
+        result_list = await self.execute_query(query, {"node_uuid": node_uuid})
+        # 返回list dict
+        result = []
+        for record in result_list:
+            r:Relationship = record["r"]
+            m:Node = record["m"]
+            result.append({
+                "edge": dict(r),
+                "node": dict(m),
+            })
+        return result
 
     async def drop_table_node(self, table_name: str):
         """删除具有特定标签的所有节点及其关系"""

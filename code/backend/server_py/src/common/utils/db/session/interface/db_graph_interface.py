@@ -203,3 +203,10 @@ class DBGraphInterface(ABC):
             bool: 如果表存在则返回True，否则返回False
         """
         raise NotImplementedError("子类必须实现 check_table_exists 方法")
+
+    @abstractmethod
+    async def query_single_step_graph_by_node(self, node_uuid: str):
+        """
+        根据节点 UUID 查询图数据库中的节点，并返回其对应 Pydantic 模型实例。
+        """
+        raise NotImplementedError("子类必须实现 query_single_step_graph_by_node 方法")

@@ -308,6 +308,27 @@ class DBGraphLocal(DBGraphInterface):
         return schema_cls.model_validate(result.get_all()[0][0])
     
     # 获取关联
+    async def query_single_step_graph_by_node(self, node_uuid: str) -> list[dict]:
+        """
+        根据节点 UUID 查询图数据库中的单步关联关系。
+        """
+        query = f"""
+        MATCH (n)-[r]->(m)
+        WHERE n.uuid = $node_uuid
+        RETURN r, m
+        """
+        result = await self.async_graph.execute(
+            query, parameters={"node_uuid": node_uuid}
+        )
+        result_db = result.get_all()
+        # 返回list dict
+        result = []
+        for r, m in result_db:
+            result.append({
+                "edge": r,
+                "node": m,
+            })
+        return result
 
     async def drop_table_node(self, table_name):
         """删除表"""

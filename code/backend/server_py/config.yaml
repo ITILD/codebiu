@@ -47,7 +47,7 @@ db_rel:
 #   database: temp_source\db\data.db
 db_cache:
   type: fakeredis
-  # database: temp_source\db\fakeredis.db
+  database: temp_source\db\fakeredis.db
 db_vector:
   type: lancedb
   database: temp_source\db\lancedb.db
