@@ -19,6 +19,7 @@ class DBCacheRedis(DBCacheInterface):
         self.host = redis_config.host
         self.port = redis_config.port
         self.db = redis_config.db
+        self.password = redis_config.password
         # 数据库RDB持久化路径
         self.database = redis_config.database
 
@@ -27,6 +28,7 @@ class DBCacheRedis(DBCacheInterface):
             host=self.host,
             port=self.port,
             db=self.db,
+            password=self.password,
         )
         
     # 持久化
