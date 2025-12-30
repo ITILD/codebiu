@@ -44,9 +44,9 @@ async def test_db_rel_connection():
             async with session.begin():
                 # 检查数据是否插入成功
                 test_rel_base_result = await session.get(TestRelBase, test_rel_base.id)
-                assert (
-                    test_rel_base_result.value == test_rel_base.value
-                ), "expect inserted data"
+                assert test_rel_base_result.value == test_rel_base.value, (
+                    "expect inserted data"
+                )
         logger.info("db_rel connection and insert data success")
     except Exception as e:
         logger.error(f"db_rel connection fail: {e}")
@@ -113,6 +113,7 @@ async def test_db_graph_connection():
         db_graph.connect()
         await db_graph.drop_tables_all()
         assert await db_graph.list_tables() == [], "expect empty list"
+
         class TestGraphNodeCity(BaseModel):
             uuid: str = Field(
                 default_factory=lambda: uuid4().hex,
@@ -154,9 +155,15 @@ async def test_db_graph_connection():
             weight: float = Field(default=0.0, description="边权重")
 
         node_city_dalian = TestGraphNodeCity(uuid="dalian", name=" Dalian")
-        node_user_zhangsan = TestGraphNodeUser(uuid="zhangsan", name=" Zhangsan", age=18)
+        node_user_zhangsan = TestGraphNodeUser(
+            uuid="zhangsan", name=" Zhangsan", age=18
+        )
+        node_user_lisi = TestGraphNodeUser(uuid="lisi", name=" Lisi", age=20)
         edge_lives_in_zhangsan_dalian = TestGraphEdgeLivesIn(
             source=node_user_zhangsan, target=node_city_dalian, weight=0.5
+        )
+        edge_follows_zhangsan_lisi = TestGraphEdgeFollows(
+            source=node_user_zhangsan, target=node_user_lisi
         )
 
         # # 插入三个节点两个边,都带属性字段
@@ -171,22 +178,39 @@ async def test_db_graph_connection():
         await db_graph.create_table_node(TestGraphNodeUser)
         await db_graph.create_table_edge(TestGraphEdgeFollows)
         await db_graph.create_table_edge(TestGraphEdgeLivesIn)
-        # 检查表是否存在
-        assert await db_graph.check_table_exists(
-            TestGraphNodeCity.__name__.lower()
-        ), "TestGraphNodeCity table should exist"
-        assert await db_graph.check_table_exists(
-            TestGraphEdgeFollows.__name__.lower()
-        ), "TestGraphEdgeFollows table should exist"
 
         # 添加数据
         await db_graph.add_node(node_city_dalian)
         await db_graph.add_node(node_user_zhangsan)
+        await db_graph.add_node(node_user_lisi)
         await db_graph.add_edge(edge_lives_in_zhangsan_dalian)
+        await db_graph.add_edge(edge_follows_zhangsan_lisi)
+
+        # 检查表是否存在
+        assert await db_graph.check_table_exists(TestGraphNodeCity.__name__.lower()), (
+            "TestGraphNodeCity table should exist"
+        )
+        assert await db_graph.check_table_exists(
+            TestGraphEdgeLivesIn.__name__.lower()
+        ), "TestGraphEdgeLivesIn table should exist"
 
         # 查找数据
         result = await db_graph.query_node_by_uuid(TestGraphNodeCity, "dalian")
         assert result.uuid == "dalian", f"expect 'dalian', but got '{result.uuid}'"
+        # 查找关联数据
+        result = await db_graph.query_single_step_graph_by_node(node_user_zhangsan.uuid)
+        assert result[0]["edge"]["uuid"] in [
+            edge_lives_in_zhangsan_dalian.uuid,
+            edge_follows_zhangsan_lisi.uuid,
+        ], (
+            f"""expect '{edge_lives_in_zhangsan_dalian.uuid}' or '{edge_follows_zhangsan_lisi.uuid}', but got '{result[0]["edge"]["uuid"]}'"""
+        )
+        assert result[0]["node"]["uuid"] in [
+            node_city_dalian.uuid,
+            node_user_lisi.uuid,
+        ], (
+            f"expect '{node_city_dalian.uuid}' or '{node_user_lisi.uuid}', but got '{result[0]['node']['uuid']}'"
+        )
 
         logger.info("db_graph connection success")
     except Exception as e:
