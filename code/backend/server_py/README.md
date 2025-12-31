@@ -16,6 +16,9 @@ uv sync
 # 运行
 .venv\Scripts\python.exe src\app.py
 
+# 控制台运行
+$env:PYTHONPATH="src"; uvicorn src.app:app --host 0.0.0.0 --port 2001
+
 ```
 
 ## 测试
