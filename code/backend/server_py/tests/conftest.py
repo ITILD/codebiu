@@ -6,10 +6,12 @@ from common.utils.log.ColoredConsoleHandler import ColoredConsoleHandler
 from common.utils.log.CustomTimedRotatingFileHandler import (
     CustomTimedRotatingFileHandler,
 )
+
 """
 conftest.py pytest 默认测试配置文件
 所有同目录测试文件运行前都会执行conftest.py文件 不需要import导入
 """
+
 
 def setup_logging():
     """
@@ -49,12 +51,13 @@ def setup_logging():
         logging.info("...new log")
 
     # INFO 日志(记录 INFO 及以上)
-    info_log_path = DIR_LOG / "test_info_%Y-%m-%d.log"
+    info_log_path = DIR_LOG / "test_info.log"
     info_handler = CustomTimedRotatingFileHandler(
         file=info_log_path,
         when="midnight",
         interval=1,
-        backupCount=14,
+        # 保留 31 天的日志文件
+        backupCount=31,
         custom_function=on_rollover,
     )
     info_handler.setFormatter(formatter)
@@ -62,12 +65,12 @@ def setup_logging():
     logger.addHandler(info_handler)
 
     # ERROR 日志(只记录 ERROR 及以上)
-    error_log_path = DIR_LOG / "test_error_%Y-%m-%d.log"
+    error_log_path = DIR_LOG / "test_error.log"
     error_handler = CustomTimedRotatingFileHandler(
         file=error_log_path,
         when="midnight",
         interval=1,
-        backupCount=14,
+        backupCount=31,
         custom_function=on_rollover,
     )
     error_handler.setFormatter(formatter)
@@ -86,7 +89,8 @@ def setup_logging():
     # ==================== 启动日志 ====================
     logger.info("test log is set up ok")
     logger.info("运行环境: %s", "测试 (tests)")
-    
+
+
 # 立即配置日志系统
 setup_logging()
 logger = logging.getLogger(__name__)

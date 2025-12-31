@@ -49,12 +49,14 @@ def setup_logging():
         logging.info("...new log")
 
     # INFO 日志(记录 INFO 及以上)
-    info_log_path = DIR_LOG / "info_%Y-%m-%d.log"
+    info_log_path = DIR_LOG / "info.log"
     info_handler = CustomTimedRotatingFileHandler(
         file=info_log_path,
+        # 每天午夜轮转日志文件 会重命名成 info_YYYY-MM-DD.log
         when="midnight",
         interval=1,
-        backupCount=14,
+        # 保留 31 天的日志文件
+        backupCount=31,
         custom_function=on_rollover,
     )
     info_handler.setFormatter(formatter)
@@ -62,12 +64,12 @@ def setup_logging():
     logger.addHandler(info_handler)
 
     # ERROR 日志(只记录 ERROR 及以上)
-    error_log_path = DIR_LOG / "error_%Y-%m-%d.log"
+    error_log_path = DIR_LOG / "error.log"
     error_handler = CustomTimedRotatingFileHandler(
         file=error_log_path,
         when="midnight",
         interval=1,
-        backupCount=14,
+        backupCount=31,
         custom_function=on_rollover,
     )
     error_handler.setFormatter(formatter)
