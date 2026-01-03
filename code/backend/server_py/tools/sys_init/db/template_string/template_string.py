@@ -45,8 +45,8 @@ async def main():
         template_content = await f.read()
     
         template_string: TemplateStringCreate = TemplateStringCreate(
-            name="controller模板",
-            description="controller模板自动生成",
+            name="do模板",
+            description="do模板自动生成",
             template_content=template_content,
             category="dev",
         )

@@ -7,8 +7,10 @@ from sqlalchemy.orm import sessionmaker, Session
 # 防止注入
 from sqlalchemy import text
 from common.utils.db.do.db_config import SqliteConfig
-from common.utils.db.session.interface.db_relational_interface import DBRelationInterface
-
+from common.utils.db.session.interface.db_relational_interface import (
+    DBRelationInterface,
+)
+import json
 
 # Relational
 class DBSqlite(DBRelationInterface):
@@ -33,7 +35,14 @@ class DBSqlite(DBRelationInterface):
 
     def connect(self, log_bool=False):
         """建立数据库连接"""
-        self.engine = create_async_engine(self.url, echo=log_bool)
+        self.engine = create_async_engine(
+            self.url,
+            echo=log_bool,
+            # 连接池检查连接是否有效
+            pool_pre_ping=True,
+            # 确保中文不被转义
+            json_serializer=lambda obj: json.dumps(obj, ensure_ascii=False),
+        )
         self.session_factory = sessionmaker(
             self.engine, expire_on_commit=False, class_=AsyncSession
         )
