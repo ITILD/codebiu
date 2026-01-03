@@ -1,0 +1,35 @@
+# self
+from common.utils.db.schema.pagination import InfiniteScrollParams, InfiniteScrollResponse, PaginationParams, PaginationResponse
+from module_${template}.do.${template} import ${Template}, ${Template}Create, ${Template}Update
+from module_${template}.dao.${template} import ${Template}Dao
+
+# lib
+# from config.db import async_transaction
+
+
+class ${Template}Service:
+    """${template}"""
+
+    def __init__(self, ${template}_dao: ${Template}Dao):
+        self.${template}_dao = ${template}_dao or ${Template}Dao()
+
+    async def add(self, ${template}: ${Template}Create) -> str:
+        return await self.${template}_dao.add(${template})
+
+    async def delete(self, id: str):
+        await self.${template}_dao.delete(id)
+
+    async def update(self,${template}_id: str, ${template}: ${Template}Update):
+        await self.${template}_dao.update(${template}_id,${template})
+
+    async def get(self, id: str) -> ${Template} | None:
+        return await self.${template}_dao.get(id)
+    # 
+    async def list_all(self, pagination: PaginationParams):
+        items = await self.${template}_dao.list_all(pagination)
+        total = await self.${template}_dao.count()
+        return PaginationResponse.create(items, total,pagination)
+    async def get_scroll(self, params: InfiniteScrollParams):
+
+        items:list[${Template}] = await self.${template}_dao.get_scroll(params)
+        return InfiniteScrollResponse.create(items, params.limit)

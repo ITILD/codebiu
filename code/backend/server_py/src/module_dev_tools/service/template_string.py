@@ -48,8 +48,8 @@ class TemplateStringService:
         :param content: 模板内容
         :return: 提取的标签列表
         """
-        # 简单实现：假设标签以${}格式出现
-        return [match.group(1) for match in re.finditer(r"\${(\w+)}", content)]
+        # 提取所有${}中的内容 并去重 字符串用utf8
+        return list(set(match.group(1) for match in re.finditer(r"\${(\w+)}", content)))
 
     async def delete(self, id: str) -> None:
         """

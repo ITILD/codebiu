@@ -1,0 +1,12 @@
+from fastapi import Depends
+
+from module_${template}.dao.${template} import ${Template}Dao
+from module_${template}.service.${template} import ${Template}Service
+
+async def get_${template}_dao() -> ${Template}Dao:
+    """DAO工厂"""
+    return ${Template}Dao()
+# 新增的依赖项工厂函数
+async def get_${template}_service(dao: ${Template}Dao = Depends(get_${template}_dao)) -> ${Template}Service:
+    """Service工厂"""
+    return ${Template}Service(dao)

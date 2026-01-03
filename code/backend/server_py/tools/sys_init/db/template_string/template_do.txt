@@ -1,0 +1,68 @@
+from sqlmodel import Column, DateTime, Field, SQLModel
+from uuid import uuid4
+from datetime import datetime, timezone
+
+
+class ${Template}Base(SQLModel):
+    """
+    ${模板}基础模型(不含数据库表配置)
+    """
+
+    pid: str | None = Field(None, description="父级ID")
+    value: int = Field(default=0, description="数值字段")
+    name: str | None = Field( max_length=100, description="${模板}名称")
+    description: str | None = Field(
+        default=None, max_length=500, description="${模板}描述"
+    )
+    is_active: bool | None = Field(default=True, description="是否激活状态")
+
+
+class ${Template}(${Template}Base, table=True):
+    """
+    ${模板}数据库模型(对应数据库表)
+    """
+
+    id: str = Field(
+        default_factory=lambda: uuid4().hex,
+        primary_key=True,  # 主键
+        index=True,  # 索引
+        description="唯一标识符",
+    )
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(DateTime(timezone=True)),
+        description="创建时间",
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(
+            DateTime(timezone=True),
+            onupdate=lambda: datetime.now(timezone.utc),  # 自动更新
+            nullable=False,  # 不允许为空
+        ),
+        description="最后更新时间",
+    )
+
+
+class ${Template}Create(${Template}Base):
+    """
+    创建${模板}的请求模型
+    """
+
+    pass
+
+
+class ${Template}Update(${Template}Base):
+    """
+    更新${模板}的请求模型
+    """
+
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(
+            DateTime(timezone=True),
+            onupdate=lambda: datetime.now(timezone.utc),  # 自动更新
+            nullable=False,  # 不允许为空
+        ),
+        description="最后更新时间",
+    )

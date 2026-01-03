@@ -3,7 +3,11 @@ from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel, delete, update, text
 from sqlmodel.ext.asyncio.session import AsyncSession
 from common.utils.db.do.db_config import PostgresConfig
-from common.utils.db.session.interface.db_relational_interface import DBRelationInterface
+from common.utils.db.session.interface.db_relational_interface import (
+    DBRelationInterface,
+)
+import json
+
 
 class DBPostgre(DBRelationInterface):
     """
@@ -27,7 +31,9 @@ class DBPostgre(DBRelationInterface):
             # 开发模式下打印SQL语句
             echo=log_bool,
             # 连接池检查连接是否有效
-            pool_pre_ping=True
+            pool_pre_ping=True,
+            # 确保中文不被转义
+            json_serializer=lambda obj: json.dumps(obj, ensure_ascii=False),
         )
         self.session_factory = sessionmaker(
             self.engine, expire_on_commit=False, class_=AsyncSession
