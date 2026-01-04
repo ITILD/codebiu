@@ -45,14 +45,9 @@
         <ButtonSwitch v-model="sysSettingStore.sysStyle.theme.isDark"
           @change="sysSettingStore.changeThemeValueByIsDark" />
         <!-- 登录/用户 -->
-        <template v-if="userState.isLogin" >
+        <template v-if="authState.user.id" >
           <!-- 用户图标下拉菜单-->
-          <el-dropdown trigger="click" items-center placement="bottom-end">
-            <UserLogin pointer-default w-7 h-7 />
-            <template #dropdown>
-              <UserControl ref="userControlRef" />
-            </template>
-          </el-dropdown>
+          <UserControl/>
         </template>
         <template v-else>
           <button flex items-center justify-center hover:shadow mx-1 hover:bg-deep-3 @click="showLoginDialog = true">
@@ -88,9 +83,9 @@ import { Search, Menu } from '@element-plus/icons-vue'
 import LoginDialog from './head/LoginDialog.vue'
 import RegisterDialog from './head/RegisterDialog.vue'
 import UserControl from './head/UserControl.vue'
-import { UserStore } from '@/stores/user'
-const userStore = UserStore()
-const userState = userStore.userState
+import { useAuthStore } from '@/stores/auth'
+const authStore = useAuthStore()
+const authState = authStore.authState
 const sysSettingStore = SysSettingStore()
 const sysStyle = sysSettingStore.sysStyle
 const showMobileMenu = ref(false)
@@ -116,10 +111,12 @@ const handleRegister = () => {
 // 处理注册成功
 const handleRegisterSuccess = (userInfo: { username: string }) => {
   // 注册成功后自动登录
-  userState.isLogin = true
+  authState.user.id = userInfo.username // 或其他合适的ID
   showRegisterDialog.value = false
   console.log('注册成功:', userInfo)
 }
+
+
 </script>
 
 <style scoped></style>

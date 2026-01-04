@@ -45,12 +45,13 @@
 </template>
 
 <script setup lang="ts">
-import { Close, View, Hide } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import { registerUser } from '@/api/authorization/auth'
-import type { AuthRegisterRequest } from '@/types/authorization/auth'
-
+import type { AuthRegisterRequest,AuthResponse } from '@/types/authorization/auth'
+import { useAuthStore } from '@/stores/auth'
+const authStore = useAuthStore()
+const authState = authStore.authState
 // 定义组件属性
 const props = defineProps<{
   modelValue: boolean
@@ -138,7 +139,9 @@ const handleRegister = async () => {
         }
 
         // 调用注册API
-        const response = await registerUser(registerData)
+        const authResponse:AuthResponse = await registerUser(registerData)
+        authState.value = authResponse
+
 
         // 发射注册成功事件
         emit('register-success', { username: registerForm.username })

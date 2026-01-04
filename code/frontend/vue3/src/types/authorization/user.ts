@@ -20,7 +20,7 @@ interface UserCreate extends UserBase {
   password: string; // 必填字段
 }
 
-interface UserUpdate extends UserBase { }
+type UserUpdate = UserBase
 
 // 通用配置对象
 const config = {
@@ -93,12 +93,12 @@ const config = {
       prop: 'detail', label: '操作', width: 120, button_list: {
         "edit": {
           label: '编辑',
-          fuc_type: 'click', fuc: (row: any) => {
+          fuc_type: 'click', fuc: (row: unknown) => {
             alert('点击了编辑')
           }
         },
         "delete": {
-          type: 'danger', label: '删除', fuc_type: 'click', fuc: (row: any) => {
+          type: 'danger', label: '删除', fuc_type: 'click', fuc: (row: unknown) => {
             alert('点击了删除')
           }
         },
@@ -108,8 +108,8 @@ const config = {
 };
 
 // 获取表单验证规则
-const formBase: any = {}
-const rules: any = {};
+const formBase: unknown = {}
+const rules: unknown = {};
 config.tableColumns.forEach(field => {
   if (field.edit) {
     formBase[field.prop] = field.edit.default;

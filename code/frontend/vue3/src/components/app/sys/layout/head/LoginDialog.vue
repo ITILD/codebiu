@@ -4,7 +4,7 @@
     <template #header="{  titleId, titleClass }">
       <div flex justify-between items-center>
         <span :id="titleId" :titleClass>{{ $t('sign_in') }}</span>
-        
+
       </div>
     </template>
 
@@ -41,12 +41,11 @@
 </template>
 
 <script setup lang="ts">
-import { Close } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import { loginUser } from '@/api/authorization/auth'
 // 用户信息和token设置
-import { UserStore } from '@/stores/user'
+import { useAuthStore } from '@/stores/auth'
 import type {
   AuthLoginRequest,
   AuthLogoutRequest,
@@ -54,8 +53,8 @@ import type {
   AuthResponse,
   RefreshTokenRequest
 } from '@/types/authorization/auth';
-const userStore = UserStore()
-const userState = userStore.userState
+const authStore = useAuthStore()
+const authState = authStore.authState
 
 // 定义组件属性
 const props = defineProps<{
@@ -124,15 +123,15 @@ const handleLogin = async () => {
 
         // 调用登录API
         const authResponse: AuthResponse = await loginUser(loginData)
-        userState.isLogin = true
+        authState.value = authResponse
         // 发射登录事件
         emit('login', { username: loginForm.username })
         handleClose()
-      } catch (error: any) {
+      } catch (error: unknown) {
         debugger
         console.error('登录失败:', error)
         // 添加错误提示
-        ElMessage.error(error.message || '登录失败，请检查用户名和密码')
+        ElMessage.error((error as { message?: string }).message || '登录失败，请检查用户名和密码')
       } finally {
         loading.value = false
       }
