@@ -1,7 +1,7 @@
 <template>
   <div ml-2>
-    <div v-if="userState.img">
-      <img w-full h-full :src="userState.img" alt="" srcset="" />
+    <div v-if="authState.img">
+      <img w-full h-full :src="authState.img" alt="" srcset="" />
     </div>
     <!--游客图标 -->
     <!-- <UserSVG w-full h-full v-else /> -->
@@ -11,9 +11,9 @@
 <script setup lang="ts">
 // 样式控制
 import { UserFilled } from '@element-plus/icons-vue'
-import { UserStore } from '@/stores/user'
-const userStore = UserStore()
-const userState = userStore.userState
+import { useAuthStore } from '@/stores/auth'
+const authStore = useAuthStore()
+const authState = authStore.authState
 /**
  * 用户头像 登陆状态
  */

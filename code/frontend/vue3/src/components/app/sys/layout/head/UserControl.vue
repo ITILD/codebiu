@@ -1,40 +1,42 @@
 <template>
-  <el-dropdown-menu>
-    <!-- 用户信息 -->
-    <el-dropdown-item command="profile">
-      <div flex items-center>
-        <UserLogin m-2 w-8 h-8 />
-        <div>
-          <div text-lg font-5>Name User</div>
-          <div text-sm text-gray-500>**@***.com</div>
-        </div>
-      </div>
-    </el-dropdown-item>
+  <el-dropdown trigger="click" items-center placement="bottom-end" @command="handleCommand">
+    <UserLogin pointer-default w-7 h-7 />
+    <template #dropdown>
+      <el-dropdown-menu>
+        <!-- 用户信息 -->
+        <el-dropdown-item command="profile">
+          <div flex items-center>
+            <UserLogin m-2 w-8 h-8 />
+            <div>
+              <div text-lg font-5>Name User</div>
+              <div text-sm text-gray-500>**@***.com</div>
+            </div>
+          </div>
+        </el-dropdown-item>
 
-    <!-- 菜单项 -->
-    <el-dropdown-item
-      v-for="item in menuItems"
-      :key="item.command"
-      :command="item.command"
-      :divided="item.divided"
-    >
-      <el-icon class="mr-2">
-        <component :is="item.icon" />
-      </el-icon>
-      {{ item.label }}
-    </el-dropdown-item>
-  </el-dropdown-menu>
+        <!-- 菜单项 -->
+        <el-dropdown-item v-for="item in menuItems" :key="item.command" :command="item.command" :divided="item.divided">
+          <el-icon class="mr-2">
+            <component :is="item.icon" />
+          </el-icon>
+          {{ item.label }}
+        </el-dropdown-item>
+      </el-dropdown-menu>
+    </template>
+  </el-dropdown>
+
 </template>
 
 <script setup lang="ts">
+import { markRaw } from 'vue'
 import { FolderOpened, Setting, Monitor, EditPen, SwitchButton } from '@element-plus/icons-vue'
-import { UserStore } from '@/stores/user'
+import { useAuthStore } from '@/stores/auth'
 import { SysSettingStore } from '@/stores/sys'
 
 // 获取路由和存储实例
 const router = useRouter()
-const userStore = UserStore()
-const userState = userStore.userState
+const authStore = useAuthStore()
+const initUserInfo = authStore.initUserInfo
 const sysSettingStore = SysSettingStore()
 
 // 定义菜单项类型
@@ -51,16 +53,16 @@ const menuItems: MenuItem[] = [
   {
     command: 'projects',
     label: '项目列表',
-    icon: FolderOpened,
+    icon: markRaw(FolderOpened),
     action: () => {
-      // 处理项目列表点击
-      console.log('点击项目列表')
+      // 跳转到项目列表页面
+      router.push('/projects')
     },
   },
   {
     command: 'blog',
     label: '博客记录',
-    icon: EditPen,
+    icon: markRaw(EditPen),
     action: () => {
       router.push('/blog')
     },
@@ -69,7 +71,7 @@ const menuItems: MenuItem[] = [
     command: 'settings',
     divided: true,
     label: '设置',
-    icon: Setting,
+    icon: markRaw(Setting),
     action: () => {
       sysSettingStore.isSysSettingShow = true
     },
@@ -77,7 +79,7 @@ const menuItems: MenuItem[] = [
   {
     command: 'admin',
     label: '后台管理',
-    icon: Monitor,
+    icon: markRaw(Monitor),
     action: () => {
       router.push('/_server')
     },
@@ -85,7 +87,7 @@ const menuItems: MenuItem[] = [
   {
     command: 'dev',
     label: '开发测试',
-    icon: EditPen,
+    icon: markRaw(EditPen),
     action: () => {
       router.push('/_dev')
     },
@@ -93,35 +95,23 @@ const menuItems: MenuItem[] = [
   {
     command: 'logout',
     label: '退出登录',
-    icon: SwitchButton,
+    icon: markRaw(SwitchButton),
     // divided 分隔线
     divided: true,
     action: () => {
-      // 访问瑞出api
-
-      // 退出登录
-      userState.isLogin = false
+      // 退出登录，重置用户状态
+      initUserInfo()
     },
   },
 ]
 
-// 处理菜单项点击
-const handleMenuClick = (command: string) => {
+const handleCommand = (command: string) => {
   const item = menuItems.find((item) => item.command === command)
-  if (item && item.action) {
+  if (item?.action) {
     item.action()
   }
 }
 
-// 暴露处理函数给父组件使用
-defineExpose({
-  handleMenuClick,
-})
 </script>
 
-<style scoped>
-.el-dropdown-menu__item {
-  display: flex;
-  align-items: center;
-}
-</style>
+<style scoped></style>
