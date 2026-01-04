@@ -1,14 +1,10 @@
 <template>
   <el-dialog v-model="visible" :title="$t('sign_in')" :width="dialogWidth" :modal="true" :close-on-click-modal="true"
     draggable @close="handleClose">
-    <template #header="{ close, titleId, titleClass }">
+    <template #header="{  titleId, titleClass }">
       <div flex justify-between items-center>
         <span :id="titleId" :titleClass>{{ $t('sign_in') }}</span>
-        <button el-dialog__headerbtn @click="close" aria-label="Close">
-          <el-icon>
-            <Close />
-          </el-icon>
-        </button>
+        
       </div>
     </template>
 

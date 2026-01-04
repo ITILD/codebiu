@@ -2,7 +2,7 @@
   <!-- 语言选择 -->
   <div flex items-center p-1 rounded-md>
     <!-- 对齐key -->
-    <div w-4/9 flex items-center>
+    <div class = "w-4/9" flex items-center>
       <span w-full>{{ $t('language') }}</span>
       <span mx-2>:</span>
     </div>

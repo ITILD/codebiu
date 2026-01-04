@@ -5,7 +5,7 @@
       <p>首页示例，您可以通过顶部导航栏切换到服务器管理页面。</p>
       <RouterLink to="/_server" class="btn-primary">前往服务器管理</RouterLink>
     </section>
-    
+
     <section class="features-section">
       <h3>主要功能</h3>
       <div class="features-grid">

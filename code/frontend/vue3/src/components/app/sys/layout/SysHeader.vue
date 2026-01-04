@@ -15,9 +15,7 @@
         <MenuLarge max-h-14 :mode="false" />
       </el-drawer>
 
-
-
-      <div flex m-0 md:mx-4 lg:mx-12>
+      <div flex md:mx-4 lg:mx-12>
         <!--网站Logo和名称 大屏幕：最左侧 小屏幕：中间-->
         <router-link to="/" flex m-6 md:m-3>
           <img src="@/assets/img/ion/sy_w.svg" h-8 mr-3 />
@@ -47,15 +45,14 @@
         <ButtonSwitch v-model="sysSettingStore.sysStyle.theme.isDark"
           @change="sysSettingStore.changeThemeValueByIsDark" />
         <!-- 登录/用户 -->
-        <template v-if="userState.isLogin">
-          <!-- 用户图标 -->
-          <UserLogin @click="sysStyle.isUserControlShow = !sysStyle.isUserControlShow" pointer-default w-7 h-7 />
-          <!-- 大屏幕下 点击用户图标下拉 导航栏-->
-          <MinPopover v-model="sysStyle.isUserControlShow">
-            <ShowHidden v-show="sysStyle.isUserControlShow">
-              <UserControl absolute z-10 w-60 right-2 top-14 rounded-lg bg-deep-0 p-4 text-xl shadow-xl />
-            </ShowHidden>
-          </MinPopover>
+        <template v-if="userState.isLogin" >
+          <!-- 用户图标下拉菜单-->
+          <el-dropdown trigger="click" items-center placement="bottom-end">
+            <UserLogin pointer-default w-7 h-7 />
+            <template #dropdown>
+              <UserControl ref="userControlRef" />
+            </template>
+          </el-dropdown>
         </template>
         <template v-else>
           <button flex items-center justify-center hover:shadow mx-1 hover:bg-deep-3 @click="showLoginDialog = true">
@@ -90,6 +87,7 @@ import { SysSettingStore } from '@/stores/sys'
 import { Search, Menu } from '@element-plus/icons-vue'
 import LoginDialog from './head/LoginDialog.vue'
 import RegisterDialog from './head/RegisterDialog.vue'
+import UserControl from './head/UserControl.vue'
 import { UserStore } from '@/stores/user'
 const userStore = UserStore()
 const userState = userStore.userState
