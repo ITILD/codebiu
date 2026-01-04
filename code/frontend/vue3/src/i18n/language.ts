@@ -31,6 +31,8 @@ const languageOptions: {
 }[] = []
 // todo 根据ip地址或者定位，自动选择语言
 const i18n = createI18n({
+  //
+  legacy: false,
   // 'zh'
   locale: languageObj.languageTypeArray[0],
   fallbackLocale: languageObj.languageTypeArray[0],

@@ -1,82 +1,127 @@
 <template>
-  <div>
-    <CollapseBase :buttonList = "buttonList">
-      <li my-1 mb-3>
-        <div mini-text-center-between h-12>
-          <!-- 名字 邮箱 -->
-          <div flex items-center h-full>
-            <UserLogin m-2 w-12 h-full />
-            <div text-deep-1>
-              <div text-lg font-5>Name User</div>
-              <div text-sm font-100 text-deep-5>**@***.com</div>
-            </div>
-          </div>
-          <!-- 关闭 -->
-          <button w-14 h-full rounded-full bg-deep-2 hover:bg-deep-3
-            @click="sysStyle.isUserControlShow = false">×</button>
+  <el-dropdown-menu>
+    <!-- 用户信息 -->
+    <el-dropdown-item command="profile">
+      <div flex items-center>
+        <UserLogin m-2 w-8 h-8 />
+        <div>
+          <div text-lg font-5>Name User</div>
+          <div text-sm text-gray-500>**@***.com</div>
         </div>
-      </li>
-    </CollapseBase>
-  </div>
+      </div>
+    </el-dropdown-item>
+
+    <!-- 菜单项 -->
+    <el-dropdown-item
+      v-for="item in menuItems"
+      :key="item.command"
+      :command="item.command"
+      :divided="item.divided"
+    >
+      <el-icon class="mr-2">
+        <component :is="item.icon" />
+      </el-icon>
+      {{ item.label }}
+    </el-dropdown-item>
+  </el-dropdown-menu>
 </template>
 
 <script setup lang="ts">
-import SettingSVG from '@/components/miniUI/miniSvg/SettingSVG.vue'
-// 显隐控制
+import { FolderOpened, Setting, Monitor, EditPen, SwitchButton } from '@element-plus/icons-vue'
+import { UserStore } from '@/stores/user'
 import { SysSettingStore } from '@/stores/sys'
+
+// 获取路由和存储实例
 const router = useRouter()
+const userStore = UserStore()
+const userState = userStore.userState
 const sysSettingStore = SysSettingStore()
-const sysStyle = sysSettingStore.sysStyle
-const closeUserControlShow = () => sysStyle.isUserControlShow = false
 
-const openSysSettingShow = () => {
-  sysSettingStore.isSysSettingShow = true
-  closeUserControlShow()
+// 定义菜单项类型
+interface MenuItem {
+  command: string
+  label: string
+  icon: unknown
+  divided?: boolean
+  action?: () => void
 }
 
-// 两级父子对象
-const buttonList = ref([{
-  name: '项目列表1',
-  icon: SettingSVG,
-  clickFuc: (item: { isShow: boolean }) => { item.isShow = !item.isShow },
-  isShow: false,
-  child: [
-    { name: '项目列表1-1', icon: null, url: '/' },
-    {
-      name: '项目列表1-2', icon: null, url: '/'
-    }
-  ]
-},
-{
-  name: '后台管理',
-  icon: SettingSVG,
-  url: '/_server',
-  clickFuc: () => {
-    router.push('/_server')
+// 菜单项配置
+const menuItems: MenuItem[] = [
+  {
+    command: 'projects',
+    label: '项目列表',
+    icon: FolderOpened,
+    action: () => {
+      // 处理项目列表点击
+      console.log('点击项目列表')
+    },
+  },
+  {
+    command: 'blog',
+    label: '博客记录',
+    icon: EditPen,
+    action: () => {
+      router.push('/blog')
+    },
+  },
+  {
+    command: 'settings',
+    divided: true,
+    label: '设置',
+    icon: Setting,
+    action: () => {
+      sysSettingStore.isSysSettingShow = true
+    },
+  },
+  {
+    command: 'admin',
+    label: '后台管理',
+    icon: Monitor,
+    action: () => {
+      router.push('/_server')
+    },
+  },
+  {
+    command: 'dev',
+    label: '开发测试',
+    icon: EditPen,
+    action: () => {
+      router.push('/_dev')
+    },
+  },
+  {
+    command: 'logout',
+    label: '退出登录',
+    icon: SwitchButton,
+    // divided 分隔线
+    divided: true,
+    action: () => {
+      // 访问瑞出api
+
+      // 退出登录
+      userState.isLogin = false
+    },
+  },
+]
+
+// 处理菜单项点击
+const handleMenuClick = (command: string) => {
+  const item = menuItems.find((item) => item.command === command)
+  if (item && item.action) {
+    item.action()
   }
-},
-{
-  name: '开发测试',
-  icon: SettingSVG,
-  url: '/_dev',
-  clickFuc: () => {
-    router.push('/_dev')
-  }
-},
-{
-  name: '博客记录',
-  icon: SettingSVG,
-  url: '/blog',
-  clickFuc: () => {
-    router.push('/blog')
-  }
-},
-{
-  name: '设置',
-  icon: SettingSVG,
-  clickFuc: openSysSettingShow
 }
-])
+
+// 暴露处理函数给父组件使用
+defineExpose({
+  handleMenuClick,
+})
 </script>
 
-<style></style>
+<style scoped>
+.el-dropdown-menu__item {
+  display: flex;
+  align-items: center;
+}
+</style>

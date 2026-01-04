@@ -1,11 +1,11 @@
 <template>
-  <div>
+  <div ml-2>
     <div v-if="userState.img">
       <img w-full h-full :src="userState.img" alt="" srcset="" />
     </div>
     <!--游客图标 -->
     <!-- <UserSVG w-full h-full v-else /> -->
-    <el-avatar :icon="UserFilled" v-else />
+    <el-avatar :size="30" :icon="UserFilled" v-else  />
   </div>
 </template>
 <script setup lang="ts">

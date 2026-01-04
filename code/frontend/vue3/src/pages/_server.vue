@@ -58,7 +58,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref } from 'vue'
+import { ref, markRaw } from 'vue'
 import {
     Document,
     Menu,
@@ -79,7 +79,7 @@ const isCollapse = ref(true)
 const menuItems = ref([
     {
         index: '/_server',
-        icon: Location,
+        icon: markRaw(Location),
         title: 'Overview',
         disabled: false,
         children: null
@@ -87,7 +87,7 @@ const menuItems = ref([
     {
         index:'/authorization',
         title: 'Authorization',
-        icon: Setting,
+        icon: markRaw(Setting),
         disabled: false,
         children: [
             {
@@ -101,7 +101,7 @@ const menuItems = ref([
     {
         index: '/db',
         title: 'DataBase',
-        icon: Setting,
+        icon: markRaw(Setting),
         children: [
             {
                 index: '/_server/database/overview',
@@ -120,7 +120,7 @@ const menuItems = ref([
     {
         index: '/template',
         title: 'Template',
-        icon: Setting,
+        icon: markRaw(Setting),
         children: [
 
             {
@@ -134,7 +134,7 @@ const menuItems = ref([
     {
         index: '/ai',
         title: 'AI',
-        icon: Setting,
+        icon: markRaw(Setting),
         children: [
             {
                 index: '/_server/ai/ocr',
@@ -153,21 +153,21 @@ const menuItems = ref([
     {
         index: '/_server/test',
         title: 'test',
-        icon: Menu,
+        icon: markRaw(Menu),
         disabled: false,
         children: null
     },
     {
         index: '4',
         title: 'no_page',
-        icon: Document,
+        icon: markRaw(Document),
         disabled: false,
         children: null
     },
     {
         index: '5',
         title: 'disabled',
-        icon: Document,
+        icon: markRaw(Document),
         disabled: true,
         children: null
     }

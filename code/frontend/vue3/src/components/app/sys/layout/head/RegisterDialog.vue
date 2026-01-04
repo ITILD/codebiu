@@ -1,78 +1,40 @@
 <template>
-  <el-dialog
-    v-model="visible"
-    :title="$t('sign_up')"
-    :width="dialogWidth"
-    :modal="true"
-    :close-on-click-modal="true"
-    draggable
-    @close="handleClose"
-  >
-    <template #header="{ close, titleId, titleClass }">
+  <el-dialog v-model="visible" :title="$t('sign_up')" :width="dialogWidth" :modal="true" :close-on-click-modal="true"
+    draggable @close="handleClose">
+    <template #header="{ titleId, titleClass }">
       <div flex justify-between items-center>
         <span :id="titleId" :titleClass>{{ $t('sign_up') }}</span>
-        <button el-dialog__headerbtn @click="close" aria-label="Close">
-          <el-icon><Close /></el-icon>
-        </button>
       </div>
     </template>
 
     <div p-20px>
-      <el-form 
-        ref="registerFormRef" 
-        :model="registerForm" 
-        :rules="registerRules as any"
-        label-position="top"
-        @submit.prevent="handleRegister"
-      >
+      <el-form ref="registerFormRef" :model="registerForm" :rules="registerRules as any" label-position="top"
+        @submit.prevent="handleRegister">
         <el-form-item :label="$t('username')" prop="username">
-          <el-input 
-            v-model="registerForm.username" 
-            :placeholder="$t('username')" 
-            autocomplete="username"
-          />
+          <el-input v-model="registerForm.username" :placeholder="$t('username')" autocomplete="username" />
         </el-form-item>
-        
+
         <el-form-item :label="$t('email')" prop="email">
-          <el-input 
-            v-model="registerForm.email" 
-            :placeholder="$t('email')" 
-            autocomplete="email"
-          />
+          <el-input v-model="registerForm.email" :placeholder="$t('email')" autocomplete="email" />
         </el-form-item>
-        
+
         <el-form-item label="密码" prop="password">
-          <el-input 
-            v-model="registerForm.password" 
-            type="password" 
-            placeholder="请输入密码" 
-            autocomplete="new-password"
-            show-password
-          />
+          <el-input v-model="registerForm.password" type="password" placeholder="请输入密码" autocomplete="new-password"
+            show-password />
         </el-form-item>
-        
+
         <el-form-item label="确认密码" prop="confirmPassword">
-          <el-input 
-            v-model="registerForm.confirmPassword" 
-            type="password" 
-            placeholder="请再次输入密码" 
-            autocomplete="new-password"
-            show-password
-          />
+          <el-input v-model="registerForm.confirmPassword" type="password" placeholder="请再次输入密码"
+            autocomplete="new-password" show-password />
         </el-form-item>
-        
+
         <el-form-item>
-          <el-button 
-            type="primary" 
-            w-full 
-            :loading="loading" 
-            @click="handleRegister"
-          >
+          <el-button type="primary" w-full :loading="loading" @click="handleRegister">
             {{ $t('sign_up') }}
           </el-button>
         </el-form-item>
       </el-form>
-      
+
       <div text-center mt-20px>
         <el-button type="info" link @click="handleBackToLogin">
           {{ $t('back_to_login') }}
@@ -137,7 +99,7 @@ const registerRules = {
   ],
   confirmPassword: [
     { required: true, message: '请确认密码', trigger: 'blur' },
-    { 
+    {
       validator: (rule: unknown, value: string, callback: (error?: Error) => void) => {
         if (value !== registerForm.password) {
           callback(new Error('两次输入的密码不一致'))
@@ -163,7 +125,7 @@ const handleClose = () => {
 // 处理注册
 const handleRegister = async () => {
   if (!registerFormRef.value) return
-  
+
   await registerFormRef.value.validate(async (valid) => {
     if (valid) {
       loading.value = true
@@ -174,10 +136,10 @@ const handleRegister = async () => {
           password: registerForm.password,
           email: registerForm.email
         }
-        
+
         // 调用注册API
         const response = await registerUser(registerData)
-        
+
         // 发射注册成功事件
         emit('register-success', { username: registerForm.username })
         handleClose()
@@ -201,5 +163,4 @@ const handleBackToLogin = () => {
 
 </script>
 
-<style scoped>
-</style>
+<style scoped></style>

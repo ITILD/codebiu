@@ -11,6 +11,7 @@ const UserStore = defineStore(
     return { userState }
   },
   {
+    // 启用持久化
     persist: true,
   },
 )
