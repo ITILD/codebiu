@@ -12,7 +12,9 @@ class TokenBase(SQLModel):
     token: str = Field(..., description="访问令牌")
     token_type: TokenType = Field(default=TokenType.access, description="令牌类型")
     expires_in: int = Field(..., description="过期时间(秒)")
-    expires_at: datetime = Field(..., description="过期时间")
+    expires_at: datetime = Field(
+        ..., sa_column=Column(DateTime(timezone=True)), description="过期时间"
+    )
     is_revoked: bool = Field(default=False, description="是否已撤销")
 
 
