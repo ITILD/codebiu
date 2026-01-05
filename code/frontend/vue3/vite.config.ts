@@ -53,7 +53,9 @@ export default defineConfig(
             //自动导入 Element Plus 组件
             ElementPlusResolver()
           ],
-          dts: path.resolve(pathSrc, 'components.d.ts') // 组件类型声明文件位置
+          dts: path.resolve(pathSrc, 'components.d.ts'), // 组件类型声明文件位置
+          // 排除 MonacoEditor 组件（假设它在 src/components/MonacoEditor.vue）  排除整个目录
+          exclude: [/BaseMoacoEdit\.vue$/, /src\/components\/heavy\/.*\.vue$/],
         }),
         Icons({ autoInstall: true }), //自动下载图标库 必须在 Components 之后或独立存在
 

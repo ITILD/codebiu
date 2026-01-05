@@ -25,15 +25,15 @@ const useAuthStore = defineStore(
   'auth',
   () => {
     // ✅ 直接使用 reactive 风格（Pinia 默认支持）
-    const authState = createInitialAuthState();
+    const authState = ref(createInitialAuthState());
     /**
        * 初始化或重置用户信息为初始状态
        */
-    const initUserInfo = () => {
-      Object.assign(authState, createInitialAuthState());
+    const initAuthState = () => {
+      authState.value = createInitialAuthState();
     };
 
-    return { authState, initUserInfo };
+    return { authState, initAuthState };
   },
   {
     persist: true, // 现在 authState 是普通对象，可安全持久化

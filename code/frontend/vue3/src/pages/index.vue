@@ -3,7 +3,7 @@
     <section class="hero-section">
       <h2>欢迎来到网站首页</h2>
       <p>首页示例，您可以通过顶部导航栏切换到服务器管理页面。</p>
-      <RouterLink to="/_server" class="btn-primary">前往服务器管理</RouterLink>
+      <RouterLink to="/_sys" class="btn-primary">前往服务器管理</RouterLink>
     </section>
 
     <section class="features-section">
