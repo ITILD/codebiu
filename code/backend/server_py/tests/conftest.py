@@ -6,7 +6,7 @@ from common.utils.log.ColoredConsoleHandler import ColoredConsoleHandler
 from common.utils.log.CustomTimedRotatingFileHandler import (
     CustomTimedRotatingFileHandler,
 )
-
+import datetime
 """
 conftest.py pytest 默认测试配置文件
 所有同目录测试文件运行前都会执行conftest.py文件 不需要import导入
@@ -47,11 +47,15 @@ def setup_logging():
 
     # ==================== 文件处理器 ====================
     def on_rollover():
-        """日志轮转时的钩子"""
-        logging.info("...new log")
+        """日志轮转时的钩子 安全地记录轮转事件到独立文件"""
+        try:
+            with open(DIR_LOG / "test-rollover.log", "a") as f:
+                f.write(f"{datetime.datetime.now().isoformat()} - log rotated\n")
+        except Exception as e:
+            print(f"记录日志轮转事件失败: {e}")
 
     # INFO 日志(记录 INFO 及以上)
-    info_log_path = DIR_LOG / "test_info.log"
+    info_log_path = DIR_LOG / "test-info-"
     info_handler = CustomTimedRotatingFileHandler(
         file=info_log_path,
         when="midnight",
@@ -65,7 +69,7 @@ def setup_logging():
     logger.addHandler(info_handler)
 
     # ERROR 日志(只记录 ERROR 及以上)
-    error_log_path = DIR_LOG / "test_error.log"
+    error_log_path = DIR_LOG / "test-error-"
     error_handler = CustomTimedRotatingFileHandler(
         file=error_log_path,
         when="midnight",
