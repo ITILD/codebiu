@@ -1,12 +1,12 @@
 <template>
   <el-dropdown trigger="click" items-center placement="bottom-end" @command="handleCommand">
-    <UserLogin pointer-default w-7 h-7 />
+    <UserLoginIcon pointer-default w-7 h-7 />
     <template #dropdown>
       <el-dropdown-menu>
         <!-- 用户信息 -->
         <el-dropdown-item command="profile">
           <div flex items-center>
-            <UserLogin m-2 w-8 h-8 />
+            <UserLoginIcon m-2 w-8 h-8 />
             <div>
               <div text-lg font-5>Name User</div>
               <div text-sm text-gray-500>**@***.com</div>
@@ -36,7 +36,7 @@ import { SysSettingStore } from '@/stores/sys'
 // 获取路由和存储实例
 const router = useRouter()
 const authStore = useAuthStore()
-const initUserInfo = authStore.initUserInfo
+const initAuthState = authStore.initAuthState
 const sysSettingStore = SysSettingStore()
 
 // 定义菜单项类型
@@ -81,7 +81,7 @@ const menuItems: MenuItem[] = [
     label: '后台管理',
     icon: markRaw(Monitor),
     action: () => {
-      router.push('/_server')
+      router.push('/_sys')
     },
   },
   {
@@ -100,7 +100,7 @@ const menuItems: MenuItem[] = [
     divided: true,
     action: () => {
       // 退出登录，重置用户状态
-      initUserInfo()
+      initAuthState()
     },
   },
 ]

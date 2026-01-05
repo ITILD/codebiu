@@ -19,15 +19,17 @@ declare module 'vue-router/auto-routes' {
    */
   export interface RouteNamedMap {
     '/': RouteRecordInfo<'/', '/', Record<never, never>, Record<never, never>>,
-    '/_server': RouteRecordInfo<'/_server', '/_server', Record<never, never>, Record<never, never>, '/_server/' | '/_server/ai/chat' | '/_server/ai/ocr' | '/_server/authorization/user' | '/_server/database/model_config' | '/_server/database/overview' | '/_server/database/template' | '/_server/template/template'>,
-    '/_server/': RouteRecordInfo<'/_server/', '/_server', Record<never, never>, Record<never, never>>,
-    '/_server/ai/chat': RouteRecordInfo<'/_server/ai/chat', '/_server/ai/chat', Record<never, never>, Record<never, never>>,
-    '/_server/ai/ocr': RouteRecordInfo<'/_server/ai/ocr', '/_server/ai/ocr', Record<never, never>, Record<never, never>>,
-    '/_server/authorization/user': RouteRecordInfo<'/_server/authorization/user', '/_server/authorization/user', Record<never, never>, Record<never, never>>,
-    '/_server/database/model_config': RouteRecordInfo<'/_server/database/model_config', '/_server/database/model_config', Record<never, never>, Record<never, never>>,
-    '/_server/database/overview': RouteRecordInfo<'/_server/database/overview', '/_server/database/overview', Record<never, never>, Record<never, never>>,
-    '/_server/database/template': RouteRecordInfo<'/_server/database/template', '/_server/database/template', Record<never, never>, Record<never, never>>,
-    '/_server/template/template': RouteRecordInfo<'/_server/template/template', '/_server/template/template', Record<never, never>, Record<never, never>>,
+    '/_sys': RouteRecordInfo<'/_sys', '/_sys', Record<never, never>, Record<never, never>, '/_sys/' | '/_sys/ai/chat' | '/_sys/ai/ocr' | '/_sys/authorization/user' | '/_sys/database/model_config' | '/_sys/database/overview' | '/_sys/database/template' | '/_sys/monitor/uistore' | '/_sys/template/container' | '/_sys/template/template'>,
+    '/_sys/': RouteRecordInfo<'/_sys/', '/_sys', Record<never, never>, Record<never, never>>,
+    '/_sys/ai/chat': RouteRecordInfo<'/_sys/ai/chat', '/_sys/ai/chat', Record<never, never>, Record<never, never>>,
+    '/_sys/ai/ocr': RouteRecordInfo<'/_sys/ai/ocr', '/_sys/ai/ocr', Record<never, never>, Record<never, never>>,
+    '/_sys/authorization/user': RouteRecordInfo<'/_sys/authorization/user', '/_sys/authorization/user', Record<never, never>, Record<never, never>>,
+    '/_sys/database/model_config': RouteRecordInfo<'/_sys/database/model_config', '/_sys/database/model_config', Record<never, never>, Record<never, never>>,
+    '/_sys/database/overview': RouteRecordInfo<'/_sys/database/overview', '/_sys/database/overview', Record<never, never>, Record<never, never>>,
+    '/_sys/database/template': RouteRecordInfo<'/_sys/database/template', '/_sys/database/template', Record<never, never>, Record<never, never>>,
+    '/_sys/monitor/uistore': RouteRecordInfo<'/_sys/monitor/uistore', '/_sys/monitor/uistore', Record<never, never>, Record<never, never>>,
+    '/_sys/template/container': RouteRecordInfo<'/_sys/template/container', '/_sys/template/container', Record<never, never>, Record<never, never>>,
+    '/_sys/template/template': RouteRecordInfo<'/_sys/template/template', '/_sys/template/template', Record<never, never>, Record<never, never>>,
     '/[..all]': RouteRecordInfo<'/[..all]', '/:ll(.*)', { ll: ParamValue<true> }, { ll: ParamValue<false> }>,
     '/AboutView': RouteRecordInfo<'/AboutView', '/AboutView', Record<never, never>, Record<never, never>>,
   }
@@ -47,40 +49,48 @@ declare module 'vue-router/auto-routes' {
       routes: '/'
       views: never
     }
-    'src/pages/_server.vue': {
-      routes: '/_server' | '/_server/' | '/_server/ai' | '/_server/authorization' | '/_server/ai/chat' | '/_server/database' | '/_server/database/model_config' | '/_server/ai/ocr' | '/_server/database/overview' | '/_server/database/template' | '/_server/template' | '/_server/template/template' | '/_server/authorization/user'
+    'src/pages/_sys.vue': {
+      routes: '/_sys' | '/_sys/' | '/_sys/ai' | '/_sys/authorization' | '/_sys/ai/chat' | '/_sys/template/container' | '/_sys/database' | '/_sys/database/model_config' | '/_sys/monitor' | '/_sys/ai/ocr' | '/_sys/database/overview' | '/_sys/database/template' | '/_sys/template' | '/_sys/template/template' | '/_sys/monitor/uistore' | '/_sys/authorization/user'
       views: 'default'
     }
-    'src/pages/_server/index.vue': {
-      routes: '/_server/'
+    'src/pages/_sys/index.vue': {
+      routes: '/_sys/'
       views: never
     }
-    'src/pages/_server/ai/chat.vue': {
-      routes: '/_server/ai/chat'
+    'src/pages/_sys/ai/chat.vue': {
+      routes: '/_sys/ai/chat'
       views: never
     }
-    'src/pages/_server/ai/ocr.vue': {
-      routes: '/_server/ai/ocr'
+    'src/pages/_sys/ai/ocr.vue': {
+      routes: '/_sys/ai/ocr'
       views: never
     }
-    'src/pages/_server/authorization/user.vue': {
-      routes: '/_server/authorization/user'
+    'src/pages/_sys/authorization/user.vue': {
+      routes: '/_sys/authorization/user'
       views: never
     }
-    'src/pages/_server/database/model_config.vue': {
-      routes: '/_server/database/model_config'
+    'src/pages/_sys/database/model_config.vue': {
+      routes: '/_sys/database/model_config'
       views: never
     }
-    'src/pages/_server/database/overview.vue': {
-      routes: '/_server/database/overview'
+    'src/pages/_sys/database/overview.vue': {
+      routes: '/_sys/database/overview'
       views: never
     }
-    'src/pages/_server/database/template.vue': {
-      routes: '/_server/database/template'
+    'src/pages/_sys/database/template.vue': {
+      routes: '/_sys/database/template'
       views: never
     }
-    'src/pages/_server/template/template.vue': {
-      routes: '/_server/template/template'
+    'src/pages/_sys/monitor/uistore.vue': {
+      routes: '/_sys/monitor/uistore'
+      views: never
+    }
+    'src/pages/_sys/template/container.vue': {
+      routes: '/_sys/template/container'
+      views: never
+    }
+    'src/pages/_sys/template/template.vue': {
+      routes: '/_sys/template/template'
       views: never
     }
     'src/pages/[..all].vue': {

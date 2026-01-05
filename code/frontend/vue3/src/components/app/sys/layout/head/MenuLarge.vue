@@ -2,8 +2,8 @@
   <!-- 顶部导航栏 -->
   <!-- 启用 vue-router 模式。 启用该模式会在激活导航时以 index 作为 path 进行路由跳转  -->
   <!-- ellipsis 多余子项  collapse外部传入是否水平 -->
-  <el-menu :default-active="routerStore.routerPath.now" :router=true
-    :mode="mode ? 'horizontal' : 'vertical'" @select="handleSelect" :ellipsis=false>
+  <el-menu :default-active="routerStore.routerPath.now" :router=true :mode="mode ? 'horizontal' : 'vertical'"
+    @select="handleSelect" :ellipsis=false>
     <template v-for="item in menuData" :key="item.index">
       <el-menu-item v-if="!item.children" :index="item.index" :disabled="item.disabled">
         {{ item.title }}
@@ -43,8 +43,8 @@ defineProps({
 
 const menuData = [
   {
-    index: '/_server',
-    title: 'Server',
+    index: '/_sys',
+    title: 'Sys',
     disabled: false,
     children: null
   },
