@@ -32,7 +32,7 @@
       </el-form>
 
       <div text-center mt-20px>
-        <el-button type="info" link @click="handleRegister">
+        <el-button type="info" link @click="handleSignUp">
           {{ $t('sign_up') }}
         </el-button>
       </div>
@@ -44,17 +44,11 @@
 import { ElMessage } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import { loginUser } from '@/api/authorization/auth'
-// 用户信息和token设置
-import { useAuthStore } from '@/stores/auth'
 import type {
   AuthLoginRequest,
-  AuthLogoutRequest,
-  AuthRegisterRequest,
   AuthResponse,
-  RefreshTokenRequest
 } from '@/types/authorization/auth';
-const authStore = useAuthStore()
-const authState = authStore.authState
+
 
 // 定义组件属性
 const props = defineProps<{
@@ -64,7 +58,7 @@ const props = defineProps<{
 // 定义事件发射
 const emit = defineEmits<{
   'update:modelValue': [boolean]
-  'login': [{ username: string }]
+  'login':  [AuthResponse]
   'register': []
 }>()
 
@@ -120,12 +114,10 @@ const handleLogin = async () => {
           username: loginForm.username,
           password: loginForm.password
         }
-
         // 调用登录API
         const authResponse: AuthResponse = await loginUser(loginData)
-        authState.value = authResponse
         // 发射登录事件
-        emit('login', { username: loginForm.username })
+        emit('login', authResponse)
         handleClose()
       } catch (error: unknown) {
         debugger
@@ -139,8 +131,8 @@ const handleLogin = async () => {
   })
 }
 
-// 处理注册
-const handleRegister = () => {
+// 处理切换到注册
+const handleSignUp = () => {
   handleClose()
   emit('register')
 }

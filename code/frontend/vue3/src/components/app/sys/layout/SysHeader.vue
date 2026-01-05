@@ -45,9 +45,9 @@
         <ButtonSwitch v-model="sysSettingStore.sysStyle.theme.isDark"
           @change="sysSettingStore.changeThemeValueByIsDark" />
         <!-- 登录/用户 -->
-        <template v-if="authState.user.id" >
+        <template v-if="authState.user.id">
           <!-- 用户图标下拉菜单-->
-          <UserControl/>
+          <UserControl />
         </template>
         <template v-else>
           <button flex items-center justify-center hover:shadow mx-1 hover:bg-deep-3 @click="showLoginDialog = true">
@@ -58,14 +58,15 @@
           </button>
           <!-- 注册按钮  小屏幕：隐藏 -->
           <button max-lg:hidden flex items-center justify-center shadow mx-1 border-1 border-gray-300 hover:bg-deep-3
-            @click="handleRegister">
+            @click="showRegisterDialog = true">
             <span text-deep-2 px-2 py-1 w-18>
               {{ $t('sign_up') }}
             </span>
           </button>
 
           <!-- 登录弹窗 -->
-          <LoginDialog v-model="showLoginDialog" @login="handleLogin" @register="handleRegister" />
+          <LoginDialog v-model="showLoginDialog" @login="handleLogin"
+            @register="showRegisterDialog = true; showLoginDialog = false" />
 
           <!-- 注册弹窗 -->
           <RegisterDialog v-model="showRegisterDialog" @register-success="handleRegisterSuccess"
@@ -84,6 +85,7 @@ import LoginDialog from './head/LoginDialog.vue'
 import RegisterDialog from './head/RegisterDialog.vue'
 import UserControl from './head/UserControl.vue'
 import { useAuthStore } from '@/stores/auth'
+import type { AuthResponse } from '@/types/authorization/auth'
 const authStore = useAuthStore()
 const authState = authStore.authState
 const sysSettingStore = SysSettingStore()
@@ -95,28 +97,17 @@ const TITLE = ref(import.meta.env.VITE_GLOB_APP_TITLE)
 // 搜索
 const searchText = ref('')
 // 处理登录
-const handleLogin = (userInfo: { username: string }) => {
+const handleLogin = (authResponse: AuthResponse) => {
   // 登陆事件
-  console.log('用户登录成功:', userInfo)
-}
-
-// 处理注册
-const handleRegister = () => {
-  showLoginDialog.value = false
-  showRegisterDialog.value = true
-  console.log('跳转到注册页面')
-  // 这里可以添加跳转到注册页面的逻辑
+  authStore.setAuthState(authResponse)
 }
 
 // 处理注册成功
-const handleRegisterSuccess = (userInfo: { username: string }) => {
+const handleRegisterSuccess = (authResponse: AuthResponse) => {
   // 注册成功后自动登录
-  authState.user.id = userInfo.username // 或其他合适的ID
-  showRegisterDialog.value = false
-  console.log('注册成功:', userInfo)
+  authStore.setAuthState(authResponse)
+
 }
-
-
 </script>
 
 <style scoped></style>
