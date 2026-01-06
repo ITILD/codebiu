@@ -55,9 +55,9 @@ def setup_logging():
             print(f"记录日志轮转事件失败: {e}")
 
     # INFO 日志(记录 INFO 及以上)
-    info_log_path = DIR_LOG / "test-info-"
+    info_log_path = DIR_LOG / "test-info"
     info_handler = CustomTimedRotatingFileHandler(
-        file=info_log_path,
+        filename=info_log_path,
         when="midnight",
         interval=1,
         # 保留 31 天的日志文件
@@ -69,9 +69,9 @@ def setup_logging():
     logger.addHandler(info_handler)
 
     # ERROR 日志(只记录 ERROR 及以上)
-    error_log_path = DIR_LOG / "test-error-"
+    error_log_path = DIR_LOG / "test-error"
     error_handler = CustomTimedRotatingFileHandler(
-        file=error_log_path,
+        filename=error_log_path,
         when="midnight",
         interval=1,
         backupCount=31,
