@@ -8,8 +8,8 @@
           <div flex items-center>
             <UserLoginIcon m-2 w-8 h-8 />
             <div>
-              <div text-lg font-5>Name User</div>
-              <div text-sm text-gray-500>**@***.com</div>
+              <div text-lg font-5>{{ authState.user.username }}</div>
+              <div text-sm text-gray-500>{{ authState.user.email }}</div>
             </div>
           </div>
         </el-dropdown-item>
@@ -36,6 +36,7 @@ import { SysSettingStore } from '@/stores/sys'
 // 获取路由和存储实例
 const router = useRouter()
 const authStore = useAuthStore()
+const authState = authStore.authState
 const initAuthState = authStore.initAuthState
 const sysSettingStore = SysSettingStore()
 
@@ -99,6 +100,7 @@ const menuItems: MenuItem[] = [
     // divided 分隔线
     divided: true,
     action: () => {
+      // TODO 调用后端的退出接口 token和refresh_token强制过期
       // 退出登录，重置用户状态
       initAuthState()
     },

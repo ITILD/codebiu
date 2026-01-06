@@ -48,10 +48,7 @@
 import { ElMessage } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import { registerUser } from '@/api/authorization/auth'
-import type { AuthRegisterRequest,AuthResponse } from '@/types/authorization/auth'
-import { useAuthStore } from '@/stores/auth'
-const authStore = useAuthStore()
-const authState = authStore.authState
+import type { AuthRegisterRequest, AuthResponse } from '@/types/authorization/auth'
 // 定义组件属性
 const props = defineProps<{
   modelValue: boolean
@@ -59,9 +56,9 @@ const props = defineProps<{
 
 // 定义事件发射
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: boolean): void
-  (e: 'register-success', userInfo: { username: string }): void
-  (e: 'back-to-login'): void
+  'update:modelValue': [boolean],
+  'register-success': [AuthResponse],
+  'back-to-login': []
 }>()
 
 // 控制弹窗显示
@@ -137,19 +134,17 @@ const handleRegister = async () => {
           password: registerForm.password,
           email: registerForm.email
         }
-
         // 调用注册API
-        const authResponse:AuthResponse = await registerUser(registerData)
-        authState.value = authResponse
-
-
-        // 发射注册成功事件
-        emit('register-success', { username: registerForm.username })
+        const authResponse: AuthResponse = await registerUser(registerData)
+        // 发射注册成功事件 并传递完整的AuthResponse对象
+        emit('register-success', authResponse)
         handleClose()
-      } catch (error: any) {
+      } catch (error) {
         console.error('注册失败:', error)
-        // 添加错误提示
-        ElMessage.error(error.message || '注册失败，请检查输入信息')
+        if (error instanceof Error) {
+          // 添加错误提示
+          ElMessage.error(error.message || '注册失败，请检查输入信息')
+        }
       } finally {
         loading.value = false
       }
