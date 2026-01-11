@@ -1,12 +1,14 @@
 <template>
-  <div flex>
+  <!-- 系统用到的文本图表展示 -->
+  <div p-2 w-full flex>
     <!--左侧树状 选择器 -->
     <div w-60><el-tree :data="data" :props="defaultProps" @node-click="handleNodeClick" /></div>
 
     <!--右侧 Monaco 编辑器 -->
-    <div flex-1 flex flex-col>
+    <div flex-1 mb-4 flex flex-col>
+      <!-- up: 9/10 -->
       <LazyBaseMoacoEdit
-        h-full
+        class="h-19/20"
         bg-gray-300
         v-model="editorContent"
         :language="selectedLanguage"
@@ -14,6 +16,15 @@
         :encoding="selectedEncoding"
         :font-size="14"
         :line-height="1.5"
+      />
+      <!-- down: 剩余 1/10 -->
+      <LazyBaseMoacoEditControl
+        flex-1
+        v-model:modelLanguage="selectedLanguage"
+        v-model:modelEncoding="selectedEncoding"
+        v-model:modelTheme="selectedTheme"
+        @loadSample="handleLoadSample"
+        @clear="clearEditor"
       />
     </div>
   </div>
@@ -32,16 +43,16 @@ import { useAuthStore } from '@/stores/auth'
 
 const authStore = useAuthStore()
 
+// 语言选择
+const selectedLanguage = ref(CodeType.json)
+
 // 导入系统设置 Store
 import { SysSettingStore } from '@/stores/sys'
 
-const sysSettingStore = SysSettingStore()
+const sysStore = SysSettingStore()
 
 // 主题选择
-const selectedTheme = computed(() => (sysSettingStore.sysStyle.theme.isDark ? 'vs-dark' : 'vs'))
-
-// 语言选择
-const selectedLanguage = ref(CodeType.json)
+const selectedTheme = computed(() => (sysStore.sysStyle.theme.isDark ? 'vs-dark' : 'vs'))
 
 // 编码选择
 const selectedEncoding = ref('utf-8')
@@ -65,57 +76,17 @@ interface Tree {
   children?: Tree[]
 }
 
-const handleNodeClick = (data: Tree, node: any) => {
+const handleNodeClick = (data: Tree) => {
   const label = data.label
-  debugger
   switch (label) {
     case 'authStore':
       handleLoadSample(CodeType.json, JSON.stringify(authStore, null, 2))
-      return
-    case 'sysSettingStore':
-      handleLoadSample(CodeType.json, JSON.stringify(sysSettingStore, null, 2))
-      return
-  }
-  // 如果不在以上几种情况,判断父节点是不是localstorage
-  if (node.parent?.data.label === 'localstorage') {
-    // localStorage 里获取label 对应的value 注意格式化json字符串
-    const value = localStorage.getItem(node.data.label)
-    if (value === null) return
-
-    try {
-      // 尝试解析 JSON，如果成功则格式化输出
-      const parsedValue = JSON.parse(value)
-      handleLoadSample(CodeType.json, JSON.stringify(parsedValue, null, 2))
-    } catch {
-      // 解析失败说明是普通字符串，直接处理
-      handleLoadSample(CodeType.json, value)
-    }
+      break
+    default:
+      editorContent.value = ''
+      break
   }
 }
-
-// 添加localstorage
-/**
- * 获取 localStorage 中的所有 key
- */
-function getLocalStorageKeys(): string[] {
-  const keys: string[] = []
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i)
-    if (key !== null) {
-      keys.push(key)
-    }
-  }
-  return keys
-}
-
-// 使用
-const localStorageKeys = getLocalStorageKeys()
-
-//  符合tree的子列表
-const localStorageKeysInTree = localStorageKeys.map((key) => ({
-  label: key,
-}))
-
 const defaultProps = {
   children: 'children',
   label: 'label',
@@ -127,14 +98,10 @@ const data: Tree[] = [
       {
         label: 'authStore',
       },
-      {
-        label: 'sysSettingStore',
-      },
     ],
   },
   {
     label: 'localstorage',
-    children: localStorageKeysInTree,
   },
 ]
 </script>

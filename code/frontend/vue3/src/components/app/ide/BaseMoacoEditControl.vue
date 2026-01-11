@@ -3,19 +3,9 @@
     <div flex gap-2>
       <!-- 语言选择 -->
       <select v-model="selectedLanguage">
-        <option value="javascript">JavaScript</option>
-        <option value="typescript">TypeScript</option>
-        <option value="html">HTML</option>
-        <option value="css">CSS</option>
-        <option value="json">JSON</option>
-        <option value="python">Python</option>
-        <option value="java">Java</option>
-        <option value="csharp">C#</option>
-        <option value="cpp">C++</option>
-        <option value="sql">SQL</option>
-        <option value="markdown">Markdown</option>
-        <option value="yaml">YAML</option>
-        <option value="xml">XML</option>
+        <option v-for="(value, key) in codeTypeOptions" :key="key" :value="value">
+          {{ value }}
+        </option>
       </select>
 
       <!-- 编码选择 -->
@@ -40,6 +30,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { CodeType } from '@/common/enum/code'
 
 // 定义属性（带默认值）
 interface Props {
@@ -49,7 +40,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  modelLanguage: 'javascript',
+  modelLanguage: CodeType.javascript,
   modelEncoding: 'utf-8',
   modelTheme: 'vs',
 })
@@ -75,6 +66,15 @@ const selectedEncoding = computed({
 const selectedTheme = computed({
   get: () => props.modelTheme,
   set: (value: string) => emit('update:modelTheme', value),
+})
+
+// 使用CodeType枚举创建选项
+const codeTypeOptions = computed(() => {
+  const options: Record<string, string> = {}
+  for (const [key, value] of Object.entries(CodeType)) {
+    options[key] = value
+  }
+  return options
 })
 </script>
 
