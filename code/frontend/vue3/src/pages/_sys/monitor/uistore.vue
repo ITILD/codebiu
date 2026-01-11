@@ -37,6 +37,10 @@ const LazyBaseMoacoEdit = defineAsyncComponent(
 const LazyBaseMoacoEditControl = defineAsyncComponent(
   () => import('@/components/app/ide/BaseMoacoEditControl.vue'),
 )
+// 所有状态
+import { useAuthStore } from '@/stores/auth'
+const authStore = useAuthStore()
+
 // 语言选择
 const selectedLanguage = ref('json')
 
@@ -51,8 +55,8 @@ const editorContent = ref(``)
 
 // 加载示例代码
 const handleLoadSample = (lang: string, code: string) => {
-  editorContent.value = code
   selectedLanguage.value = lang
+  editorContent.value = code
 }
 
 // 清空编辑器
@@ -66,7 +70,15 @@ interface Tree {
 }
 
 const handleNodeClick = (data: Tree) => {
-  console.log(data)
+  const label = data.label
+  switch (label) {
+    case 'authStore':
+      handleLoadSample(JSON.stringify(authStore, null, 2), 'json')
+      break
+    default:
+      editorContent.value = ''
+      break
+  }
 }
 const defaultProps = {
   children: 'children',
@@ -74,17 +86,15 @@ const defaultProps = {
 }
 const data: Tree[] = [
   {
-    label: 'Level one 1',
+    label: 'pina store',
     children: [
       {
-        label: 'Level two 1-1',
-        children: [
-          {
-            label: 'Level three 1-1-1',
-          },
-        ],
+        label: 'authStore',
       },
     ],
+  },
+  {
+    label: 'localstorage',
   },
 ]
 </script>
