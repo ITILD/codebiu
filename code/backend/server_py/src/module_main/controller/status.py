@@ -1,5 +1,5 @@
 from fastapi import Depends, status, HTTPException, APIRouter
-from common.utils.enum.platform import PlatformId
+from common.enum.platform import PlatformId
 from common.utils.sys.do.status import HardwareStatus, NetworkStatus
 from common.config.server import app
 from module_main.dependencies.status import get_status_service_singleton

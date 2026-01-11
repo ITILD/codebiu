@@ -1,6 +1,6 @@
 import platform
 import uuid
-from common.utils.enum.platform import PlatformId
+from common.enum.platform import PlatformId
 from common.utils.sys.do.platform import PlatformInfo
 
 class PlatformUtils:
