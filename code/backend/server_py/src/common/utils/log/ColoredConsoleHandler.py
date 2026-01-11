@@ -1,6 +1,6 @@
 import logging
 # self
-from common.utils.enum.color import Color, LogLevelColor
+from common.enum.color import Color, LogLevelColor
 
 class ColoredConsoleHandler(logging.StreamHandler):
     """自定义日志处理器"""

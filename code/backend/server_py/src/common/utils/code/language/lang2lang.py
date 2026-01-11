@@ -26,6 +26,6 @@ class Language(str, Enum):
 
 if __name__ == "__main__":
     # 使用示例
-    print(Language.ZH.value)  # 输出: chinese
+    print(Language.ZH.value)  # 输出: zh
     print(Language.ZH.full_name)  # 输出: chinese
     print(Language["FR"].full_name)  # 输出: french

@@ -1,6 +1,6 @@
 import asyncio
 from common.utils.cache.cache_ttl import ttl_cache
-from common.utils.enum.platform import PlatformId
+from common.enum.platform import PlatformId
 from common.utils.net.connect.web_connect_test_native import WebConnectTestNative
 from common.utils.sys.do.status import HardwareStatus, NetworkStatus
 from common.utils.sys.platform import PlatformUtils
