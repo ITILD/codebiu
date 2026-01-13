@@ -1,5 +1,5 @@
 <template>
-  <!-- 网站页首区域 -->
+  <!-- 网站页首区域 TODO动画去隐藏-->
   <header v-if="sysStyle.headFootShow">
     <!-- justify-between 主轴上均匀分布 第一个项目靠左，最后一个项目靠右，其余项目平均分布剩余空间-->
     <div flex justify-between h-full>

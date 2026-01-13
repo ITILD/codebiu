@@ -46,7 +46,7 @@ const SysSettingStore = defineStore('sysSetting', () => {
   }
   // 根据isDark更改主题
   const changeThemeValueByIsDark = () => sysStyle.value.theme.themeValue = sysStyle.value.theme.isDark ? 'dark' : 'light'
- 
+
   return { sysStyle, sysObj, isSysSettingShow, changeIsDarkByThemeValue, changeThemeValueByIsDark }
 })
 
