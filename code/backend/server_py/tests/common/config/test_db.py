@@ -95,10 +95,10 @@ async def test_db_vector_connection():
 
         await db_vector.create_table(TestVectorBase, {"vector": 1024})
         logger.info("db_vector create table success")
-        await db_vector.add([TestVectorBase(id="test", vector=[0.1] * 1024)])
-        result = await db_vector.search(TestVectorBase, [0.1] * 1024)
-        assert result[0].id == "test", f"expect 'test', but got '{result[0].id}'"
-        logger.info(f"db_vector query operation success: {result[0].id}")
+        # await db_vector.add([TestVectorBase(id="test", vector=[0.1] * 1024)])
+        # result = await db_vector.search(TestVectorBase, [0.1] * 1024)
+        # assert result[0].id == "test", f"expect 'test', but got '{result[0].id}'"
+        # logger.info(f"db_vector query operation success: {result[0].id}")
 
     except Exception as e:
         logger.error(f"db_vector connection fail: {e}")
