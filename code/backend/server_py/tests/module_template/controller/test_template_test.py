@@ -15,7 +15,7 @@ async def test_performance():
 
     request_count = 3
     duration = 0.02  # 20ms
-    base_url = "http://localhost:2001/template/template_test"
+    base_url = "http://localhost:2001/template/template_async_learn"
     endpoints = {
         "sync": "/sync/{}/{}",
         "async": "/async/{}/{}",

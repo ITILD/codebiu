@@ -67,4 +67,4 @@ async def async_threadpool_endpoint(id: str, duration_use: float):
     log_info("Async-Threadpool", id, elapsed)
     return {"id": id, "result": result}
 
-module_app.include_router(router, prefix="/template_test", tags=["测试模板"])
+module_app.include_router(router, prefix="/template_async_learn", tags=["异步多线程并发模板"])

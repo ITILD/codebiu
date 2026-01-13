@@ -43,8 +43,9 @@ class MilvusConfig(DBConfig):
 
     host: str = Field(..., description="数据库地址")
     port: int = Field(..., description="数据库端口")
-    user: str = Field(..., description="数据库用户名")
-    password: str = Field(..., description="数据库密码")
+    user: str | None = Field(None, description="数据库用户名")
+    password: str | None = Field(None, description="数据库密码")
+    token: str | None = Field(None, description="数据库token")
 
 
 class LancedbConfig(DBConfig):
