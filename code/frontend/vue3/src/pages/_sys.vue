@@ -67,9 +67,9 @@
       </template>
     </el-menu>
     <!-- 右侧菜单 -->
-    <div flex-1 min-w-0 overflow-auto>
+    <div flex-1 min-w-0 overflow-hidden>
       <!-- flex剩余 -->
-      <router-view w-full h-full></router-view>
+      <router-view w-full h-full class="overflow-auto"></router-view>
     </div>
   </div>
 </template>
