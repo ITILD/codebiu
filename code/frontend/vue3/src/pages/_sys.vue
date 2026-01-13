@@ -67,9 +67,9 @@
       </template>
     </el-menu>
     <!-- 右侧菜单 -->
-    <div flex-1 min-w-0 overflow-hidden>
+    <div flex-1 min-w-0 overflow-auto>
       <!-- flex剩余 -->
-      <router-view w-full h-full class="overflow-auto"></router-view>
+      <router-view w-full h-full></router-view>
     </div>
   </div>
 </template>
@@ -85,7 +85,7 @@ const routerStore = RouterStore()
 // 菜单折叠状态
 const isCollapse = ref(true)
 
-// 菜单项配置
+// 菜单项配置 TODO 多语言
 const menuItems = ref([
   {
     index: '/_sys',
@@ -95,13 +95,13 @@ const menuItems = ref([
     children: null,
   },
   {
-    index: '/authorization',
-    title: 'Authorization',
+    index: '/manager',
+    title: 'Manager',
     icon: markRaw(Setting),
     disabled: false,
     children: [
       {
-        index: '/_sys/authorization/user',
+        index: '/_sys/manager/user',
         title: 'user',
         disabled: false,
         children: null,
@@ -136,6 +136,12 @@ const menuItems = ref([
       {
         index: '/_sys/database/overview',
         title: 'overview',
+        disabled: false,
+        children: null,
+      },
+      {
+        index: '/_sys/authorization/user',
+        title: 'user',
         disabled: false,
         children: null,
       },
