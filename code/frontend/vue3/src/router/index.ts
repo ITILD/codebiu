@@ -6,6 +6,7 @@ import { createRouter, createWebHistory } from 'vue-router'
  */
 import { routes, handleHotUpdate } from "vue-router/auto-routes"
 import { RouterStore } from '@/stores/router'
+import { SysSettingStore } from '@/stores/sys'
 // 生成路由  注意nginx发布配置 添加跳转
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -16,6 +17,16 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   // 在导航守卫的回调函数内部调用 useStore() 防止在 ​​Pinia 初始化之前​​ 使用 store
   console.log(`router.beforeEach path from ${from.path} to ${to.path} `)
+  if(to.path === '/setting'){
+    // 页首页尾动画隐藏
+    const sysSettingStore = SysSettingStore()
+    sysSettingStore.sysStyle.headFootShow = false
+  }else{
+    // 页首页尾动画显示
+    const sysSettingStore = SysSettingStore()
+    sysSettingStore.sysStyle.headFootShow = true
+  }
+
   const routerStore = RouterStore()
   routerStore.setRouterPath(to.path)
   next()
