@@ -19,13 +19,14 @@ declare module 'vue-router/auto-routes' {
    */
   export interface RouteNamedMap {
     '/': RouteRecordInfo<'/', '/', Record<never, never>, Record<never, never>>,
-    '/_sys': RouteRecordInfo<'/_sys', '/_sys', Record<never, never>, Record<never, never>, '/_sys/' | '/_sys/ai/chat' | '/_sys/ai/ocr' | '/_sys/authorization/user' | '/_sys/database/model_config' | '/_sys/database/overview' | '/_sys/monitor/uistore' | '/_sys/template/container' | '/_sys/template/infoview' | '/_sys/template/overview' | '/_sys/template/template'>,
+    '/_sys': RouteRecordInfo<'/_sys', '/_sys', Record<never, never>, Record<never, never>, '/_sys/' | '/_sys/ai/chat' | '/_sys/ai/ocr' | '/_sys/database/model_config' | '/_sys/database/overview' | '/_sys/database/user' | '/_sys/manager/user' | '/_sys/monitor/uistore' | '/_sys/template/container' | '/_sys/template/infoview' | '/_sys/template/overview' | '/_sys/template/template'>,
     '/_sys/': RouteRecordInfo<'/_sys/', '/_sys', Record<never, never>, Record<never, never>>,
     '/_sys/ai/chat': RouteRecordInfo<'/_sys/ai/chat', '/_sys/ai/chat', Record<never, never>, Record<never, never>>,
     '/_sys/ai/ocr': RouteRecordInfo<'/_sys/ai/ocr', '/_sys/ai/ocr', Record<never, never>, Record<never, never>>,
-    '/_sys/authorization/user': RouteRecordInfo<'/_sys/authorization/user', '/_sys/authorization/user', Record<never, never>, Record<never, never>>,
     '/_sys/database/model_config': RouteRecordInfo<'/_sys/database/model_config', '/_sys/database/model_config', Record<never, never>, Record<never, never>>,
     '/_sys/database/overview': RouteRecordInfo<'/_sys/database/overview', '/_sys/database/overview', Record<never, never>, Record<never, never>>,
+    '/_sys/database/user': RouteRecordInfo<'/_sys/database/user', '/_sys/database/user', Record<never, never>, Record<never, never>>,
+    '/_sys/manager/user': RouteRecordInfo<'/_sys/manager/user', '/_sys/manager/user', Record<never, never>, Record<never, never>>,
     '/_sys/monitor/uistore': RouteRecordInfo<'/_sys/monitor/uistore', '/_sys/monitor/uistore', Record<never, never>, Record<never, never>>,
     '/_sys/template/container': RouteRecordInfo<'/_sys/template/container', '/_sys/template/container', Record<never, never>, Record<never, never>>,
     '/_sys/template/infoview': RouteRecordInfo<'/_sys/template/infoview', '/_sys/template/infoview', Record<never, never>, Record<never, never>>,
@@ -33,6 +34,7 @@ declare module 'vue-router/auto-routes' {
     '/_sys/template/template': RouteRecordInfo<'/_sys/template/template', '/_sys/template/template', Record<never, never>, Record<never, never>>,
     '/[..all]': RouteRecordInfo<'/[..all]', '/:ll(.*)', { ll: ParamValue<true> }, { ll: ParamValue<false> }>,
     '/AboutView': RouteRecordInfo<'/AboutView', '/AboutView', Record<never, never>, Record<never, never>>,
+    '/setting': RouteRecordInfo<'/setting', '/setting', Record<never, never>, Record<never, never>>,
   }
 
   /**
@@ -51,7 +53,7 @@ declare module 'vue-router/auto-routes' {
       views: never
     }
     'src/pages/_sys.vue': {
-      routes: '/_sys' | '/_sys/' | '/_sys/ai' | '/_sys/authorization' | '/_sys/ai/chat' | '/_sys/template/container' | '/_sys/database' | '/_sys/template/infoview' | '/_sys/database/model_config' | '/_sys/monitor' | '/_sys/ai/ocr' | '/_sys/database/overview' | '/_sys/template/overview' | '/_sys/template' | '/_sys/template/template' | '/_sys/monitor/uistore' | '/_sys/authorization/user'
+      routes: '/_sys' | '/_sys/' | '/_sys/ai' | '/_sys/authorization' | '/_sys/ai/chat' | '/_sys/template/container' | '/_sys/database' | '/_sys/template/infoview' | '/_sys/manager' | '/_sys/database/model_config' | '/_sys/monitor' | '/_sys/ai/ocr' | '/_sys/database/overview' | '/_sys/template/overview' | '/_sys/template' | '/_sys/template/template' | '/_sys/monitor/uistore' | '/_sys/database/user' | '/_sys/manager/user'
       views: 'default'
     }
     'src/pages/_sys/index.vue': {
@@ -66,16 +68,20 @@ declare module 'vue-router/auto-routes' {
       routes: '/_sys/ai/ocr'
       views: never
     }
-    'src/pages/_sys/authorization/user.vue': {
-      routes: '/_sys/authorization/user'
-      views: never
-    }
     'src/pages/_sys/database/model_config.vue': {
       routes: '/_sys/database/model_config'
       views: never
     }
     'src/pages/_sys/database/overview.vue': {
       routes: '/_sys/database/overview'
+      views: never
+    }
+    'src/pages/_sys/database/user.vue': {
+      routes: '/_sys/database/user'
+      views: never
+    }
+    'src/pages/_sys/manager/user.vue': {
+      routes: '/_sys/manager/user'
       views: never
     }
     'src/pages/_sys/monitor/uistore.vue': {
@@ -104,6 +110,10 @@ declare module 'vue-router/auto-routes' {
     }
     'src/pages/AboutView.vue': {
       routes: '/AboutView'
+      views: never
+    }
+    'src/pages/setting.vue': {
+      routes: '/setting'
       views: never
     }
   }

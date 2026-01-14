@@ -74,7 +74,8 @@ const menuItems: MenuItem[] = [
     label: '设置',
     icon: markRaw(Setting),
     action: () => {
-      sysSettingStore.isSysSettingShow = true
+      // sysSettingStore.isSysSettingShow = true
+      router.push('/setting')
     },
   },
   {
