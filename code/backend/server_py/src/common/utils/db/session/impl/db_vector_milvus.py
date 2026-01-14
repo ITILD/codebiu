@@ -8,6 +8,8 @@ from pymilvus import (
 from common.utils.db.do.db_config import MilvusConfig
 from common.utils.db.session.interface.db_vector_interface import DBVectorInterface
 from bidict import bidict
+from annotated_types import MaxLen
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -23,6 +25,7 @@ class DBVectorMilvus(DBVectorInterface):
     """
     Milvus向量数据库实现
     封装向量数据库操作
+    注:单表必须有主键 且str字段必须要有max_length
     """
 
     # 类型转换映射 双向dict
@@ -57,21 +60,24 @@ class DBVectorMilvus(DBVectorInterface):
         """
         try:
             # 创建Milvus客户端实例
+            uri = (
+                self.milvus_config.uri
+                or f"{self.milvus_config.host}:{self.milvus_config.port}"
+            )
+
             if self.milvus_config.token:
                 self.async_vector = AsyncMilvusClient(
-                    uri=f"{self.milvus_config.host}:{self.milvus_config.port}",
+                    uri=uri,
                     token=self.milvus_config.token,
                 )
             elif self.milvus_config.user and self.milvus_config.password:
                 self.async_vector = AsyncMilvusClient(
-                    uri=f"{self.milvus_config.host}:{self.milvus_config.port}",
+                    uri=uri,
                     user=self.milvus_config.user,
                     password=self.milvus_config.password,
                 )
             else:
-                self.async_vector = AsyncMilvusClient(
-                    uri=f"{self.milvus_config.host}:{self.milvus_config.port}"
-                )
+                self.async_vector = AsyncMilvusClient(uri=uri)
 
             if log_bool:
                 logger.info(
@@ -100,7 +106,7 @@ class DBVectorMilvus(DBVectorInterface):
             logger.warning(
                 f"未定义 Python 类型 {py_type!r} 的 SQL 映射，默认使用 STRING"
             )
-            return "STRING", str(data)
+            return DataType.VARCHAR, str(data)
         return sql_type, data
 
     async def create_table(
@@ -124,7 +130,14 @@ class DBVectorMilvus(DBVectorInterface):
 
             # 构建字段模式
             fields = []
+            primary_field_name = None
             for field_name, field_info in schema_cls.model_fields.items():
+                # 必须有主键
+                if field_info.primary_key is True:
+                    if primary_field_name is not None:
+                        raise ValueError("Only one primary key is allowed.")
+                    primary_field_name = field_name
+
                 if field_name in vector_dims:
                     # 向量字段
                     fields.append(
@@ -139,8 +152,30 @@ class DBVectorMilvus(DBVectorInterface):
                     sql_type, _ = await self._convert_py_type_to_sql_type(
                         field_info.annotation.__name__, None
                     )
-                    # 默认处理为字符串类型 TODO 其他限制校验字段
-                    fields.append(FieldSchema(field_name, sql_type))
+
+                    if sql_type == DataType.VARCHAR:
+                        max_length = 255
+                        if hasattr(field_info, 'max_length'):
+                            max_length = field_info.max_length
+                        for meta in field_info.metadata:
+                            if isinstance(meta, MaxLen):
+                                max_length = meta.max_length
+                        field_this = FieldSchema(
+                            name=field_name,
+                            dtype=sql_type,
+                            is_primary=field_info.primary_key,
+                            max_length=max_length,
+                        )
+                    else:
+                        field_this = FieldSchema(
+                            name=field_name,
+                            dtype=sql_type,
+                            is_primary=field_info.primary_key,
+                        )
+                    # 注意主键 TODO 其他限制校验字段
+                    fields.append(field_this)
+            if primary_field_name is None:
+                raise ValueError("No primary key field defined in the schema.")
             # 创建集合模式
             schema = CollectionSchema(
                 fields, description=f"Schema for {collection_name}"
@@ -148,37 +183,43 @@ class DBVectorMilvus(DBVectorInterface):
 
             # 创建集合
             await self.async_vector.create_collection(collection_name, schema=schema)
+            
+            # 创建索引
+            await self.create_index(schema_cls, vector_dims)
+            
+            # load collection
+            await self.async_vector.load_collection(collection_name)
 
         except Exception as e:
             raise Exception(f"Milvus创建集合失败: {e}") from e
 
-    # async def create_index(
-    #     self,
-    #     schema_cls: type[BaseModel],
-    #     vector_dims: dict[str, int] = {"vector": 1024},
-    # ):
-    #     try:
-    #         collection_name = schema_cls.__name__.lower()
-    #         # 创建索引以提高搜索性能
-    #         index_params = AsyncMilvusClient.prepare_index_params()
-    #         for field_name, field_info in schema_cls.model_fields.items():
-    #             if field_name in vector_dims:
-    #                 # 每个需要建立索引的向量字段 TODO 普通字段  或者严格按index设置
-    #                 index_params.add_index(
-    #                     field_name=f"{collection_name}_{field_name}_index",  # Name of the vector field to be indexed
-    #                     index_type="HNSW",  # Type of the index to create
-    #                     index_name="vector_index",  # Name of the index to create
-    #                     metric_type="COSINE",  # Metric type used to measure similarity
-    #                     params={
-    #                         "M": 64,  # Maximum number of neighbors each node can connect to in the graph
-    #                         "efConstruction": 100,  # Number of candidate neighbors considered for connection during index construction
-    #                     },  # Index building params
-    #                 )
-    #         await self.async_vector.create_index(
-    #             collection_name, "vector", index_params
-    #         )
-    #     except Exception as e:
-    #         raise Exception(f"Milvus创建索引失败: {e}") from e
+    async def create_index(
+        self,
+        schema_cls: type[BaseModel],
+        vector_dims: dict[str, int] = {"vector": 1024},
+    ):
+        try:
+            collection_name = schema_cls.__name__.lower()
+            # 创建索引以提高搜索性能
+            index_params = AsyncMilvusClient.prepare_index_params()
+            for field_name, field_info in schema_cls.model_fields.items():
+                if field_name in vector_dims:
+                    # 每个需要建立索引的向量字段 TODO 普通字段  或者严格按index设置
+                    index_params.add_index(
+                        field_name=field_name,  # Name of the vector field to be indexed
+                        index_type="HNSW",  # Type of the index to create
+                        index_name=f"{collection_name}_{field_name}_index",  # Name of the index to create
+                        metric_type="COSINE",  # Metric type used to measure similarity
+                        params={
+                            "M": 64,  # Maximum number of neighbors each node can connect to in the graph
+                            "efConstruction": 100,  # Number of candidate neighbors considered for connection during index construction
+                        },  # Index building params
+                    )
+            await self.async_vector.create_index(
+                collection_name,index_params
+            )
+        except Exception as e:
+            raise Exception(f"Milvus创建索引失败: {e}") from e
 
     async def add(
         self,
@@ -208,7 +249,8 @@ class DBVectorMilvus(DBVectorInterface):
         self,
         schema_cls: type[BaseModel],
         query_vector: list[float],
-        top_k: int = 5,
+        vector_dims_key: str = "vector",
+        limit: int = 5,
     ) -> list[type[BaseModel]]:
         """
         查询 Milvus 集合中与查询向量最相似的记录。
@@ -216,7 +258,7 @@ class DBVectorMilvus(DBVectorInterface):
         Args:
             schema_cls: 原始 Pydantic 模型类（BaseModel 子类）
             query_vector: 查询向量
-            top_k: 返回的最相似结果数量，默认为5
+            limit: 返回的最相似结果数量，默认为5
         """
         collection_name = schema_cls.__name__.lower()
 
@@ -229,10 +271,11 @@ class DBVectorMilvus(DBVectorInterface):
         results = await self.async_vector.search(
             collection_name,
             [query_vector],  # Milvus期望批次格式
-            "vector",  # 向量字段名
-            search_params,
-            limit=top_k,
-            output_fields=list(schema_cls.model_fields.keys()),  # 返回所有字段
+            # filter
+            limit = limit,
+            output_fields = list(schema_cls.model_fields.keys()),  # 返回所有字段
+            search_params = search_params,
+            anns_field = vector_dims_key,
         )
 
         # 解析结果
