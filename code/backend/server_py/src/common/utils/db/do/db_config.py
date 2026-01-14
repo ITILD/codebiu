@@ -40,9 +40,9 @@ class FakeredisConfig(DBConfig):
 
 class MilvusConfig(DBConfig):
     """Milvus数据库配置"""
-
-    host: str = Field(..., description="数据库地址")
-    port: int = Field(..., description="数据库端口")
+    uri: str| None = Field(None, description="数据库地址")
+    host: str| None = Field(None, description="数据库地址")
+    port: int| None = Field(None, description="数据库端口")
     user: str | None = Field(None, description="数据库用户名")
     password: str | None = Field(None, description="数据库密码")
     token: str | None = Field(None, description="数据库token")

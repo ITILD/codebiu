@@ -95,10 +95,11 @@ async def test_db_vector_connection():
 
         await db_vector.create_table(TestVectorBase, {"vector": 1024})
         logger.info("db_vector create table success")
-        # await db_vector.add([TestVectorBase(id="test", vector=[0.1] * 1024)])
-        # result = await db_vector.search(TestVectorBase, [0.1] * 1024)
-        # assert result[0].id == "test", f"expect 'test', but got '{result[0].id}'"
-        # logger.info(f"db_vector query operation success: {result[0].id}")
+        await db_vector.add([TestVectorBase(id="test", vector=[0.1] * 1024)])
+        await db_vector.add([TestVectorBase(id="test_1", vector=[0.2] * 1024)])
+        result = await db_vector.search(TestVectorBase, [0.1] * 1024)
+        assert result[0].id == "test", f"expect 'test', but got '{result[0].id}'"
+        logger.info(f"db_vector query operation success: {result[0].id}")
 
     except Exception as e:
         logger.error(f"db_vector connection fail: {e}")
@@ -111,7 +112,7 @@ async def test_db_graph_connection():
     logger.info("test db_graph connection start")
     try:
         db_graph.connect()
-        await db_graph.drop_tables_all()
+
         assert await db_graph.list_tables() == [], "expect empty list"
 
         class TestGraphNodeCity(BaseModel):
@@ -171,7 +172,13 @@ async def test_db_graph_connection():
         # G.add_node(1, label="A", type="node")
         # G.add_edge(2, 3, weight=0.7)
         # 插入图
-        # await db_graph.async_graph.add_graph(G)
+        # await db_graph.async_graph.add_graph(G) 
+        # TODO 改成删除单个表
+        await db_graph.drop_tables_all()
+        # TestGraphNodeCity.__name__.lower()不在list_tables()中
+        assert TestGraphNodeCity.__name__.lower() not in await db_graph.list_tables(), (
+            f"expect {TestGraphNodeCity.__name__.lower()} not in list_tables()"
+        )
 
         # 创建表
         await db_graph.create_table_node(TestGraphNodeCity)
@@ -213,6 +220,8 @@ async def test_db_graph_connection():
         )
 
         logger.info("db_graph connection success")
+        # TODO 删除测试表和关系
+        
     except Exception as e:
         logger.error(f"db_graph connection fail: {e}")
         pytest.fail(f"db_graph connection fail: {e}")
