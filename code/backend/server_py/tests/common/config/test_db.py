@@ -113,8 +113,6 @@ async def test_db_graph_connection():
     try:
         db_graph.connect()
 
-        assert await db_graph.list_tables() == [], "expect empty list"
-
         class TestGraphNodeCity(BaseModel):
             uuid: str = Field(
                 default_factory=lambda: uuid4().hex,
@@ -172,14 +170,15 @@ async def test_db_graph_connection():
         # G.add_node(1, label="A", type="node")
         # G.add_edge(2, 3, weight=0.7)
         # 插入图
-        # await db_graph.async_graph.add_graph(G) 
+        # await db_graph.async_graph.add_graph(G)
         # TODO 改成删除单个表
         await db_graph.drop_tables_all()
+
         # TestGraphNodeCity.__name__.lower()不在list_tables()中
         assert TestGraphNodeCity.__name__.lower() not in await db_graph.list_tables(), (
             f"expect {TestGraphNodeCity.__name__.lower()} not in list_tables()"
         )
-
+        assert await db_graph.list_tables() == [], "expect empty list"
         # 创建表
         await db_graph.create_table_node(TestGraphNodeCity)
         await db_graph.create_table_node(TestGraphNodeUser)
@@ -221,7 +220,7 @@ async def test_db_graph_connection():
 
         logger.info("db_graph connection success")
         # TODO 删除测试表和关系
-        
+
     except Exception as e:
         logger.error(f"db_graph connection fail: {e}")
         pytest.fail(f"db_graph connection fail: {e}")
