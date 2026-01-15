@@ -1,5 +1,10 @@
 # self
-from common.utils.db.schema.pagination import InfiniteScrollParams, InfiniteScrollResponse, PaginationParams, PaginationResponse
+from common.utils.db.schema.pagination import (
+    InfiniteScrollParams,
+    InfiniteScrollResponse,
+    PaginationParams,
+    PaginationResponse,
+)
 from module_file.do.filesystem import FileEntry, FileEntryCreate, FileEntryUpdate
 from module_file.dao.filesystem import FileDao
 import hashlib
@@ -13,6 +18,7 @@ import logging
 
 # 配置日志
 logger = logging.getLogger(__name__)
+
 
 class FileService:
     """文件服务类，提供文件上传、下载、管理等功能"""
@@ -50,7 +56,7 @@ class FileService:
                         logger.info(f"已删除物理文件: {file_path}")
                 except Exception as e:
                     logger.error(f"删除物理文件失败: {e}")
-                
+
                 # 删除数据库记录
                 await self.file_dao.delete(id)
                 logger.info(f"已删除文件记录: {id}")
@@ -77,7 +83,7 @@ class FileService:
         :return: 文件信息对象，不存在返回None
         """
         return await self.file_dao.get(id)
-    
+
     async def list_all(self, pagination: PaginationParams) -> PaginationResponse:
         """
         分页查询所有文件
@@ -87,7 +93,7 @@ class FileService:
         items = await self.file_dao.list_all(pagination)
         total = await self.file_dao.count()
         return PaginationResponse.create(items, total, pagination)
-    
+
     async def get_scroll(self, params: InfiniteScrollParams) -> InfiniteScrollResponse:
         """
         滚动加载文件列表
@@ -104,16 +110,13 @@ class FileService:
         :return: MD5哈希值
         """
         md5_hash = hashlib.md5()
-        async with aiofiles.open(file_path, 'rb') as f:
+        async with aiofiles.open(file_path, "rb") as f:
             while chunk := await f.read(8192):
                 md5_hash.update(chunk)
         return md5_hash.hexdigest()
 
     async def upload_file(
-        self, 
-        file: UploadFile,
-        description: str = None,
-        owner_user_id: str = None
+        self, file: UploadFile, description: str = None, owner_user_id: str = None
     ) -> FileEntry:
         """
         上传文件
@@ -125,46 +128,56 @@ class FileService:
         try:
             # 先读取文件内容到内存
             content = await file.read()
-            
-            # 计算MD5值
+
+            # 计算MD5值 最好单独有个接口前端校验md5是否一致
             content_hash = hashlib.md5(content).hexdigest()
 
             # 检查文件是否已存在(通过MD5)
             existing_file = await self.file_dao.get_by_content_hash(content_hash)
+            
             if existing_file:
-                logger.info(f"文件已存在，直接返回: {existing_file.name}")
-                return existing_file
+                # 文件已存在，复用现有文件信息
+                file_create = FileEntryCreate(
+                    name=existing_file.name,
+                    logical_path=existing_file.logical_path,
+                    physical_storage=existing_file.physical_storage,
+                    file_size_bytes=existing_file.file_size_bytes,
+                    file_extension=existing_file.file_extension,
+                    mime_type=existing_file.mime_type,
+                    content_hash=existing_file.content_hash,
+                    description=existing_file.description,
+                    owner_user_id=owner_user_id,
+                    is_active=True,
+                )
+            else:
+                # 文件不存在，生成新文件名并保存
+                file_ext = Path(file.filename).suffix
+                unique_filename = f"{uuid4().hex}{file_ext}"
+                file_path = self.upload_dir / unique_filename
 
-            # 生成唯一文件名和ID
-            file_ext = Path(file.filename).suffix
-            # 使用UUID4生成唯一标识符，更标准且性能更好
-            file_id = uuid4().hex
-            unique_filename = f"{file_id}{file_ext}"
-            file_path = self.upload_dir / unique_filename
-            
-            # 确保上传目录存在
-            self.upload_dir.mkdir(parents=True, exist_ok=True)
-            
-            # 保存文件
-            async with aiofiles.open(file_path, 'wb') as out_file:
-                await out_file.write(content)
+                # 确保上传目录存在
+                self.upload_dir.mkdir(parents=True, exist_ok=True)
 
-            # 创建文件记录
-            file_create = FileEntryCreate(
-                name=file.filename,
-                logical_path=f"/uploads/{unique_filename}",
-                physical_storage=str(file_path),
-                file_size_bytes=len(content),
-                file_extension=file_ext[1:] if file_ext else '',  # 去掉点号
-                mime_type=file.content_type or 'application/octet-stream',
-                content_hash=content_hash,
-                description=description,
-                owner_user_id=owner_user_id,
-                is_active=True
-            )
+                # 保存文件
+                async with aiofiles.open(file_path, "wb") as out_file:
+                    await out_file.write(content)
+
+                # 创建新文件记录
+                file_create = FileEntryCreate(
+                    name=file.filename,
+                    logical_path=f"/uploads/{unique_filename}",
+                    physical_storage=str(file_path),
+                    file_size_bytes=len(content),
+                    file_extension=file_ext[1:] if file_ext else "",
+                    mime_type=file.content_type or "application/octet-stream",
+                    content_hash=content_hash,
+                    description=description,
+                    owner_user_id=owner_user_id,
+                    is_active=True,
+                )
 
             created_file_id = await self.file_dao.add(file_create)
-            logger.info(f"文件上传成功: {file.filename} -> {unique_filename}")
+            logger.info(f"文件上传成功: {file_create.name} -> {file_create.logical_path}")
             return await self.file_dao.get(created_file_id)
         except Exception as e:
             logger.error(f"上传文件时发生错误: {e}")
@@ -201,6 +214,6 @@ class FileService:
         :param chunk_size: 每次读取的块大小
         :yield: 文件内容块
         """
-        async with aiofiles.open(file_path, 'rb') as f:
+        async with aiofiles.open(file_path, "rb") as f:
             while chunk := await f.read(chunk_size):
                 yield chunk
