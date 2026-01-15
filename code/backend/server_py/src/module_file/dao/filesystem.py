@@ -143,13 +143,13 @@ class FileDao:
         return result.one()
 
     @DaoRel
-    async def get_by_md5(self, md5: str, session: AsyncSession | None = None) -> FileEntry | None:
+    async def get_by_content_hash(self, content_hash: str, session: AsyncSession | None = None) -> FileEntry | None:
         """
-        根据MD5查询文件(用于文件去重)
-        :param md5: 文件MD5值
+        根据内容哈希值查询文件(用于文件去重)
+        :param content_hash: 文件内容哈希值
         :param session: 可选数据库会话
         :return: 文件对象，未找到返回None
         """
-        statement = select(FileEntry).where(FileEntry.md5 == md5)
+        statement = select(FileEntry).where(FileEntry.content_hash == content_hash)
         result = await session.exec(statement)
         return result.first()

@@ -84,10 +84,10 @@ class FileService:
             await out_file.write(content)
 
         # 计算MD5值
-        md5 = hashlib.md5(content).hexdigest()
+        content_hash = hashlib.md5(content).hexdigest()
 
         # 检查文件是否已存在(通过MD5)
-        existing_file = await self.file_dao.get_by_md5(md5)
+        existing_file = await self.file_dao.get_by_content_hash(content_hash)
         if existing_file:
             # 如果文件已存在，删除刚刚上传的文件返回存在的
             file_path.unlink()
@@ -100,7 +100,7 @@ class FileService:
             file_size=len(content),
             file_type=file_ext[1:] if file_ext else '',  # 去掉点号
             mime_type=file.content_type or 'application/octet-stream',
-            md5=md5,
+            content_hash=content_hash,
             description=description,
             uploaded_by=uploaded_by,
             is_active=True
