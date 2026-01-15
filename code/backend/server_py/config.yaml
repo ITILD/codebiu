@@ -21,15 +21,27 @@ dir:
   # 子目录定义（按功能划分）
   base_child:
     source:     source      # 源代码/原始文件
-    upload:   upload    # 用户上传文件
+    upload:   upload    # 用户上传文件(默认目录)
     log:        log         # 日志文件
     sys_out:    sys_out     # 系统输出（如运行结果、导出文件）
-    temp:       temp        # 临时文件
+    temp:       temp        # 临时文件(解压缩之类)
     db:         db          # 数据库文件（如 SQLite、缓存等）
     test:       test        # 测试相关资源
     model:      model       # 模型文件
     lib_third:  lib_third   # 第三方库文件
   public: public
+  
+# 单独上传文件系统设置
+file_system_upload:
+  # 上传文件目录 local默认走 本地目录 dir.base配置的upload目录
+  storage_type: local
+  # 上传文件大小限制
+  size: 1024 * 1024 * 10 # 10MB
+  # 文件类型限制
+  no_types:
+    - "application/zip"
+    - "application/pdf"
+
 # 中间件配置
 middleware:
   cors: true
