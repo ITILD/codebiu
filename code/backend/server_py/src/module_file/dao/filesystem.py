@@ -44,7 +44,7 @@ class FileDao:
         file_id: str,
         file: FileEntryUpdate,
         session: AsyncSession | None = None,
-    ) -> str:
+    ):
         """
         更新文件记录
         :param file_id: 要更新的文件ID
