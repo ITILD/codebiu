@@ -5,13 +5,25 @@
 
     <!--右侧 Monaco 编辑器 -->
     <div flex-1 flex flex-col overflow-auto h-full>
-      <LazyBaseMoacoEdit  flex-1 min-h-10 min-w-160  v-model="editorContent" :language="selectedLanguage" :theme="selectedTheme"
-        :encoding="selectedEncoding" :font-size="14" :line-height="1.5" />
+      <Suspense>
+        <template #default>
+          <LazyBaseMoacoEdit flex-1 min-h-10 min-w-160 v-model="editorContent" :language="selectedLanguage"
+            :theme="selectedTheme" :encoding="selectedEncoding" :font-size="14" :line-height="1.5" />
+        </template>
+        <template #fallback>
+          <!-- 骨架屏 -->
+          <div flex-1 flex flex-col p-4>
+            <el-skeleton :rows="10" animated />
+          </div>
+        </template>
+      </Suspense>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { Suspense } from 'vue'
+
 const LazyBaseMoacoEdit = defineAsyncComponent(
   () => import('@/components/app/ide/BaseMoacoEdit.vue'),
 )

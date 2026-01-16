@@ -140,7 +140,7 @@ const menuItems = ref([
         children: null,
       },
       {
-        index: '/_sys/authorization/user',
+        index: '/_sys/database/user',
         title: 'user',
         disabled: false,
         children: null,
@@ -148,6 +148,12 @@ const menuItems = ref([
       {
         index: '/_sys/database/model_config',
         title: 'model_config',
+        disabled: false,
+        children: null,
+      },
+      {
+        index: '/_sys/database/todolist',
+        title: 'todolist',
         disabled: false,
         children: null,
       },
