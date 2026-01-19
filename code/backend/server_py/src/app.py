@@ -2,16 +2,18 @@ from common.config import log
 from common.config import net
 from common.config.index import conf
 from common.config.server import app
-
-# 引入路由
-from module_template.controller import static,template,template_ex,template_async_learn
-from module_ai.controller import static as ai_static,model_config,llm_base
-# ,ocr 
-from module_file.controller import filesystem
+# 主模块
 from module_main.controller import static as main_static, status, db
-from module_authorization.controller import token, casbin_rule, permission, role, user,auth
-from module_dev_tools.controller import template_string
-from module_little_utils.controller import todolist
+# # 基础模块
+# from module_file.controller import filesystem
+# from module_authorization.controller import token, casbin_rule, permission, role, user,auth
+# # 业务模块
+# from module_template.controller import static,template,template_ex,template_async_learn
+# from module_ai.controller import static as ai_static,model_config,llm_base
+# # ,ocr 
+# from module_dev_tools.controller import template_string
+# from module_little_utils.controller import todolist
+# 
 import logging
 logger = logging.getLogger(__name__)
 
