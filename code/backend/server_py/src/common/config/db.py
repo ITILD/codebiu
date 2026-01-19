@@ -57,13 +57,13 @@ class DatabaseManager:
             self.db_cache.connect()
             self.async_cache = self.db_cache.async_cache
 
-        # 向量化数据库(pymilvus)
+        # 向量化数据库(lancedb/pymilvus)
         if conf.db_vector.type:
             self.db_vector_config: DBConfig = DBEX.get_config(
                 conf.db_vector.type, conf.db_vector
             )
             self.db_vector = DBFactory.create_vector(self.db_vector_config)
-        #  图数据库(neo4j/graph_local)
+        #  图数据库(graph_local/neo4j)
         if conf.db_graph.type:
             self.db_graph_config: DBConfig = DBEX.get_config(
                 conf.db_graph.type, conf.db_graph
