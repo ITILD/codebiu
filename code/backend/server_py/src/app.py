@@ -3,7 +3,7 @@ from common.config import net
 from common.config.index import conf
 from common.config.server import app
 # 主模块
-from module_main.controller import static as main_static, status, db
+from module_main.controller import static as main_static, status, db, dict_type, dict_item
 # # 基础模块
 # from module_file.controller import filesystem
 # from module_authorization.controller import token, casbin_rule, permission, role, user,auth

@@ -1,6 +1,6 @@
 # self
 from common.utils.db.schema.pagination import InfiniteScrollParams, InfiniteScrollResponse, PaginationParams, PaginationResponse
-from module_template.do.template import Template, TemplateCreate, TemplateUpdate
+from module_template.do.template import Template, TemplateCreate, TemplateUpdate, TemplateBatchDelete
 from module_template.dao.template import TemplateDao
 
 # lib
@@ -18,6 +18,9 @@ class TemplateService:
 
     async def delete(self, id: str):
         await self.template_dao.delete(id)
+
+    async def batch_delete(self, batch_delete: TemplateBatchDelete) -> int:
+        return await self.template_dao.batch_delete(batch_delete.ids)
 
     async def update(self,template_id: str, template: TemplateUpdate):
         await self.template_dao.update(template_id,template)

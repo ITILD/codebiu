@@ -1,7 +1,7 @@
 from module_template.config.server import module_app
 from module_template.dependencies.template import get_template_service
 from module_template.service.template import TemplateService
-from module_template.do.template import Template, TemplateCreate, TemplateUpdate
+from module_template.do.template import Template, TemplateCreate, TemplateUpdate, TemplateBatchDelete
 from common.utils.db.schema.pagination import (
     InfiniteScrollParams,
     InfiniteScrollResponse,
@@ -112,6 +112,28 @@ async def delete_template(
     """
     try:
         await service.delete(template_id)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+
+@router.delete(
+    "/batch", summary="批量删除模板", status_code=status.HTTP_200_OK
+)
+async def batch_delete_template(
+    batch_delete: TemplateBatchDelete,
+    service: TemplateService = Depends(get_template_service),
+) -> dict:
+    """
+    批量删除模板
+    :param batch_delete: 批量删除请求(包含ids列表)
+    :param service: 模板服务依赖注入
+    :return: 删除结果(包含实际删除数量)
+    """
+    try:
+        deleted_count = await service.batch_delete(batch_delete)
+        return {"deleted_count": deleted_count}
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
