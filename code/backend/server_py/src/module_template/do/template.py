@@ -1,4 +1,6 @@
 from sqlmodel import Column, DateTime, Field, SQLModel
+from pydantic import field_validator
+
 from uuid import uuid4
 from datetime import datetime, timezone
 
@@ -66,3 +68,19 @@ class TemplateUpdate(TemplateBase):
         ),
         description="最后更新时间",
     )
+
+
+class TemplateBatchDelete(SQLModel):
+    """
+    批量删除模板的请求模型
+    """
+
+    ids: list[str] = Field(description="要删除的模板ID列表", min_length=1, max_length=200)
+    
+    @field_validator('ids')
+    @classmethod
+    def validate_ids(cls, v: list[str]) -> list[str]:
+        # 可选：校验 ID 格式（如 UUID、数字字符串等）
+        if any(not item.strip() for item in v):
+            raise ValueError("ID 不能为空或仅包含空白字符")
+        return v

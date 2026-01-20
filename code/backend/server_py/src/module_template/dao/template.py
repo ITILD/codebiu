@@ -1,12 +1,12 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
-from sqlmodel import select, func, update
+from sqlmodel import select, func, update, delete
 from common.utils.db.schema.pagination import (
     InfiniteScrollParams,
     PaginationParams,
     ScrollDirection,
 )
 from common.config.db import DaoRel
-from module_template.do.template import Template, TemplateCreate, TemplateUpdate
+from module_template.do.template import Template, TemplateCreate, TemplateUpdate, TemplateBatchDelete
 
 
 class TemplateDao:
@@ -40,6 +40,19 @@ class TemplateDao:
             raise ValueError(f"未找到ID为 {id} 的模板")
         await session.delete(template)
         await session.flush()
+
+    @DaoRel
+    async def batch_delete(self, batch_delete: TemplateBatchDelete, session: AsyncSession | None = None) -> int:
+        """
+        批量删除模板记录
+        :param batch_delete: 批量删除模板请求模型
+        :param session: 可选数据库会话
+        :return: 实际删除的记录数
+        """
+        stmt = delete(Template).where(Template.id.in_(batch_delete.ids))
+        result = await session.exec(stmt)
+        await session.flush()
+        return result.rowcount
 
     @DaoRel
     async def update(
