@@ -1,8 +1,8 @@
 
-PROJECT_NAME=base_server
+PROJECT_NAME=server_py
 PROJECT_VERSION_OLD=0.0.0
 PROJECT_VERSION=0.0.1
-# 先停止容器(如果正在运行) docker stop knowledge_1.0.1
+# 先停止容器(如果正在运行) docker stop server_py_1.0.1
 docker stop ${PROJECT_NAME}_${PROJECT_VERSION_OLD}
 
 # 删除旧容器

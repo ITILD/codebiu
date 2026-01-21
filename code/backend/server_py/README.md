@@ -39,10 +39,10 @@ $env:PYTHONPATH="src"; uvicorn src.app:app --host 0.0.0.0 --port 2001
 
 ```sh
 # dev
-bash build/docker_dev/build.sh
+bash tools/docker_dev/build.sh
 # 构建 exe bin
-bash build/docker_build/linux_build.sh
-bash build/docker_build/build.sh
+bash tools/docker_build/linux_build.sh
+bash tools/docker_build/build.sh
 
 # 运行
 docker compose up
