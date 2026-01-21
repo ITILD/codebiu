@@ -41,6 +41,17 @@ file_system_upload:
   no_types:
     - "application/zip"
     - "application/pdf"
+  # 本地存储配置
+  local: ''
+    # 使用已有的 base_child upload 目录
+  # S3/MinIO/rustfs 存储配置
+  # s3:
+  #   endpoint: "http://localhost:9000"
+  #   access_key: "minioadmin"
+  #   secret_key: "minioadmin"
+  #   bucket_name: "bucket0"
+  #   region: "us-east-1"                # MinIO 通常可设为任意值，如 us-east-1
+  #   secure: false  
 
 # 中间件配置
 middleware:
