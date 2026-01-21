@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>test</title>
+    <!-- 外部css -->
+     <link rel="stylesheet" href="static/assets/index.css">
+</head>
+<body>
+    <div id="app" class="status-section">
+        <h2>test</h2>
+        <div v-if="loading" class="loading-message">
+            正在加载数据...
+        </div>
+        <div v-if="error" class="error-message">{{ error }}</div>
+
+        <div v-if="!loading">
+            <div class="container">
+                <h1>test</h1>
+                
+                <!-- 添加/编辑用户表单 -->
+                <div class="form-section">
+                    <h2>{{ formTitle }}</h2>
+                    <form @submit.prevent="handleSubmit">
+                        <input type="hidden" v-model="editingUserId">
+                        <div class="form-group">
+                            <label for="name">姓名:</label>
+                            <input type="text" id="name" v-model="formData.name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="email">邮箱:</label>
+                            <input type="email" id="email" v-model="formData.email" required>
+                        </div>
+                        <button type="submit">{{ submitButtonText }}</button>
+                        <button type="button" @click="handleCancel" v-if="editingUserId">取消</button>
+                    </form>
+                </div>
+                
+                <!-- 用户列表 -->
+                <div class="list-section">
+                    <h2>用户列表</h2>
+                    <table id="user-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>姓名</th>
+                                <th>邮箱</th>
+                                <th>创建时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="user-list">
+                            <tr v-for="user in users" :key="user.id">
+                                <td>{{ user.id.substring(0, 8) }}...</td>
+                                <td>{{ user.name }}</td>
+                                <td>{{ user.email }}</td>
+                                <td>{{ formatDate(user.created_at) }}</td>
+                                <td class="action-buttons">
+                                    <button class="edit-btn" @click="editUser(user)">编辑</button>
+                                    <button class="delete-btn" @click="deleteUser(user.id)">删除</button>
+                                </td>
+                            </tr>
+                            <tr v-if="users.length === 0">
+                                <td colspan="5" style="text-align:center;">暂无用户数据</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- 引入 Vue 3 -->
+    <script src="common/assets/js/framework/vue.global.min.js"></script>
+    <!-- 引入应用组件 -->
+    <script src="static/assets/index.js"></script>
+</body>
+</html>
