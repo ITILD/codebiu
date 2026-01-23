@@ -10,15 +10,15 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from uuid import uuid4
 from datetime import datetime, timezone
-
-# 基础log
+# 1.config配置
+# 1.1基础log
 import logging
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
-# 基础配置
+# 1.2 app基础配置
 HOST = "0.0.0.0"
 PORT = 3100
 # 静态文件配置
@@ -27,11 +27,44 @@ DIR_HTML_MAIN = DIR_PUBLIC / "main"
 # 临时文件配置
 temp_path = Path("temp_source")
 temp_path.mkdir(parents=True, exist_ok=True)
-# 数据库配置
+
+# \\1.3 数据库配置
 # SQLite数据库URL
 database_url = f"sqlite+aiosqlite:///{temp_path}/template.db"
+# 创建异步引擎
+engine = create_async_engine(
+    database_url,
+    echo=True,  # 打印SQL语句
+    pool_pre_ping=True,  # 连接池检查连接有效性
+    json_serializer=lambda obj: json.dumps(obj, ensure_ascii=False),  # 中文序列化
+)
 
 
+# 2. server.py创建应用实例
+app = FastAPI(
+    title="用户管理系统",
+    description="基于SQLModel的用户增删改查系统",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+)
+
+
+def swagger_ui_source_local(*args, **kwargs):
+    """自定义Swagger UI资源路径"""
+    return get_swagger_ui_html(
+        *args,
+        **kwargs,
+        swagger_js_url="common/assets/js/swagger-ui/swagger-ui-bundle.js",
+        swagger_css_url="common/assets/js/swagger-ui/swagger-ui.css",
+    )
+
+
+applications.get_swagger_ui_html = swagger_ui_source_local
+
+
+
+# 3.do(domain)对象
 # 定义用户模型，结合了SQLAlchemy和Pydantic的功能
 class User(SQLModel, table=True):
     """
@@ -81,30 +114,29 @@ class UserResponse(SQLModel):
     email: str
     created_at: datetime
 
-
-# 创建应用实例
-app = FastAPI(
-    title="用户管理系统",
-    description="基于SQLModel的用户增删改查系统",
-    version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
-)
-
-
-def swagger_ui_source_local(*args, **kwargs):
-    """自定义Swagger UI资源路径"""
-    return get_swagger_ui_html(
-        *args,
-        **kwargs,
-        swagger_js_url="common/assets/js/swagger-ui/swagger-ui-bundle.js",
-        swagger_css_url="common/assets/js/swagger-ui/swagger-ui.css",
-    )
+# 4.lifespan.py 应用生命周期管理 - 用于初始化数据库
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """应用生命周期管理器，用于在启动时创建数据库表"""
+    async with engine.begin() as conn:
+        # 删除所有表
+        await conn.run_sync(SQLModel.metadata.drop_all)
+        # 创建所有表
+        await conn.run_sync(SQLModel.metadata.create_all)
+    yield
 
 
-applications.get_swagger_ui_html = swagger_ui_source_local
+app.router.lifespan_context = lifespan
 
 
+# 数据库会话依赖项
+async def get_session():
+    """获取数据库会话的依赖项"""
+    async with AsyncSession(engine) as session:
+        yield session
+
+
+# 4.controller(路由)+service+dao
 # 主页路由 - 返回HTML页面
 @app.get(
     "/",
@@ -131,38 +163,6 @@ app.mount(
     StaticFiles(directory=DIR_PUBLIC / "common"),
     name="common",
 )
-
-
-# 创建异步引擎
-engine = create_async_engine(
-    database_url,
-    echo=True,  # 打印SQL语句
-    pool_pre_ping=True,  # 连接池检查连接有效性
-    json_serializer=lambda obj: json.dumps(obj, ensure_ascii=False),  # 中文序列化
-)
-
-
-# 应用生命周期管理 - 用于初始化数据库
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """应用生命周期管理器，用于在启动时创建数据库表"""
-    async with engine.begin() as conn:
-        # 删除所有表
-        await conn.run_sync(SQLModel.metadata.drop_all)
-        # 创建所有表
-        await conn.run_sync(SQLModel.metadata.create_all)
-    yield
-
-
-app.router.lifespan_context = lifespan
-
-
-# 数据库会话依赖项
-async def get_session():
-    """获取数据库会话的依赖项"""
-    async with AsyncSession(engine) as session:
-        yield session
-
 
 # 用户API路由
 @app.post("/users/", summary="创建用户", response_model=UserResponse)

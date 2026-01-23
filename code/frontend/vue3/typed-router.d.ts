@@ -54,7 +54,7 @@ declare module 'vue-router/auto-routes' {
       views: never
     }
     'src/pages/_sys.vue': {
-      routes: '/_sys' | '/_sys/' | '/_sys/ai' | '/_sys/ai/chat' | '/_sys/template/container' | '/_sys/database' | '/_sys/template/infoview' | '/_sys/manager' | '/_sys/database/model_config' | '/_sys/monitor' | '/_sys/ai/ocr' | '/_sys/database/overview' | '/_sys/template/overview' | '/_sys/template' | '/_sys/template/template' | '/_sys/database/todolist' | '/_sys/monitor/uistore' | '/_sys/database/user' | '/_sys/manager/user'
+      routes: '/_sys' | '/_sys/' | '/_sys/ai' | '/_sys/ai/chat' | '/_sys/template/container' | '/_sys/database' | '/_sys/template/infoview' | '/_sys/manager' | '/_sys/database/model_config' | '/_sys/monitor' | '/_sys/ai/ocr' | '/_sys/database/overview' | '/_sys/template/overview' | '/_sys/template' | '/_sys/template/template' | '/_sys/database/todolist' | '/_sys/monitor/uistore' | '/_sys/manager/user' | '/_sys/database/user'
       views: 'default'
     }
     'src/pages/_sys/index.vue': {
