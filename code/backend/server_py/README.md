@@ -8,7 +8,9 @@
 
 ```bash
 # 拉取基础代码(如果需要)
-git clone http://zwork1.w1.luyouxia.net/gitea/codebiu_2025/base_server.git
+git clone https://gitee.com/lastfree/codebiu.git
+git clone https://github.com/ITILD/codebiu.git
+
 
 # 版本和三方库在pyproject.toml里，安装依赖(需要uv包管理 ) 
 uv sync
