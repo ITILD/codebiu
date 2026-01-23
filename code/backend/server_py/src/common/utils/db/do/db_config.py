@@ -1,6 +1,8 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 _DB_REGISTRY: dict[str, type["DBConfig"]] = {}
+
+
 class DBConfig(BaseModel):
     database: str = Field(..., description="数据库名/持久化地址")
 
@@ -8,7 +10,8 @@ class DBConfig(BaseModel):
         super().__init_subclass__(**kwargs)
         if config_type is not None:
             _DB_REGISTRY[config_type] = cls
-            
+
+
 # 模型配置对象
 class PostgresConfig(DBConfig, config_type="postgres"):
     host: str = Field(..., description="数据库地址")
@@ -56,13 +59,15 @@ class Neo4jConfig(DBConfig, config_type="neo4j"):
     password: str = Field(..., description="数据库密码")
 
 
-class DBEX:
+class DBConfigFactory:
     @staticmethod
-    def get_config(type_: str, config_dict: dict) -> DBConfig:
+    def create(type_: str, config_dict: dict) -> DBConfig:
         """
         根据 type_ 自动选择并实例化对应的配置模型
         """
         config_cls = _DB_REGISTRY.get(type_)
         if config_cls is None:
-            raise ValueError(f"未知的数据库类型: {type_}. 支持的类型: {list(_DB_REGISTRY.keys())}")
+            raise ValueError(
+                f"未知的数据库类型: {type_}. 支持的类型: {list(_DB_REGISTRY.keys())}"
+            )
         return config_cls.model_validate(config_dict)
