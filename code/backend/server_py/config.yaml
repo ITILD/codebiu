@@ -32,26 +32,44 @@ dir:
   public: public
   
 # 单独上传文件系统设置
-file_system_upload:
+file_system:
   # 上传文件目录 local默认走 本地目录 dir.base配置的upload目录
   storage_type: local
+  # secret_key: qwer1234
   # 上传文件大小限制
-  size: 1024 * 1024 * 10 # 10MB
+  max_size: 1024 * 1024 * 10 # 10MB
   # 文件类型限制
-  no_types:
+  allowed_extensions:
     - "application/zip"
     - "application/pdf"
-  # 本地存储配置
-  local: ''
-    # 使用已有的 base_child upload 目录
-  # S3/MinIO/rustfs 存储配置
-  # s3:
-  #   endpoint: "http://localhost:9000"
-  #   access_key: "minioadmin"
-  #   secret_key: "minioadmin"
-  #   bucket_name: "bucket0"
-  #   region: "us-east-1"                # MinIO 通常可设为任意值，如 us-east-1
-  #   secure: false  
+    - "image/*"
+    # docx
+    - "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  # 本地存地址
+  base_dir: null
+    # 默认使用已有的 base_child upload 目录
+
+#  # S3/MinIO/rustfs 存储配置
+# file_system:
+#   # 上传文件目录 local默认走 本地目录 dir.base配置的upload目录
+#   storage_type: s3
+#   # 上传文件大小限制
+#   max_size: 1024 * 1024 * 10 # 10MB
+#   # 文件类型限制
+#   allowed_extensions:
+#     - "application/zip"
+#     - "application/pdf"
+#     - "image/*"
+#     # docx
+#     - "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+#   # S3/MinIO/rustfs 存储配置
+#   s3:
+#     endpoint_url: "http://localhost:9000"
+#     access_key: "rustfs"
+#     secret_key: "12345678"
+#     bucket_name: "bucket0"
+#     region: "us-east-1"
+#     secure: false  
 
 # 中间件配置
 middleware:
@@ -78,9 +96,9 @@ db_rel:
 db_cache:
   type: fakeredis
   database: temp_source\db\fakeredis.db
-db_vector:
-  type: lancedb
-  database: temp_source\db\lancedb.db
+# db_vector:
+#   type: lancedb
+#   database: temp_source\db\lancedb.db
 db_graph:
   type: graph_local
   database: temp_source\db\graph_local.db
