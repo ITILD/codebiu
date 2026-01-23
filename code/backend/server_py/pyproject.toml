@@ -63,10 +63,14 @@ dependencies = [
     "bidict>=0.23.1",
     "langchain-ollama>=1.0.1",
     "celery>=5.6.1",
+    "aioboto3>=15.5.0",
 ]
 
 [[tool.uv.index]]
+# 清华源
 url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+# 阿里源
+# url = "https://mirrors.aliyun.com/pypi/simple/"
 default = true
 
 [tool.ruff.lint.per-file-ignores]

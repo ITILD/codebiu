@@ -16,11 +16,11 @@ from fastapi import (
     Depends,
     UploadFile,
     File as FastAPIFile,
+    Query,
 )
 from fastapi.responses import StreamingResponse
 
 router = APIRouter()
-
 
 @router.post(
     "/upload",
@@ -175,12 +175,98 @@ async def update_file(
     更新文件信息
     :param file_id: 文件ID
     :param file_update: 更新数据
-    :param service: 文件服务依赖注入
+    :param service: 文件服务依赖入
     :return: 更新后的文件信息
     """
     try:
         # 更新文件信息并返回更新后的文件信息（在同一事务中）
         await service.update(file_id, file_update)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+
+@router.post("/generate_presigned_url", summary="生成预签名URL", status_code=status.HTTP_200_OK)
+async def generate_presigned_url(
+    file_key: str = Query(..., description="文件键"),
+    method: str = Query("put", description="请求方法 (put/get/delete)", regex="^(put|get|delete)$"),
+    expiration: int = Query(3600, description="过期时间（秒）"),
+    service: FileService = Depends(get_file_service),
+):
+    """
+    生成预签名URL
+    :param file_key: 文件键
+    :param method: 请求方法 (put/get/delete)
+    :param expiration: 过期时间（秒）
+    :param service: 文件服务依赖注入
+    :return: 预签名URL
+    """
+    try:
+        presigned_url = await service.generate_presigned_url(file_key, method, expiration)
+        if presigned_url is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+                detail="生成预签名URL失败"
+            )
+        return {"presigned_url": presigned_url}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+
+@router.post("/upload_with_presigned_url", summary="使用预签名URL上传文件", status_code=status.HTTP_200_OK)
+async def upload_with_presigned_url(
+    presigned_url: str = Query(..., description="预签名URL"),
+    file: UploadFile = FastAPIFile(...),
+    service: FileService = Depends(get_file_service),
+):
+    """
+    使用预签名URL上传文件
+    :param presigned_url: 预签名URL
+    :param file: 要上传的文件
+    :param service: 文件服务依赖注入
+    :return: 上传结果
+    """
+    try:
+        content = await file.read()
+        success = await service.upload_with_presigned_url(presigned_url, content)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+                detail="使用预签名URL上传失败"
+            )
+        return {"success": True, "message": "文件上传成功"}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+
+@router.get("/download_with_presigned_url", summary="使用预签名URL下载文件", status_code=status.HTTP_200_OK)
+async def download_with_presigned_url(
+    presigned_url: str = Query(..., description="预签名URL"),
+    service: FileService = Depends(get_file_service),
+):
+    """
+    使用预签名URL下载文件
+    :param presigned_url: 预签名URL
+    :param service: 文件服务依赖注入
+    :return: 文件内容
+    """
+    try:
+        content = await service.download_with_presigned_url(presigned_url)
+        if content is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, 
+                detail="使用预签名URL下载失败或文件不存在"
+            )
+        return StreamingResponse(
+            iter([content]),
+            media_type="application/octet-stream",
+            headers={"Content-Disposition": "attachment; filename=temp_file"}
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)

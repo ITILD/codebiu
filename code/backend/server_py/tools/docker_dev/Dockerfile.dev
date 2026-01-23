@@ -41,9 +41,12 @@ RUN echo "安装完成，移动二进制文件..." && \
 # # 使用 uv 安装指定 Python 版本
 RUN uv venv --python python${PYTHON_VERSION} /opt/venv
 # 复制编译后的文件到容器
-COPY . /app
+# COPY . /app
+# 复制 pyproject.toml 到 app
+COPY pyproject.toml /app/
+
 # 查看复制了哪些文件
-RUN ls -la /app
+# RUN ls -la /app
 
 # 暴露必要的端口
 # 配置开发环境

@@ -7,6 +7,7 @@ from common.utils.db.schema.pagination import (
 )
 from module_file.do.filesystem import FileEntry, FileEntryCreate, FileEntryUpdate
 from module_file.dao.filesystem import FileDao
+from module_file.config.filesystem import storage
 import hashlib
 import secrets  # 导入secrets模块
 from uuid import uuid4  # 导入uuid4
@@ -15,6 +16,7 @@ import aiofiles
 from pathlib import Path
 from common.config.path import DIR_UPLOAD
 import logging
+import io
 
 # 配置日志
 logger = logging.getLogger(__name__)
@@ -23,13 +25,14 @@ logger = logging.getLogger(__name__)
 class FileService:
     """文件服务类，提供文件上传、下载、管理等功能"""
 
-    def __init__(self, file_dao: FileDao | None = None):
+    def __init__(self, file_dao: FileDao | None = None, storage_interface=None):
         """
         初始化文件服务
         :param file_dao: 文件数据访问对象，可选
+        :param storage_interface: 存储接口实现，可选
         """
         self.file_dao = file_dao or FileDao()
-        self.upload_dir = Path(DIR_UPLOAD)
+        self.storage = storage_interface or storage
 
     async def add(self, file: FileEntryCreate) -> str:
         """
@@ -134,7 +137,7 @@ class FileService:
 
             # 检查文件是否已存在(通过MD5)
             existing_file = await self.file_dao.get_by_content_hash(content_hash)
-            
+
             if existing_file:
                 # 文件已存在，复用现有文件信息
                 file_create = FileEntryCreate(
@@ -153,20 +156,16 @@ class FileService:
                 # 文件不存在，生成新文件名并保存
                 file_ext = Path(file.filename).suffix
                 unique_filename = f"{uuid4().hex}{file_ext}"
-                file_path = self.upload_dir / unique_filename
 
-                # 确保上传目录存在
-                self.upload_dir.mkdir(parents=True, exist_ok=True)
-
-                # 保存文件
-                async with aiofiles.open(file_path, "wb") as out_file:
-                    await out_file.write(content)
+                # 使用存储接口保存文件
+                file_key = f"uploads/{unique_filename}"
+                await self.storage.save(file_key, content)
 
                 # 创建新文件记录
                 file_create = FileEntryCreate(
                     name=file.filename,
-                    logical_path=f"/uploads/{unique_filename}",
-                    physical_storage=str(file_path),
+                    logical_path=f"/{file_key}",
+                    physical_storage=file_key,  # 存储键而不是本地路径
                     file_size_bytes=len(content),
                     file_extension=file_ext[1:] if file_ext else "",
                     mime_type=file.content_type or "application/octet-stream",
@@ -177,10 +176,71 @@ class FileService:
                 )
 
             created_file_id = await self.file_dao.add(file_create)
-            logger.info(f"文件上传成功: {file_create.name} -> {file_create.logical_path}")
+            logger.info(
+                f"文件上传成功: {file_create.name} -> {file_create.logical_path}"
+            )
             return await self.file_dao.get(created_file_id)
         except Exception as e:
             logger.error(f"上传文件时发生错误: {e}")
+            raise
+
+    async def generate_presigned_url(
+        self, file_key: str, method: str = "put", expiration: int = 3600
+    ) -> str | None:
+        """
+        生成预签名URL
+        :param file_key: 文件键
+        :param method: 请求方法 ('put', 'get', 'delete')
+        :param expiration: 过期时间（秒）
+        :return: 预签名URL
+        """
+        try:
+            presigned_url = await self.storage.generate_presigned_url(
+                file_key, method, expiration
+            )
+            return presigned_url
+        except Exception as e:
+            logger.error(f"生成预签名URL时发生错误: {e}")
+            raise
+
+    async def upload_with_presigned_url(self, presigned_url: str, data: bytes) -> bool:
+        """
+        使用预签名URL上传数据
+        :param presigned_url: 预签名URL
+        :param data: 要上传的数据
+        :return: 是否上传成功
+        """
+        try:
+            success = await self.storage.upload_with_presigned_url(presigned_url, data)
+            return success
+        except Exception as e:
+            logger.error(f"使用预签名URL上传时发生错误: {e}")
+            raise
+
+    async def download_with_presigned_url(self, presigned_url: str) -> bytes | None:
+        """
+        使用预签名URL下载数据
+        :param presigned_url: 预签名URL
+        :return: 文件数据或None
+        """
+        try:
+            data = await self.storage.download_with_presigned_url(presigned_url)
+            return data
+        except Exception as e:
+            logger.error(f"使用预签名URL下载时发生错误: {e}")
+            raise
+
+    async def delete_with_presigned_url(self, presigned_url: str) -> bool:
+        """
+        使用预签名URL删除数据
+        :param presigned_url: 预签名URL
+        :return: 是否删除成功
+        """
+        try:
+            success = await self.storage.delete_with_presigned_url(presigned_url)
+            return success
+        except Exception as e:
+            logger.error(f"使用预签名URL删除时发生错误: {e}")
             raise
 
     async def get_file_info_for_download(self, file_id: str) -> tuple[str, str, str]:
@@ -195,17 +255,16 @@ class FileService:
                 logger.warning(f"文件不存在或已被禁用: {file_id}")
                 raise HTTPException(status_code=404, detail="文件不存在或已被禁用")
 
-            file_path = Path(file_info.physical_storage)
-            if not file_path.exists():
-                logger.error(f"物理文件不存在: {file_path}")
-                raise HTTPException(status_code=404, detail="文件已丢失")
+            # 使用存储接口检查文件是否存在
+            file_exists = await self.storage.exists(file_info.physical_storage)
+            if not file_exists:
+                logger.error(f"物理文件不存在: {file_info.physical_storage}")
+                raise HTTPException(status_code=404, detail="物理文件不存在")
 
-            return file_info.name, file_info.mime_type, str(file_path)
-        except HTTPException:
-            raise
+            return file_info.name, file_info.mime_type, file_info.physical_storage
         except Exception as e:
-            logger.error(f"获取文件下载信息时发生错误: {e}")
-            raise HTTPException(status_code=500, detail="下载文件失败")
+            logger.error(f"获取文件信息时发生错误: {e}")
+            raise f"获取文件信息时发生错误: {e}"
 
     async def stream_file_content(self, file_path: str, chunk_size: int = 8192):
         """
@@ -214,6 +273,12 @@ class FileService:
         :param chunk_size: 每次读取的块大小
         :yield: 文件内容块
         """
-        async with aiofiles.open(file_path, "rb") as f:
-            while chunk := await f.read(chunk_size):
-                yield chunk
+        try:
+            # 使用存储接口加载文件内容
+            content = await self.storage.load(file_path)
+            # 将内容分块发送
+            for i in range(0, len(content), chunk_size):
+                yield content[i : i + chunk_size]
+        except Exception as e:
+            logger.error(f"读取文件内容时发生错误: {e}")
+            raise

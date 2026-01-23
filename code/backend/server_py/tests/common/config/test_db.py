@@ -4,11 +4,8 @@ from sqlmodel import Column, DateTime, Field, SQLModel
 from pydantic import BaseModel
 from datetime import datetime, timezone
 from uuid import uuid4
+
 import logging
-import networkx as nx
-
-# import numpy as np
-
 logger = logging.getLogger(__name__)
 
 
