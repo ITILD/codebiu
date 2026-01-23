@@ -63,6 +63,7 @@ dependencies = [
     "bidict>=0.23.1",
     "langchain-ollama>=1.0.1",
     "celery>=5.6.1",
+    "aioboto3>=15.5.0",
 ]
 
 [[tool.uv.index]]
