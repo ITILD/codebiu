@@ -1,7 +1,8 @@
+from __future__ import annotations
 from functools import wraps
 from common.config.index import conf, is_dev
 from common.utils.db.db_factory import DBFactory
-from common.utils.db.do.db_config import DBEX, DBConfig
+from common.utils.db.do.db_config import DBConfigFactory, DBConfig
 from common.utils.db.session.interface.db_relational_interface import (
     DBRelationInterface,
 )
@@ -12,8 +13,10 @@ from common.utils.db.utils.async_transactional import AsyncTransactional
 
 #
 from redis.asyncio import Redis
-from pymilvus import AsyncMilvusClient
-from lancedb import AsyncConnection
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from pymilvus import AsyncMilvusClient
+    from lancedb import AsyncConnection  # 仅类型检查时导入
 
 import logging
 
@@ -41,7 +44,7 @@ class DatabaseManager:
         """初始化所有启用的数据库连接"""
         # 关系型数据库(sqlite/postgresql/mysql)
         if conf.db_rel.type:
-            self.db_rel_config: DBConfig = DBEX.get_config(
+            self.db_rel_config: DBConfig = DBConfigFactory.create(
                 conf.db_rel.type, conf.db_rel
             )
             self.db_rel: DBRelationInterface = DBFactory.create_rel(self.db_rel_config)
@@ -50,22 +53,22 @@ class DatabaseManager:
             self.DaoRel = AsyncTransactional(self.db_rel.session_factory).transaction
         # 缓存数据库(Fakeredis/redis)
         if conf.db_cache.type:
-            self.db_cache_config: DBConfig = DBEX.get_config(
+            self.db_cache_config: DBConfig = DBConfigFactory.create(
                 conf.db_cache.type, conf.db_cache
             )
             self.db_cache = DBFactory.create_cache(self.db_cache_config)
             self.db_cache.connect()
             self.async_cache = self.db_cache.async_cache
 
-        # 向量化数据库(pymilvus)
-        if conf.db_vector.type:
-            self.db_vector_config: DBConfig = DBEX.get_config(
+        # 向量化数据库(lancedb/pymilvus)
+        if conf.get("db_vector", {}).get("type"):
+            self.db_vector_config: DBConfig = DBConfigFactory.create(
                 conf.db_vector.type, conf.db_vector
             )
             self.db_vector = DBFactory.create_vector(self.db_vector_config)
-        #  图数据库(neo4j/graph_local)
+        #  图数据库(graph_local/neo4j)
         if conf.db_graph.type:
-            self.db_graph_config: DBConfig = DBEX.get_config(
+            self.db_graph_config: DBConfig = DBConfigFactory.create(
                 conf.db_graph.type, conf.db_graph
             )
             self.db_graph = DBFactory.create_graph(self.db_graph_config)
@@ -77,8 +80,9 @@ class DatabaseManager:
     async def connect_all(self):
         """特殊的连接"""
         # 向量数据库连接
-        await self.db_vector.connect()
-        self._async_vector = self.db_vector.async_vector
+        if self.db_vector:
+            await self.db_vector.connect()
+            self._async_vector = self.db_vector.async_vector
 
     async def shutdown(self):
         """关闭资源"""

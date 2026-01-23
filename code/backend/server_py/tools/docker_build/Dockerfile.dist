@@ -5,7 +5,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # 复制编译后的文件到容器
-COPY dist_nuitka/app.dist /app
+# COPY dist_nuitka/app.dist /app
 
 # 设置工作目录
 WORKDIR /app

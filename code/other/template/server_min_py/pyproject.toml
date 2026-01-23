@@ -1,0 +1,13 @@
+[project]
+name = "server-min-py"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "aiosqlite>=0.22.1",
+    "fastapi>=0.128.0",
+    "logging>=0.4.9.6",
+    "sqlmodel>=0.0.31",
+    "uvicorn>=0.40.0",
+]

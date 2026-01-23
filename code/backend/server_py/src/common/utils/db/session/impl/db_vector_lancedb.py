@@ -1,5 +1,8 @@
-from lancedb import connect_async, AsyncConnection, AsyncTable
-from lancedb.pydantic import LanceModel, Vector
+from __future__ import annotations
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from lancedb import connect_async, AsyncConnection, AsyncTable
+    from lancedb.pydantic import LanceModel, Vector
 from pydantic import BaseModel
 from common.utils.db.do.db_config import LancedbConfig
 from common.utils.db.session.interface.db_vector_interface import DBVectorInterface
@@ -41,6 +44,7 @@ class DBVectorLancedb(DBVectorInterface):
             log_bool: 是否启用日志
         """
         try:
+            from lancedb import connect_async
             # 创建LanceDB客户端实例
             self.async_vector = await connect_async(self.database)
 
@@ -85,6 +89,7 @@ class DBVectorLancedb(DBVectorInterface):
         将 Pydantic BaseModel 类转换为 LanceModel 子类。
         向量字段使用 Vector(dim)，其他字段保留原注解。
         """
+        from lancedb.pydantic import LanceModel,Vector
         annotations = {}
         for name, field in schema_cls.model_fields.items():
             if name in vector_dims:
