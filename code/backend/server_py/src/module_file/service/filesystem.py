@@ -5,7 +5,12 @@ from common.utils.db.schema.pagination import (
     PaginationParams,
     PaginationResponse,
 )
-from module_file.do.filesystem import FileEntry, FileEntryCreate, FileEntryUpdate
+from module_file.do.filesystem import (
+    FileEntry,
+    FileEntryCreate,
+    FileEntryUpdate,
+    PresignedUrlRequest,
+)
 from module_file.dao.filesystem import FileDao
 from module_file.config.filesystem import storage
 import hashlib
@@ -185,18 +190,17 @@ class FileService:
             raise
 
     async def generate_presigned_url(
-        self, file_key: str, method: str = "put", expiration: int = 3600
+        self, presigned_url_request: PresignedUrlRequest
     ) -> str | None:
         """
         生成预签名URL
-        :param file_key: 文件键
-        :param method: 请求方法 ('put', 'get', 'delete')
-        :param expiration: 过期时间（秒）
+        :param presigned_url_request: 预签名URL请求模型
         :return: 预签名URL
         """
         try:
             presigned_url = await self.storage.generate_presigned_url(
-                file_key, method, expiration
+                presigned_url_request.filename,
+                presigned_url_request.content_type,
             )
             return presigned_url
         except Exception as e:

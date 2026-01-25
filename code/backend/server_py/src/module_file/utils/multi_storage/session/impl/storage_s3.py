@@ -1,8 +1,8 @@
 import aioboto3
 from typing import AsyncIterator
 import io
-from src.module_file.utils.multi_storage.session.interface.strorage_interface import StorageInterface
-from src.module_file.utils.multi_storage.do.storgae_config import S3Storage
+from module_file.utils.multi_storage.session.interface.strorage_interface import StorageInterface
+from module_file.utils.multi_storage.do.storage_config import S3Storage
 
 
 class S3StorageInterface(StorageInterface):

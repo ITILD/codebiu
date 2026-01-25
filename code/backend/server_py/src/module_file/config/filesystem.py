@@ -18,7 +18,7 @@ if conf.file_system.storage_type:
     )
     # 默认使用common配置
     if conf.file_system.storage_type == "local":
-        if not conf.file_system.local:
+        if not conf.file_system.base_dir:
             storage_config.base_dir = str(DIR_UPLOAD)
 
     storage: StorageInterface = StorageFactory.create(storage_config)

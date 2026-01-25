@@ -2,6 +2,8 @@ from sqlmodel import Column, DateTime, Field, SQLModel
 from uuid import uuid4
 from datetime import datetime, timezone
 from enum import Enum
+from pydantic import BaseModel
+
 
 
 class StorageType(str, Enum):
@@ -65,16 +67,13 @@ class FileEntry(FileEntryBase, table=True):
     # === 主键 ===
     id: str = Field(
         default_factory=lambda: uuid4().hex,
-        primary_key=True,
-        index=True,
-        description="全局唯一标识符",
+        primary_key=True,  # 主键
+        index=True,  # 索引
+        description="唯一标识符",
     )
 
     # === 关联字段 ===
-    pid: str | None = Field(
-        default=None,
-        description="父条目ID",
-    )
+    pid: str | None = Field(None, description="父级ID")
 
     # === 时间戳 ===
     created_at: datetime = Field(
@@ -130,3 +129,14 @@ class FileEntryInfo(SQLModel):
 
 
 # 获取或插入多层 非Sqlmodel
+
+# 获取或插入多层 非Sqlmodel
+
+
+
+class PresignedUrlRequest(BaseModel):
+    """
+    生成预签名URL的请求模型
+    """
+    filename: str = Field(..., description="文件名")
+    content_type: str = Field(..., description="文件MIME类型")
