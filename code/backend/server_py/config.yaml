@@ -37,7 +37,7 @@ file_system:
   storage_type: local
   # secret_key: qwer1234
   # 上传文件大小限制
-  max_size: 1024 * 1024 * 10 # 10MB
+  max_size: 10 # 10MB
   # 文件类型限制
   allowed_extensions:
     - "application/zip"

@@ -30,7 +30,7 @@ class StorageInterface(Protocol):
         """列出指定前缀的所有键"""
         ...
     
-    async def generate_presigned_url(self, key: str, method: str = 'put', expiration: int = 3600) -> str | None:
+    async def generate_presigned_url(self, filename: str, content_type: str = 'application/octet-stream', expiration: int = 3600) -> str | None:
         """生成预签名URL"""
         ...
         

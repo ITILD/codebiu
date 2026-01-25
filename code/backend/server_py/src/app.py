@@ -5,7 +5,7 @@ from common.config.server import app
 # 主模块
 from module_main.controller import static as main_static, status, db, dict_type, dict_item
 # # 基础模块
-# from module_file.controller import filesystem
+from module_file.controller import filesystem
 from module_authorization.controller import token, casbin_rule, permission, role, user,auth
 # # 业务模块
 from module_template.controller import static,template,template_ex,template_async_learn
