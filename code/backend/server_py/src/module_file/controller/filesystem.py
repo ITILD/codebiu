@@ -5,6 +5,7 @@ from module_file.do.filesystem import (
     FileEntry,
     FileEntryUpdate,
     PresignedUrlRequest,
+    PresignedUploadParams,
 )
 from common.utils.db.schema.pagination import (
     InfiniteScrollParams,
@@ -193,20 +194,19 @@ async def update_file(
         )
 
 
-generate_presigned_url_str = "/generate_presigned_url"
-upload_with_presigned_url_str = "/upload_with_presigned_url"
-
-
+# 带预签名URL的文件接口
 @router.post(
-    generate_presigned_url_str, summary="生成预签名URL", status_code=status.HTTP_200_OK
+    "/generate_presigned_url_upload",
+    summary="生成上传预签名URL",
+    status_code=status.HTTP_200_OK,
 )
-async def generate_presigned_url(
+async def generate_presigned_url_upload(
     presigned_url_request: PresignedUrlRequest,
     request: Request,
     service: FileService = Depends(get_file_service),
 ):
     """
-    生成预签名URL
+    生成预签名URL用于上传文件
     :param request: 生成预签名URL的请求参数
     :param service: 文件服务依赖注入
     :return: 预签名URL
@@ -214,18 +214,14 @@ async def generate_presigned_url(
     try:
         # 获取当前url 解析位置和参数
         presigned_url_path = request.url.path
-        # 换成上传时url
-        upload_url = presigned_url_path.replace(
-            generate_presigned_url_str, upload_with_presigned_url_str
+        presigned_url = await service.generate_presigned_url_upload(
+            presigned_url_request, presigned_url_path
         )
-        presigned_url = await service.generate_presigned_url(presigned_url_request)
         if presigned_url is None:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="生成预签名URL失败",
             )
-        # 替换预签名URL中的路径为当前URL
-        presigned_url = upload_url + presigned_url
         return presigned_url
     except Exception as e:
         raise HTTPException(
@@ -233,14 +229,14 @@ async def generate_presigned_url(
         )
 
 
-@router.post(
-    upload_with_presigned_url_str,
+@router.put(
+    "/presigned_url_upload",
     summary="使用预签名URL上传文件",
     status_code=status.HTTP_200_OK,
 )
-async def upload_with_presigned_url(
+async def presigned_url_upload(
     request: Request,
-    file: UploadFile = FastAPIFile(...),
+    params: PresignedUploadParams = Depends(),
     service: FileService = Depends(get_file_service),
 ):
     """
@@ -251,10 +247,12 @@ async def upload_with_presigned_url(
     :return: 上传结果
     """
     try:
+        # 文件头里读取类型
+        content_type = file.content_type
+        content = await request.body()
         # 读取预签信息
-        current_url = str(request.url.path)
-        content = await file.read()
-        success = await service.upload_with_presigned_url(presigned_url, content)
+        presigned_url = str(request.url.path)
+        success = await service.presigned_url_upload(presigned_url, content)
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

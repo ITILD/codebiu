@@ -14,14 +14,13 @@ from module_file.do.filesystem import (
 from module_file.dao.filesystem import FileDao
 from module_file.config.filesystem import storage
 import hashlib
-import secrets  # 导入secrets模块
 from uuid import uuid4  # 导入uuid4
 from fastapi import UploadFile, HTTPException
 import aiofiles
 from pathlib import Path
-from common.config.path import DIR_UPLOAD
 import logging
-import io
+from module_file.utils.multi_storage.do.storage_config import PresignedType
+from common.config.index import conf
 
 # 配置日志
 logger = logging.getLogger(__name__)
@@ -189,25 +188,33 @@ class FileService:
             logger.error(f"上传文件时发生错误: {e}")
             raise
 
-    async def generate_presigned_url(
-        self, presigned_url_request: PresignedUrlRequest
+    async def generate_presigned_url_upload(
+        self, presigned_url_request: PresignedUrlRequest, presigned_url_path: str
     ) -> str | None:
         """
-        生成预签名URL
-        :param presigned_url_request: 预签名URL请求模型
+        生成预签名URL用于上传文件
+        :param presigned_url_request: 预签名URL请求模型 包含文件名和文件类型
+        :param presigned_url_path: 预签名URL路径 '/file/filesystem/generate_presigned_url_upload'
         :return: 预签名URL
         """
         try:
             presigned_url = await self.storage.generate_presigned_url(
+                PresignedType.PUT,
                 presigned_url_request.filename,
                 presigned_url_request.content_type,
             )
+            # 判断存储类型
+            if conf.file_system.storage_type == "local":
+                # 本地存储需要拼接完整路径 去除url的generate_
+                presigned_url = (
+                    f"{presigned_url_path.replace('generate_', '')}{presigned_url}"
+                )
             return presigned_url
         except Exception as e:
             logger.error(f"生成预签名URL时发生错误: {e}")
             raise
 
-    async def upload_with_presigned_url(self, presigned_url: str, data: bytes) -> bool:
+    async def presigned_url_upload(self, presigned_url: str, data: bytes) -> bool:
         """
         使用预签名URL上传数据
         :param presigned_url: 预签名URL
