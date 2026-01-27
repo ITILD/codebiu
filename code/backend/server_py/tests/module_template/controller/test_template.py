@@ -2,8 +2,7 @@ import pytest
 import asyncio
 import aiohttp
 import time
-
-# from common.config.log import logger
+from common.config.index import conf
 import logging
 
 logger = logging.getLogger(__name__)
@@ -15,7 +14,7 @@ async def test_performance():
 
     request_count = 3
     duration = 0.02  # 20ms
-    base_url = "http://localhost:2001/template/template_async_learn"
+    base_url = f"http://localhost:{conf.server.port}/template/template_async_learn"
     endpoints = {
         "sync": "/sync/{}/{}",
         "async": "/async/{}/{}",

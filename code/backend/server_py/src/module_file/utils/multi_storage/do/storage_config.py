@@ -36,9 +36,9 @@ class S3Storage(StorageConfig, config_type="s3"):
         None, description="S3服务端点URL，如使用AWS S3可不填"
     )
     region: str | None = Field(None, description="S3区域，默认为us-east-1")
-    access_key_id: str | None = Field(None, description="S3访问密钥ID")
-    secret_access_key: str | None = Field(None, description="S3秘密访问密钥")
-    session_token: str | None = Field(None, description="S3会话令牌")
+    access_key: str | None = Field(None, description="S3访问密钥ID")
+    secret_key: str | None = Field(None, description="S3秘密访问密钥")
+    # session_token: str | None = Field(None, description="S3会话令牌")
 
 
 class StorageConfigFactory:

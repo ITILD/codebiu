@@ -248,7 +248,6 @@ async def presigned_url_upload(
     """
     try:
         # 文件头里读取类型
-        content_type = file.content_type
         content = await request.body()
         # 读取预签信息
         presigned_url = str(request.url.path)
