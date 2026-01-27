@@ -5,7 +5,7 @@ from module_file.utils.multi_storage.session.interface.strorage_interface import
     StorageInterface,
 )
 from module_file.utils.multi_storage.do.storage_config import S3Storage, PresignedType
-
+from botocore.config import Config as async_config
 
 class S3StorageInterface(StorageInterface):
     """S3存储实现"""
@@ -17,26 +17,26 @@ class S3StorageInterface(StorageInterface):
         # 初始化aioboto3客户端
         self.session = aioboto3.Session()
 
-    async def _get_client(self):
+    def _get_client(self):
         """获取S3客户端"""
         client_kwargs = {
             "service_name": "s3",
             "endpoint_url": self.config.endpoint_url,
-            "config": aioboto3.Config(signature_version="s3v4"),
+            "config": async_config(signature_version="s3v4"),
         }
 
         # 添加认证信息（如果提供的话）
-        if self.config.access_key_id and self.config.secret_access_key:
-            client_kwargs["aws_access_key_id"] = self.config.access_key_id
-            client_kwargs["aws_secret_access_key"] = self.config.secret_access_key
-            if self.config.session_token:
-                client_kwargs["aws_session_token"] = self.config.session_token
+        if self.config.access_key and self.config.secret_key:
+            client_kwargs["aws_access_key_id"] = self.config.access_key
+            client_kwargs["aws_secret_access_key"] = self.config.secret_key
+            # if self.config.session_token:
+            #     client_kwargs["aws_session_token"] = self.config.session_token
 
         # 添加区域信息（如果提供的话）
         if self.config.region:
             client_kwargs["region_name"] = self.config.region
 
-        return await self.session.client(**client_kwargs)
+        return self.session.client(**client_kwargs)
 
     async def save(
         self, key: str, data: bytes | io.IOBase | AsyncIterator[bytes]
@@ -139,6 +139,7 @@ class S3StorageInterface(StorageInterface):
             try:
                 params = {"Bucket": self.bucket, "Key": key}
                 if method == PresignedType.PUT:
+                    # 下载时需要指定Content-Type
                     params.update({"ContentType": content_type})
                     http_method = "put_object"
                 elif method == PresignedType.GET:
@@ -147,7 +148,7 @@ class S3StorageInterface(StorageInterface):
                     http_method = "delete_object"
                 # 生成预签名URL
                 presigned_url = await client.generate_presigned_url(
-                    ClientMethod=http_method, Params=params, ExpiresIn=expiration
+                    http_method, Params=params, ExpiresIn=expiration
                 )
                 return presigned_url
             except Exception as e:

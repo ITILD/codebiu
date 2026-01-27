@@ -4,7 +4,8 @@ from dynaconf import Dynaconf
 # 基础配置
 conf = Dynaconf(settings_files=[Path("config.yaml")])
 # 开发配置
-if conf.state.config_path:
+if conf.state.get("config_path"):
+    config_path = conf.state.config_path
     if not Path(conf.state.config_path).exists():
         raise FileNotFoundError(f"配置文件 {conf.state.config_path} 不存在")
     conf = Dynaconf(settings_files=[Path(conf.state.config_path)])

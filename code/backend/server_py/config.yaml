@@ -1,13 +1,22 @@
+# ############################# 状态配置 #############################
 state:
   is_dev: true
   # config_path: config.dev.yaml
-  config_path: false
   check_db: true
+
+
+
+
+# ############################# 后端服务配置 #############################
 server:
   # 根路由代理
   server_root_path: ""
   host: 0.0.0.0
   port: 2001
+# 中间件配置
+middleware:
+  cors: true
+  gzip: true
 # 网络代理配置
 # proxy:
 #   type: http
@@ -29,13 +38,39 @@ dir:
     test:       test        # 测试相关资源
     model:      model       # 模型文件
     lib_third:  lib_third   # 第三方库文件
+  # 静态资源目录
   public: public
-  
-# 单独上传文件系统设置
+
+
+
+
+
+
+
+
+# ############################# 上传文件系统配置 #############################
+# # 单独上传文件系统设置
+# file_system:
+#   # 上传文件目录 local默认走 本地目录 dir.base配置的upload目录
+#   storage_type: local
+#   # secret_key: '123456'
+#   # 上传文件大小限制
+#   max_size: 10 # 10MB
+#   # 文件类型限制
+#   allowed_extensions:
+#     - "application/zip"
+#     - "application/pdf"
+#     - "image/*"
+#     # docx
+#     - "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+#   # 本地存地址
+#   base_dir: null
+#     # 默认使用已有的 base_child upload 目录
+
+#  # S3/MinIO/rustfs 存储配置
 file_system:
   # 上传文件目录 local默认走 本地目录 dir.base配置的upload目录
-  storage_type: local
-  # secret_key: qwer1234
+  storage_type: s3
   # 上传文件大小限制
   max_size: 10 # 10MB
   # 文件类型限制
@@ -45,37 +80,15 @@ file_system:
     - "image/*"
     # docx
     - "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-  # 本地存地址
-  base_dir: null
-    # 默认使用已有的 base_child upload 目录
+  # S3/MinIO/rustfs 存储配置
+  endpoint_url: "http://localhost:9000"
+  access_key: "rustfs"
+  secret_key: "12345678"
+  bucket: "bucket0"
+  region: "us-east-1"
+  secure: false  
 
-#  # S3/MinIO/rustfs 存储配置
-# file_system:
-#   # 上传文件目录 local默认走 本地目录 dir.base配置的upload目录
-#   storage_type: s3
-#   # 上传文件大小限制
-#   max_size: 1024 * 1024 * 10 # 10MB
-#   # 文件类型限制
-#   allowed_extensions:
-#     - "application/zip"
-#     - "application/pdf"
-#     - "image/*"
-#     # docx
-#     - "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-#   # S3/MinIO/rustfs 存储配置
-#   s3:
-#     endpoint_url: "http://localhost:9000"
-#     access_key: "rustfs"
-#     secret_key: "12345678"
-#     bucket_name: "bucket0"
-#     region: "us-east-1"
-#     secure: false  
-
-# 中间件配置
-middleware:
-  cors: true
-  gzip: true
-####################### 数据库配置
+# ############################# 数据库配置 #############################
 db_rel:
   type: postgres
   database: server_example
@@ -109,7 +122,13 @@ db_graph:
 #   user: neo4j
 #   password: 123456
 #   database: neo4j
-####################### auth 配置
+
+
+
+
+
+
+# ############################# 认证配置 #############################
 token:
   secret_key: qwer1234
   algorithm: HS256
