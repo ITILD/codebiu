@@ -12,6 +12,7 @@ from common.utils.db.session.interface.db_relational_interface import (
 )
 import json
 
+
 # Relational
 class DBSqlite(DBRelationInterface):
     """SQLite 数据库基础实现类"""
@@ -37,9 +38,9 @@ class DBSqlite(DBRelationInterface):
         """建立数据库连接"""
         self.engine = create_async_engine(
             self.url,
-            echo=log_bool,
-            # 连接池检查连接是否有效
-            pool_pre_ping=True,
+            echo=log_bool,  # 开发模式下打印SQL语句
+            # pool_pre_ping=True,  # 禁止在异步环境中使用,该选项在异步环境下存在兼容性问题，可能导致连接关闭异常或 CancelledError。建议改用 pool_recycle 配合数据库层的 keepalive 配置。
+            pool_recycle=300,  # 5 分钟后自动重建连接 比 pool_pre_ping 更适合异步场景，因为它是“主动过期”而非“被动检测”
             # 确保中文不被转义
             json_serializer=lambda obj: json.dumps(obj, ensure_ascii=False),
         )
