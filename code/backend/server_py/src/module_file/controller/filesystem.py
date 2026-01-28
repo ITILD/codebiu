@@ -230,12 +230,13 @@ async def generate_presigned_url_upload(
 
 
 @router.put(
-    "/presigned_url_upload",
+    "/presigned_url_upload/{filename}",
     summary="使用预签名URL上传文件",
     status_code=status.HTTP_200_OK,
 )
 async def presigned_url_upload(
     request: Request,
+    filename: str,
     params: PresignedUploadParams = Depends(),
     service: FileService = Depends(get_file_service),
 ):

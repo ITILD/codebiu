@@ -142,6 +142,6 @@ class PresignedUrlRequest(BaseModel):
     content_type: str = Field(..., description="文件MIME类型")
 
 class PresignedUploadParams(BaseModel):
-    key: str = Field(..., min_length=1)
-    expires: int = Field(..., gt=0, le=604800)  # 最大7天
+    expires: int = Field(...) 
+    method: str = Field(...)
     signature: str = Field(..., min_length=1)

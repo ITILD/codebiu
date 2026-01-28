@@ -76,6 +76,7 @@ class LocalStorageInterface(StorageInterface):
     async def generate_presigned_url(
         self,
         method: PresignedType,
+        # 文件路径
         key: str,
         content_type: str = "application/octet-stream",
         expiration: int = 3600,
@@ -83,14 +84,8 @@ class LocalStorageInterface(StorageInterface):
         """生成预签名URL，格式为"""
         # 模拟真实s3格式
         expire_time = int(time.time()) + expiration
-        # 创建签名内容
-        sign_content = f"{key}:{method.value}:{expire_time}"
         # 使用HMAC SHA256生成签名
-        signature = hmac.new(
-            self.config.secret_key.encode("utf-8"),
-            sign_content.encode("utf-8"),
-            hashlib.sha256,
-        ).hexdigest()
+        signature = await self.generate_signature(key, method.value, expire_time)
         # 构建URL
         params = urlencode(
             {
@@ -99,7 +94,7 @@ class LocalStorageInterface(StorageInterface):
                 "signature": signature,
             }
         )
-        url_path = f"?{params}"
+        url_path = f"/{key}?{params}"
         return url_path
 
     async def validate_and_extract_params(
@@ -107,11 +102,6 @@ class LocalStorageInterface(StorageInterface):
     ) -> tuple[str, str] | None:
         """验证预签名URL并提取参数"""
         parsed = urllib.parse.urlparse(presigned_url)
-
-        # 验证协议是否为file
-        if parsed.scheme != "file":
-            return None
-
         key = urllib.parse.unquote(parsed.path.lstrip("/"))
 
         params = dict(urllib.parse.parse_qsl(parsed.query))
@@ -124,17 +114,27 @@ class LocalStorageInterface(StorageInterface):
             return None
 
         # 验证签名
-        sign_content = f"{key}:{method}:{expires}"
-        expected_signature = hmac.new(
-            self.config.secret_key.encode("utf-8"),
-            sign_content.encode("utf-8"),
-            hashlib.sha256,
-        ).hexdigest()
+        expected_signature = await self.generate_signature(key, method, expires)
         # 验证签名是否匹配
         if not hmac.compare_digest(signature, expected_signature):
             return None
 
         return key, method
+
+    # 生成验证签名
+    async def generate_signature(
+        self,
+        key: str,
+        method: str,
+        expires: int,
+    ) -> str:
+        """生成验证签名"""
+        sign_content = f"{key}:{method}:{expires}"
+        return hmac.new(
+            self.config.secret_key.encode("utf-8"),
+            sign_content.encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
 
     async def upload_with_presigned_url(
         self, presigned_url: str, data: bytes | io.IOBase | AsyncIterator[bytes]

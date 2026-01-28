@@ -1,32 +1,36 @@
+import tempfile
+from pathlib import Path
 from transformers import AutoTokenizer
 import tiktoken
+
 
 class Tokenizer:
     # 模型到 tiktoken 编码的映射
     TIKTOKEN_MODELS = {
         "gpt-3.5-turbo": "cl100k_base",
-        "gpt-4": "cl100k_base",
         "gpt-4-turbo": "cl100k_base",
         "gpt-4o": "o200k_base",
         "gpt-4o-mini": "o200k_base",
+        "gpt-4": "cl100k_base",
     }
 
-    def __init__(self, cache_dir: str = "source/model/tokenizer"):
-        self.cache_dir = cache_dir
+    def __init__(self, cache_dir: Path | None = None):
+        self.cache_dir = cache_dir or (Path(tempfile.gettempdir()) / "tokenizer")
+        print(f"tokenizer cache_dir: {self.cache_dir}")
         self._tiktoken_encodings = {}
         self._transformer_tokenizers = {}
 
     def _get_tiktoken_encoding(self, encoding_name: str):
         if encoding_name not in self._tiktoken_encodings:
-            self._tiktoken_encodings[encoding_name] = tiktoken.get_encoding(encoding_name)
+            self._tiktoken_encodings[encoding_name] = tiktoken.get_encoding(
+                encoding_name
+            )
         return self._tiktoken_encodings[encoding_name]
 
     def _get_transformer_tokenizer(self, model_name: str):
         if model_name not in self._transformer_tokenizers:
             self._transformer_tokenizers[model_name] = AutoTokenizer.from_pretrained(
-                model_name,
-                cache_dir=self.cache_dir,
-                trust_remote_code=True
+                model_name, cache_dir=self.cache_dir, trust_remote_code=True
             )
         return self._transformer_tokenizers[model_name]
 
@@ -59,7 +63,7 @@ class Tokenizer:
                     try:
                         # 尝试 UTF-8 解码，失败则保留 repr
                         token_bytes = enc.decode_single_token_bytes(t)
-                        decoded.append(token_bytes.decode('utf-8', errors='replace'))
+                        decoded.append(token_bytes.decode("utf-8", errors="replace"))
                     except Exception:
                         decoded.append(f"<{t}>")
                 return decoded
@@ -69,15 +73,17 @@ class Tokenizer:
         tokens = tokenizer.encode(text)
         return tokenizer.convert_ids_to_tokens(tokens)
 
+
 # === 使用示例 ===
 if __name__ == "__main__":
     tokenizer = Tokenizer()
-    text = "你好，世界！Hello, World!"
+    text = "token number test,hello world,你好世界,こんにちは"
 
     models = [
         "gpt-3.5-turbo",
         "gpt-4o",
         "Qwen/Qwen3-0.6B",
+        "Xenova/claude-tokenizer",
         # "meta-llama/Llama-3-8b"
     ]
 
