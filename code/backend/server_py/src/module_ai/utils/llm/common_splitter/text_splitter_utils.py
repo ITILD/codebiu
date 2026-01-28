@@ -1,10 +1,10 @@
 import os
-from langchain.text_splitter import Language
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.text_splitter import TokenTextSplitter
-from config.index import tiktoken_cache_dir
-tiktoken_path = tiktoken_cache_dir / "tiktoken"
-os.environ["TIKTOKEN_CACHE_DIR"] = str(tiktoken_path)
+from langchain_text_splitters import Language
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_text_splitters import TokenTextSplitter
+import tempfile
+from pathlib import Path
+
 
 class TextSplitterUtils:
     """通用文本和代码拆分器"""
@@ -30,7 +30,9 @@ class TextSplitterUtils:
         self.chunk_size = int(chunk_size)
         self.chunk_overlap = int(chunk_overlap)
         self.separators = (
-            separators if separators is not None else ["\n\n","}", ". ","\n", " ", ",", "，", "。", ""]
+            separators
+            if separators is not None
+            else ["\n\n", "}", ". ", "\n", " ", ",", "，", "。", ""]
         )
         self.encoding_name = encoding_name
         self._splitters = {}
@@ -96,6 +98,8 @@ class TextSplitterUtils:
 
 
 if __name__ == "__main__":
+    tiktoken_path = Path(tempfile.gettempdir()) / "tokenizer"
+    os.environ["TIKTOKEN_CACHE_DIR"] = str(tiktoken_path)
     # 实例化工具类，可以自定义 chunk_size 和 chunk_overlap
     splitter_utils = TextSplitterUtils(chunk_size=40, chunk_overlap=5)
     long_text = """
@@ -106,5 +110,4 @@ if __name__ == "__main__":
     print(f"原始文本长度: {len(long_text)}")
     print(f"拆分后的块数量: {len(chunks)}")
     for i, chunk in enumerate(chunks):
-        print(f"块 {i+1}: \n{chunk}\n---")
-    
+        print(f"块 {i + 1}: \n{chunk}\n---")

@@ -49,28 +49,11 @@ dir:
 
 
 # ############################# 上传文件系统配置 #############################
-# # 单独上传文件系统设置
-# file_system:
-#   # 上传文件目录 local默认走 本地目录 dir.base配置的upload目录
-#   storage_type: local
-#   # secret_key: '123456'
-#   # 上传文件大小限制
-#   max_size: 10 # 10MB
-#   # 文件类型限制
-#   allowed_extensions:
-#     - "application/zip"
-#     - "application/pdf"
-#     - "image/*"
-#     # docx
-#     - "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-#   # 本地存地址
-#   base_dir: null
-#     # 默认使用已有的 base_child upload 目录
-
-#  # S3/MinIO/rustfs 存储配置
+# 单独上传文件系统设置
 file_system:
   # 上传文件目录 local默认走 本地目录 dir.base配置的upload目录
-  storage_type: s3
+  storage_type: local
+  # secret_key: '123456'
   # 上传文件大小限制
   max_size: 10 # 10MB
   # 文件类型限制
@@ -80,13 +63,30 @@ file_system:
     - "image/*"
     # docx
     - "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-  # S3/MinIO/rustfs 存储配置
-  endpoint_url: "http://localhost:9000"
-  access_key: "rustfs"
-  secret_key: "12345678"
-  bucket: "bucket0"
-  region: "us-east-1"
-  secure: false  
+  # 本地存地址
+  base_dir: null
+    # 默认使用已有的 base_child upload 目录
+
+# #  # S3/MinIO/rustfs 存储配置
+# file_system:
+#   # 上传文件目录 local默认走 本地目录 dir.base配置的upload目录
+#   storage_type: s3
+#   # 上传文件大小限制
+#   max_size: 10 # 10MB
+#   # 文件类型限制
+#   allowed_extensions:
+#     - "application/zip"
+#     - "application/pdf"
+#     - "image/*"
+#     # docx
+#     - "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+#   # S3/MinIO/rustfs 存储配置
+#   endpoint_url: "http://localhost:9000"
+#   access_key: "rustfs"
+#   secret_key: "12345678"
+#   bucket: "bucket0"
+#   region: "us-east-1"
+#   secure: false  
 
 # ############################# 数据库配置 #############################
 db_rel:
