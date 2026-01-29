@@ -10,6 +10,7 @@ from module_file.do.filesystem import (
     FileEntryCreate,
     FileEntryUpdate,
     PresignedUrlRequest,
+    PresignedUploadParams
 )
 from module_file.dao.filesystem import FileDao
 from module_file.config.filesystem import storage
@@ -214,7 +215,7 @@ class FileService:
             logger.error(f"生成预签名URL时发生错误: {e}")
             raise
 
-    async def presigned_url_upload(self, presigned_url: str, data: bytes) -> bool:
+    async def presigned_url_upload(self, file_path: str, presigned_upload_params: PresignedUploadParams, content: bytes) -> bool:
         """
         使用预签名URL上传数据
         :param presigned_url: 预签名URL
@@ -222,7 +223,7 @@ class FileService:
         :return: 是否上传成功
         """
         try:
-            success = await self.storage.upload_with_presigned_url(presigned_url, data)
+            success = await self.storage.upload_with_presigned_url(file_path,presigned_upload_params, content)
             return success
         except Exception as e:
             logger.error(f"使用预签名URL上传时发生错误: {e}")

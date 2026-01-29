@@ -77,8 +77,8 @@ async def _presigned_url_upload(presigned_url_upload_url: str):
             logger.info(f"Upload response status: {response.status}")
             assert response.status == 200, f"Expected status 200, got {response.status}"
 
-
-# # 清理上传的文件
+# TODO 清理上传的文件
+# 清理上传的文件
 # async with session.delete(
 #     f"{base_url}/delete_file",
 #     json=upload_response,
