@@ -3,7 +3,7 @@ from uuid import uuid4
 from datetime import datetime, timezone
 from enum import Enum
 from pydantic import BaseModel
-
+from module_file.utils.multi_storage.do.storage_config import PresignedUploadParamsBase
 
 
 class StorageType(str, Enum):
@@ -141,7 +141,6 @@ class PresignedUrlRequest(BaseModel):
     filename: str = Field(..., description="文件名")
     content_type: str = Field(..., description="文件MIME类型")
 
-class PresignedUploadParams(BaseModel):
-    expires: int = Field(...) 
-    method: str = Field(...)
-    signature: str = Field(..., min_length=1)
+
+class PresignedUploadParams(PresignedUploadParamsBase):
+    pass

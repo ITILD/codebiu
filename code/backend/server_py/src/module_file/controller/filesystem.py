@@ -230,14 +230,14 @@ async def generate_presigned_url_upload(
 
 
 @router.put(
-    "/presigned_url_upload/{filename}",
+    "/presigned_url_upload/{file_path}",
     summary="使用预签名URL上传文件",
     status_code=status.HTTP_200_OK,
 )
 async def presigned_url_upload(
     request: Request,
-    filename: str,
-    params: PresignedUploadParams = Depends(),
+    file_path: str,
+    presigned_upload_params: PresignedUploadParams = Depends(),
     service: FileService = Depends(get_file_service),
 ):
     """
@@ -249,10 +249,8 @@ async def presigned_url_upload(
     """
     try:
         # 文件头里读取类型
-        content = await request.body()
-        # 读取预签信息
-        presigned_url = str(request.url.path)
-        success = await service.presigned_url_upload(presigned_url, content)
+        content: bytes = await request.body()
+        success = await service.presigned_url_upload(file_path,presigned_upload_params, content)
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -263,14 +261,15 @@ async def presigned_url_upload(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
-
-
-# 生成下载用的预签名 URL
-download_with_presigned_url_str = "/download_with_presigned_url"
+# @app.post("/upload/confirm")
+# def confirm_upload(req: ConfirmUploadRequest):
+#     """
+#     前端上传完成后调用此接口，确认文件已存在
+#     """
 
 
 @router.get(
-    download_with_presigned_url_str,
+    "/presigned_url_download",
     summary="使用预签名URL下载文件",
     status_code=status.HTTP_200_OK,
 )

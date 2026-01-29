@@ -12,6 +12,7 @@ from module_file.utils.multi_storage.session.interface.strorage_interface import
 from module_file.utils.multi_storage.do.storage_config import (
     LocalStorage,
     PresignedType,
+    PresignedUploadParamsBase,
 )
 from urllib.parse import urlencode
 
@@ -97,29 +98,27 @@ class LocalStorageInterface(StorageInterface):
         url_path = f"/{key}?{params}"
         return url_path
 
-    async def validate_and_extract_params(
-        self, presigned_url: str
+    async def validate_presigned_upload_params(
+        self,
+        file_path: str,
+        presigned_upload_params: PresignedUploadParamsBase,
     ) -> tuple[str, str] | None:
-        """验证预签名URL并提取参数"""
-        parsed = urllib.parse.urlparse(presigned_url)
-        key = urllib.parse.unquote(parsed.path.lstrip("/"))
-
-        params = dict(urllib.parse.parse_qsl(parsed.query))
-        expires = int(params.get("expires", 0))
-        method = params.get("method", "get")
-        signature = params.get("signature")
-
+        """验证预签名参数"""
         # 检查URL是否过期
-        if time.time() > expires:
-            return None
+        if time.time() > presigned_upload_params.expires:
+            return False
 
         # 验证签名
-        expected_signature = await self.generate_signature(key, method, expires)
+        expected_signature = await self.generate_signature(
+            file_path, presigned_upload_params.method, presigned_upload_params.expires
+        )
         # 验证签名是否匹配
-        if not hmac.compare_digest(signature, expected_signature):
-            return None
+        if not hmac.compare_digest(
+            presigned_upload_params.signature, expected_signature
+        ):
+            return False
 
-        return key, method
+        return True
 
     # 生成验证签名
     async def generate_signature(
@@ -137,26 +136,24 @@ class LocalStorageInterface(StorageInterface):
         ).hexdigest()
 
     async def upload_with_presigned_url(
-        self, presigned_url: str, data: bytes | io.IOBase | AsyncIterator[bytes]
+        self, file_path: str,
+        presigned_upload_params: PresignedUploadParamsBase,
+        content: bytes,
     ) -> bool:
         """使用预签名URL上传数据"""
-        result = await self.validate_and_extract_params(presigned_url)
-        if result is None:
-            return False
-
-        key, method = result
-        if method.lower() != "put":
-            return False
-
         try:
-            await self.save(key, data)
-            return True
+            result: bool = await self.validate_presigned_upload_params(file_path,presigned_upload_params)
+            if result:
+                await self.save(file_path, content)
+                return True
+            else:
+                raise ValueError("Invalid presigned upload params")
         except Exception:
             return False
 
     async def download_with_presigned_url(self, presigned_url: str) -> bytes | None:
         """使用预签名URL下载数据"""
-        result = await self.validate_and_extract_params(presigned_url)
+        result = await self.validate_presigned_upload_params(presigned_url)
         if result is None:
             return None
 
@@ -171,7 +168,7 @@ class LocalStorageInterface(StorageInterface):
 
     async def delete_with_presigned_url(self, presigned_url: str) -> bool:
         """使用预签名URL删除数据"""
-        result = await self.validate_and_extract_params(presigned_url)
+        result = await self.validate_presigned_upload_params(presigned_url)
         if result is None:
             return False
 

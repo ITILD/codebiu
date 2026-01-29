@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Protocol, AsyncIterator
 import io
-from module_file.utils.multi_storage.do.storage_config import PresignedType
+from module_file.utils.multi_storage.do.storage_config import PresignedType,PresignedUploadParamsBase
 
 
 class StorageInterface(Protocol):
@@ -40,7 +40,7 @@ class StorageInterface(Protocol):
         ...
 
     async def upload_with_presigned_url(
-        self, presigned_url: str, data: bytes | io.IOBase | AsyncIterator[bytes]
+        self, file_path: str, presigned_upload_params: PresignedUploadParamsBase, content: bytes | io.IOBase | AsyncIterator[bytes]
     ) -> bool:
         """使用预签名URL上传数据"""
         ...
