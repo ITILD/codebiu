@@ -2,8 +2,10 @@ from sqlmodel import Column, DateTime, Field, SQLModel
 from uuid import uuid4
 from datetime import datetime, timezone
 from enum import Enum
-from pydantic import BaseModel
-from module_file.utils.multi_storage.do.storage_config import PresignedUploadParamsBase
+from module_file.utils.multi_storage.do.storage_config import (
+    PresignedUploadParamsBase,
+    PresignedUrlRequestBase,
+)
 
 
 class StorageType(str, Enum):
@@ -25,18 +27,17 @@ class FileEntryBase(SQLModel):
         ..., max_length=2000, description="逻辑路径(用户视角的文件系统路径)"
     )
 
-    # === 类型标识 ===
     is_directory: bool = Field(default=False, description="是否为目录")
+    # === 存储类型字段 ===
     storage_type: StorageType | None = Field(
         default=StorageType.LOCAL, description="存储类型(仅文件)"
     )
-
-    # === 文件特有字段 ===
     physical_storage: str | None = Field(
         default=None,
         max_length=500,
-        description="物理存储位置(仅文件，如 s3://bucket/key 或 相对位置 data/file.bin)",
+        description="物理存储相对位置(仅文件，如 相对bucket位置/key 或 相对位置 data/file.bin)",
     )
+    # === 文件元数据字段 ===
     file_size_bytes: int | None = Field(
         default=None, description="文件大小(字节，仅文件)"
     )
@@ -50,7 +51,7 @@ class FileEntryBase(SQLModel):
         default=None, max_length=64, description="内容哈希(仅文件)"
     )
 
-    # === 元数据字段 ===
+    # === 业务字段 ===
     description: str | None = Field(
         default=None, max_length=500, description="条目描述"
     )
@@ -130,17 +131,33 @@ class FileEntryInfo(SQLModel):
 
 # 获取或插入多层 非Sqlmodel
 
-# 获取或插入多层 非Sqlmodel
 
-
-
-class PresignedUrlRequest(BaseModel):
+class PresignedUrlRequest(PresignedUrlRequestBase):
     """
     生成预签名URL的请求模型
     """
-    filename: str = Field(..., description="文件名")
-    content_type: str = Field(..., description="文件MIME类型")
+
+    domain: str = Field('main', description="业务域")
 
 
 class PresignedUploadParams(PresignedUploadParamsBase):
     pass
+
+
+# 文件上传成功通知
+class FileUploadSuccessNotification(SQLModel):
+    """
+    文件上传成功通知模型
+    """
+
+    id: str
+    name: str
+    logical_path: str
+    storage_type: StorageType
+    file_size_bytes: int
+    file_extension: str
+    mime_type: str
+    content_hash: str
+    created_at: datetime
+    updated_at: datetime
+    owner_user_id: str

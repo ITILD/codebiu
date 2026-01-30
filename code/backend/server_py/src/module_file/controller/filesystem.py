@@ -152,24 +152,6 @@ async def get_file(
         )
 
 
-@router.delete("/{file_id}", summary="删除文件", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_file(
-    file_id: str,
-    service: FileService = Depends(get_file_service),
-):
-    """
-    删除文件(同时删除物理文件和数据库记录)
-    :param file_id: 文件ID
-    :param service: 文件服务依赖注入
-    """
-    try:
-        await service.delete(file_id)
-    except Exception as e:
-        if "未找到" in str(e):
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
 
 
 @router.put("/{file_id}", summary="更新文件信息", response_model=FileEntry)
@@ -193,11 +175,53 @@ async def update_file(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
+# 获取目录下的所有文件和子目录
+# @router.get("/list_dir/{dir_path}", summary="获取目录下的所有文件和子目录", response_model=list[str])
+# async def list_dir(
+#     dir_path: str,
+#     response_model=list[str],
+# ) -> list[str]:
+#     """
+#     获取目录下的所有文件和子目录
+#     :param dir_path: 目录路径
+#     :return: 目录下的所有文件和子目录
+#     """
+#     try:
+#         return await service.list_dir(dir_path)
+#     except Exception as e:
+#         raise HTTPException(
+#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+#         )
+
+# 获取文件统计信息
+
+######################################兼容s3/minio/oss/rustfs对象存储######################################
+
+@router.delete("/{file_id}", summary="删除文件,(兼容本地和s3/minio/oss/rustfs对象存储)", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_file(
+    file_id: str,
+    service: FileService = Depends(get_file_service),
+):
+    """
+    删除文件(同时删除物理文件和数据库记录)
+    :param file_id: 文件ID
+    :param service: 文件服务依赖注入
+    """
+    try:
+        await service.delete(file_id)
+    except Exception as e:
+        if "未找到" in str(e):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+######################################兼容s3/minio/oss/rustfs对象存储######################################
 
 # 带预签名URL的文件接口
 @router.post(
     "/generate_presigned_url_upload",
-    summary="生成上传预签名URL",
+    summary="上传文件,生成预签名URL(兼容s3/minio/oss/rustfs对象存储)",
     status_code=status.HTTP_200_OK,
 )
 async def generate_presigned_url_upload(
@@ -227,11 +251,11 @@ async def generate_presigned_url_upload(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
-
+# TODO generate_presigned_url_upload_md5
 
 @router.put(
     "/presigned_url_upload/{file_path}",
-    summary="使用预签名URL上传文件",
+    summary="上传文件,使用预签名URL(兼容s3/minio/oss/rustfs对象存储)",
     status_code=status.HTTP_200_OK,
 )
 async def presigned_url_upload(
@@ -250,7 +274,9 @@ async def presigned_url_upload(
     try:
         # 文件头里读取类型
         content: bytes = await request.body()
-        success = await service.presigned_url_upload(file_path,presigned_upload_params, content)
+        success = await service.presigned_url_upload(
+            file_path, presigned_upload_params, content
+        )
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -261,11 +287,58 @@ async def presigned_url_upload(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
-# @app.post("/upload/confirm")
-# def confirm_upload(req: ConfirmUploadRequest):
-#     """
-#     前端上传完成后调用此接口，确认文件已存在
-#     """
+
+@router.post(
+    "/presigned_url_upload_success",
+    summary="上传成功通知,增加信息记录(兼容s3/minio/oss/rustfs对象存储)",
+    status_code=status.HTTP_200_OK,
+)
+async def notify_object_storage(
+    file_info: str = Query(..., description="文件ID"),
+    service: FileService = Depends(get_file_service),
+):
+    """
+    通知后端对象/本地存储完成,新增元数据
+    :param file_id: 文件ID
+    :param service: 文件服务依赖注入
+    :return: 通知结果
+    """
+    try:
+        await service.notify_object_storage(file_info)
+        return {"success": True, "message": "通知成功"}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+
+@router.get(
+    "/generate_presigned_url_download",
+    summary="生成预签名URL用于下载文件(兼容s3/minio/oss/rustfs对象存储)",
+    status_code=status.HTTP_200_OK,
+)
+async def generate_presigned_url_download(
+    file_id: str = Query(..., description="文件ID"),
+    service: FileService = Depends(get_file_service),
+):
+    """
+    生成预签名URL用于下载文件
+    :param file_id: 文件ID
+    :param service: 文件服务依赖注入
+    :return: 预签名URL
+    """
+    try:
+        presigned_url = await service.generate_presigned_url_download(file_id)
+        if presigned_url is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="文件不存在或生成预签名URL失败",
+            )
+        return {"presigned_url": presigned_url}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
 
 
 @router.get(
@@ -274,7 +347,7 @@ async def presigned_url_upload(
     status_code=status.HTTP_200_OK,
 )
 async def download_with_presigned_url(
-    presigned_url: str = Query(..., description="预签名URL"),
+    presignfile_ided_url: str = Query(..., description="预签名URL"),
     service: FileService = Depends(get_file_service),
 ):
     """
@@ -284,7 +357,7 @@ async def download_with_presigned_url(
     :return: 文件内容
     """
     try:
-        content = await service.download_with_presigned_url(presigned_url)
+        content = await service.generate_presigned_url_download(presignfile_ided_url)
         if content is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -299,7 +372,7 @@ async def download_with_presigned_url(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
-
+        
 
 # 将路由注册到模块应用
 module_app.include_router(router, prefix="/filesystem", tags=["文件管理"])

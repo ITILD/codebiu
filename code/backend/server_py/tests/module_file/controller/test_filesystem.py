@@ -21,11 +21,14 @@ text_bytes = text_content.encode("utf-8")
 
 
 @pytest.mark.asyncio
-async def test_presigned_url_upload():
+async def test_object_storage_url():
+    """
+    测试预签名URL上传/下载和兼容s3删除文件
+    """
     # 验证上传结果
     presigned_url_upload_url = await _generate_presigned_url_upload(filename)
     await _presigned_url_upload(presigned_url_upload_url)
-
+    
 
 async def _generate_presigned_url_upload(filename: str):
     """
@@ -77,14 +80,28 @@ async def _presigned_url_upload(presigned_url_upload_url: str):
             logger.info(f"Upload response status: {response.status}")
             assert response.status == 200, f"Expected status 200, got {response.status}"
 
-# TODO 清理上传的文件
-# 清理上传的文件
-# async with session.delete(
-#     f"{base_url}/delete_file",
-#     json=upload_response,
-#     content_type="application/json"
-# ) as response:
-#     logger.info(f"Upload response data: {await response.read()}")
+async def _generate_presigned_url_download(file_id: str):
+    """
+    生成下载预签名URL接口
+    """
+    pass
+
+async def _presigned_url_download(presigned_url_download_url: str):
+    """
+    从预签名URL下载文件接口
+    """
+    async with aiohttp.ClientSession() as session:
+        # 如果presigned_url_download_url不以http开头默认拼接base_url
+        if not presigned_url_download_url.startswith("http"):
+            presigned_url_download_url = f"{base_server_url}{presigned_url_download_url}"
+        logger.info(f"Download url: {presigned_url_download_url}")
+        async with session.get(
+            presigned_url_download_url, timeout=15
+        ) as response:
+            logger.info(f"Download response status: {response.status}")
+            assert response.status == 200, f"Expected status 200, got {response.status}"
+
+
 
 # 'http://47.94.107.62:12000/bucket0/test_upload.txt?
 # X-Amz-Algorithm=AWS4-HMAC-SHA256&
