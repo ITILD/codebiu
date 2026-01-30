@@ -49,6 +49,17 @@ class StorageConfigFactory:
             raise ValueError(f"Unknown storage config type: {config_type}")
         return cls.model_validate(config)  # 自动验证 + 实例化
 
+#  预签名相关配置
+class PresignedUrlRequestBase(BaseModel):
+    """
+    生成预签名URL的请求模型
+    """
+
+    filename: str = Field(..., description="文件名")
+    content_type: str = Field(..., description="文件MIME类型")
+
+
+
 # 构造的url组成
 class PresignedUploadParamsBase(BaseModel):
     expires: int = Field(...) 

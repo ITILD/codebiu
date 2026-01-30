@@ -10,7 +10,7 @@ from module_file.do.filesystem import (
     FileEntryCreate,
     FileEntryUpdate,
     PresignedUrlRequest,
-    PresignedUploadParams
+    PresignedUploadParams,
 )
 from module_file.dao.filesystem import FileDao
 from module_file.config.filesystem import storage
@@ -18,11 +18,12 @@ import hashlib
 from uuid import uuid4  # 导入uuid4
 from fastapi import UploadFile, HTTPException
 import aiofiles
-from pathlib import Path
+from pathlib import Path,PosixPath
 import logging
 from module_file.utils.multi_storage.do.storage_config import PresignedType
 from common.config.index import conf
 
+# from module_file.config.filetype import mimetypes
 # 配置日志
 logger = logging.getLogger(__name__)
 
@@ -123,8 +124,14 @@ class FileService:
                 md5_hash.update(chunk)
         return md5_hash.hexdigest()
 
+    ####################################纯本地存储##############################################
     async def upload_file(
-        self, file: UploadFile, description: str = None, owner_user_id: str = None
+        self,
+        file: UploadFile,
+        description: str = None,
+        existing_id: str = None,
+        content_hash: str = None,
+        owner_user_id: str = None,
     ) -> FileEntry:
         """
         上传文件
@@ -137,13 +144,15 @@ class FileService:
             # 先读取文件内容到内存
             content = await file.read()
 
-            # 计算MD5值 最好单独有个接口前端校验md5是否一致
-            content_hash = hashlib.md5(content).hexdigest()
+            # # 计算MD5值 最好单独有个接口前端校验md5是否一致 content_hash应该前端获取
+            # content_hash = hashlib.md5(content).hexdigest()
 
-            # 检查文件是否已存在(通过MD5)
-            existing_file = await self.file_dao.get_by_content_hash(content_hash)
+            # # 检查文件是否已存在(通过MD5)
+            # existing_file = await self.file_dao.get_by_content_hash(content_hash)
+            # 获取已存在信息
+            existing_file = await self.file_dao.get(existing_id)
 
-            if existing_file:
+            if existing_id:
                 # 文件已存在，复用现有文件信息
                 file_create = FileEntryCreate(
                     name=existing_file.name,
@@ -189,72 +198,6 @@ class FileService:
             logger.error(f"上传文件时发生错误: {e}")
             raise
 
-    async def generate_presigned_url_upload(
-        self, presigned_url_request: PresignedUrlRequest, presigned_url_path: str
-    ) -> str | None:
-        """
-        生成预签名URL用于上传文件
-        :param presigned_url_request: 预签名URL请求模型 包含文件名和文件类型
-        :param presigned_url_path: 预签名URL路径 '/file/filesystem/generate_presigned_url_upload'
-        :return: 预签名URL
-        """
-        try:
-            presigned_url = await self.storage.generate_presigned_url(
-                PresignedType.PUT,
-                presigned_url_request.filename,
-                presigned_url_request.content_type,
-            )
-            # 判断存储类型
-            if conf.file_system.storage_type == "local":
-                # 本地存储需要拼接完整路径 去除url的generate_
-                presigned_url = (
-                    f"{presigned_url_path.replace('generate_', '')}{presigned_url}"
-                )
-            return presigned_url
-        except Exception as e:
-            logger.error(f"生成预签名URL时发生错误: {e}")
-            raise
-
-    async def presigned_url_upload(self, file_path: str, presigned_upload_params: PresignedUploadParams, content: bytes) -> bool:
-        """
-        使用预签名URL上传数据
-        :param presigned_url: 预签名URL
-        :param data: 要上传的数据
-        :return: 是否上传成功
-        """
-        try:
-            success = await self.storage.upload_with_presigned_url(file_path,presigned_upload_params, content)
-            return success
-        except Exception as e:
-            logger.error(f"使用预签名URL上传时发生错误: {e}")
-            raise
-
-    async def download_with_presigned_url(self, presigned_url: str) -> bytes | None:
-        """
-        使用预签名URL下载数据
-        :param presigned_url: 预签名URL
-        :return: 文件数据或None
-        """
-        try:
-            data = await self.storage.download_with_presigned_url(presigned_url)
-            return data
-        except Exception as e:
-            logger.error(f"使用预签名URL下载时发生错误: {e}")
-            raise
-
-    async def delete_with_presigned_url(self, presigned_url: str) -> bool:
-        """
-        使用预签名URL删除数据
-        :param presigned_url: 预签名URL
-        :return: 是否删除成功
-        """
-        try:
-            success = await self.storage.delete_with_presigned_url(presigned_url)
-            return success
-        except Exception as e:
-            logger.error(f"使用预签名URL删除时发生错误: {e}")
-            raise
-
     async def get_file_info_for_download(self, file_id: str) -> tuple[str, str, str]:
         """
         获取文件下载所需的信息
@@ -293,4 +236,105 @@ class FileService:
                 yield content[i : i + chunk_size]
         except Exception as e:
             logger.error(f"读取文件内容时发生错误: {e}")
+            raise
+
+    ######################################兼容本地存储和s3/minio/oss/rustfs对象存储######################################
+
+    async def generate_presigned_url_upload(
+        self, presigned_url_request: PresignedUrlRequest, presigned_url_path: str
+    ) -> str | None:
+        """
+        生成预签名URL用于上传文件
+        :param presigned_url_request: 预签名URL请求模型 包含文件名和文件类型
+        :param presigned_url_path: 预签名URL路径 '/file/filesystem/generate_presigned_url_upload'
+        :return: 预签名URL
+        """
+        try:
+            # 获取文件uuid和ext
+            ext = Path(presigned_url_request.filename).suffix
+            file_id = uuid4().hex
+            file_upload = PosixPath(f"{file_id}.{ext}")
+            # TODO 兼容路径  考虑时间按天分割??
+            file_path_upload = presigned_url_request.domain / file_upload
+            presigned_url = await self.storage.generate_presigned_url(
+                PresignedType.PUT,
+                presigned_url_request.filename,
+                presigned_url_request.content_type,
+            )
+            # 判断存储类型
+            if conf.file_system.storage_type == "local":
+                # 本地存储需要拼接完整路径 去除url的generate_
+                presigned_url = (
+                    f"{presigned_url_path.replace('generate_', '')}{presigned_url}"
+                )
+            return presigned_url
+        except Exception as e:
+            logger.error(f"生成预签名URL时发生错误: {e}")
+            raise
+
+    async def presigned_url_upload(
+        self,
+        file_path: str,
+        presigned_upload_params: PresignedUploadParams,
+        content: bytes,
+    ) -> bool:
+        """
+        使用预签名URL上传数据
+        :param presigned_url: 预签名URL
+        :param data: 要上传的数据
+        :return: 是否上传成功
+        """
+        try:
+            success = await self.storage.upload_with_presigned_url(
+                file_path, presigned_upload_params, content
+            )
+            return success
+        except Exception as e:
+            logger.error(f"使用预签名URL上传时发生错误: {e}")
+            raise
+
+    async def generate_presigned_url_download(self, file_id: str) -> str | None:
+        """
+        生成预签名URL用于下载文件
+        :param file_id: 文件ID
+        :return: 预签名URL或None
+        """
+        try:
+            # 先获取文件信息
+            file_info = await self.get(file_id)
+            if not file_info:
+                logger.warning(f"文件不存在: {file_id}")
+                return None
+
+            # 生成预签名URL，使用文件的physical_storage作为key
+            presigned_url = await self.storage.generate_presigned_url(
+                PresignedType.GET,
+                file_info.physical_storage,
+                file_info.mime_type,
+            )
+
+            # 判断存储类型
+            if conf.file_system.storage_type == "local":
+                # 本地存储需要拼接完整路径
+                presigned_url = (
+                    f"/filesystem/presigned_url_download?presigned_url={presigned_url}"
+                )
+
+            return presigned_url
+        except Exception as e:
+            logger.error(f"生成预签名下载URL时发生错误: {e}")
+            raise
+
+    async def notify_object_storage(self, file_id: str) -> bool:
+        """
+        通知后端对象/本地存储完成,增删改查元数据
+        :param file_id: 文件ID
+        :return: 是否通知成功
+        """
+        try:
+            # 通知后端对象/本地存储
+            await self.storage.notify_object_storage(file_id)
+            return True
+        except Exception as e:
+            logger.error(f"通知后端对象/本地存储时发生错误: {e}")
             raise
