@@ -48,6 +48,22 @@ async def create_model_config(
     :param model_config: 模型配置数据
     :param service: 模型配置服务依赖注入
     :return: 创建的模型配置ID
+    
+    {
+    "model_type": "chat",
+    "server_type": "ollama",
+    "model": "qwen3-vl:235b-cloud",
+    "api_key": "1",
+    "pay_in": 0,
+    "pay_out": 0,
+    "input_tokens": 8192,
+    "out_tokens": 8192,
+    "temperature": 0.7,
+    "timeout": 60,
+    "no_think": false,
+    "extra": {
+    }
+    }
     """
     try:
         model_config_create = ModelConfigCreate(
