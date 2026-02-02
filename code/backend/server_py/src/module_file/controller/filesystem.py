@@ -4,8 +4,9 @@ from module_file.service.filesystem import FileService
 from module_file.do.filesystem import (
     FileEntry,
     FileEntryUpdate,
-    PresignedUrlRequest,
+    GeneratePresignedUrlRequest,
     PresignedUploadParams,
+    GeneratePresignedUploadResponse,
 )
 from common.utils.db.schema.pagination import (
     InfiniteScrollParams,
@@ -23,6 +24,7 @@ from fastapi import (
     File as FastAPIFile,
     Query,
     Request,
+    Response
 )
 from fastapi.responses import StreamingResponse
 
@@ -152,8 +154,6 @@ async def get_file(
         )
 
 
-
-
 @router.put("/{file_id}", summary="更新文件信息", response_model=FileEntry)
 async def update_file(
     file_id: str,
@@ -174,6 +174,7 @@ async def update_file(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
+
 
 # 获取目录下的所有文件和子目录
 # @router.get("/list_dir/{dir_path}", summary="获取目录下的所有文件和子目录", response_model=list[str])
@@ -197,7 +198,12 @@ async def update_file(
 
 ######################################兼容s3/minio/oss/rustfs对象存储######################################
 
-@router.delete("/{file_id}", summary="删除文件,(兼容本地和s3/minio/oss/rustfs对象存储)", status_code=status.HTTP_204_NO_CONTENT)
+
+@router.delete(
+    "/{file_id}",
+    summary="删除文件,(兼容本地和s3/minio/oss/rustfs对象存储)",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
 async def delete_file(
     file_id: str,
     service: FileService = Depends(get_file_service),
@@ -216,7 +222,9 @@ async def delete_file(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
+
 ######################################兼容s3/minio/oss/rustfs对象存储######################################
+
 
 # 带预签名URL的文件接口
 @router.post(
@@ -225,10 +233,10 @@ async def delete_file(
     status_code=status.HTTP_200_OK,
 )
 async def generate_presigned_url_upload(
-    presigned_url_request: PresignedUrlRequest,
+    presigned_url_request: GeneratePresignedUrlRequest,
     request: Request,
     service: FileService = Depends(get_file_service),
-):
+) -> GeneratePresignedUploadResponse:
     """
     生成预签名URL用于上传文件
     :param request: 生成预签名URL的请求参数
@@ -238,31 +246,38 @@ async def generate_presigned_url_upload(
     try:
         # 获取当前url 解析位置和参数
         presigned_url_path = request.url.path
-        presigned_url = await service.generate_presigned_url_upload(
-            presigned_url_request, presigned_url_path
+        generate_presigned_upload_response = (
+            await service.generate_presigned_url_upload(
+                presigned_url_request, presigned_url_path
+            )
         )
-        if presigned_url is None:
+        if generate_presigned_upload_response is None:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="生成预签名URL失败",
             )
-        return presigned_url
+        return generate_presigned_upload_response
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
+
+
 # TODO generate_presigned_url_upload_md5
 
+
 @router.put(
-    "/presigned_url_upload/{file_path}",
+    "/presigned_url_upload/{file_path:path}",
     summary="上传文件,使用预签名URL(兼容s3/minio/oss/rustfs对象存储)",
     status_code=status.HTTP_200_OK,
 )
 async def presigned_url_upload(
     request: Request,
+    response: Response,
     file_path: str,
     presigned_upload_params: PresignedUploadParams = Depends(),
     service: FileService = Depends(get_file_service),
+    
 ):
     """
     使用预签名URL上传文件
@@ -282,18 +297,20 @@ async def presigned_url_upload(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="使用预签名URL上传失败",
             )
+        response.headers["ETag"] = "test_md5"
         return {"success": True, "message": "文件上传成功"}
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
+
 @router.post(
     "/presigned_url_upload_success",
     summary="上传成功通知,增加信息记录(兼容s3/minio/oss/rustfs对象存储)",
     status_code=status.HTTP_200_OK,
 )
-async def notify_object_storage(
+async def presigned_url_upload_success(
     file_info: str = Query(..., description="文件ID"),
     service: FileService = Depends(get_file_service),
 ):
@@ -304,7 +321,7 @@ async def notify_object_storage(
     :return: 通知结果
     """
     try:
-        await service.notify_object_storage(file_info)
+        await service.presigned_url_upload_success(file_info)
         return {"success": True, "message": "通知成功"}
     except Exception as e:
         raise HTTPException(
@@ -372,7 +389,7 @@ async def download_with_presigned_url(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
-        
+
 
 # 将路由注册到模块应用
 module_app.include_router(router, prefix="/filesystem", tags=["文件管理"])
