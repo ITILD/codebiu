@@ -59,17 +59,17 @@ async def upload_file(
         )
 
 
-@router.get("/download/{file_id}", summary="下载文件")
-async def download_file(file_id: str, service: FileService = Depends(get_file_service)):
+@router.get("/download/{file_content_id}", summary="下载文件")
+async def download_file(file_content_id: str, service: FileService = Depends(get_file_service)):
     """
     下载文件
-    :param file_id: 文件ID
+    :param file_content_id: 文件ID
     :param service: 文件服务依赖注入
     :return: 文件数据流
     """
     try:
         file_name, mime_type, file_path = await service.get_file_info_for_download(
-            file_id
+            file_content_id
         )
 
         # 返回文件流
@@ -128,19 +128,19 @@ async def list_files(
         )
 
 
-@router.get("/{file_id}", summary="获取文件信息", response_model=FileEntry)
+@router.get("/{file_content_id}", summary="获取文件信息", response_model=FileEntry)
 async def get_file(
-    file_id: str,
+    file_content_id: str,
     service: FileService = Depends(get_file_service),
 ):
     """
     获取单个文件详情
-    :param file_id: 文件ID
+    :param file_content_id: 文件ID
     :param service: 文件服务依赖注入
     :return: 文件详情
     """
     try:
-        result = await service.get(file_id)
+        result = await service.get(file_content_id)
         if not result:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="文件不存在"
@@ -154,22 +154,22 @@ async def get_file(
         )
 
 
-@router.put("/{file_id}", summary="更新文件信息", response_model=FileEntry)
+@router.put("/{file_content_id}", summary="更新文件信息", response_model=FileEntry)
 async def update_file(
-    file_id: str,
+    file_content_id: str,
     file_update: FileEntryUpdate,
     service: FileService = Depends(get_file_service),
 ) -> None:
     """
     更新文件信息
-    :param file_id: 文件ID
+    :param file_content_id: 文件ID
     :param file_update: 更新数据
     :param service: 文件服务依赖入
     :return: 更新后的文件信息
     """
     try:
         # 更新文件信息并返回更新后的文件信息（在同一事务中）
-        await service.update(file_id, file_update)
+        await service.update(file_content_id, file_update)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -200,21 +200,21 @@ async def update_file(
 
 
 @router.delete(
-    "/{file_id}",
+    "/{file_content_id}",
     summary="删除文件,(兼容本地和s3/minio/oss/rustfs对象存储)",
     status_code=status.HTTP_204_NO_CONTENT,
 )
 async def delete_file(
-    file_id: str,
+    file_content_id: str,
     service: FileService = Depends(get_file_service),
 ):
     """
     删除文件(同时删除物理文件和数据库记录)
-    :param file_id: 文件ID
+    :param file_content_id: 文件ID
     :param service: 文件服务依赖注入
     """
     try:
-        await service.delete(file_id)
+        await service.delete(file_content_id)
     except Exception as e:
         if "未找到" in str(e):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
@@ -297,7 +297,7 @@ async def presigned_url_upload(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="使用预签名URL上传失败",
             )
-        response.headers["ETag"] = "test_md5"
+        response.headers["ETag"] = "test_md5"  # 用来校验文件是否上传成功 且防止下次重复
         return {"success": True, "message": "文件上传成功"}
     except Exception as e:
         raise HTTPException(
@@ -316,7 +316,7 @@ async def presigned_url_upload_success(
 ):
     """
     通知后端对象/本地存储完成,新增元数据
-    :param file_id: 文件ID
+    :param file_content_id: 文件ID
     :param service: 文件服务依赖注入
     :return: 通知结果
     """
@@ -335,17 +335,17 @@ async def presigned_url_upload_success(
     status_code=status.HTTP_200_OK,
 )
 async def generate_presigned_url_download(
-    file_id: str = Query(..., description="文件ID"),
+    file_content_id: str = Query(..., description="文件ID"),
     service: FileService = Depends(get_file_service),
 ):
     """
     生成预签名URL用于下载文件
-    :param file_id: 文件ID
+    :param file_content_id: 文件ID
     :param service: 文件服务依赖注入
     :return: 预签名URL
     """
     try:
-        presigned_url = await service.generate_presigned_url_download(file_id)
+        presigned_url = await service.generate_presigned_url_download(file_content_id)
         if presigned_url is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,

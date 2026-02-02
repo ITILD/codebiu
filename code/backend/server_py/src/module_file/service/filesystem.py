@@ -200,16 +200,16 @@ class FileService:
             logger.error(f"上传文件时发生错误: {e}")
             raise
 
-    async def get_file_info_for_download(self, file_id: str) -> tuple[str, str, str]:
+    async def get_file_info_for_download(self, file_content_id: str) -> tuple[str, str, str]:
         """
         获取文件下载所需的信息
-        :param file_id: 文件ID
+        :param file_content_id: 文件ID
         :return: (文件名, MIME类型, 物理存储路径)
         """
         try:
-            file_info = await self.file_dao.get(file_id)
+            file_info = await self.file_dao.get(file_content_id)
             if not file_info or not file_info.is_active:
-                logger.warning(f"文件不存在或已被禁用: {file_id}")
+                logger.warning(f"文件不存在或已被禁用: {file_content_id}")
                 raise HTTPException(status_code=404, detail="文件不存在或已被禁用")
 
             # 使用存储接口检查文件是否存在
@@ -254,32 +254,44 @@ class FileService:
         :return: 预签名URL
         """
         try:
+            presigned_url = None
+            file_path_upload = None
             # 获取文件uuid和ext
             ext = Path(presigned_url_request.filename).suffix
-            file_id = uuid4().hex
-            file_upload = f"{file_id}{ext}"
-            # TODO 兼容路径  考虑时间按天分割??
-            # 获取年月日格式20260202
-            date = datetime.now().strftime("%Y%m%d")
-            file_path_upload = f"{presigned_url_request.domain}/{date}/{file_upload}"
-            presigned_url = await self.storage.generate_presigned_url(
-                PresignedType.PUT,
-                file_path_upload,
-                presigned_url_request.content_type,
+            # 内容唯一
+            file_content_id = uuid4().hex
+            file_upload = f"{file_content_id}{ext}"
+            # 申请时查重
+            existing_file = await self.file_dao.get_by_content_hash_and_filesize(
+                presigned_url_request.content_hash,
+                presigned_url_request.file_size_bytes,
             )
-            # 判断存储类型
-            if conf.file_system.storage_type == "local":
-                # 本地存储需要拼接完整路径 去除url的generate_
-                presigned_url = (
-                    f"{presigned_url_path.replace('generate_', '')}{presigned_url}"
+            if existing_file:
+                logger.info(f"文件已存在: {existing_file.name}")
+                file_path_upload = existing_file.physical_storage
+            else:
+                # 获取年月日格式20260202
+                date = datetime.now().strftime("%Y%m%d")
+                file_path_upload = f"{presigned_url_request.domain}/{date}/{file_upload}"
+                presigned_url = await self.storage.generate_presigned_url(
+                    PresignedType.PUT,
+                    file_path_upload,
+                    presigned_url_request.content_type,
                 )
+                # 判断存储类型
+                if conf.file_system.storage_type == "local":
+                    # 本地存储需要拼接完整路径 去除url的generate_
+                    presigned_url = (
+                        f"{presigned_url_path.replace('generate_', '')}{presigned_url}"
+                    )
             # 构建响应模型
             generate_presigned_upload_response = GeneratePresignedUploadResponse(
                 presigned_url=presigned_url,
-                file_id=file_id,
+                file_content_id=file_content_id,
                 file_path_upload=file_path_upload,
+                is_existing_file=bool(existing_file),
             )
-
+            
             return generate_presigned_upload_response
         except Exception as e:
             logger.error(f"生成预签名URL时发生错误: {e}")
@@ -306,17 +318,17 @@ class FileService:
             logger.error(f"使用预签名URL上传时发生错误: {e}")
             raise
 
-    async def generate_presigned_url_download(self, file_id: str) -> str | None:
+    async def generate_presigned_url_download(self, file_content_id: str) -> str | None:
         """
         生成预签名URL用于下载文件
-        :param file_id: 文件ID
+        :param file_content_id: 文件ID
         :return: 预签名URL或None
         """
         try:
             # 先获取文件信息
-            file_info = await self.get(file_id)
+            file_info = await self.get(file_content_id)
             if not file_info:
-                logger.warning(f"文件不存在: {file_id}")
+                logger.warning(f"文件不存在: {file_content_id}")
                 return None
 
             # 生成预签名URL，使用文件的physical_storage作为key
@@ -338,17 +350,17 @@ class FileService:
             logger.error(f"生成预签名下载URL时发生错误: {e}")
             raise
 
-    async def presigned_url_upload_success(self, file_id: str) -> bool:
+    async def presigned_url_upload_success(self, file_content_id: str) -> bool:
         """
         通知后端对象/本地存储完成,增删改查元数据
-        :param file_id: 文件ID
+        :param file_content_id: 文件ID
         :return: 是否通知成功
         """
         try:
-            
+            # content_hash
             
             # 通知后端对象/本地存储
-            # await self.storage.notify_object_storage(file_id)
+            # await self.storage.notify_object_storage(file_content_id)
             return True
         except Exception as e:
             logger.error(f"通知后端对象/本地存储时发生错误: {e}")
