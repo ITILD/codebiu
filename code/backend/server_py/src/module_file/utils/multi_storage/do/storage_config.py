@@ -57,6 +57,9 @@ class GeneratePresignedUrlRequestBase(BaseModel):
 
     filename: str = Field(..., description="文件名")
     content_type: str = Field(..., description="文件MIME类型")
+    # 大小和md5 综合重复校验
+    file_size_bytes: int | None = Field(None, description="Byte 文件字节大小，用于校验文件是否重复上传")
+    content_hash: str | None = Field(None, description="文件hash校验值，用于校验文件是否重复上传")
 
 class GeneratePresignedUploadResponseBase(BaseModel):
     """
@@ -64,8 +67,10 @@ class GeneratePresignedUploadResponseBase(BaseModel):
     """
 
     presigned_url: str = Field(..., description="预签名URL")
-    file_id: str = Field(..., description="文件ID")
+    file_content_id: str = Field(..., description="文件ID")
     file_path_upload: str = Field(..., description="文件上传路径")
+    # 已存在
+    is_existing_file: bool  = Field(False, description="是否已存在文件")
 
 # 构造的url组成
 class PresignedUploadParamsBase(BaseModel):

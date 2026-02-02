@@ -41,13 +41,13 @@ class FileDao:
     @DaoRel
     async def update(
         self,
-        file_id: str,
+        file_content_id: str,
         file: FileEntryUpdate,
         session: AsyncSession | None = None,
     ):
         """
         更新文件记录
-        :param file_id: 要更新的文件ID
+        :param file_content_id: 要更新的文件ID
         :param file: 文件更新数据
         :param session: 可选数据库会话
         :return: 更新成功的文件ID
@@ -57,13 +57,13 @@ class FileDao:
         update_data = file.model_dump(exclude_unset=True)
 
         # 执行直接更新
-        stmt = update(FileEntry).where(FileEntry.id == file_id).values(**update_data)
+        stmt = update(FileEntry).where(FileEntry.id == file_content_id).values(**update_data)
 
         result = await session.exec(stmt)
 
         # 检查是否实际更新了记录
         if result.rowcount == 0:
-            raise ValueError(f"未找到ID为 {file_id} 的文件")
+            raise ValueError(f"未找到ID为 {file_content_id} 的文件")
         await session.flush()
 
     @DaoRel
@@ -79,7 +79,7 @@ class FileDao:
     @DaoRel
     async def list_all(
         self, pagination: PaginationParams, session: AsyncSession | None = None
-    ) ->list:
+    ) -> list:
         """
         分页查询文件列表
         :param pagination: 分页参数
@@ -93,7 +93,7 @@ class FileDao:
     @DaoRel
     async def get_scroll(
         self, params: InfiniteScrollParams, session: AsyncSession | None = None
-    ) ->list:
+    ) -> list:
         """
         滚动加载文件列表
         :param params: 滚动参数
@@ -108,7 +108,7 @@ class FileDao:
             last_file = await session.get(FileEntry, params.last_id)
             if not last_file:
                 raise ValueError(f"未找到ID为 {params.last_id} 的文件")
-            
+
             # 获取排序字段的值
             sort_value = getattr(last_file, sort_by)
             search_value = getattr(FileEntry, sort_by)
@@ -143,13 +143,18 @@ class FileDao:
         return result.one()
 
     @DaoRel
-    async def get_by_content_hash(self, content_hash: str, session: AsyncSession | None = None) -> FileEntry | None:
+    async def get_by_content_hash_and_filesize(
+        self, content_hash: str, file_size_bytes: int, session: AsyncSession | None = None
+    ) -> FileEntry | None:
         """
-        根据内容哈希值查询文件(用于文件去重)
+        根据内容哈希值和文件大小查询文件(用于文件去重)
         :param content_hash: 文件内容哈希值
         :param session: 可选数据库会话
         :return: 文件对象，未找到返回None
         """
-        statement = select(FileEntry).where(FileEntry.content_hash == content_hash)
+        statement = select(FileEntry).where(
+            FileEntry.content_hash == content_hash,
+            FileEntry.file_size_bytes == file_size_bytes,
+        )
         result = await session.exec(statement)
         return result.first()

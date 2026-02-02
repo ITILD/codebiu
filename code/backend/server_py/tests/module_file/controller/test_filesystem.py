@@ -5,6 +5,7 @@ from module_file.do.filesystem import GeneratePresignedUploadResponse
 import logging
 import time
 from app import app
+from common.config.index import conf
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +41,7 @@ async def test_object_storage_url(client: TestClient):
     )
     # 2. 上传文件到预签名 URL（这是外部服务，必须用真实 HTTP 客户端）
     upload_success = await _presigned_url_upload(
-        generate_presigned_upload_response.presigned_url
+        generate_presigned_upload_response.presigned_url, client
     )
     # 通知后端对象/本地存储完成 执行文件夹业务逻辑
     if upload_success:
@@ -57,9 +58,9 @@ async def _generate_presigned_url_upload(client: TestClient):
         # 准备测试数据
         json={"filename": filename, "content_type": content_type},
     )
-    assert response.status_code == 200, (
-        f"Failed to generate presigned URL: {response.text}"
-    )
+    assert (
+        response.status_code == 200
+    ), f"Failed to generate presigned URL: {response.text}"
 
     generate_presigned_upload_response: GeneratePresignedUploadResponse = (
         GeneratePresignedUploadResponse.model_validate(response.json())
@@ -70,25 +71,37 @@ async def _generate_presigned_url_upload(client: TestClient):
     return generate_presigned_upload_response
 
 
-async def _presigned_url_upload(presigned_url_upload_url: str) -> bool:
+async def _presigned_url_upload(
+    presigned_url_upload_url: str, client: TestClient
+) -> bool:
     """
     上传文件到预签名URL（外部存储，如 S3）
     使用同步 requests，因为 TestClient 不处理外部 URL
     """
     headers = {"Content-Type": content_type}
     logger.info(f"Uploading to presigned URL: {presigned_url_upload_url}")
-
-    try:
+    response_result = None
+    if conf.file_system.storage_type == "s3":
         async with aiohttp.ClientSession() as session:
             async with session.put(
                 presigned_url_upload_url, data=text_bytes, headers=headers, timeout=15
             ) as response:
+                response_result = response
                 logger.info(f"Upload response status: {response.status}")
-                assert response.status == 200, (
-                    f"Expected status 200, got {response.status}"
-                )
-                logger.info(f"Upload success: {response}")
-                return True
-    except Exception as e:
-        logger.error(f"Upload failed: {e}")
-        return False
+                assert (
+                    response.status == 200
+                ), f"Expected status 200, got {response.status}"
+    elif conf.file_system.storage_type == "local":
+        response_result = client.put(
+            presigned_url_upload_url,
+            data=text_bytes,
+            headers=headers,
+            timeout=15,
+        )
+        assert (
+            response_result.status_code == 200
+        ), f"Failed to upload file to presigned URL: {response_result.text}"
+
+    logger.info(f"Upload success: {response_result}")
+
+    return True
