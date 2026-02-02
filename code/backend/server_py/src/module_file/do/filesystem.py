@@ -4,7 +4,8 @@ from datetime import datetime, timezone
 from enum import Enum
 from module_file.utils.multi_storage.do.storage_config import (
     PresignedUploadParamsBase,
-    PresignedUrlRequestBase,
+    GeneratePresignedUrlRequestBase,
+    GeneratePresignedUploadResponseBase,
 )
 
 
@@ -132,15 +133,25 @@ class FileEntryInfo(SQLModel):
 # 获取或插入多层 非Sqlmodel
 
 
-class PresignedUrlRequest(PresignedUrlRequestBase):
+class GeneratePresignedUrlRequest(GeneratePresignedUrlRequestBase):
     """
     生成预签名URL的请求模型
     """
 
-    domain: str = Field('main', description="业务域")
+    domain: str = Field("main", description="业务域")
+
+
+class GeneratePresignedUploadResponse(GeneratePresignedUploadResponseBase):
+    """
+    生成预签名上传的响应模型
+    """
+
+    pass
 
 
 class PresignedUploadParams(PresignedUploadParamsBase):
+    """预签名上传的参数"""
+
     pass
 
 

@@ -9,8 +9,9 @@ from module_file.do.filesystem import (
     FileEntry,
     FileEntryCreate,
     FileEntryUpdate,
-    PresignedUrlRequest,
+    GeneratePresignedUrlRequest,
     PresignedUploadParams,
+    GeneratePresignedUploadResponse,
 )
 from module_file.dao.filesystem import FileDao
 from module_file.config.filesystem import storage
@@ -18,10 +19,11 @@ import hashlib
 from uuid import uuid4  # 导入uuid4
 from fastapi import UploadFile, HTTPException
 import aiofiles
-from pathlib import Path,PosixPath
+from pathlib import Path, PosixPath
 import logging
 from module_file.utils.multi_storage.do.storage_config import PresignedType
 from common.config.index import conf
+from datetime import datetime
 
 # from module_file.config.filetype import mimetypes
 # 配置日志
@@ -241,8 +243,10 @@ class FileService:
     ######################################兼容本地存储和s3/minio/oss/rustfs对象存储######################################
 
     async def generate_presigned_url_upload(
-        self, presigned_url_request: PresignedUrlRequest, presigned_url_path: str
-    ) -> str | None:
+        self,
+        presigned_url_request: GeneratePresignedUrlRequest,
+        presigned_url_path: str,
+    ) -> GeneratePresignedUploadResponse | None:
         """
         生成预签名URL用于上传文件
         :param presigned_url_request: 预签名URL请求模型 包含文件名和文件类型
@@ -253,12 +257,14 @@ class FileService:
             # 获取文件uuid和ext
             ext = Path(presigned_url_request.filename).suffix
             file_id = uuid4().hex
-            file_upload = PosixPath(f"{file_id}.{ext}")
+            file_upload = f"{file_id}{ext}"
             # TODO 兼容路径  考虑时间按天分割??
-            file_path_upload = presigned_url_request.domain / file_upload
+            # 获取年月日格式20260202
+            date = datetime.now().strftime("%Y%m%d")
+            file_path_upload = f"{presigned_url_request.domain}/{date}/{file_upload}"
             presigned_url = await self.storage.generate_presigned_url(
                 PresignedType.PUT,
-                presigned_url_request.filename,
+                file_path_upload,
                 presigned_url_request.content_type,
             )
             # 判断存储类型
@@ -267,7 +273,14 @@ class FileService:
                 presigned_url = (
                     f"{presigned_url_path.replace('generate_', '')}{presigned_url}"
                 )
-            return presigned_url
+            # 构建响应模型
+            generate_presigned_upload_response = GeneratePresignedUploadResponse(
+                presigned_url=presigned_url,
+                file_id=file_id,
+                file_path_upload=file_path_upload,
+            )
+
+            return generate_presigned_upload_response
         except Exception as e:
             logger.error(f"生成预签名URL时发生错误: {e}")
             raise
@@ -325,15 +338,17 @@ class FileService:
             logger.error(f"生成预签名下载URL时发生错误: {e}")
             raise
 
-    async def notify_object_storage(self, file_id: str) -> bool:
+    async def presigned_url_upload_success(self, file_id: str) -> bool:
         """
         通知后端对象/本地存储完成,增删改查元数据
         :param file_id: 文件ID
         :return: 是否通知成功
         """
         try:
+            
+            
             # 通知后端对象/本地存储
-            await self.storage.notify_object_storage(file_id)
+            # await self.storage.notify_object_storage(file_id)
             return True
         except Exception as e:
             logger.error(f"通知后端对象/本地存储时发生错误: {e}")

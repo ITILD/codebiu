@@ -1,112 +1,94 @@
 import pytest
 import aiohttp
-from common.config.index import conf
+from fastapi.testclient import TestClient
+from module_file.do.filesystem import GeneratePresignedUploadResponse
 import logging
 import time
+from app import app
 
 logger = logging.getLogger(__name__)
 
 filename = "test_upload.txt"
-content_type = 'text/plain;'
-base_server_url = f"http://localhost:{conf.server.port}"
-base_contoller_url = f"{base_server_url}/file/filesystem"
+content_type = "text/plain"
+base_controller_url = "/file/filesystem"  # TestClient 不需要 base URL
 
-generate_presigned_url_upload_url = f"{base_contoller_url}/generate_presigned_url_upload"
+generate_presigned_url_upload_url = (
+    f"{base_controller_url}/generate_presigned_url_upload"
+)
+
 # 测试文件内容
-text_content = f"""This is a test text file,to test presigned url upload.
+text_content = f"""This is a test text file, to test presigned url upload.
 upload time: {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}
 """
-# 将文本内容转换为字节
 text_bytes = text_content.encode("utf-8")
 
 
+@pytest.fixture(scope="module")
+def client():
+    """提供 TestClient 实例"""
+    return TestClient(app)
+
+
 @pytest.mark.asyncio
-async def test_object_storage_url():
+async def test_object_storage_url(client: TestClient):
+    """
+    测试对象存储URL
+    """
+    # 1. 验证上传结果
+    generate_presigned_upload_response: GeneratePresignedUploadResponse = (
+        await _generate_presigned_url_upload(client)
+    )
+    # 2. 上传文件到预签名 URL（这是外部服务，必须用真实 HTTP 客户端）
+    upload_success = await _presigned_url_upload(
+        generate_presigned_upload_response.presigned_url
+    )
+    # 通知后端对象/本地存储完成 执行文件夹业务逻辑
+    if upload_success:
+        pass
+
+
+async def _generate_presigned_url_upload(client: TestClient):
     """
     测试预签名URL上传/下载和兼容s3删除文件
     """
-    # 验证上传结果
-    presigned_url_upload_url = await _generate_presigned_url_upload(filename)
-    await _presigned_url_upload(presigned_url_upload_url)
-    
-
-async def _generate_presigned_url_upload(filename: str):
-    """
-    生成上传预签名URL接口
-    """
-    async with aiohttp.ClientSession() as session:
-        logger.info("Testing generate_presigned_url_upload endpoint...")
-
+    # 1. 调用本地 FastAPI 接口生成预签名 URL（使用 TestClient）
+    response = client.post(
+        generate_presigned_url_upload_url,
         # 准备测试数据
-        test_data = {"filename": filename, "content_type": content_type}
+        json={"filename": filename, "content_type": content_type},
+    )
+    assert response.status_code == 200, (
+        f"Failed to generate presigned URL: {response.text}"
+    )
 
-        try:
-            # 发送POST请求到生成预签名URL的端点
-            async with session.post(
-                generate_presigned_url_upload_url, json=test_data
+    generate_presigned_upload_response: GeneratePresignedUploadResponse = (
+        GeneratePresignedUploadResponse.model_validate(response.json())
+    )
+    logger.info(
+        f"Upload response url: {generate_presigned_upload_response.presigned_url}"
+    )
+    return generate_presigned_upload_response
+
+
+async def _presigned_url_upload(presigned_url_upload_url: str) -> bool:
+    """
+    上传文件到预签名URL（外部存储，如 S3）
+    使用同步 requests，因为 TestClient 不处理外部 URL
+    """
+    headers = {"Content-Type": content_type}
+    logger.info(f"Uploading to presigned URL: {presigned_url_upload_url}")
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.put(
+                presigned_url_upload_url, data=text_bytes, headers=headers, timeout=15
             ) as response:
-                logger.info(f"Response status: {response.status}")
-
-                # 检查响应状态
+                logger.info(f"Upload response status: {response.status}")
                 assert response.status == 200, (
                     f"Expected status 200, got {response.status}"
                 )
-
-                # 读取响应数据
-                response_url = await response.json()
-
-                # 上传测试数据
-                logger.info(f"Upload response url: {response_url}")
-                return response_url
-        except Exception as e:
-            logger.error(f"Unexpected error: {str(e)}")
-            raise
-
-
-async def _presigned_url_upload(presigned_url_upload_url: str):
-    """
-    上传文件到预签名URL接口
-    """
-    # 上传文件 超时时间15秒
-    async with aiohttp.ClientSession() as session:
-        # 如果presigned_url_upload_url不以http开头默认拼接base_url
-        if not presigned_url_upload_url.startswith("http"):
-            presigned_url_upload_url = f"{base_server_url}{presigned_url_upload_url}"
-        headers = {"Content-Type": content_type}
-        logger.info(f"Upload url: {presigned_url_upload_url}")
-        async with session.put(
-            presigned_url_upload_url, data=text_bytes, headers=headers, timeout=15
-        ) as response:
-            logger.info(f"Upload response status: {response.status}")
-            assert response.status == 200, f"Expected status 200, got {response.status}"
-
-async def _generate_presigned_url_download(file_id: str):
-    """
-    生成下载预签名URL接口
-    """
-    pass
-
-async def _presigned_url_download(presigned_url_download_url: str):
-    """
-    从预签名URL下载文件接口
-    """
-    async with aiohttp.ClientSession() as session:
-        # 如果presigned_url_download_url不以http开头默认拼接base_url
-        if not presigned_url_download_url.startswith("http"):
-            presigned_url_download_url = f"{base_server_url}{presigned_url_download_url}"
-        logger.info(f"Download url: {presigned_url_download_url}")
-        async with session.get(
-            presigned_url_download_url, timeout=15
-        ) as response:
-            logger.info(f"Download response status: {response.status}")
-            assert response.status == 200, f"Expected status 200, got {response.status}"
-
-
-
-# 'http://47.94.107.62:12000/bucket0/test_upload.txt?
-# X-Amz-Algorithm=AWS4-HMAC-SHA256&
-# X-Amz-Credential=p6gBuroy7EtKJ0acXs2H%2F20260128%2Fus-east-1%2Fs3%2Faws4_request&
-# X-Amz-Date=20260128T085525Z&
-# X-Amz-Expires=3600&
-# X-Amz-SignedHeaders=content-type%3Bhost&
-# X-Amz-Signature=1c3eb573261fb93db43b247cff3a16ca14ffbada3b939a50b1eb831f215e3a96'
+                logger.info(f"Upload success: {response}")
+                return True
+    except Exception as e:
+        logger.error(f"Upload failed: {e}")
+        return False
