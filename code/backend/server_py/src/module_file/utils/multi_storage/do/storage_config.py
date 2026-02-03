@@ -12,7 +12,7 @@ _STORAGE_REGISTRY: dict[str, type["StorageConfig"]] = {}
 
 
 class StorageConfig(BaseModel):
-    max_size: int = Field(10, description="单文件最大存储（字节）,默认10MB")
+    max_size_mb: int = Field(10, description="单文件最大存储（MB）,默认10MB")
     allowed_extensions: list[str] = Field(
         default_factory=list, description="允许的文件扩展名列表，空表示不限制"
     )
@@ -21,7 +21,10 @@ class StorageConfig(BaseModel):
         super().__init_subclass__(**kwargs)
         if config_type is not None:
             _STORAGE_REGISTRY[config_type] = cls
-
+    # 提供获取最大文件大小的字节表示
+    @property
+    def max_size_bytes(self) -> int:
+        return self.max_size_mb * 1024 * 1024
 
 class LocalStorage(StorageConfig, config_type="local"):
     base_dir: str | None = Field(None, description="本地存储根目录路径")
@@ -58,7 +61,7 @@ class GeneratePresignedUrlRequestBase(BaseModel):
     filename: str = Field(..., description="文件名")
     content_type: str = Field(..., description="文件MIME类型")
     # 大小和md5 综合重复校验
-    file_size_bytes: int | None = Field(None, description="Byte 文件字节大小，用于校验文件是否重复上传")
+    file_size_bytes: int = Field(..., description="Byte 文件字节大小，用于校验文件大小和是否重复上传")
     content_hash: str | None = Field(None, description="文件hash校验值，用于校验文件是否重复上传")
 
 class GeneratePresignedUploadResponseBase(BaseModel):
@@ -67,8 +70,7 @@ class GeneratePresignedUploadResponseBase(BaseModel):
     """
 
     presigned_url: str = Field(..., description="预签名URL")
-    file_content_id: str = Field(..., description="文件ID")
-    file_path_upload: str = Field(..., description="文件上传路径")
+    physical_storage: str = Field(..., description="文件上传路径,物理存储相对位置(仅文件，如 相对bucket位置/key 或 相对位置 data/file.bin)")
     # 已存在
     is_existing_file: bool  = Field(False, description="是否已存在文件")
 

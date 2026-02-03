@@ -14,7 +14,7 @@ from module_file.do.filesystem import (
     GeneratePresignedUploadResponse,
 )
 from module_file.dao.filesystem import FileDao
-from module_file.config.filesystem import storage
+from module_file.config.filesystem import storage,storage_config
 import hashlib
 from uuid import uuid4  # 导入uuid4
 from fastapi import UploadFile, HTTPException
@@ -114,17 +114,17 @@ class FileService:
         items: list = await self.file_dao.get_scroll(params)
         return InfiniteScrollResponse.create(items, params.limit)
 
-    async def calculate_md5(self, file_path: str) -> str:
-        """
-        计算文件的MD5值
-        :param file_path: 文件路径
-        :return: MD5哈希值
-        """
-        md5_hash = hashlib.md5()
-        async with aiofiles.open(file_path, "rb") as f:
-            while chunk := await f.read(8192):
-                md5_hash.update(chunk)
-        return md5_hash.hexdigest()
+    # async def calculate_md5(self, file_path: str) -> str:
+    #     """
+    #     计算文件的MD5值
+    #     :param file_path: 文件路径
+    #     :return: MD5哈希值
+    #     """
+    #     md5_hash = hashlib.md5()
+    #     async with aiofiles.open(file_path, "rb") as f:
+    #         while chunk := await f.read(8192):
+    #             md5_hash.update(chunk)
+    #     return md5_hash.hexdigest()
 
     ####################################纯本地存储##############################################
     async def upload_file(
@@ -255,12 +255,12 @@ class FileService:
         """
         try:
             presigned_url = None
-            file_path_upload = None
+            physical_storage = None
             # 获取文件uuid和ext
             ext = Path(presigned_url_request.filename).suffix
-            # 内容唯一
-            file_content_id = uuid4().hex
-            file_upload = f"{file_content_id}{ext}"
+            
+            if presigned_url_request.file_size_bytes > storage_config.max_size_bytes:
+                raise HTTPException(status_code=400, detail="文件大小超过限制")
             # 申请时查重
             existing_file = await self.file_dao.get_by_content_hash_and_filesize(
                 presigned_url_request.content_hash,
@@ -268,14 +268,17 @@ class FileService:
             )
             if existing_file:
                 logger.info(f"文件已存在: {existing_file.name}")
-                file_path_upload = existing_file.physical_storage
+                physical_storage = existing_file.physical_storage
             else:
+                # 内容唯一
+                file_content_id = uuid4().hex
+                file_upload = f"{file_content_id}{ext}"
                 # 获取年月日格式20260202
                 date = datetime.now().strftime("%Y%m%d")
-                file_path_upload = f"{presigned_url_request.domain}/{date}/{file_upload}"
+                physical_storage = f"{presigned_url_request.domain}/{date}/{file_upload}"
                 presigned_url = await self.storage.generate_presigned_url(
                     PresignedType.PUT,
-                    file_path_upload,
+                    physical_storage,
                     presigned_url_request.content_type,
                 )
                 # 判断存储类型
@@ -284,11 +287,11 @@ class FileService:
                     presigned_url = (
                         f"{presigned_url_path.replace('generate_', '')}{presigned_url}"
                     )
+                    
             # 构建响应模型
             generate_presigned_upload_response = GeneratePresignedUploadResponse(
                 presigned_url=presigned_url,
-                file_content_id=file_content_id,
-                file_path_upload=file_path_upload,
+                physical_storage=physical_storage,
                 is_existing_file=bool(existing_file),
             )
             
