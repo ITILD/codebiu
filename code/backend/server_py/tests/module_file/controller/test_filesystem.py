@@ -10,7 +10,7 @@ import hashlib
 
 logger = logging.getLogger(__name__)
 
-filename = "test_upload.txt"
+
 content_type = "text/plain"
 base_controller_url = "/file/filesystem"  # TestClient 不需要 base URL
 
@@ -31,16 +31,20 @@ async def test_object_storage_url(client: TestClient):
     测试对象存储URL
     """
     # 测试文件内容
+    filename = "test_upload.txt"
     text_content_new = f"""This is a test text file, to test presigned url upload.
     upload time: {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}
     """
     text_bytes_new = text_content_new.encode("utf-8")
-
-    # 1. 验证上传结果
+    # 1. 初次上传
+    # 1.1 验证上传结果
     generate_presigned_upload_response: GeneratePresignedUploadResponse = (
-        await _generate_presigned_url_upload(client, text_bytes_new)
+        await _generate_presigned_url_upload(
+            client, filename, text_bytes_new
+        )
     )
-    # 2. 上传文件到预签名 URL（这是外部服务，必须用真实 HTTP 客户端）
+    
+    # 1.2 上传文件到预签名 URL（这是外部服务，必须用真实 HTTP 客户端）
     upload_success = await _presigned_url_upload(
         client, generate_presigned_upload_response.presigned_url, text_bytes_new
     )
@@ -48,21 +52,25 @@ async def test_object_storage_url(client: TestClient):
     if upload_success:
         pass
     
-    # 验证重复上传
-    
-    # # 1. 验证上传结果
+    # # 2. 验证重复上传
+    # # 2.1 验证上传结果
+    # filename = "test_upload_repeat.txt"
     # generate_presigned_upload_response: GeneratePresignedUploadResponse = (
-    #     await _generate_presigned_url_upload(client, text_bytes_new)
+    #     await _generate_presigned_url_upload(
+    #         client, filename, text_bytes_new
+    #     )
     # )
-    # # 2. 上传文件到预签名 URL（这是外部服务，必须用真实 HTTP 客户端）
-    # upload_success = await _presigned_url_upload(
-    #     client, generate_presigned_upload_response.presigned_url, text_bytes_new
-    # )
-    # # 通知后端对象/本地存储完成 执行文件夹业务逻辑
-    # if upload_success:
-    #     pass
+    # assert (
+    #     not generate_presigned_upload_response.presigned_url
+    #     and generate_presigned_upload_response.is_existing_file
+    # ), "重复上传文件失败,未发现重复文件"
 
-async def _generate_presigned_url_upload(client: TestClient, text_bytes: bytes):
+    # # 2.2 通知后端对象/本地存储完成 执行文件夹业务逻辑
+    # # if upload_success:
+    # #     pass
+
+
+async def _generate_presigned_url_upload(client: TestClient, filename: str, text_bytes: bytes):
     """
     测试预签名URL上传/下载和兼容s3删除文件
     """
