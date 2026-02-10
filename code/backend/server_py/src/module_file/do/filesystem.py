@@ -51,6 +51,8 @@ class FileEntryBase(SQLModel):
     content_hash: str | None = Field(
         default=None, max_length=64, description="内容哈希(仅文件)"
     )
+    # 引用计数
+    ref_count: int = Field(default=0, description="引用计数(仅文件)")
 
     # === 业务字段 ===
     description: str | None = Field(

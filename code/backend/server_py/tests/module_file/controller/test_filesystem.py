@@ -17,6 +17,11 @@ generate_presigned_url_upload_url = (
     f"{base_controller_url}/generate_presigned_url_upload"
 )
 
+presigned_url_upload_success_url = (
+    f"{base_controller_url}/presigned_url_upload_success"
+)
+
+
 @pytest.mark.asyncio
 async def test_object_storage_url():
     """
@@ -28,10 +33,11 @@ async def test_object_storage_url():
     upload time: {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}
     """
     text_bytes_new = text_content_new.encode("utf-8")
+    content_hash = hashlib.md5(text_bytes_new).hexdigest()
     # 1. 初次上传
     # 1.1 验证上传结果
     generate_presigned_upload_response: GeneratePresignedUploadResponse = (
-        await _generate_presigned_url_upload(filename, text_bytes_new)
+        await _generate_presigned_url_upload(filename, text_bytes_new, content_hash)
     )
 
     # 1.2 上传文件到预签名 URL（这是外部服务，必须用真实 HTTP 客户端）
@@ -46,23 +52,25 @@ async def test_object_storage_url():
     # 2.1 验证上传结果
     filename = "test_upload_repeat.txt"
     generate_presigned_upload_response: GeneratePresignedUploadResponse = (
-        await _generate_presigned_url_upload(filename, text_bytes_new)
+        await _generate_presigned_url_upload(filename, text_bytes_new, content_hash)
     )
     assert (
         not generate_presigned_upload_response.presigned_url
         and generate_presigned_upload_response.is_existing_file
     ), "重复上传文件失败,未发现重复文件"
 
-    # # 2.2 通知后端对象/本地存储完成 执行文件夹业务逻辑
-    # # if upload_success:
-    # #     pass
+    # 2.2 通知后端对象/本地存储完成 执行重复文件业务逻辑
+    if generate_presigned_upload_response.is_existing_file:
+        pass
 
 
-async def _generate_presigned_url_upload(filename: str, text_bytes: bytes):
+async def _generate_presigned_url_upload(
+    filename: str, text_bytes: bytes, content_hash: str
+):
     """
     测试预签名URL上传/下载和兼容s3删除文件
     """
-    content_hash = hashlib.md5(text_bytes).hexdigest()
+
     # 1. 调用本地 FastAPI 接口生成预签名 URL（使用 TestClient）
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
@@ -116,3 +124,13 @@ async def _presigned_url_upload(
     )
     logger.info(f"Upload success: status={response.status_code}")
     return True
+
+async def _presigned_url_upload_success(
+    name:str,content_hash: str,logical_path: str,file_size_bytes: int
+) -> bool:
+    """
+    通知后端对象/本地存储完成,新增元数据
+    :param content_hash: 文件内容哈希值
+    :return: 是否通知成功
+    """
+    pass
