@@ -353,18 +353,3 @@ class FileService:
             logger.error(f"生成预签名下载URL时发生错误: {e}")
             raise
 
-    async def presigned_url_upload_success(self, file_content_id: str) -> bool:
-        """
-        通知后端对象/本地存储完成,增删改查元数据
-        :param file_content_id: 文件ID
-        :return: 是否通知成功
-        """
-        try:
-            # content_hash
-            
-            # 通知后端对象/本地存储
-            # await self.storage.notify_object_storage(file_content_id)
-            return True
-        except Exception as e:
-            logger.error(f"通知后端对象/本地存储时发生错误: {e}")
-            raise

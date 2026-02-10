@@ -2,6 +2,7 @@ from module_file.config.server import module_app
 from module_file.dependencies.filesystem import get_file_service
 from module_file.service.filesystem import FileService
 from module_file.do.filesystem import (
+    FileEntryCreate,
     FileEntry,
     FileEntryUpdate,
     GeneratePresignedUrlRequest,
@@ -24,7 +25,7 @@ from fastapi import (
     File as FastAPIFile,
     Query,
     Request,
-    Response
+    Response,
 )
 from fastapi.responses import StreamingResponse
 
@@ -33,7 +34,7 @@ router = APIRouter()
 
 @router.post(
     "/upload",
-    summary="上传文件",
+    summary="上传文件(简易)",
     status_code=status.HTTP_201_CREATED,
     response_model=FileEntry,
 )
@@ -59,8 +60,10 @@ async def upload_file(
         )
 
 
-@router.get("/download/{file_content_id}", summary="下载文件")
-async def download_file(file_content_id: str, service: FileService = Depends(get_file_service)):
+@router.get("/download/{file_content_id}", summary="下载文件(简易)")
+async def download_file(
+    file_content_id: str, service: FileService = Depends(get_file_service)
+):
     """
     下载文件
     :param file_content_id: 文件ID
@@ -277,7 +280,6 @@ async def presigned_url_upload(
     file_path: str,
     presigned_upload_params: PresignedUploadParams = Depends(),
     service: FileService = Depends(get_file_service),
-    
 ):
     """
     使用预签名URL上传文件
@@ -311,7 +313,7 @@ async def presigned_url_upload(
     status_code=status.HTTP_200_OK,
 )
 async def presigned_url_upload_success(
-    file_info: str = Query(..., description="文件ID"),
+    file: FileEntryCreate,
     service: FileService = Depends(get_file_service),
 ):
     """
@@ -321,7 +323,7 @@ async def presigned_url_upload_success(
     :return: 通知结果
     """
     try:
-        await service.presigned_url_upload_success(file_info)
+        await service.add(file)
         return {"success": True, "message": "通知成功"}
     except Exception as e:
         raise HTTPException(
