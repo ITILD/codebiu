@@ -323,7 +323,7 @@ async def presigned_url_upload_success(
     :return: 通知结果
     """
     try:
-        await service.add(file)
+        await service.presigned_url_upload_success(file)
         return {"success": True, "message": "通知成功"}
     except Exception as e:
         raise HTTPException(
