@@ -320,6 +320,19 @@ class FileService:
         except Exception as e:
             logger.error(f"使用预签名URL上传时发生错误: {e}")
             raise
+        
+    async def presigned_url_upload_success(self,file: FileEntryCreate,):
+        # 如果有重复的 则更新文件
+        existing_file = await self.file_dao.get_by_content_hash_and_filesize(
+            file.content_hash,
+            file.file_size_bytes,
+        )
+        if existing_file:
+            # 更新文件 TODO
+            # await self.update(existing_file.id, file)
+            return existing_file.id
+        
+        await self.add(file)
 
     async def generate_presigned_url_download(self, file_content_id: str) -> str | None:
         """

@@ -126,11 +126,31 @@ async def _presigned_url_upload(
     return True
 
 async def _presigned_url_upload_success(
-    name:str,content_hash: str,logical_path: str,file_size_bytes: int
+    name:str,content_hash: str,physical_storage:str,file_size_bytes: int,pid:str = None
 ) -> bool:
     """
     通知后端对象/本地存储完成,新增元数据
     :param content_hash: 文件内容哈希值
+    :param logical_path: 文件逻辑路径
+    :param physical_storage: 文件物理存储相对位置
+    :param file_size_bytes: 文件大小(字节)
     :return: 是否通知成功
     """
-    pass
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        response = await ac.post(
+            presigned_url_upload_success_url,
+            # 准备测试数据 from module_file.do.filesystem import GeneratePresignedUrlRequest
+            json={
+                "name": name,
+                "content_type": content_type,
+                "content_hash": content_hash,
+                "file_size_bytes": file_size_bytes,
+                "physical_storage":physical_storage
+            },
+        )
+        assert response.status_code == 200, (
+            f"Failed to generate presigned URL: {response.text}"
+        )
+        
