@@ -6,6 +6,7 @@ import time
 from app import app
 from common.config.index import conf
 import hashlib
+from module_file.utils.multi_storage.do.storage_config import StorageType
 
 logger = logging.getLogger(__name__)
 
@@ -17,9 +18,7 @@ generate_presigned_url_upload_url = (
     f"{base_controller_url}/generate_presigned_url_upload"
 )
 
-presigned_url_upload_success_url = (
-    f"{base_controller_url}/presigned_url_upload_success"
-)
+presigned_url_upload_success_url = f"{base_controller_url}/presigned_url_upload_success"
 
 
 @pytest.mark.asyncio
@@ -45,8 +44,12 @@ async def test_object_storage_url():
         generate_presigned_upload_response.presigned_url, text_bytes_new
     )
     # 通知后端对象/本地存储完成 执行文件夹业务逻辑
-    if upload_success:
-        pass
+    await _presigned_url_upload_success(
+        filename,
+        content_hash,
+        generate_presigned_upload_response.physical_storage,
+        len(text_bytes_new),
+    )
 
     # # 2. 验证重复上传
     # 2.1 验证上传结果
@@ -60,8 +63,14 @@ async def test_object_storage_url():
     ), "重复上传文件失败,未发现重复文件"
 
     # 2.2 通知后端对象/本地存储完成 执行重复文件业务逻辑
+    # 通知后端对象/本地存储完成 执行文件夹业务逻辑
     if generate_presigned_upload_response.is_existing_file:
-        pass
+        await _presigned_url_upload_success(
+            f"new_{filename}",
+            content_hash,
+            generate_presigned_upload_response.physical_storage,
+            len(text_bytes_new),
+        )
 
 
 async def _generate_presigned_url_upload(
@@ -107,7 +116,7 @@ async def _presigned_url_upload(
     headers = {"Content-Type": "application/octet-stream"}
     logger.info(f"Uploading to presigned URL: {presigned_url_upload_url}")
 
-    if conf.file_system.storage_type == "local":
+    if conf.file_system.storage_type == StorageType.LOCAL:
         transport = ASGITransport(app=app)
         base_url = "http://test"
     else:  # 默认视为 S3 或其他外部存储
@@ -125,8 +134,13 @@ async def _presigned_url_upload(
     logger.info(f"Upload success: status={response.status_code}")
     return True
 
+
 async def _presigned_url_upload_success(
-    name:str,content_hash: str,physical_storage:str,file_size_bytes: int,pid:str = None
+    name: str,
+    content_hash: str,
+    physical_storage: str,
+    file_size_bytes: int,
+    pid: str = None,
 ) -> bool:
     """
     通知后端对象/本地存储完成,新增元数据
@@ -147,10 +161,9 @@ async def _presigned_url_upload_success(
                 "content_type": content_type,
                 "content_hash": content_hash,
                 "file_size_bytes": file_size_bytes,
-                "physical_storage":physical_storage
+                "physical_storage": physical_storage,
             },
         )
         assert response.status_code == 200, (
             f"Failed to generate presigned URL: {response.text}"
         )
-        

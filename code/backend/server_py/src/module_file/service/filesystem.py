@@ -13,13 +13,17 @@ from module_file.do.filesystem import (
     PresignedUploadParams,
     GeneratePresignedUploadResponse,
 )
-from module_file.dao.filesystem import FileDao
-from module_file.config.filesystem import storage,storage_config
+from module_file.dao.file_entry_dao import FileEntryDao
+from module_file.dao.file_content_dao import FileContentDao
+from module_file.utils.multi_storage.do.storage_config import StorageType
+from module_file.config.filesystem import storage, storage_config
 import hashlib
 from uuid import uuid4  # 导入uuid4
 from fastapi import UploadFile, HTTPException
 import aiofiles
+
 from pathlib import Path, PosixPath
+from module_file.do.filesystem import FileContent, FileContentCreate
 import logging
 from module_file.utils.multi_storage.do.storage_config import PresignedType
 from common.config.index import conf
@@ -33,46 +37,44 @@ logger = logging.getLogger(__name__)
 class FileService:
     """文件服务类，提供文件上传、下载、管理等功能"""
 
-    def __init__(self, file_dao: FileDao | None = None, storage_interface=None):
+    def __init__(
+        self,
+        file_entry_dao: FileEntryDao | None = None,
+        file_content_dao: FileContentDao | None = None,
+        storage_interface=None,
+    ):
         """
         初始化文件服务
-        :param file_dao: 文件数据访问对象，可选
+        :param file_entry_dao: 文件数据访问对象，可选
         :param storage_interface: 存储接口实现，可选
         """
-        self.file_dao = file_dao or FileDao()
+        self.file_entry_dao = file_entry_dao or FileEntryDao()
+        self.file_content_dao = file_content_dao or FileContentDao()
         self.storage = storage_interface or storage
 
     async def add(self, file: FileEntryCreate) -> str:
         """
-        添加文件记录
+        添加文件或目录记录
         :param file: 文件创建数据
-        :return: 新创建文件的ID
+        :return: 新创建文件或目录的ID
         """
-        return await self.file_dao.add(file)
+        return await self.file_entry_dao.add(file)
 
     async def delete(self, id: str):
         """
-        删除文件记录和物理文件
+        删除文件或目录记录
         :param id: 文件ID
         """
         try:
             # 先获取文件信息
-            file_info = await self.get(id)
+            file_info = await self.file_entry_dao.get(id)
             if file_info:
-                # 尝试删除物理文件
-                try:
-                    file_path = Path(file_info.physical_storage)
-                    if file_path.exists():
-                        file_path.unlink()
-                        logger.info(f"已删除物理文件: {file_path}")
-                except Exception as e:
-                    logger.error(f"删除物理文件失败: {e}")
-
-                # 删除数据库记录
-                await self.file_dao.delete(id)
-                logger.info(f"已删除文件记录: {id}")
+                # 删除文件记录
+                await self.file_entry_dao.delete(id)
+                # 更改引用计数 -1
+                await self.file_content_dao.ref_count_change(file_info.content_hash, -1)
             else:
-                logger.warning(f"尝试删除不存在的文件: {id}")
+                logger.warning(f"尝试删除的文件不存在: {id}")
         except Exception as e:
             logger.error(f"删除文件时发生错误: {e}")
             raise
@@ -85,7 +87,7 @@ class FileService:
         :return: 更新后的文件信息
         :raises: ValueError 如果文件不存在
         """
-        return await self.file_dao.update(file_id, file_update)
+        return await self.file_entry_dao.update(file_id, file_update)
 
     async def get(self, id: str) -> FileEntry | None:
         """
@@ -93,7 +95,7 @@ class FileService:
         :param id: 文件ID
         :return: 文件信息对象，不存在返回None
         """
-        return await self.file_dao.get(id)
+        return await self.file_entry_dao.get(id)
 
     async def list_all(self, pagination: PaginationParams) -> PaginationResponse:
         """
@@ -101,8 +103,8 @@ class FileService:
         :param pagination: 分页参数
         :return: 分页响应结果
         """
-        items = await self.file_dao.list_all(pagination)
-        total = await self.file_dao.count()
+        items = await self.file_entry_dao.list_all(pagination)
+        total = await self.file_entry_dao.count()
         return PaginationResponse.create(items, total, pagination)
 
     async def get_scroll(self, params: InfiniteScrollParams) -> InfiniteScrollResponse:
@@ -111,7 +113,7 @@ class FileService:
         :param params: 滚动参数
         :return: 滚动响应结果
         """
-        items: list = await self.file_dao.get_scroll(params)
+        items: list = await self.file_entry_dao.get_scroll(params)
         return InfiniteScrollResponse.create(items, params.limit)
 
     # async def calculate_md5(self, file_path: str) -> str:
@@ -150,9 +152,9 @@ class FileService:
             # content_hash = hashlib.md5(content).hexdigest()
 
             # # 检查文件是否已存在(通过MD5)
-            # existing_file = await self.file_dao.get_by_content_hash(content_hash)
+            # existing_file = await self.file_entry_dao.get_by_content_hash(content_hash)
             # 获取已存在信息
-            existing_file = await self.file_dao.get(existing_id)
+            existing_file = await self.file_entry_dao.get(existing_id)
 
             if existing_id:
                 # 文件已存在，复用现有文件信息
@@ -191,23 +193,25 @@ class FileService:
                     is_active=True,
                 )
 
-            created_file_id = await self.file_dao.add(file_create)
+            created_file_id = await self.file_entry_dao.add(file_create)
             logger.info(
                 f"文件上传成功: {file_create.name} -> {file_create.logical_path}"
             )
-            return await self.file_dao.get(created_file_id)
+            return await self.file_entry_dao.get(created_file_id)
         except Exception as e:
             logger.error(f"上传文件时发生错误: {e}")
             raise
 
-    async def get_file_info_for_download(self, file_content_id: str) -> tuple[str, str, str]:
+    async def get_file_info_for_download(
+        self, file_content_id: str
+    ) -> tuple[str, str, str]:
         """
         获取文件下载所需的信息
         :param file_content_id: 文件ID
         :return: (文件名, MIME类型, 物理存储路径)
         """
         try:
-            file_info = await self.file_dao.get(file_content_id)
+            file_info = await self.file_entry_dao.get(file_content_id)
             if not file_info or not file_info.is_active:
                 logger.warning(f"文件不存在或已被禁用: {file_content_id}")
                 raise HTTPException(status_code=404, detail="文件不存在或已被禁用")
@@ -256,45 +260,60 @@ class FileService:
         try:
             presigned_url = None
             physical_storage = None
+            content_status = None
             # 获取文件uuid和ext
             ext = Path(presigned_url_request.filename).suffix
-            
+
             if presigned_url_request.file_size_bytes > storage_config.max_size_bytes:
                 raise HTTPException(status_code=400, detail="文件大小超过限制")
             # 申请时查重
-            existing_file = await self.file_dao.get_by_content_hash_and_filesize(
+            existing_file_content: (
+                FileContent | None
+            ) = await self.file_content_dao.get_by_content_hash(
                 presigned_url_request.content_hash,
-                presigned_url_request.file_size_bytes,
             )
-            if existing_file:
-                logger.info(f"文件已存在: {existing_file.name}")
-                physical_storage = existing_file.physical_storage
+            if existing_file_content:
+                logger.info(f"文件已存在: {presigned_url_request.content_hash}")
+                physical_storage = existing_file_content.physical_storage
+                # 返回状态 正在 暂停/排队/上传中/完成
+                content_status = existing_file_content.content_status
             else:
                 # 内容唯一
-                file_content_id = uuid4().hex
-                file_upload = f"{file_content_id}{ext}"
+                file_upload = f"{presigned_url_request.content_hash}{ext}"
                 # 获取年月日格式20260202
                 date = datetime.now().strftime("%Y%m%d")
-                physical_storage = f"{presigned_url_request.domain}/{date}/{file_upload}"
+                physical_storage = (
+                    f"{presigned_url_request.domain}/{date}/{file_upload}"
+                )
+                await self.file_content_dao.add(
+                    FileContentCreate(
+                        content_hash=presigned_url_request.content_hash,
+                        physical_storage=physical_storage,
+                        file_size_bytes=presigned_url_request.file_size_bytes,
+                        storage_type=conf.file_system.storage_type,
+                    )
+                )
+
                 presigned_url = await self.storage.generate_presigned_url(
                     PresignedType.PUT,
                     physical_storage,
                     presigned_url_request.content_type,
                 )
                 # 判断存储类型
-                if conf.file_system.storage_type == "local":
+                if conf.file_system.storage_type == StorageType.LOCAL:
                     # 本地存储需要拼接完整路径 去除url的generate_
                     presigned_url = (
                         f"{presigned_url_path.replace('generate_', '')}{presigned_url}"
                     )
-                    
+
             # 构建响应模型
             generate_presigned_upload_response = GeneratePresignedUploadResponse(
                 presigned_url=presigned_url,
                 physical_storage=physical_storage,
-                is_existing_file=bool(existing_file),
+                is_existing_file=bool(existing_file_content),
+                content_status=content_status,
             )
-            
+
             return generate_presigned_upload_response
         except Exception as e:
             logger.error(f"生成预签名URL时发生错误: {e}")
@@ -320,19 +339,16 @@ class FileService:
         except Exception as e:
             logger.error(f"使用预签名URL上传时发生错误: {e}")
             raise
-        
-    async def presigned_url_upload_success(self,file: FileEntryCreate,):
-        # 如果有重复的 则更新文件
-        existing_file = await self.file_dao.get_by_content_hash_and_filesize(
-            file.content_hash,
-            file.file_size_bytes,
-        )
-        if existing_file:
-            # 更新文件 TODO
-            # await self.update(existing_file.id, file)
-            return existing_file.id
-        
-        await self.add(file)
+
+    async def presigned_url_upload_success(
+        self,
+        file: FileEntryCreate,
+    ):
+        # 文件内容 引用计数+1
+        await self.file_content_dao.ref_count_change(file.content_hash)
+
+        # 文件夹文件业务逻辑
+        await self.file_entry_dao.add(file)
 
     async def generate_presigned_url_download(self, file_content_id: str) -> str | None:
         """
@@ -355,7 +371,7 @@ class FileService:
             )
 
             # 判断存储类型
-            if conf.file_system.storage_type == "local":
+            if conf.file_system.storage_type == StorageType.LOCAL:
                 # 本地存储需要拼接完整路径
                 presigned_url = (
                     f"/filesystem/presigned_url_download?presigned_url={presigned_url}"
@@ -365,4 +381,3 @@ class FileService:
         except Exception as e:
             logger.error(f"生成预签名下载URL时发生错误: {e}")
             raise
-
