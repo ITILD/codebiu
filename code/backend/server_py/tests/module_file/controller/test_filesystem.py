@@ -162,6 +162,7 @@ async def _presigned_url_upload_success(
                 "content_hash": content_hash,
                 "file_size_bytes": file_size_bytes,
                 "physical_storage": physical_storage,
+                "logical_path": '/todo',
             },
         )
         assert response.status_code == 200, (
