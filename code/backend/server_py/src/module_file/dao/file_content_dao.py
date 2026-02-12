@@ -82,8 +82,8 @@ class FileContentDao:
         """
         result = await session.exec(
             select(FileContent).where(FileContent.content_hash == content_hash)
-        ).first()
-        return result
+        )
+        return result.first()
 
     # @DaoRel
     # async def is_exist(

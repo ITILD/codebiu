@@ -1,8 +1,8 @@
 from pydantic import BaseModel, Field
-from enum import StrEnum, Enum
+from enum import StrEnum
 
 
-class StorageType(str, StrEnum):
+class StorageType(StrEnum):
     LOCAL = "local"
     S3 = "s3"
     # RUSTFS = "rustfs"
