@@ -9,7 +9,7 @@ from common.config.db import DaoRel
 from module_file.do.filesystem import FileEntry, FileEntryCreate, FileEntryUpdate
 
 
-class FileDao:
+class FileEntryDao:
     @DaoRel
     async def add(
         self, file: FileEntryCreate, session: AsyncSession | None = None

@@ -1,5 +1,14 @@
 from pydantic import BaseModel, Field
-from enum import StrEnum
+from enum import StrEnum, Enum
+
+
+class StorageType(str, StrEnum):
+    LOCAL = "local"
+    S3 = "s3"
+    # RUSTFS = "rustfs"
+    # MINIO = "minio"
+    # ALIYUN_OSS = "aliyun_oss"
+
 
 # 枚举预签名类型
 class PresignedType(StrEnum):
@@ -21,19 +30,21 @@ class StorageConfig(BaseModel):
         super().__init_subclass__(**kwargs)
         if config_type is not None:
             _STORAGE_REGISTRY[config_type] = cls
+
     # 提供获取最大文件大小的字节表示
     @property
     def max_size_bytes(self) -> int:
         return self.max_size_mb * 1024 * 1024
 
-class LocalStorage(StorageConfig, config_type="local"):
+
+class LocalStorage(StorageConfig, config_type=StorageType.LOCAL):
     base_dir: str | None = Field(None, description="本地存储根目录路径")
     secret_key: str = Field(
         "12345678", description="本地加密密钥，默认值为，默认12345678"
     )
 
 
-class S3Storage(StorageConfig, config_type="s3"):
+class S3Storage(StorageConfig, config_type=StorageType.S3):
     bucket: str = Field(..., description="S3存储桶名称")
     endpoint_url: str | None = Field(
         None, description="S3服务端点URL，如使用AWS S3可不填"
@@ -52,6 +63,7 @@ class StorageConfigFactory:
             raise ValueError(f"Unknown storage config type: {config_type}")
         return cls.model_validate(config)  # 自动验证 + 实例化
 
+
 #  预签名相关配置
 class GeneratePresignedUrlRequestBase(BaseModel):
     """
@@ -61,8 +73,13 @@ class GeneratePresignedUrlRequestBase(BaseModel):
     filename: str = Field(..., description="文件名")
     content_type: str = Field(..., description="文件MIME类型")
     # 大小和md5 综合重复校验
-    file_size_bytes: int = Field(..., description="Byte 文件字节大小，用于校验文件大小和是否重复上传")
-    content_hash: str | None = Field(None, description="文件hash校验值，用于校验文件是否重复上传")
+    file_size_bytes: int = Field(
+        ..., description="Byte 文件字节大小，用于校验文件大小和是否重复上传"
+    )
+    content_hash: str | None = Field(
+        None, description="文件hash校验值，用于校验文件是否重复上传"
+    )
+
 
 class GeneratePresignedUploadResponseBase(BaseModel):
     """
@@ -70,12 +87,16 @@ class GeneratePresignedUploadResponseBase(BaseModel):
     """
 
     presigned_url: str = Field(..., description="预签名URL")
-    physical_storage: str = Field(..., description="文件上传路径,物理存储相对位置(仅文件，如 相对bucket位置/key 或 相对位置 data/file.bin)")
+    physical_storage: str = Field(
+        ...,
+        description="文件上传路径,物理存储相对位置(仅文件，如 相对bucket位置/key 或 相对位置 data/file.bin)",
+    )
     # 已存在
-    is_existing_file: bool  = Field(False, description="是否已存在文件")
+    is_existing_file: bool = Field(False, description="是否已存在文件")
+
 
 # 构造的url组成
 class PresignedUploadParamsBase(BaseModel):
-    expires: int = Field(...) 
+    expires: int = Field(...)
     method: str = Field(...)
     signature: str = Field(..., min_length=1)

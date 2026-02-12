@@ -1,26 +1,74 @@
+from pydantic import BaseModel
 from sqlmodel import Column, DateTime, Field, SQLModel
 from uuid import uuid4
 from datetime import datetime, timezone
-from enum import Enum
 from module_file.utils.multi_storage.do.storage_config import (
     PresignedUploadParamsBase,
     GeneratePresignedUrlRequestBase,
     GeneratePresignedUploadResponseBase,
 )
+from module_file.utils.multi_storage.do.storage_config import StorageType
+from common.enum.task import TaskStatus
 
 
-class StorageType(str, Enum):
-    LOCAL = "local"
-    S3 = "s3"
-    RUSTFS = "rustfs"
-    MINIO = "minio"
-    ALIYUN_OSS = "aliyun_oss"
+# 文件内容元数据（仅用于文件）
+class FileContentBase(SQLModel):
+    """文件内容元数据，全局唯一，基于内容哈希"""
+
+    content_hash: str | None = Field(
+        default=None,
+        primary_key=True,
+        max_length=64,
+        description="内容哈希(仅文件),强制唯一",
+    )
+    physical_storage: str | None = Field(
+        default=None,
+        max_length=500,
+        # 使用content_hash作为物理存储文件名，避免文件名有编码等问题
+        description="物理存储相对位置(仅文件，如 相对bucket位置/key 或 相对位置 data/file.bin)",
+    )
+    file_size_bytes: int | None = Field(
+        default=None, description="文件大小(字节，仅文件)"
+    )
+    # 引用计数
+    ref_count: int = Field(default=0, description="引用计数(仅文件),上传成功后增加1")
+    # === 存储类型字段 ===
+    storage_type: StorageType | None = Field(
+        default=StorageType.LOCAL, description="存储类型(仅文件)"
+    )
+    # 状态
+    content_status: TaskStatus | None = Field(
+        default=TaskStatus.PENDING,
+        max_length=50,
+        description="文件状态(仅文件) status: 进行中/完成/失败",
+    )
+
+
+class FileContent(FileContentBase, table=True):
+    """
+    文件内容元数据数据库模型
+    """
+
+
+class FileContentCreate(FileContentBase):
+    """
+    文件内容元数据数据库模型
+    """
+
+
+class FileContentUpdate(FileContentBase):
+    """
+    文件内容元数据数据库模型
+    """
 
 
 class FileEntryBase(SQLModel):
     """
     文件系统条目基础模型(文件/目录通用)
     """
+
+    # === 关联字段 ===
+    pid: str | None = Field(None, description="父级ID")
 
     # === 核心字段 ===
     name: str = Field(..., max_length=255, description="条目名称(文件名或目录名)")
@@ -29,38 +77,33 @@ class FileEntryBase(SQLModel):
     )
 
     is_directory: bool = Field(default=False, description="是否为目录")
-    # === 存储类型字段 ===
-    storage_type: StorageType | None = Field(
-        default=StorageType.LOCAL, description="存储类型(仅文件)"
+    # === 逻辑关联字段 ===
+    content_hash: str | None = Field(
+        default=None, max_length=64, description="内容哈希(仅文件)"
     )
-    physical_storage: str | None = Field(
-        default=None,
-        max_length=500,
-        description="物理存储相对位置(仅文件，如 相对bucket位置/key 或 相对位置 data/file.bin)",
-    )
-    # === 文件元数据字段 ===
     file_size_bytes: int | None = Field(
         default=None, description="文件大小(字节，仅文件)"
     )
+    # === 文件元数据字段 ===
     file_extension: str | None = Field(
         default=None, max_length=50, description="文件扩展名(不含点，仅文件)"
     )
     mime_type: str | None = Field(
         default=None, max_length=100, description="MIME类型(仅文件)"
     )
-    content_hash: str | None = Field(
-        default=None, max_length=64, description="内容哈希(仅文件)"
-    )
-    # 引用计数
-    ref_count: int = Field(default=0, description="引用计数(仅文件)")
 
     # === 业务字段 ===
     description: str | None = Field(
         default=None, max_length=500, description="条目描述"
     )
     is_active: bool = Field(default=True, description="是否有效(软删除标志)")
-    owner_user_id: str | None = Field(default=None, description="拥有者用户ID")
-    owner_group_id: str | None = Field(default=None, description="拥有者组ID")
+    user_id: str | None = Field(default=None, description="拥有者用户ID")
+    group_id: str | None = Field(default=None, description="拥有者组ID")
+    entry_status: TaskStatus | None = Field(
+        default=TaskStatus.PENDING,
+        max_length=50,
+        description="文件状态(仅文件) status: 进行中/完成/失败",
+    )
 
 
 class FileEntry(FileEntryBase, table=True):
@@ -75,9 +118,6 @@ class FileEntry(FileEntryBase, table=True):
         index=True,  # 索引
         description="唯一标识符",
     )
-
-    # === 关联字段 ===
-    pid: str | None = Field(None, description="父级ID")
 
     # === 时间戳 ===
     created_at: datetime = Field(
@@ -104,7 +144,7 @@ class FileEntryCreate(FileEntryBase):
     pid: str | None = Field(default=None, description="父条目ID")
 
 
-class FileEntryUpdate(SQLModel):
+class FileEntryUpdate(FileEntryBase):
     """
     更新文件系统条目的请求模型
     """
@@ -148,7 +188,11 @@ class GeneratePresignedUploadResponse(GeneratePresignedUploadResponseBase):
     生成预签名上传的响应模型
     """
 
-    pass
+    content_status: TaskStatus | None = Field(
+        default=None,
+        max_length=50,
+        description="文件状态(仅文件) status: 进行中/完成/失败",
+    )
 
 
 class PresignedUploadParams(PresignedUploadParamsBase):
@@ -158,19 +202,16 @@ class PresignedUploadParams(PresignedUploadParamsBase):
 
 
 # 文件上传成功通知
-class FileUploadSuccessNotification(SQLModel):
+class FileUploadSuccessNotificationRequest(BaseModel):
     """
     文件上传成功通知模型
     """
 
-    id: str
-    name: str
-    logical_path: str
-    storage_type: StorageType
-    file_size_bytes: int
-    file_extension: str
-    mime_type: str
-    content_hash: str
-    created_at: datetime
-    updated_at: datetime
-    owner_user_id: str
+    pid: str | None = Field(default=None, description="父条目ID")
+    name: str = Field(..., max_length=255, description="文件名")
+    content_hash: str = Field(..., max_length=64, description="内容哈希")
+    physical_storage: str = Field(..., max_length=500, description="物理存储相对位置")
+    file_size_bytes: int = Field(..., description="文件大小(字节)")
+    file_extension: str | None = Field(
+        default=None, max_length=50, description="文件扩展名(不含点，仅文件)"
+    )
