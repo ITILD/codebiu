@@ -21,7 +21,8 @@ import hashlib
 from uuid import uuid4  # 导入uuid4
 from fastapi import UploadFile, HTTPException
 import aiofiles
-
+from sqlmodel.ext.asyncio.session import AsyncSession
+from common.config.db import DaoRel
 from pathlib import Path, PosixPath
 from module_file.do.filesystem import FileContent, FileContentCreate
 import logging
@@ -60,23 +61,49 @@ class FileService:
         """
         return await self.file_entry_dao.add(file)
 
-    async def delete(self, id: str):
+    @DaoRel
+    async def delete_file(self, id: str, session: AsyncSession | None = None):
         """
-        删除文件或目录记录
+        删除文件记录
         :param id: 文件ID
         """
         try:
             # 先获取文件信息
-            file_info = await self.file_entry_dao.get(id)
-            if file_info:
-                # 删除文件记录
-                await self.file_entry_dao.delete(id)
-                # 更改引用计数 -1
-                await self.file_content_dao.ref_count_change(file_info.content_hash, -1)
-            else:
-                logger.warning(f"尝试删除的文件不存在: {id}")
+            file_info = await self.file_entry_dao.get(id, session)
+            if not file_info:
+                raise ValueError(f"未找到ID为 {id} 的文件")
+            # 逻辑删除
+            await self.file_entry_dao.soft_delete(id, session)
+            # 更改引用计数 -1
+            await self.file_content_dao.ref_count_change(
+                file_info.content_hash, -1, session
+            )
         except Exception as e:
             logger.error(f"删除文件时发生错误: {e}")
+            raise
+    @DaoRel
+    async def delete_folder(self, id: str, session: AsyncSession | None = None):
+        """
+        删除目录记录
+        :param id: 目录ID
+        """
+        try:
+            # 先获取目录信息
+            file_info = await self.file_entry_dao.get(id, session)
+            if not file_info:
+                raise ValueError(f"未找到ID为 {id} 的目录")
+            # 递归更新并批量删除子目录和子文件
+            
+            
+            
+            # 逻辑删除
+            await self.file_entry_dao.soft_delete(id, session)
+            # 更改引用计数 -1
+            await self.file_content_dao.ref_count_change(
+                file_info.content_hash, -1, session
+            )
+        except Exception as e:
+            logger.error(f"删除目录时发生错误: {e}")
             raise
 
     async def update(self, file_id: str, file_update: FileEntryUpdate):
@@ -245,11 +272,12 @@ class FileService:
             raise
 
     ######################################兼容本地存储和s3/minio/oss/rustfs对象存储######################################
-
+    @DaoRel
     async def generate_presigned_url_upload(
         self,
         presigned_url_request: GeneratePresignedUrlRequest,
         presigned_url_path: str,
+        session: AsyncSession | None = None,
     ) -> GeneratePresignedUploadResponse | None:
         """
         生成预签名URL用于上传文件
@@ -291,7 +319,8 @@ class FileService:
                         physical_storage=physical_storage,
                         file_size_bytes=presigned_url_request.file_size_bytes,
                         storage_type=conf.file_system.storage_type,
-                    )
+                    ),
+                    session,
                 )
 
                 presigned_url = await self.storage.generate_presigned_url(
@@ -340,15 +369,16 @@ class FileService:
             logger.error(f"使用预签名URL上传时发生错误: {e}")
             raise
 
+    @DaoRel
     async def presigned_url_upload_success(
         self,
         file: FileEntryCreate,
+        session: AsyncSession | None = None,
     ):
-        # 文件内容 引用计数+1
-        await self.file_content_dao.ref_count_change(file.content_hash)
-
         # 文件夹文件业务逻辑
-        await self.file_entry_dao.add(file)
+        await self.file_entry_dao.add(file, session)
+        # 文件内容 引用计数+1
+        await self.file_content_dao.ref_count_change(file.content_hash, 1, session)
 
     async def generate_presigned_url_download(self, file_content_id: str) -> str | None:
         """

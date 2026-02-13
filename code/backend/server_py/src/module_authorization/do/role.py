@@ -13,6 +13,7 @@ class RoleBase(SQLModel):
 
 class Role(RoleBase, table=True):
     """角色数据库模型(对应数据库表)"""
+    __tablename__ = "role"
     
     id: str = Field(
         default_factory=lambda: uuid4().hex,

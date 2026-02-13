@@ -101,6 +101,7 @@ class DatabaseManager:
 db_manager = DatabaseManager()
 db_manager.start()
 
+# TODO 改成非全局单例???
 # 关系型数据库(sqlite/postgresql/mysql)
 db_rel: DBRelationInterface = db_manager.db_rel
 DaoRel: wraps = db_manager.DaoRel  # 事务管理注解

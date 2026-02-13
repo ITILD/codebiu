@@ -41,7 +41,8 @@ class Todolist(TodolistBase, table=True):
     """
     计划列表数据库模型(对应数据库表)
     """
-
+    __tablename__ = "todo_list"
+    
     id: str = Field(
         default_factory=lambda: uuid4().hex,
         primary_key=True,  # 主键

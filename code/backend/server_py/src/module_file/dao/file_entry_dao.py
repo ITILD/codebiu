@@ -1,11 +1,11 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
-from sqlmodel import select, func, update
+from common.config.db import DaoRel
+from sqlmodel import select, func, update, delete, text
 from common.utils.db.schema.pagination import (
     InfiniteScrollParams,
     PaginationParams,
     ScrollDirection,
 )
-from common.config.db import DaoRel
 from module_file.do.filesystem import FileEntry, FileEntryCreate, FileEntryUpdate
 
 
@@ -32,11 +32,19 @@ class FileEntryDao:
         :param id: 要删除的文件ID
         :param session: 可选数据库会话
         """
-        file = await session.get(FileEntry, id)
-        if not file:
-            raise ValueError(f"未找到ID为 {id} 的文件")
-        await session.delete(file)
-        await session.flush()
+        result = await session.exec(delete(FileEntry).where(FileEntry.id == id))
+        if result.rowcount == 0:
+            raise ValueError(f"File with ID '{id}' not found")
+
+    @DaoRel
+    async def soft_delete(self, id, session: AsyncSession | None = None):
+        """
+        删除文件记录
+        :param id: 要删除的文件ID
+        :param session: 可选数据库会话
+        """
+        stmt = update(FileEntry).where(FileEntry.id == id).values(is_active=False)
+        await session.exec(stmt)
 
     @DaoRel
     async def update(
@@ -57,7 +65,11 @@ class FileEntryDao:
         update_data = file.model_dump(exclude_unset=True)
 
         # 执行直接更新
-        stmt = update(FileEntry).where(FileEntry.id == file_content_id).values(**update_data)
+        stmt = (
+            update(FileEntry)
+            .where(FileEntry.id == file_content_id)
+            .values(**update_data)
+        )
 
         result = await session.exec(stmt)
 
@@ -144,7 +156,10 @@ class FileEntryDao:
 
     @DaoRel
     async def get_by_content_hash_and_filesize(
-        self, content_hash: str, file_size_bytes: int, session: AsyncSession | None = None
+        self,
+        content_hash: str,
+        file_size_bytes: int,
+        session: AsyncSession | None = None,
     ) -> FileEntry | None:
         """
         根据内容哈希值和文件大小查询文件(用于文件去重)
@@ -158,3 +173,52 @@ class FileEntryDao:
         )
         result = await session.exec(statement)
         return result.first()
+
+    @DaoRel
+    async def get_subtree_ids(self, folder_id: str, session: AsyncSession) -> list[str]:
+        """
+        获取目录及其所有子项的 ID 列表（深度优先）
+        假设表结构有 parent_id 字段
+        """
+        # 使用递归 CTE（Common Table Expression）—— PostgreSQL / SQLite 3.8.3+ / MySQL 8.0+
+        # 兼容性说明：SQLite 需启用 recursive_triggers，MySQL 需 8.0+
+
+        """获取目录子树所有 ID（类型安全 + 高性能）"""
+        stmt = text("""
+            WITH RECURSIVE subtree AS (
+                SELECT id FROM file_entry 
+                WHERE id = :folder_id AND is_active = TRUE
+                UNION ALL
+                SELECT fe.id FROM file_entry fe
+                INNER JOIN subtree s ON fe.parent_id = s.id
+                WHERE fe.is_active = TRUE
+            )
+            SELECT id FROM subtree;
+        """)
+
+        # 使用 session.exec + select(模型字段) 保证返回类型为 list[str]
+        result = await session.exec(
+            select(FileEntry.id).from_statement(stmt), params={"folder_id": folder_id}
+        )
+        return result.all()
+
+    @DaoRel
+    async def batch_soft_delete(self, ids: list[str], session: AsyncSession) -> None:
+        """批量逻辑删除"""
+        if not ids:
+            return
+        stmt = update(FileEntry).where(FileEntry.id.in_(ids)).values(is_deleted=True)
+        await session.exec(stmt)
+
+    @DaoRel
+    async def get_content_hashes_by_ids(
+        self, ids: list[str], session: AsyncSession
+    ) -> list[str]:
+        """根据文件 ID 列表获取 content_hash 列表（仅非目录项）"""
+        stmt = select(FileEntry.content_hash).where(
+            FileEntry.id.in_(ids),
+            FileEntry.is_directory == False,
+            FileEntry.content_hash.isnot(None),
+        )
+        result = await session.execute(stmt)
+        return [row[0] for row in result.fetchall()]

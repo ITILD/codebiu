@@ -197,34 +197,6 @@ async def update_file(
 #             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
 #         )
 
-# 获取文件统计信息
-
-######################################兼容s3/minio/oss/rustfs对象存储######################################
-
-
-@router.delete(
-    "/{file_content_id}",
-    summary="删除文件,(兼容本地和s3/minio/oss/rustfs对象存储)",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
-async def delete_file(
-    file_content_id: str,
-    service: FileService = Depends(get_file_service),
-):
-    """
-    删除文件(同时删除物理文件和数据库记录)
-    :param file_content_id: 文件ID
-    :param service: 文件服务依赖注入
-    """
-    try:
-        await service.delete(file_content_id)
-    except Exception as e:
-        if "未找到" in str(e):
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
-
 
 ######################################兼容s3/minio/oss/rustfs对象存储 上传文件######################################
 @router.post(
@@ -261,6 +233,7 @@ async def generate_presigned_url_upload(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
+
 
 @router.put(
     "/presigned_url_upload/{file_path:path}",
@@ -317,11 +290,64 @@ async def presigned_url_upload_success(
     """
     try:
         await service.presigned_url_upload_success(file)
-        return {"success": True, "code": "FILE_UPLOAD_SUCCESS", "message": "file upload success"}
+        return {
+            "success": True,
+            "code": "FILE_UPLOAD_SUCCESS",
+            "message": "file upload success",
+        }
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
+
+
+######################################兼容s3/minio/oss/rustfs对象存储 删除逻辑######################################
+@router.delete(
+    "/file/{file_id}",
+    summary="删除文件,(兼容本地和s3/minio/oss/rustfs对象存储)",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_file(
+    file_id: str,
+    service: FileService = Depends(get_file_service),
+):
+    """
+    删除目录或文件(同时删除数据库记录)
+    :param file_id: 文件ID
+    :param service: 文件服务依赖注入
+    """
+    try:
+        await service.delete_file(file_id)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+
+@router.delete(
+    "/folder/{file_content_id}",
+    summary="删除目录,(兼容本地和s3/minio/oss/rustfs对象存储)",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_folder(
+    file_content_id: str,
+    service: FileService = Depends(get_file_service),
+):
+    """
+    删除目录(同时删除数据库记录)
+    :param file_content_id: 文件ID
+    :param service: 文件服务依赖注入
+    """
+    try:
+        await service.delete_folder(file_content_id)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+
+######################################兼容s3/minio/oss/rustfs对象存储 改文件######################################
+
 
 ######################################兼容s3/minio/oss/rustfs对象存储 下载文件######################################
 @router.get(
@@ -384,8 +410,11 @@ async def download_with_presigned_url(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
-        
-######################################兼容s3/minio/oss/rustfs对象存储 同步文件######################################        
+
+
+######################################兼容s3/minio/oss/rustfs对象存储 查文件######################################
+
+######################################兼容s3/minio/oss/rustfs对象存储 同步文件######################################
 # TODO 数据同步接口
 
 # 将路由注册到模块应用
