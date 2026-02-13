@@ -114,7 +114,7 @@ class FileContentDao:
                 content_status=TaskStatus.SUCCESS,
             )
         )
-        result = await session.execute(stmt)
+        result = await session.exec(stmt)
 
         if result.rowcount == 0:
             raise ValueError(f"未找到可引用的已完成文件: {content_hash}")

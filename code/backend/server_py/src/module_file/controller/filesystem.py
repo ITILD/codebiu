@@ -226,10 +226,7 @@ async def delete_file(
         )
 
 
-######################################兼容s3/minio/oss/rustfs对象存储######################################
-
-
-# 带预签名URL的文件接口
+######################################兼容s3/minio/oss/rustfs对象存储 上传文件######################################
 @router.post(
     "/generate_presigned_url_upload",
     summary="上传文件,生成预签名URL(兼容s3/minio/oss/rustfs对象存储)",
@@ -265,10 +262,6 @@ async def generate_presigned_url_upload(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
-
-# TODO generate_presigned_url_upload_md5
-
-
 @router.put(
     "/presigned_url_upload/{file_path:path}",
     summary="上传文件,使用预签名URL(兼容s3/minio/oss/rustfs对象存储)",
@@ -297,10 +290,10 @@ async def presigned_url_upload(
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="使用预签名URL上传失败",
+                detail="file upload by presigned url failed",
             )
         response.headers["ETag"] = "test_md5"  # 用来校验文件是否上传成功 且防止下次重复
-        return {"success": True, "message": "文件上传成功"}
+        return {"success": True, "message": "file upload success"}
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -317,20 +310,20 @@ async def presigned_url_upload_success(
     service: FileService = Depends(get_file_service),
 ):
     """
-    通知后端对象/本地存储完成,新增元数据
+    通知后端对象/本地存储完成,新增元数据   防止hash攻击,需要校验文件,符合s3对象存储的hash校验规则
     :param file_content_id: 文件ID
     :param service: 文件服务依赖注入
     :return: 通知结果
     """
     try:
         await service.presigned_url_upload_success(file)
-        return {"success": True, "message": "通知成功"}
+        return {"success": True, "code": "FILE_UPLOAD_SUCCESS", "message": "file upload success"}
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
-
+######################################兼容s3/minio/oss/rustfs对象存储 下载文件######################################
 @router.get(
     "/generate_presigned_url_download",
     summary="生成预签名URL用于下载文件(兼容s3/minio/oss/rustfs对象存储)",
@@ -391,7 +384,9 @@ async def download_with_presigned_url(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
-
+        
+######################################兼容s3/minio/oss/rustfs对象存储 同步文件######################################        
+# TODO 数据同步接口
 
 # 将路由注册到模块应用
 module_app.include_router(router, prefix="/filesystem", tags=["文件管理"])
