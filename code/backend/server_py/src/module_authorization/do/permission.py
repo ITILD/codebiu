@@ -17,7 +17,7 @@ class PermissionBase(SQLModel):
 
 class Permission(PermissionBase, table=True):
     """权限数据库模型(对应数据库表)"""
-    
+    __tablename__ = "permission"
     id: str = Field(
         default_factory=lambda: uuid4().hex,
         primary_key=True,  # 主键

@@ -63,7 +63,8 @@ class ModelConfig(ModelConfigBase, table=True):
     """
     模型配置数据库模型
     """
-
+    __tablename__ = "model_config"
+    
     user_id: str = Field(..., description="用户ID")
     id: str = Field(
         default_factory=lambda: uuid4().hex,

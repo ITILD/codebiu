@@ -48,6 +48,7 @@ class FileContent(FileContentBase, table=True):
     """
     文件内容元数据数据库模型
     """
+    __tablename__ = "file_content"
 
 
 class FileContentCreate(FileContentBase):
@@ -110,7 +111,7 @@ class FileEntry(FileEntryBase, table=True):
     """
     文件系统条目数据库模型
     """
-
+    __tablename__ = "file_entry"
     # === 主键 ===
     id: str = Field(
         default_factory=lambda: uuid4().hex,
