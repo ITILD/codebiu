@@ -86,7 +86,7 @@ class GeneratePresignedUploadResponseBase(BaseModel):
     生成预签名上传的响应模型
     """
 
-    presigned_url: str = Field(..., description="预签名URL")
+    presigned_url: str | None = Field(None, description="预签名URL")
     physical_storage: str = Field(
         ...,
         description="文件上传路径,物理存储相对位置(仅文件，如 相对bucket位置/key 或 相对位置 data/file.bin)",
