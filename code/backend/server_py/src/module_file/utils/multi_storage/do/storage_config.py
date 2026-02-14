@@ -81,16 +81,15 @@ class GeneratePresignedUrlRequestBase(BaseModel):
     )
 
 
-class GeneratePresignedUploadResponseBase(BaseModel):
+class GeneratePresignedResponseBase(BaseModel):
+    presigned_url: str | None = Field(None, description="预签名URL")
+
+
+class GeneratePresignedUploadResponseBase(GeneratePresignedResponseBase):
     """
     生成预签名上传的响应模型
     """
 
-    presigned_url: str | None = Field(None, description="预签名URL")
-    physical_storage: str = Field(
-        ...,
-        description="文件上传路径,物理存储相对位置(仅文件，如 相对bucket位置/key 或 相对位置 data/file.bin)",
-    )
     # 已存在
     is_existing_file: bool = Field(False, description="是否已存在文件")
 
