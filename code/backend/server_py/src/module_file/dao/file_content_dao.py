@@ -104,17 +104,26 @@ class FileContentDao:
         self, content_hash: str, change: int = 1, session: AsyncSession | None = None
     ) -> None:
         """
-        原子地增加文件引用计数（仅对已完成文件）
+        原子地变更文件引用计数（仅对已完成文件）
+        - 当 change > 0 时，同时将 content_status 设为 SUCCESS（确保文件可用）
+        - 当 change <= 0 时，仅修改 ref_count，不触碰 status
         """
+        if session is None:
+            raise ValueError("session must be provided")
+
+        # 构造更新字段
+        update_values = {"ref_count": FileContent.ref_count + change}
+
+        # 仅在增加引用时提升状态为 SUCCESS
+        if change > 0:
+            update_values["content_status"] = TaskStatus.SUCCESS
+
         stmt = (
             update(FileContent)
             .where(FileContent.content_hash == content_hash)
-            .values(
-                ref_count=FileContent.ref_count + change,
-                content_status=TaskStatus.SUCCESS,
-            )
+            .values(**update_values)
         )
         result = await session.exec(stmt)
 
         if result.rowcount == 0:
-            raise ValueError(f"未找到可引用的已完成文件: {content_hash}")
+            raise ValueError(f"未找到可引用的文件: {content_hash}")

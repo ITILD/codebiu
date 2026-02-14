@@ -12,6 +12,7 @@ from module_file.do.filesystem import (
     GeneratePresignedUrlRequest,
     PresignedUploadParams,
     GeneratePresignedUploadResponse,
+    GeneratePresignedDownloadResponse,
 )
 from module_file.dao.file_entry_dao import FileEntryDao
 from module_file.dao.file_content_dao import FileContentDao
@@ -29,6 +30,7 @@ import logging
 from module_file.utils.multi_storage.do.storage_config import PresignedType
 from common.config.index import conf
 from datetime import datetime
+from common.enum.task import TaskStatus
 
 # from module_file.config.filetype import mimetypes
 # 配置日志
@@ -81,27 +83,32 @@ class FileService:
         except Exception as e:
             logger.error(f"删除文件时发生错误: {e}")
             raise
+
     @DaoRel
-    async def delete_folder(self, id: str, session: AsyncSession | None = None):
+    async def delete_folder(
+        self, folder_id: str, session: AsyncSession | None = None, is_fast: bool = False
+    ):
         """
         删除目录记录
-        :param id: 目录ID
+        :param folder_id: 目录ID
         """
         try:
-            # 先获取目录信息
-            file_info = await self.file_entry_dao.get(id, session)
-            if not file_info:
-                raise ValueError(f"未找到ID为 {id} 的目录")
-            # 递归更新并批量删除子目录和子文件
-            
-            
-            
-            # 逻辑删除
-            await self.file_entry_dao.soft_delete(id, session)
-            # 更改引用计数 -1
-            await self.file_content_dao.ref_count_change(
-                file_info.content_hash, -1, session
-            )
+            # 先直接删除当前目录
+            await self.file_entry_dao.soft_delete(folder_id, session)
+            # 递归更新并批量删除子目录和子文件   is_fast模式  安全性低 asyncio.create_task  递归 CTE??
+
+            # # 先获取目录信息
+            # file_entry_ids = await self.file_entry_dao.get_subtree_ids(id, session)
+            # if not file_entry_ids:
+            #     raise ValueError(f"未找到ID为 {id} 的目录")
+            # # 递归更新并批量删除子目录和子文件
+
+            # # 逻辑删除
+            # await self.file_entry_dao.soft_delete(id, session)
+            # # 更改引用计数 -1
+            # await self.file_content_dao.ref_count_change(
+            #     file_info.content_hash, -1, session
+            # )
         except Exception as e:
             logger.error(f"删除目录时发生错误: {e}")
             raise
@@ -116,11 +123,11 @@ class FileService:
         """
         return await self.file_entry_dao.update(file_id, file_update)
 
-    async def get(self, id: str) -> FileEntry | None:
+    async def get_file_entry(self, id: str) -> FileEntry | None:
         """
-        获取文件信息
-        :param id: 文件ID
-        :return: 文件信息对象，不存在返回None
+        获取文件或目录信息
+        :param id: 文件或目录的ID
+        :return: 文件或目录信息对象，不存在返回None
         """
         return await self.file_entry_dao.get(id)
 
@@ -278,75 +285,60 @@ class FileService:
         presigned_url_request: GeneratePresignedUrlRequest,
         presigned_url_path: str,
         session: AsyncSession | None = None,
-    ) -> GeneratePresignedUploadResponse | None:
+    ) -> GeneratePresignedUploadResponse:
         """
-        生成预签名URL用于上传文件
-        :param presigned_url_request: 预签名URL请求模型 包含文件名和文件类型
-        :param presigned_url_path: 预签名URL路径 '/file/filesystem/generate_presigned_url_upload'
-        :return: 预签名URL
+        生成用于上传文件的预签名 URL。
+
+        若文件内容已存在且状态为 SUCCESS，则不生成新 URL；
+        否则（新文件或上传未完成），生成预签名上传地址。
+        本地存储时，URL 会拼接为完整路径。
         """
-        try:
-            presigned_url = None
-            physical_storage = None
-            content_status = None
-            # 获取文件uuid和ext
+        if presigned_url_request.file_size_bytes > storage_config.max_size_bytes:
+            raise HTTPException(status_code=400, detail="文件大小超过限制")
+
+        # 检查文件是否已存在(通过sha256)
+        content_hash = presigned_url_request.content_hash
+        existing_file = await self.file_content_dao.get_by_content_hash(content_hash)
+
+        if existing_file:
+            physical_storage = existing_file.physical_storage
+            content_status = existing_file.content_status
+            logger.info(f"文件已存在: {content_hash}")
+        else:
+            # 新内容：生成唯一物理路径
+            date_str = datetime.now().strftime("%Y%m%d")
             ext = Path(presigned_url_request.filename).suffix
+            file_name = f"{content_hash}{ext}"
+            physical_storage = f"{presigned_url_request.domain}/{date_str}/{file_name}"
 
-            if presigned_url_request.file_size_bytes > storage_config.max_size_bytes:
-                raise HTTPException(status_code=400, detail="文件大小超过限制")
-            # 申请时查重
-            existing_file_content: (
-                FileContent | None
-            ) = await self.file_content_dao.get_by_content_hash(
-                presigned_url_request.content_hash,
-            )
-            if existing_file_content:
-                logger.info(f"文件已存在: {presigned_url_request.content_hash}")
-                physical_storage = existing_file_content.physical_storage
-                # 返回状态 正在 暂停/排队/上传中/完成
-                content_status = existing_file_content.content_status
-            else:
-                # 内容唯一
-                file_upload = f"{presigned_url_request.content_hash}{ext}"
-                # 获取年月日格式20260202
-                date = datetime.now().strftime("%Y%m%d")
-                physical_storage = (
-                    f"{presigned_url_request.domain}/{date}/{file_upload}"
-                )
-                await self.file_content_dao.add(
-                    FileContentCreate(
-                        content_hash=presigned_url_request.content_hash,
-                        physical_storage=physical_storage,
-                        file_size_bytes=presigned_url_request.file_size_bytes,
-                        storage_type=conf.file_system.storage_type,
-                    ),
-                    session,
-                )
-
-                presigned_url = await self.storage.generate_presigned_url(
-                    PresignedType.PUT,
-                    physical_storage,
-                    presigned_url_request.content_type,
-                )
-                # 判断存储类型
-                if conf.file_system.storage_type == StorageType.LOCAL:
-                    # 本地存储需要拼接完整路径 去除url的generate_
-                    presigned_url = (
-                        f"{presigned_url_path.replace('generate_', '')}{presigned_url}"
-                    )
-
-            # 构建响应模型
-            generate_presigned_upload_response = GeneratePresignedUploadResponse(
-                presigned_url=presigned_url,
+            # 考虑事务,后续预签名成功再添加
+            file_content_create = FileContentCreate(
+                content_hash=content_hash,
                 physical_storage=physical_storage,
-                is_existing_file=bool(existing_file_content),
-                content_status=content_status,
+                file_size_bytes=presigned_url_request.file_size_bytes,
+                storage_type=conf.file_system.storage_type,
             )
+            await self.file_content_dao.add(file_content_create, session)
 
-            return generate_presigned_upload_response
-        except Exception as e:
-            logger.error(f"生成预签名URL时发生错误: {e}")
-            raise
+            content_status = file_content_create.content_status
+
+        # 上传未完成要生成预签名 URL(包括新文件)
+        presigned_url = None
+        if content_status != TaskStatus.SUCCESS:
+            presigned_url = await self.storage.generate_presigned_url(
+                PresignedType.PUT,
+                physical_storage,
+                presigned_url_request.content_type,
+            )
+            if conf.file_system.storage_type == StorageType.LOCAL:
+                base_path = presigned_url_path.replace("generate_", "")
+                presigned_url = f"{base_path}{presigned_url}"
+
+        return GeneratePresignedUploadResponse(
+            presigned_url=presigned_url,
+            is_existing_file=bool(existing_file),
+            content_status=content_status,
+        )
 
     async def presigned_url_upload(
         self,
@@ -376,19 +368,56 @@ class FileService:
         session: AsyncSession | None = None,
     ):
         # 文件夹文件业务逻辑
-        await self.file_entry_dao.add(file, session)
-        # 文件内容 引用计数+1
+        file_id = await self.file_entry_dao.add(file, session)
+        # 文件内容 引用计数+1,更新状态为成功
         await self.file_content_dao.ref_count_change(file.content_hash, 1, session)
+        return file_id
 
-    async def generate_presigned_url_download(self, file_content_id: str) -> str | None:
+    async def generate_presigned_url_download(
+        self,
+        file_id: str,
+        presigned_url_path: str,
+    ) -> GeneratePresignedDownloadResponse:
+        """
+        生成预签名URL用于下载文件
+        :param file_id: 文件ID
+        :return: 预签名URL或None
+        """
+        try:
+            file_entry_with_content = (
+                await self.file_entry_dao.get_file_entry_with_content(file_id)
+            )
+
+            # 生成预签名URL，使用文件的physical_storage作为key
+            presigned_url = await self.storage.generate_presigned_url(
+                PresignedType.GET, file_entry_with_content.physical_storage
+            )
+
+            # 判断存储类型
+            if conf.file_system.storage_type == StorageType.LOCAL:
+                base_path = presigned_url_path.replace("generate_", "")
+                presigned_url = f"{base_path}{presigned_url}"
+
+            return GeneratePresignedDownloadResponse(
+                presigned_url=presigned_url,
+            )
+        except Exception as e:
+            logger.error(f"生成预签名下载URL时发生错误: {e}")
+            raise
+
+    async def presigned_url_download(
+        self,
+        file_content_id: str,
+        presigned_url_path: str,
+    ) -> GeneratePresignedDownloadResponse:
         """
         生成预签名URL用于下载文件
         :param file_content_id: 文件ID
         :return: 预签名URL或None
         """
         try:
-            # 先获取文件信息
-            file_info = await self.get(file_content_id)
+            # 先获取文件信息 TODO 直接关联表查询文件信息
+            file_info = await self.get_file_entry(file_content_id)
             if not file_info:
                 logger.warning(f"文件不存在: {file_content_id}")
                 return None
@@ -402,10 +431,8 @@ class FileService:
 
             # 判断存储类型
             if conf.file_system.storage_type == StorageType.LOCAL:
-                # 本地存储需要拼接完整路径
-                presigned_url = (
-                    f"/filesystem/presigned_url_download?presigned_url={presigned_url}"
-                )
+                base_path = presigned_url_path.replace("generate_", "")
+                presigned_url = f"{base_path}{presigned_url}"
 
             return presigned_url
         except Exception as e:

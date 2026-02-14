@@ -6,7 +6,13 @@ from common.utils.db.schema.pagination import (
     PaginationParams,
     ScrollDirection,
 )
-from module_file.do.filesystem import FileEntry, FileEntryCreate, FileEntryUpdate
+from module_file.do.filesystem import (
+    FileEntry,
+    FileEntryCreate,
+    FileEntryUpdate,
+    FileContent,
+    FileEntryWithContent,
+)
 
 
 class FileEntryDao:
@@ -175,7 +181,34 @@ class FileEntryDao:
         return result.first()
 
     @DaoRel
-    async def get_subtree_ids(self, folder_id: str, session: AsyncSession) -> list[str]:
+    async def get_file_entry_with_content(
+        self, file_id: str, session: AsyncSession | None = None
+    ) -> FileEntryWithContent | None:
+        """
+        根据文件ID查询文件记录(包含文件内容记录)
+        :param file_id: 文件ID
+        :param session: 可选数据库会话
+        :return: 文件记录和内容记录
+        """
+        query = (
+            select(FileEntry, FileContent)
+            .join(
+                FileContent,
+                FileEntry.content_hash == FileContent.content_hash,
+                isouter=True,
+            )
+            .where(FileEntry.id == file_id)
+        )
+        result = await session.exec(query)
+        row = result.first()
+        if not row or not row[0]:
+            return None
+        return FileEntryWithContent.from_models(entry=row[0], content=row[1])
+
+    @DaoRel
+    async def get_subtree_ids(
+        self, folder_id: str, session: AsyncSession | None = None
+    ) -> list[str]:
         """
         获取目录及其所有子项的 ID 列表（深度优先）
         假设表结构有 parent_id 字段
