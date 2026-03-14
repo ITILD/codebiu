@@ -1,9 +1,15 @@
 <template>
   <div p-2 w-full>
     <!-- 搜索栏 -->
-    <div flex items-center mb-20px>
-      <el-input v-model="searchQuery" placeholder="输入模型名称搜索" clearable @clear="handleSearch" @keyup.enter="handleSearch"
-        w-300px>
+    <div mb-5 flex items-center>
+      <el-input
+        style="width: 240px"
+        v-model="searchQuery"
+        placeholder="输入模型名称搜索"
+        clearable
+        @clear="handleSearch"
+        @keyup.enter="handleSearch"
+      >
         <template #append>
           <el-button :icon="Search" @click="handleSearch" />
         </template>
@@ -57,8 +63,10 @@
         <template v-for="column in tableColumns" :key="column.prop">
           <el-form-item v-if="column.edit" :prop="column.prop" :label="column.label">
             <!-- 下拉选择 -->
-            <el-select v-if="column.edit.component == 'el-select'" v-model="form[column.prop]" :placeholder="column.edit.placeholder" w-full>
-              <el-option v-for="option in column.edit.options" :key="option.value" :label="option.label" :value="option.value" />
+            <el-select v-if="column.edit.component == 'el-select'" v-model="form[column.prop]"
+              :placeholder="column.edit.placeholder" w-full>
+              <el-option v-for="option in column.edit.options" :key="option.value" :label="option.label"
+                :value="option.value" />
             </el-select>
             <!-- 文本输入框 -->
             <el-input v-else-if="column.edit.component == 'el-input'" v-model="form[column.prop]"
@@ -303,5 +311,4 @@ onMounted(() => {
 })
 </script>
 
-<style scoped>
-</style>
+<style scoped></style>
