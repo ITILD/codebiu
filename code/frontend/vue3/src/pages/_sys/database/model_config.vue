@@ -14,7 +14,7 @@
           <el-button :icon="Search" @click="handleSearch" />
         </template>
       </el-input>
-      <el-button type="primary" @click="handleCreate" ml-16px>
+      <el-button  @click="handleCreate" ml-16px>
         新增模型配置
       </el-button>
     </div>
@@ -138,6 +138,7 @@ const dialogTitle = computed(() => {
 
 // 获取数据
 const fetchData = async () => {
+  debugger
   try {
     loading.value = true
     const params = {
