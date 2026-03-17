@@ -3,7 +3,7 @@ from sqlmodel import Column, DateTime, Field, SQLModel
 from uuid import uuid4
 from datetime import datetime, timezone
 from module_file.utils.multi_storage.do.storage_config import (
-    PresignedUploadParamsBase,
+    PresignedParamsBase,
     GeneratePresignedUrlRequestBase,
     GeneratePresignedResponseBase,
     GeneratePresignedUploadResponseBase,
@@ -207,8 +207,12 @@ class GeneratePresignedDownloadResponse(GeneratePresignedResponseBase):
     pass
 
 
-class PresignedUploadParams(PresignedUploadParamsBase):
+class PresignedUploadParams(PresignedParamsBase):
     """预签名上传的参数"""
+
+    pass
+class PresignedDownloadParams(PresignedParamsBase):
+    """预签名下载的参数"""
 
     pass
 

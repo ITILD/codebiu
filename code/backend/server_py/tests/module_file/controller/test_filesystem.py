@@ -32,8 +32,8 @@ async def test_object_storage_url():
     # 准备测试内容
     filename = "test_upload.txt"
     text = f"""This is a test text file for presigned URL upload.
-    Upload time: {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}
-    """
+Upload time: {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}
+"""
     text_bytes = text.encode("utf-8")
     content_hash = hashlib.sha256(text_bytes).hexdigest()
     file_size = len(text_bytes)
@@ -178,7 +178,7 @@ async def _download_from_presigned_url(url: str) -> bytes:
 
 
 async def _delete_file(file_id: str) -> None:
-    """删除指定文件"""
+    """逻辑删除 指定文件"""
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:

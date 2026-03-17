@@ -95,7 +95,7 @@ class GeneratePresignedUploadResponseBase(GeneratePresignedResponseBase):
 
 
 # 构造的url组成
-class PresignedUploadParamsBase(BaseModel):
+class PresignedParamsBase(BaseModel):
     expires: int = Field(...)
     method: str = Field(...)
-    signature: str = Field(..., min_length=1)
+    signature: str = Field(..., min_length=1,description="防伪签名")

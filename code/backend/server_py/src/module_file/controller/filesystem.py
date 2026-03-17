@@ -7,9 +7,11 @@ from module_file.do.filesystem import (
     FileEntryUpdate,
     GeneratePresignedUrlRequest,
     PresignedUploadParams,
+    PresignedDownloadParams,
     GeneratePresignedUploadResponse,
     GeneratePresignedDownloadResponse,
     UploadSuccessResponse,
+    
 )
 from common.utils.db.schema.pagination import (
     InfiniteScrollParams,
@@ -243,7 +245,7 @@ async def presigned_url_upload(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="file upload by presigned url failed",
             )
-        response.headers["ETag"] = "test_md5"  # 用来校验文件是否上传成功 且防止下次重复
+        response.headers["ETag"] = "test_md5"  # TODO 用来校验文件是否上传成功 且防止下次重复
         return {"success": True, "message": "file upload success"}
     except Exception as e:
         raise HTTPException(
@@ -409,11 +411,13 @@ async def generate_presigned_url_download(
 
 
 @router.get(
-    "/presigned_url_download",
+    "/presigned_url_download/{file_path:path}",
     summary="使用预签名URL下载文件",
     status_code=status.HTTP_200_OK,
 )
 async def download_with_presigned_url(
+    file_path: str,
+    presigned_download_params: PresignedDownloadParams = Depends(),
     presignfile_ided_url: str = Query(..., description="预签名URL"),
     service: FileService = Depends(get_file_service),
 ):
