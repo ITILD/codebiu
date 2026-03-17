@@ -11,6 +11,7 @@ from module_file.do.filesystem import (
     FileEntryUpdate,
     GeneratePresignedUrlRequest,
     PresignedUploadParams,
+    PresignedDownloadParams,
     GeneratePresignedUploadResponse,
     GeneratePresignedDownloadResponse,
 )
@@ -406,35 +407,20 @@ class FileService:
             raise
 
     async def presigned_url_download(
-        self,
-        file_content_id: str,
-        presigned_url_path: str,
-    ) -> GeneratePresignedDownloadResponse:
+        self, file_path: str, presigned_download_params: PresignedDownloadParams
+    ) -> bytes:
         """
-        生成预签名URL用于下载文件
+        预签名URL用于下载文件
         :param file_content_id: 文件ID
         :return: 预签名URL或None
         """
         try:
-            # 先获取文件信息 TODO 直接关联表查询文件信息
-            file_info = await self.get_file_entry(file_content_id)
-            if not file_info:
-                logger.warning(f"文件不存在: {file_content_id}")
-                return None
-
-            # 生成预签名URL，使用文件的physical_storage作为key
-            presigned_url = await self.storage.generate_presigned_url(
-                PresignedType.GET,
-                file_info.physical_storage,
-                file_info.mime_type,
+            # 获取文件内容
+            content = await self.storage.download_with_presigned_url(
+                file_path,
+                presigned_download_params,
             )
-
-            # 判断存储类型
-            if conf.file_system.storage_type == StorageType.LOCAL:
-                base_path = presigned_url_path.replace("generate_", "")
-                presigned_url = f"{base_path}{presigned_url}"
-
-            return presigned_url
+            return content
         except Exception as e:
             logger.error(f"生成预签名下载URL时发生错误: {e}")
             raise

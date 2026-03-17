@@ -66,6 +66,7 @@ class LocalStorageInterface(StorageInterface):
         return file_path.stat().st_size
 
     async def list(self, prefix: str = "") -> list[str]:
+        """列出指定前缀的所有键"""
         path_prefix = self.base_dir / prefix
         result = []
         for p in path_prefix.rglob("*"):
@@ -98,7 +99,7 @@ class LocalStorageInterface(StorageInterface):
         url_path = f"/{key}?{params}"
         return url_path
 
-    async def validate_presigned_upload_params(
+    async def validate_presigned_params(
         self,
         file_path: str,
         presigned_upload_params: PresignedParamsBase,
@@ -136,13 +137,16 @@ class LocalStorageInterface(StorageInterface):
         ).hexdigest()
 
     async def upload_with_presigned_url(
-        self, file_path: str,
+        self,
+        file_path: str,
         presigned_upload_params: PresignedParamsBase,
         content: bytes,
     ) -> bool:
         """使用预签名URL上传数据"""
         try:
-            result: bool = await self.validate_presigned_upload_params(file_path,presigned_upload_params)
+            result: bool = await self.validate_presigned_params(
+                file_path, presigned_upload_params
+            )
             if result:
                 await self.save(file_path, content)
                 return True
@@ -151,25 +155,30 @@ class LocalStorageInterface(StorageInterface):
         except Exception:
             return False
 
-    async def download_with_presigned_url(self,  file_path: str,
-        presigned_params: PresignedParamsBase,) -> bytes | None:
+    async def download_with_presigned_url(
+        self,
+        file_path: str,
+        presigned_params: PresignedParamsBase,
+    ) -> bytes | None:
         """使用预签名URL下载数据"""
-        result = await self.validate_presigned_upload_params(file_path,presigned_params)
-        if result is None:
-            return None
-
-        key, method = result
-        if method.lower() != "get":
-            return None
-
         try:
-            return await self.load(key)
+            result: bool = await self.validate_presigned_params(
+                file_path, presigned_params
+            )
+            if result:
+                return await self.load(file_path)
+            else:
+                raise ValueError("Invalid presigned upload params")
         except Exception:
             return None
 
-    async def delete_with_presigned_url(self, presigned_url: str) -> bool:
+    async def delete_with_presigned_url(
+        self, file_path: str, presigned_params: PresignedParamsBase
+    ) -> bool:
         """使用预签名URL删除数据"""
-        result = await self.validate_presigned_upload_params(presigned_url)
+        result = await self.validate_presigned_params(
+            file_path, presigned_params
+        )
         if result is None:
             return False
 

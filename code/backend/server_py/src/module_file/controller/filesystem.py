@@ -11,7 +11,6 @@ from module_file.do.filesystem import (
     GeneratePresignedUploadResponse,
     GeneratePresignedDownloadResponse,
     UploadSuccessResponse,
-    
 )
 from common.utils.db.schema.pagination import (
     InfiniteScrollParams,
@@ -245,7 +244,9 @@ async def presigned_url_upload(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="file upload by presigned url failed",
             )
-        response.headers["ETag"] = "test_md5"  # TODO 用来校验文件是否上传成功 且防止下次重复
+        response.headers["ETag"] = (
+            "test_md5"  # TODO 用来校验文件是否上传成功 且防止下次重复
+        )
         return {"success": True, "message": "file upload success"}
     except Exception as e:
         raise HTTPException(
@@ -393,7 +394,7 @@ async def generate_presigned_url_download(
     :return: 预签名URL
     """
     try:
-        # 获取当前url 解析位置和参数 
+        # 获取当前url 解析位置和参数
         presigned_url_path = request.url.path.removesuffix(f"/{file_id}")
         generate_presigned_download_response = (
             await service.generate_presigned_url_download(file_id, presigned_url_path)
@@ -418,26 +419,27 @@ async def generate_presigned_url_download(
 async def download_with_presigned_url(
     file_path: str,
     presigned_download_params: PresignedDownloadParams = Depends(),
-    presignfile_ided_url: str = Query(..., description="预签名URL"),
     service: FileService = Depends(get_file_service),
-):
+) -> Response:
     """
     使用预签名URL下载文件
-    :param presigned_url: 预签名URL
+    :param file_path: 文件路径
+    :param presigned_download_params: 预签名下载参数
     :param service: 文件服务依赖注入
     :return: 文件内容
     """
     try:
-        content = await service.presigned_url_download(presignfile_ided_url)
+        content = await service.presigned_url_download(
+            file_path, presigned_download_params
+        )
         if content is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="使用预签名URL下载失败或文件不存在",
             )
-        return StreamingResponse(
-            iter([content]),
-            media_type="application/octet-stream",
-            headers={"Content-Disposition": "attachment; filename=temp_file"},
+        return Response(
+            content=content,
+            media_type="application/octet-stream",  # 关键：强制二进制流，禁用自动序列化
         )
     except Exception as e:
         raise HTTPException(
