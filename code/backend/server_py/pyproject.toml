@@ -66,6 +66,7 @@ dependencies = [
     "aioboto3>=15.5.0",
     "langchain-text-splitters>=1.1.0",
     "transformers>=5.0.0",
+    "sse-starlette>=3.3.2",
 ]
 
 [[tool.uv.index]]
