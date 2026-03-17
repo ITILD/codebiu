@@ -12,7 +12,7 @@ from module_file.utils.multi_storage.session.interface.strorage_interface import
 from module_file.utils.multi_storage.do.storage_config import (
     LocalStorage,
     PresignedType,
-    PresignedUploadParamsBase,
+    PresignedParamsBase,
 )
 from urllib.parse import urlencode
 
@@ -101,7 +101,7 @@ class LocalStorageInterface(StorageInterface):
     async def validate_presigned_upload_params(
         self,
         file_path: str,
-        presigned_upload_params: PresignedUploadParamsBase,
+        presigned_upload_params: PresignedParamsBase,
     ) -> tuple[str, str] | None:
         """验证预签名参数"""
         # 检查URL是否过期
@@ -137,7 +137,7 @@ class LocalStorageInterface(StorageInterface):
 
     async def upload_with_presigned_url(
         self, file_path: str,
-        presigned_upload_params: PresignedUploadParamsBase,
+        presigned_upload_params: PresignedParamsBase,
         content: bytes,
     ) -> bool:
         """使用预签名URL上传数据"""
@@ -151,9 +151,10 @@ class LocalStorageInterface(StorageInterface):
         except Exception:
             return False
 
-    async def download_with_presigned_url(self, presigned_url: str) -> bytes | None:
+    async def download_with_presigned_url(self,  file_path: str,
+        presigned_params: PresignedParamsBase,) -> bytes | None:
         """使用预签名URL下载数据"""
-        result = await self.validate_presigned_upload_params(presigned_url)
+        result = await self.validate_presigned_upload_params(file_path,presigned_params)
         if result is None:
             return None
 
