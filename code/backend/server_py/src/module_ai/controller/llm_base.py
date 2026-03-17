@@ -9,6 +9,7 @@ from module_ai.do.llm_base import (
 )
 from module_ai.config.server import module_app
 from module_ai.do.model_config import ModelConfigCreateRequest
+from sse_starlette import EventSourceResponse, JSONServerSentEvent
 import logging
 
 logger = logging.getLogger(__name__)
@@ -28,7 +29,12 @@ async def streaming_generator(responses):
         logger.error(f"流式响应失败: {e}")
         yield "[ERROR]"
     yield "[DONE]"
-
+    
+async def event_generator(responses):
+    """SSE流式响应生成器"""
+    async for chunk in responses:
+        if chunk.content:
+            yield JSONServerSentEvent(data=chunk.content)
 
 @router.post("/check_config", summary="配置校验")
 async def check_config(
@@ -70,7 +76,7 @@ async def check_config_by_model_id(
         raise HTTPException(status_code=500, detail=f"配置校验失败: {str(e)}")
 
 
-@router.post("/chat", summary="聊天接口")
+@router.post("/chat", summary="聊天接口 支持流式SSE")
 async def chat_completion(
     request: ChatRequest, llm_service: LLMBaseService = Depends(get_llm_base_service)
 ):
@@ -79,16 +85,14 @@ async def chat_completion(
 
     - **model_id**: 模型配置ID或模型标识名称
     - **messages**: 消息内容，可以是字符串或消息列表
-    - **streaming**: 是否启用流式响应
+    - **streaming**: 是否启用流式响应 返回SSE事件流
     """
     try:
         # 调用LLM服务
         responses = await llm_service.chat_completion(request)
         if request.streaming:
-            # 流式响应
-            return StreamingResponse(
-                content=streaming_generator(responses), media_type="text/event-stream"
-            )
+            # 流式响应SSE事件流
+            return EventSourceResponse(event_generator(responses), media_type="text/event-stream")
         else:
             # 非流式响应
             return responses
