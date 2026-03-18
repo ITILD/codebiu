@@ -24,18 +24,18 @@ class ModelType(str, Enum):
 
 
 # 角色
-class Role(str, Enum):
+class RoleType(str, Enum):
     """
     消息角色枚举 system user assistant
     """
 
     SYSTEM = "system"
-    USER = "user"
-    ASSISTANT = "assistant"
+    USER = "user"  # "human"
+    ASSISTANT = "assistant"  # 对应"ai"
 
 
 # langchain消息类型
-class LCRole(str, Enum):
+class LCRoleType(str, Enum):
     """
     langchain消息类型枚举 system human ai
     """
@@ -43,3 +43,14 @@ class LCRole(str, Enum):
     SYSTEM = "system"
     USHUMAN = "human"
     AI = "ai"
+
+
+class StreamStatus(str, Enum):
+    """
+    流式响应状态枚举 start stream end
+    """
+
+    START = "start"
+    STREAM = "stream"
+    END = "end"
+    ERROR = "error"

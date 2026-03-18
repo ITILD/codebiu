@@ -16,7 +16,7 @@ from module_ai.do.llm_base import (
     ModelConfigCheckResponse,
 )
 from pydantic import SecretStr
-from module_ai.utils.llm.do.model_type import ModelType, ModelServerType
+from module_ai.utils.llm.do.llm_type import ModelType, ModelServerType
 from module_ai.dao.llm_base_prompt import LLMBasePrompt
 import logging
 
@@ -137,6 +137,8 @@ class LLMBaseService:
             # 调用模型
             if request.streaming:
                 return llm_chain.astream(request.messages)
+                # 更详细的事件流 默认v2版本
+                # return llm_chain.astream_events(request.messages)
             result = await llm_chain.ainvoke(request.messages)
             return result.content
         except Exception as e:
