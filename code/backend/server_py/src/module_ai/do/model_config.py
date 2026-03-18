@@ -1,7 +1,7 @@
 from sqlmodel import Column, DateTime, Field, SQLModel, JSON
 from uuid import uuid4
 from datetime import datetime, timezone
-from module_ai.utils.llm.do.model_type import ModelType, ModelServerType
+from module_ai.utils.llm.do.llm_type import ModelType, ModelServerType
 from pydantic import model_validator
 
 class ModelConfigBase(SQLModel):
