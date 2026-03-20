@@ -13,7 +13,8 @@ from module_ai.controller import static as ai_static,model_config,llm_base
 # # ,ocr 
 # from module_dev_tools.controller import template_string
 # from module_little_utils.controller import todolist
-# 
+# # 语言模块
+# from module_nlp.controller import synonym
 import logging
 logger = logging.getLogger(__name__)
 
