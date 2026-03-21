@@ -204,15 +204,15 @@ const handleSend = async () => {
   // 滚动到底部
   scrollToBottom()
 
-  // 创建助手消息占位符
-  const assistantMessage: ChatMessage = {
-    id: (Date.now() + 1).toString(),
-    chatId: '',
-    role: 'assistant',
-    content: '',
-    timestamp: new Date(),
-    isStreaming: true
-  }
+  // 创建助手消息占位符 用 reactive 包装,实时流式显示
+const assistantMessage = reactive<ChatMessage>({
+  id: (Date.now() + 1).toString(),
+  chatId: '',
+  role: 'assistant',
+  content: '',
+  timestamp: new Date(),
+  isStreaming: true
+})
   messages.value.push(assistantMessage)
 
   // 设置发送状态
@@ -234,8 +234,8 @@ const handleSend = async () => {
         // 立即更新内容
         assistantMessage.content += content
 
-        // 强制触发响应式更新
-        triggerRef(messages)
+        // // 强制触发响应式更新
+        // triggerRef(messages)
 
         // 立即滚动到底部，不使用节流
         nextTick(() => {
