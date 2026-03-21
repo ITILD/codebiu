@@ -2,13 +2,14 @@
  * AI聊天相关的API接口
  */
 import { http_base_server } from '@/utils/http'
-import type { 
-  ChatRequest, 
-  ChatResponse, 
-  ChatHistory, 
+import { fetchEventSource } from '@microsoft/fetch-event-source'
+import type {
+  ChatRequest,
+  ChatResponse,
+  ChatHistory,
   ChatMessage,
   CreateChatRequest,
-  UpdateChatRequest 
+  UpdateChatRequest
 } from '@/types/chat'
 
 /**
@@ -21,16 +22,54 @@ export const sendChatMessage = async (request: ChatRequest) => {
 }
 
 /**
- * 流式发送聊天消息
+ * 流式发送聊天消息 (SSE) - 优化版
  * @param request 聊天请求
- * @returns 流式响应
+ * @param onChunk 接收数据块的回调函数
+ * @param onError 错误回调函数
+ * @param onComplete 完成回调函数
  */
-export const sendChatMessageStream = async (request: ChatRequest) => {
-  return http_base_server.post<ReadableStream>('/ai/llm_base/chat', request, {
+export const sendChatMessageStream = async (
+  request: ChatRequest,
+  onChunk: (content: string) => void,
+  onError?: (error: string) => void,
+  onComplete?: () => void
+) => {
+  await fetchEventSource(`/base_server/ai/llm_base/chat`, {
+    method: 'POST',
     headers: {
-      'Accept': 'text/event-stream'
+      'Content-Type': 'application/json'
     },
-    responseType: 'stream'
+    body: JSON.stringify(request),
+    onmessage: (event) => {
+      try {
+        debugger
+        const parsed = JSON.parse(event.data)
+
+        if (parsed.status === 'error') {
+          onError?.(parsed.content || '未知错误')
+          return
+        }
+
+        // 有实际内容时才触发回调
+        if (parsed.content && parsed.content.trim()) {
+          onChunk(parsed.content)
+        }
+
+        if (parsed.status === 'end') {
+          onComplete?.()
+        }
+      } catch (e) {
+        console.warn('解析SSE数据失败:', e)
+      }
+    },
+    onerror: (error) => {
+      console.error('流式请求失败:', error)
+      onError?.(error.message || '请求失败')
+      throw error
+    },
+    onclose: () => {
+      onComplete?.()
+    }
   })
 }
 
@@ -88,11 +127,11 @@ export const getChatMessages = async (sessionId: string) => {
 
 /**
  * 清除模型缓存（测试用）
- * @param modelId 模型ID
+ * @param model_id 模型ID
  */
-export const clearModelCache = async (modelId?: string) => {
-  const url = modelId 
-    ? `/ai/llm_base/_test_cache_clear/${modelId}`
+export const clearModelCache = async (model_id?: string) => {
+  const url = model_id
+    ? `/ai/llm_base/_test_cache_clear/${model_id}`
     : '/ai/llm_base/_test_cache_clear'
   return http_base_server.delete<void>(url)
 }
@@ -176,9 +215,9 @@ export const LocalStorageHelper = {
   /**
    * 保存选中的模型
    */
-  saveSelectedModel: (modelId: string) => {
+  saveSelectedModel: (model_id: string) => {
     try {
-      localStorage.setItem('ai_selected_model', modelId)
+      localStorage.setItem('ai_selected_model', model_id)
     } catch (error) {
       console.error('保存选中模型失败:', error)
     }

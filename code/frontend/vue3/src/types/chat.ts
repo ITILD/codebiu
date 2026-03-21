@@ -27,8 +27,11 @@ export interface ModelConfig {
 
 // API请求/响应类型
 export interface ChatRequest {
-  modelId: string
-  messages: ChatMessage[]
+  model_id: string
+  messages: string | Array<{
+    role: 'user' | 'assistant' | 'system'
+    content: string
+  }>
   streaming?: boolean
 }
 
