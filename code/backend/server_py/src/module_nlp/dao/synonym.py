@@ -16,6 +16,7 @@ from module_nlp.do.synonym import (
     SynonymCreate,
     SynonymBatchCreate,
     SynonymBatchDelete,
+    SynonymBatchUpdate,
 )
 
 
@@ -116,7 +117,7 @@ class SynonymGroupDao:
         :param session: 可选数据库会话
         :return: 实际删除的记录数
         """
-        // 先获取所有符合条件的同义词组ID
+        # 先获取所有符合条件的同义词组ID
         stmt = select(SynonymGroup.id).where(
             SynonymGroup.id.in_(batch_delete.ids),
             SynonymGroup.pid == pid
@@ -125,11 +126,11 @@ class SynonymGroupDao:
         group_ids = [row[0] for row in result.all()]
 
         if group_ids:
-            // 删除所有相关同义词
+            # 删除所有相关同义词
             stmt = delete(Synonym).where(Synonym.group_id.in_(group_ids))
             await session.exec(stmt)
 
-            // 删除同义词组
+            # 删除同义词组
             stmt = delete(SynonymGroup).where(SynonymGroup.id.in_(group_ids))
             result = await session.exec(stmt)
             await session.flush()
@@ -274,7 +275,20 @@ class SynonymGroupDao:
         statement = select(func.count()).select_from(SynonymGroup)
         result = await session.exec(statement)
         return result.one()
-
+    
+    @DaoRel
+    async def count_by_pid(
+        self, pid: str, session: AsyncSession | None = None
+    ) -> int:
+        """
+        统计指定项目ID下的同义词组总数
+        :param pid: 项目ID
+        :param session: 可选数据库会话
+        :return: 指定项目ID下的同义词组总数
+        """
+        statement = select(func.count()).select_from(SynonymGroup).where(SynonymGroup.pid == pid)
+        result = await session.exec(statement)
+        return result.one()
 
 class SynonymDao:
     @DaoRel
@@ -500,3 +514,57 @@ class SynonymDao:
         statement = select(func.count()).select_from(Synonym)
         result = await session.exec(statement)
         return result.one()
+    
+    
+    @DaoRel
+    async def batch_update_incremental(
+        self,
+        group_id: str,
+        batch_update: SynonymBatchUpdate,
+        session: AsyncSession | None = None,
+    ) -> int:
+        """
+        增量更新同义词，仅处理变更部分
+        :param group_id: 同义词组 ID
+        :param batch_update: 批量更新请求模型
+        :param session: 数据库会话
+        :return: 变更的同义词数量
+        """
+        # 获取现有同义词集合
+        stmt = select(Synonym.word).where(
+            Synonym.group_id == group_id,
+            Synonym.pid == batch_update.pid,
+        )
+        result = await session.exec(stmt)
+        existing_words = set(result.all())
+
+        # 计算新增与删除的差集
+        target_words = set(batch_update.words)
+        words_to_add = target_words - existing_words
+        words_to_delete = existing_words - target_words
+
+        # 执行删除操作
+        if words_to_delete:
+            del_stmt = delete(Synonym).where(
+                Synonym.group_id == group_id,
+                Synonym.pid == batch_update.pid,
+                Synonym.word.in_(words_to_delete),
+            )
+            await session.exec(del_stmt)
+
+        # 执行新增操作
+        if words_to_add:
+            new_synonyms = [
+                Synonym(
+                    pid=batch_update.pid,
+                    group_id=group_id,
+                    word=word,
+                    language=batch_update.language,
+                )
+                for word in words_to_add
+            ]
+            session.add_all(new_synonyms)
+
+        # 刷新会话以确保状态同步，事务提交由外部控制
+        await session.flush()
+        return len(words_to_add) + len(words_to_delete)

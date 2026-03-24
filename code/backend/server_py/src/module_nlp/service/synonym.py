@@ -1,18 +1,19 @@
 from common.utils.db.schema.pagination import (
-    InfiniteScrollParams, 
-    InfiniteScrollResponse, 
-    PaginationParams, 
-    PaginationResponse
+    InfiniteScrollParams,
+    InfiniteScrollResponse,
+    PaginationParams,
+    PaginationResponse,
 )
 from module_nlp.do.synonym import (
-    SynonymGroup, 
-    SynonymGroupCreate, 
-    SynonymGroupUpdate, 
+    SynonymGroup,
+    SynonymGroupCreate,
+    SynonymGroupUpdate,
     SynonymGroupBatchDelete,
     Synonym,
     SynonymCreate,
     SynonymBatchCreate,
-    SynonymBatchDelete
+    SynonymBatchDelete,
+    SynonymBatchUpdate,
 )
 from module_nlp.dao.synonym import SynonymGroupDao, SynonymDao
 
@@ -77,9 +78,7 @@ class SynonymGroupService:
         total = await self.synonym_group_dao.count()
         return PaginationResponse.create(items, total, pagination)
 
-    async def list_all_by_pid(
-        self, pagination: PaginationParams, pid: str
-    ) -> PaginationResponse:
+    async def list_all_by_pid(self, pagination: PaginationParams, pid: str) -> PaginationResponse:
         """
         分页查询指定项目的同义词组列表
         :param pagination: 分页参数
@@ -138,9 +137,7 @@ class SynonymService:
         """批量删除同义词"""
         return await self.synonym_dao.batch_delete(batch_delete)
 
-    async def batch_delete_by_ids_and_pid(
-        self, batch_delete: SynonymBatchDelete, pid: str
-    ) -> int:
+    async def batch_delete_by_ids_and_pid(self, batch_delete: SynonymBatchDelete, pid: str) -> int:
         """
         根据ID列表和项目ID批量删除同义词
         :param batch_delete: 批量删除同义词请求模型
@@ -153,19 +150,12 @@ class SynonymService:
         """获取单个同义词"""
         return await self.synonym_dao.get(id)
 
-    async def list_by_group(
-        self, 
-        group_id: str, 
-        pagination: PaginationParams
-    ) -> list[Synonym]:
+    async def list_by_group(self, group_id: str, pagination: PaginationParams) -> list[Synonym]:
         """根据同义词组ID查询同义词列表"""
         return await self.synonym_dao.list_by_group(group_id, pagination)
 
     async def search_by_word(
-        self, 
-        word: str, 
-        pid: str,
-        language: str | None = None
+        self, word: str, pid: str, language: str | None = None
     ) -> list[Synonym]:
         """
         根据词语搜索同义词组的所有同义词
@@ -177,10 +167,7 @@ class SynonymService:
         return await self.synonym_dao.search_by_word(word, pid, language)
 
     async def batch_search_by_words(
-        self, 
-        words: list[str], 
-        pid: str,
-        language: str | None = None
+        self, words: list[str], pid: str, language: str | None = None
     ) -> list[Synonym]:
         """
         批量根据词语搜索同义词组的所有同义词
@@ -191,13 +178,19 @@ class SynonymService:
         """
         return await self.synonym_dao.batch_search_by_words(words, pid, language)
 
-    async def get_synonyms_by_group(
-        self, 
-        group_id: str
-    ) -> list[str]:
+    async def get_synonyms_by_group(self, group_id: str) -> list[str]:
         """获取同义词组的所有同义词(仅返回词语列表)"""
         return await self.synonym_dao.get_synonyms_by_group(group_id)
 
     async def count(self) -> int:
         """统计同义词总数"""
         return await self.synonym_dao.count()
+
+    async def batch_update(self, group_id: str, batch_update: SynonymBatchUpdate) -> int:
+        """
+        批量更新指定同义词组下的同义词
+        :param group_id: 同义词组ID
+        :param batch_update: 批量更新同义词请求模型
+        :return: 实际更新的同义词数量
+        """
+        return await self.synonym_dao.batch_update_incremental(group_id, batch_update)
