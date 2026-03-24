@@ -114,7 +114,7 @@ db_cache:
 #   database: temp_source\db\lancedb.db
 db_graph:
   type: graph_local
-  database: temp_source\db\graph_local.db
+  database: temp_source\db\graph_local.lbug
 # db_graph:
 #   type: neo4j
 #   host: 127.0.0.1

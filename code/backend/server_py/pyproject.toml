@@ -5,9 +5,8 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 license = "MIT"
-license-file = "LICENSE"
-author = [
-    {name = "itild", email = "geolifestudy@gmail.com"}
+authors = [
+    { name = "Your Name", email = "your.email@example.com" }
 ]
 
 dependencies = [
@@ -53,16 +52,16 @@ dependencies = [
     "fastexcel>=0.17.2",
     "xlsxwriter>=3.2.9",
     # langchain
-    "deepagents>=0.2.8",
+    "deepagents>=0.4.12",
     "langchain-openai>=1.1.0",
     "langchain-aws>=1.1.0",
     # databses
-    "kuzu>=0.11.3",
+    # "kuzu>=0.11.3",
     "neo4j>=6.0.3",
     "aiosqlite>=0.21.0",
     "asyncpg>=0.30.0",
     "universal-pathlib>=0.3.8",
-    "lancedb==0.27.0",
+    "lancedb==0.30.0",
     "pymilvus>=2.6.5",
     "pyarrow>=22.0.0",
     "networkx>=3.6.1",
@@ -77,6 +76,7 @@ dependencies = [
     "spacy>=3.8.11",
     # spacy模型
     # "zh_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/zh_core_web_sm-3.8.0/zh_core_web_sm-3.8.0-py3-none-any.whl",
+    "real-ladybug>=0.15.2",
 ]
 
 [[tool.uv.index]]# uv的索引
