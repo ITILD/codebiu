@@ -1,4 +1,5 @@
-from kuzu import AsyncConnection, Database
+# from kuzu import AsyncConnection, Database
+from real_ladybug  import AsyncConnection, Database
 from common.utils.db.do.db_config import GraphLocalConfig
 from common.utils.db.session.interface.db_graph_interface import DBGraphInterface
 import logging
@@ -9,7 +10,8 @@ from pydantic.fields import FieldInfo
 logger = logging.getLogger(__name__)
 
 
-# https://kuzudb.github.io/docs/client-apis/python/
+# https://kuzudb.github.io/docs/client-apis/python/被苹果收购后不再维护
+# https://github.com/LadybugDB/ladybug
 class DBGraphLocal(DBGraphInterface):
     """
     graph_local图数据库实现
