@@ -1,7 +1,7 @@
 from sqlmodel import Column, DateTime, Field, SQLModel
 from uuid import uuid4
 from datetime import datetime, timezone
-
+from pydantic import BaseModel
 
 class SynonymGroupBase(SQLModel):
     """
@@ -54,16 +54,6 @@ class SynonymGroupUpdate(SynonymGroupBase):
     """
     更新同义词组的请求模型
     """
-    updated_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
-        sa_column=Column(
-            DateTime(timezone=True),
-            onupdate=lambda: datetime.now(timezone.utc),
-            nullable=False,
-        ),
-        description="最后更新时间",
-    )
-
 
 class SynonymGroupBatchDelete(SQLModel):
     """
@@ -117,7 +107,7 @@ class SynonymCreate(SynonymBase):
     pass
 
 
-class SynonymBatchCreate(SQLModel):
+class SynonymBatchCreate(BaseModel):
     """
     批量创建同义词的请求模型
     """
@@ -127,14 +117,14 @@ class SynonymBatchCreate(SQLModel):
     language: str | None = Field(default=None, max_length=10, description="语言代码")
 
 
-class SynonymBatchDelete(SQLModel):
+class SynonymBatchDelete(BaseModel):
     """
     批量删除同义词的请求模型
     """
     ids: list[str] = Field(description="要删除的同义词ID列表", min_length=1, max_length=200)
 
 
-class SynonymBatchSearch(SQLModel):
+class SynonymBatchSearch(BaseModel):
     """
     批量搜索同义词的请求模型
     """
@@ -142,9 +132,18 @@ class SynonymBatchSearch(SQLModel):
     language: str | None = Field(default=None, max_length=10, description="语言代码(可选)")
 
 
-class SynonymBatchSearchResult(SQLModel):
+class SynonymBatchSearchResult(BaseModel):
     """
     批量搜索同义词的响应模型
     """
     word: str = Field(description="搜索的词语")
     synonyms: list[str] = Field(description="该词语所在同义词组的所有同义词列表")
+
+
+class SynonymBatchUpdate(BaseModel):
+    """
+    批量更新同义词的请求模型
+    """
+    pid: str = Field(description="项目ID")
+    words: list[str] = Field(description="同义词列表", min_length=1, max_length=200)
+    language: str | None = Field(default=None, max_length=10, description="语言代码")
