@@ -1,0 +1,137 @@
+<?xml version='1.0' encoding='utf8'?>
+<nuitka-compilation-report nuitka_version="4.0.7" nuitka_commercial_version="not installed" mode="module" completion="exception">
+  <exception exception_type="OSError" exception_value="[Errno 22] Invalid argument">
+Traceback (most recent call last):
+  File "D:\github\codebiu\code\other\template\build_nutika_py\.venv\Lib\site-packages\nuitka\build\SconsInterface.py", line 494, in runScons
+    result = subprocess.call(scons_command, shell=False, cwd=source_dir)
+  File "C:\Users\YanFaBu\AppData\Roaming\uv\python\cpython-3.13.3-windows-x86_64-none\Lib\subprocess.py", line 397, in call
+    return p.wait(timeout=timeout)
+           ~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\YanFaBu\AppData\Roaming\uv\python\cpython-3.13.3-windows-x86_64-none\Lib\subprocess.py", line 1277, in wait
+    return self._wait(timeout=timeout)
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\YanFaBu\AppData\Roaming\uv\python\cpython-3.13.3-windows-x86_64-none\Lib\subprocess.py", line 1603, in _wait
+    result = _winapi.WaitForSingleObject(self._handle,
+                                         timeout_millis)
+KeyboardInterrupt
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\github\codebiu\code\other\template\build_nutika_py\.venv\Lib\site-packages\nuitka\MainControl.py", line 1348, in main
+    _main()
+    ~~~~~^^
+  File "D:\github\codebiu\code\other\template\build_nutika_py\.venv\Lib\site-packages\nuitka\MainControl.py", line 1186, in _main
+    result, scons_options = compileTree()
+                            ~~~~~~~~~~~^^
+  File "D:\github\codebiu\code\other\template\build_nutika_py\.venv\Lib\site-packages\nuitka\MainControl.py", line 1046, in compileTree
+    result, scons_options = runSconsBackend()
+                            ~~~~~~~~~~~~~~~^^
+  File "D:\github\codebiu\code\other\template\build_nutika_py\.venv\Lib\site-packages\nuitka\MainControl.py", line 873, in runSconsBackend
+    runScons(
+    ~~~~~~~~^
+        scons_options=scons_options,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        env_values=env_values,
+        ^^^^^^^^^^^^^^^^^^^^^^
+        scons_filename="Backend.scons",
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ),
+    ^
+  File "D:\github\codebiu\code\other\template\build_nutika_py\.venv\Lib\site-packages\nuitka\build\SconsInterface.py", line 496, in runScons
+    scons_logger.sysexit("User interrupted scons build.")
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\github\codebiu\code\other\template\build_nutika_py\.venv\Lib\site-packages\nuitka\Tracing.py", line 591, in sysexit
+    return OurLogger.sysexit(
+           ~~~~~~~~~~~~~~~~~^
+        self,
+        ^^^^^
+    ...&lt;4 lines&gt;...
+        reporting=reporting,
+        ^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\github\codebiu\code\other\template\build_nutika_py\.venv\Lib\site-packages\nuitka\Tracing.py", line 439, in sysexit
+    self.my_print(
+    ~~~~~~~~~~~~~^
+        "FATAL: %s" % message,
+        ^^^^^^^^^^^^^^^^^^^^^^
+        style=style,
+        ^^^^^^^^^^^^
+        file=sys.stderr,
+        ^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\github\codebiu\code\other\template\build_nutika_py\.venv\Lib\site-packages\nuitka\Tracing.py", line 350, in my_print
+    my_print(message, **kwargs)
+    ~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "D:\github\codebiu\code\other\template\build_nutika_py\.venv\Lib\site-packages\nuitka\Tracing.py", line 330, in my_print
+    _my_print(is_atty, args, kwargs)
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\github\codebiu\code\other\template\build_nutika_py\.venv\Lib\site-packages\nuitka\Tracing.py", line 264, in _my_print
+    _my_print2(is_atty, args, kwargs)
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\github\codebiu\code\other\template\build_nutika_py\.venv\Lib\site-packages\nuitka\Tracing.py", line 299, in _my_print2
+    print(*args, end=end, **kwargs)
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\github\codebiu\code\other\template\build_nutika_py\.venv\Lib\site-packages\nuitka\build\inline_copy\colorama\colorama\ansitowin32.py", line 41, in write
+    self.__convertor.write(text)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "D:\github\codebiu\code\other\template\build_nutika_py\.venv\Lib\site-packages\nuitka\build\inline_copy\colorama\colorama\ansitowin32.py", line 162, in write
+    self.write_and_convert(text)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "D:\github\codebiu\code\other\template\build_nutika_py\.venv\Lib\site-packages\nuitka\build\inline_copy\colorama\colorama\ansitowin32.py", line 190, in write_and_convert
+    self.write_plain_text(text, cursor, len(text))
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\github\codebiu\code\other\template\build_nutika_py\.venv\Lib\site-packages\nuitka\build\inline_copy\colorama\colorama\ansitowin32.py", line 196, in write_plain_text
+    self.wrapped.flush()
+    ~~~~~~~~~~~~~~~~~~^^
+OSError: [Errno 22] Invalid argument
+</exception>
+  <module name="module_cv" kind="CompiledPythonNamespacePackage" usage="root_module" reason="Root module" source_path="${cwd}\src\module_cv">
+    <optimization-time pass="1" time="0.00" micro_passes="3" max_branch_merge="1" merged_total="2" />
+    <optimization-time pass="2" time="0.00" micro_passes="1" />
+    <code-generation-time time="0.00" />
+    <module_usages>
+      <module_usage name="_frozen_importlib_external" finding="absolute" line="1" />
+      <module_usage name="os" finding="excluded" line="1" exclusion_reason="Not following into stdlib unless standalone or requested to follow into stdlib." />
+    </module_usages>
+  </module>
+  <performance>
+    <memory_usage name="after_launch" value="38490112" />
+    <memory_usage name="before_c_code_generation" value="51965952" />
+    <memory_usage name="before_running_scons" value="53022720" />
+  </performance>
+  <data_composer blob_size="995" total="107">
+    <module_data filename="__bytecode.const" blob_name=".bytecode" blob_size="3" input_size="0" />
+    <module_data filename="__constants.const" blob_name="" blob_size="847" input_size="2136" />
+    <module_data filename="module.module_cv.const" blob_name="module_cv" blob_size="104" input_size="181" />
+  </data_composer>
+  <command_line>
+    <option value="--module" />
+    <option value="--output-dir=d:\github\codebiu\code\other\template\build_nutika_py\build\modules" />
+    <option value="src/module_cv" />
+  </command_line>
+  <plugins>
+    <plugin name="anti-bloat" user_enabled="no" />
+    <plugin name="eventlet" user_enabled="no" />
+    <plugin name="gi" user_enabled="no" />
+    <plugin name="implicit-imports" user_enabled="no" />
+    <plugin name="options-nanny" user_enabled="no" />
+    <plugin name="pkg-resources" user_enabled="no" />
+    <plugin name="transformers" user_enabled="no" />
+  </plugins>
+  <distributions />
+  <python python_exe="${sys.prefix}\Scripts\python.exe" python_flavor="Unknown" python_version="3.13.3" os_name="Windows" os_release="11" arch_name="x86_64" filesystem_encoding="utf-8" gil="yes">
+    <search_path>
+      <path value="${cwd}" />
+      <path value="${cwd}\src" />
+      <path value="${sys.real_prefix}\DLLs" />
+      <path value="${sys.real_prefix}\Lib" />
+      <path value="${sys.real_prefix}" />
+      <path value="${sys.prefix}" />
+      <path value="${sys.prefix}\Lib\site-packages" />
+    </search_path>
+  </python>
+  <output run_filename="${cwd}\build\modules\module_cv.cp313-win_amd64.pyd" />
+</nuitka-compilation-report>
