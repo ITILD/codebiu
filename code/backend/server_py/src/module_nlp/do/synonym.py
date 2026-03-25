@@ -136,7 +136,7 @@ class SynonymBatchSearchResult(BaseModel):
     """
     批量搜索同义词的响应模型
     """
-    word: str = Field(description="搜索的词语")
+    words: list[str] = Field(description="搜索的词,搜索词里的同义词也要返回")
     synonyms: list[str] = Field(description="该词语所在同义词组的所有同义词列表")
 
 

@@ -313,4 +313,33 @@ async def batch_search_synonyms(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
+@router.post(
+    "/synonyms/search/batch_group",
+    summary="""
+    接收一组单词列表,识别其中的同义词簇(Synonym Clusters),并将属于同一语义簇的输入词合并.
+    返回结果为对象列表,每个对象代表一个独立的语义簇,包含该簇内所有的输入词以及排除输入词后的扩展同义词.""",
+    response_model=list[SynonymBatchSearchResult],
+)
+async def get_synonym_group_classified_results(
+    pid: str,
+    request: SynonymBatchSearch,
+    service: SynonymService = Depends(get_synonym_service),
+) -> list[SynonymBatchSearchResult]:
+    """
+    批量同义词聚合查询,获取同义词组的同义词分组结果
+    :param pid: 项目ID
+    :param request: 批量搜索请求
+    :param service: 同义词服务依赖注入
+    :return: 同义词分组结果列表，每个结果包含输入词组(同义)和对应同义词列表
+    """
+    try:
+        return await service.get_synonym_group_classified_results(
+            words=request.words, pid=pid, language=request.language
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+
 module_app.include_router(router, prefix="/nlp/synonyms", tags=["同义词管理"])

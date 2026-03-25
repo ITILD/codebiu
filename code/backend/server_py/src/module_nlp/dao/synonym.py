@@ -16,7 +16,7 @@ from module_nlp.do.synonym import (
     SynonymCreate,
     SynonymBatchCreate,
     SynonymBatchDelete,
-    SynonymBatchUpdate,
+    SynonymBatchUpdate
 )
 
 
@@ -31,9 +31,7 @@ class SynonymGroupDao:
         :param session: 可选数据库会话
         :return: 新创建同义词组的ID
         """
-        db_synonym_group = SynonymGroup.model_validate(
-            synonym_group.model_dump(exclude_unset=True)
-        )
+        db_synonym_group = SynonymGroup.model_validate(synonym_group.model_dump(exclude_unset=True))
         session.add(db_synonym_group)
         await session.flush()
         return db_synonym_group.id
@@ -69,7 +67,7 @@ class SynonymGroupDao:
         synonym_group = await session.get(SynonymGroup, id)
         if not synonym_group:
             raise ValueError(f"未找到ID为 {id} 的同义词组")
-        
+
         if synonym_group.pid != pid:
             raise ValueError(f"同义词组不属于项目 {pid}")
 
@@ -119,8 +117,7 @@ class SynonymGroupDao:
         """
         # 先获取所有符合条件的同义词组ID
         stmt = select(SynonymGroup.id).where(
-            SynonymGroup.id.in_(batch_delete.ids),
-            SynonymGroup.pid == pid
+            SynonymGroup.id.in_(batch_delete.ids), SynonymGroup.pid == pid
         )
         result = await session.exec(stmt)
         group_ids = [row[0] for row in result.all()]
@@ -135,7 +132,7 @@ class SynonymGroupDao:
             result = await session.exec(stmt)
             await session.flush()
             return result.rowcount
-        
+
         return 0
 
     @DaoRel
@@ -154,20 +151,14 @@ class SynonymGroupDao:
         :raises: ValueError 如果同义词组不存在
         """
         update_data = synonym_group.model_dump(exclude_unset=True)
-        stmt = (
-            update(SynonymGroup)
-            .where(SynonymGroup.id == synonym_group_id)
-            .values(**update_data)
-        )
+        stmt = update(SynonymGroup).where(SynonymGroup.id == synonym_group_id).values(**update_data)
         result = await session.exec(stmt)
         if result.rowcount == 0:
             raise ValueError(f"未找到ID为 {synonym_group_id} 的同义词组")
         await session.flush()
 
     @DaoRel
-    async def get(
-        self, id: str, session: AsyncSession | None = None
-    ) -> SynonymGroup | None:
+    async def get(self, id: str, session: AsyncSession | None = None) -> SynonymGroup | None:
         """
         查询单个同义词组
         :param id: 要查询的同义词组ID
@@ -201,9 +192,7 @@ class SynonymGroupDao:
         :param session: 可选数据库会话
         :return: 同义词组列表
         """
-        statement = (
-            select(SynonymGroup).offset(pagination.offset).limit(pagination.limit)
-        )
+        statement = select(SynonymGroup).offset(pagination.offset).limit(pagination.limit)
         result = await session.exec(statement)
         return result.all()
 
@@ -275,11 +264,9 @@ class SynonymGroupDao:
         statement = select(func.count()).select_from(SynonymGroup)
         result = await session.exec(statement)
         return result.one()
-    
+
     @DaoRel
-    async def count_by_pid(
-        self, pid: str, session: AsyncSession | None = None
-    ) -> int:
+    async def count_by_pid(self, pid: str, session: AsyncSession | None = None) -> int:
         """
         统计指定项目ID下的同义词组总数
         :param pid: 项目ID
@@ -290,11 +277,10 @@ class SynonymGroupDao:
         result = await session.exec(statement)
         return result.one()
 
+
 class SynonymDao:
     @DaoRel
-    async def add(
-        self, synonym: SynonymCreate, session: AsyncSession | None = None
-    ) -> str:
+    async def add(self, synonym: SynonymCreate, session: AsyncSession | None = None) -> str:
         """
         新增单个同义词记录
         :param synonym: 同义词创建数据
@@ -384,10 +370,7 @@ class SynonymDao:
         :param session: 可选数据库会话
         :return: 实际删除的记录数
         """
-        stmt = delete(Synonym).where(
-            Synonym.id.in_(batch_delete.ids),
-            Synonym.pid == pid
-        )
+        stmt = delete(Synonym).where(Synonym.id.in_(batch_delete.ids), Synonym.pid == pid)
         result = await session.exec(stmt)
         await session.flush()
         return result.rowcount
@@ -514,8 +497,7 @@ class SynonymDao:
         statement = select(func.count()).select_from(Synonym)
         result = await session.exec(statement)
         return result.one()
-    
-    
+
     @DaoRel
     async def batch_update_incremental(
         self,
@@ -568,3 +550,26 @@ class SynonymDao:
         # 刷新会话以确保状态同步，事务提交由外部控制
         await session.flush()
         return len(words_to_add) + len(words_to_delete)
+
+    @DaoRel
+    async def get_matched_synonyms_by_words(
+        self,
+        words: list[str],
+        pid: str,
+        language: str | None = None,
+        session: AsyncSession | None = None,
+    ) -> list[Synonym]:
+        """
+        查询匹配输入词的同义词记录（基础查询方法）
+        :param words: 要搜索的词语列表
+        :param pid: 项目ID
+        :param language: 语言代码 (可选)
+        :param session: 可选数据库会话
+        :return: 匹配的同义词记录列表
+        """
+        statement = select(Synonym).where(Synonym.word.in_(words), Synonym.pid == pid)
+        if language:
+            statement = statement.where(Synonym.language == language)
+
+        result = await session.exec(statement)
+        return result.all()

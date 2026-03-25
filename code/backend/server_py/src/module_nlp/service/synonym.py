@@ -14,6 +14,7 @@ from module_nlp.do.synonym import (
     SynonymBatchCreate,
     SynonymBatchDelete,
     SynonymBatchUpdate,
+    SynonymBatchSearchResult
 )
 from module_nlp.dao.synonym import SynonymGroupDao, SynonymDao
 
@@ -194,3 +195,48 @@ class SynonymService:
         :return: 实际更新的同义词数量
         """
         return await self.synonym_dao.batch_update_incremental(group_id, batch_update)
+
+    async def get_synonym_group_classified_results(
+        self,
+        words: list[str],
+        pid: str,
+        language: str | None = None
+    ) -> list[SynonymBatchSearchResult]:
+        """
+        获取同义词组的同义词分组结果（业务逻辑层）
+        :param words: 要搜索的词语列表
+        :param pid: 项目ID
+        :param language: 语言代码(可选)
+        :return: 同义词分组结果列表，每个结果包含输入词组和对应同义词列表
+        """
+        # 查询匹配输入词的同义词记录
+        matched_synonyms = await self.synonym_dao.get_matched_synonyms_by_words(
+            words, pid, language
+        )
+
+        # 按同义词组ID分组，收集输入词
+        group_dict = {}
+        for synonym in matched_synonyms:
+            group_id = synonym.group_id
+            # 如果这个词在输入列表中，则添加到input_words
+            if synonym.word in words:
+                group_dict.setdefault(group_id, set()).add(synonym.word)
+
+        # 批量获取所有相关同义词组的完整词语列表
+        group_ids = list(group_dict.keys())
+        group_words = await self.synonym_dao.get_words_by_group_ids(
+            group_ids, pid, language
+        )
+
+        # 构建返回结果列表
+        results = []
+        for group_id, input_words in group_dict.items():
+            all_synonyms = group_words.get(group_id, [])
+            # 从synonyms中排除输入词，只返回扩展的同义词
+            extended_synonyms = [s for s in all_synonyms if s not in input_words]
+            results.append(SynonymBatchSearchResult(
+                words=input_words,
+                synonyms=extended_synonyms
+            ))
+
+        return results
