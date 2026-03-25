@@ -2,6 +2,10 @@ from common.config import log
 from common.config import net
 from common.config.index import conf
 from common.config.server import app
+# # 设置模块搜索路径（支持编译模块和源码模块）
+# from tools.nuitka_build.module_loader import setup_module_path
+# setup_module_path()
+
 # 主模块
 from module_main.controller import static as main_static, status, db, dict_type, dict_item
 # # 基础模块

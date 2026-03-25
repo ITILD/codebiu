@@ -1,0 +1,179 @@
+# Nuitka 模块化编译配置
+# 每个模块独立编译为扩展模块（.pyd/.so）
+
+# 编译配置
+build_config:
+  # 输出目录
+  output_dir: "dist_nuitka"
+  
+  # 扩展模块输出目录
+  modules_dir: "compiled_modules"
+  
+  # 主程序入口
+  entry_point: "src/app.py"
+  
+  # 数据文件
+  data_files:
+    "config.yaml": "config.yaml"
+    "config_template_full.yaml": "config_template_full.yaml"
+    "rbac_model.conf": "rbac_model.conf"
+  
+  # 数据目录
+  data_dirs:
+    - "public"
+    - "temp_source"
+  
+  # 全局包含的模块
+  global_include_modules:
+    - "http.cookies"
+    - "zoneinfo"
+    - "logging"
+    - "uvicorn"
+    - "fastapi"
+    - "pydantic"
+
+# 模块列表（按编译顺序，先编译依赖）
+modules:
+  # 核心模块
+  - name: "common"
+    path: "src/common"
+    type: "package"
+    compile: true
+    priority: 1
+  
+  - name: "module_main"
+    path: "src/module_main"
+    type: "package"
+    compile: true
+    priority: 2
+    dependencies: ["common"]
+  
+  # 基础模块
+  - name: "module_authorization"
+    path: "src/module_authorization"
+    type: "package"
+    compile: true
+    priority: 3
+    dependencies: ["common"]
+    include_packages:
+      - "casbin"
+      - "casbin_async_sqlalchemy_adapter"
+      - "pwdlib"
+      - "pyjwt"
+  
+  - name: "module_file"
+    path: "src/module_file"
+    type: "package"
+    compile: true
+    priority: 4
+    dependencies: ["common", "module_authorization"]
+    include_packages:
+      - "aiofiles"
+  
+  # 业务模块（可选编译）
+  - name: "module_template"
+    path: "src/module_template"
+    type: "package"
+    compile: true
+    priority: 5
+    dependencies: ["common", "module_authorization"]
+  
+  - name: "module_ai"
+    path: "src/module_ai"
+    type: "package"
+    compile: false  # 默认不编译，可手动启用
+    priority: 6
+    dependencies: ["common", "module_authorization", "module_file"]
+    include_packages:
+      - "langchain"
+      - "langchain_core"
+      - "langchain_openai"
+      - "langchain_ollama"
+      - "transformers"
+    exclude_modules:
+      - "torch"
+  
+  - name: "module_dev_tools"
+    path: "src/module_dev_tools"
+    type: "package"
+    compile: false
+    priority: 7
+    dependencies: ["common"]
+  
+  - name: "module_little_utils"
+    path: "src/module_little_utils"
+    type: "package"
+    compile: false
+    priority: 8
+    dependencies: ["common"]
+  
+  - name: "module_nlp"
+    path: "src/module_nlp"
+    type: "package"
+    compile: false
+    priority: 9
+    dependencies: ["common", "module_authorization"]
+    include_packages:
+      - "spacy"
+  
+  - name: "module_contact"
+    path: "src/module_contact"
+    type: "package"
+    compile: false
+    priority: 10
+    dependencies: ["common"]
+  
+  - name: "module_geometry"
+    path: "src/module_geometry"
+    type: "package"
+    compile: false
+    priority: 11
+    dependencies: ["common", "module_file"]
+    include_packages:
+      - "shapely"
+      - "pyclipper"
+  
+  - name: "module_graph"
+    path: "src/module_graph"
+    type: "package"
+    compile: false
+    priority: 12
+    dependencies: ["common"]
+    include_packages:
+      - "networkx"
+  
+  - name: "module_office"
+    path: "src/module_office"
+    type: "package"
+    compile: false
+    priority: 13
+    dependencies: ["common", "module_file"]
+    include_packages:
+      - "openpyxl"
+      - "xlsxwriter"
+      - "fastexcel"
+      - "beautifulsoup4"
+      - "playwright"
+  
+  - name: "module_task"
+    path: "src/module_task"
+    type: "package"
+    compile: false
+    priority: 14
+    dependencies: ["common", "module_authorization"]
+    include_packages:
+      - "celery"
+
+# 编译选项
+compile_options:
+  # 并行任务数
+  jobs: 8
+  
+  # 是否启用LTO
+  lto: "no"
+  
+  # 是否显示进度
+  show_progress: true
+  
+  # 优化级别
+  optimization_level: "O2"
