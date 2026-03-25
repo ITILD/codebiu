@@ -169,7 +169,7 @@ async def get_synonyms_by_group(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
-@router.get("/synonyms/search", summary="同义词查找", response_model=list[Synonym])
+@router.get("/synonyms/search", summary="单个同义词查找", response_model=list[Synonym])
 async def search_synonyms(
     word: str,
     pid: str,

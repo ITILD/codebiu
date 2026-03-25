@@ -6,20 +6,15 @@ from module_ai.service.ocr import OcrService
 from common.utils.media.FileFormat import bytes_to_cv2
 from module_ai.config.ocr import conf_ocr_languages
 from common.utils.code.language.lang2lang import Language
+
+# lib
+from fastapi import APIRouter, HTTPException, status, Form, UploadFile, Depends
+import base64
+
 import logging
 
 logger = logging.getLogger(__name__)
 
-# lib
-from fastapi import (
-    APIRouter,
-    HTTPException,
-    status,
-    Form,
-    UploadFile,
-)
-import base64
-from fastapi import Depends
 
 router = APIRouter()
 
@@ -39,9 +34,7 @@ async def ocr(
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(e))
 
 
-@router.post(
-    "/tupu", status_code=status.HTTP_201_CREATED, summary="文字识别 -> 分栏分段 "
-)
+@router.post("/tupu", status_code=status.HTTP_201_CREATED, summary="文字识别 -> 分栏分段 ")
 async def tupu(
     image: UploadFile,
     lang: str = Form(),
@@ -100,13 +93,11 @@ async def ocr_all(
 def get_languages():
     """返回可用语言列表"""
     try:
-        result = [
-            {"code": key, "name": val["name"]}
-            for key, val in conf_ocr_languages.items()
-        ]
+        result = [{"code": key, "name": val["name"]} for key, val in conf_ocr_languages.items()]
         return result
     except Exception as e:
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(e))
+
 
 @router.post(
     "/all_base64",
