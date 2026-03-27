@@ -128,10 +128,35 @@ const menuItems = ref([
       },
     ],
   },
+   {
+    index: '/template',
+    title: 'Template',
+    icon: markRaw(Setting),
+    children: [
+      {
+        index: '/_sys/template/overview',
+        title: 'overview',
+        disabled: false,
+        children: null,
+      },
+      {
+        index: '/_sys/template/template',
+        title: 'template',
+        disabled: false,
+        children: null,
+      },
+      {
+        index: '/_sys/template/container',
+        title: 'container布局',
+        disabled: false,
+        children: null,
+      },
+    ],
+  },
   {
     index: '/db',
     title: 'DataBase',
-    icon: markRaw(Setting),
+    icon: markRaw(Menu),
     children: [
       {
         index: '/_sys/database/overview',
@@ -154,31 +179,6 @@ const menuItems = ref([
       {
         index: '/_sys/database/todolist',
         title: 'todolist',
-        disabled: false,
-        children: null,
-      },
-    ],
-  },
-  {
-    index: '/template',
-    title: 'Template',
-    icon: markRaw(Setting),
-    children: [
-      {
-        index: '/_sys/template/overview',
-        title: 'overview',
-        disabled: false,
-        children: null,
-      },
-      {
-        index: '/_sys/template/template',
-        title: 'template',
-        disabled: false,
-        children: null,
-      },
-      {
-        index: '/_sys/template/container',
-        title: 'container布局',
         disabled: false,
         children: null,
       },
