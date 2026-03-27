@@ -29,11 +29,17 @@ export default defineConfig(
     return {
       // 设置基础路径
       base: env.BASE_URL,
+
+      // 插件配置
       plugins: [
-        VueRouter({}),
         vue(),
+        VueRouter({}),
         vueDevTools(),
+
+        // 辅助导入和设定 tailwindcss 等 css 框架
         UnoCSS(),
+
+        // Auto-import Element Plus APIs (ElMessage, ElNotification, etc.)
         AutoImport({
           // 自动导入 Vue 相关函数，如：ref, reactive, toRef 等
           imports: ['vue', VueRouterAutoImports, 'pinia'],
@@ -43,6 +49,8 @@ export default defineConfig(
           ],
           dts: path.resolve(pathSrc, 'auto-imports.d.ts')
         }),
+
+        // Auto-import Element Plus components from templates
         Components({
           resolvers: [
             // https://icones.netlify.app/ 自动注册图标组件“前缀-使用的图标库名称-图标名”  <i-ep-edit />
@@ -51,7 +59,9 @@ export default defineConfig(
               enabledCollections: ['ep'] // 指定需要自动导入的图标库
             }),
             //自动导入 Element Plus 组件
-            ElementPlusResolver()
+            ElementPlusResolver(
+              // 表示自动导入组件时，同步引入其对应的 CSS 样式文件。
+              { importStyle: 'css' })
           ],
           dts: path.resolve(pathSrc, 'components.d.ts'), // 组件类型声明文件位置
           // 排除 MonacoEditor 组件（假设它在 src/components/MonacoEditor.vue）  排除整个目录
@@ -65,6 +75,7 @@ export default defineConfig(
           '@': fileURLToPath(new URL('./src', import.meta.url))
         },
       },
+
       // 开发服务设置
       server: {
         port: Number(env.VITE_PORT),
@@ -77,6 +88,17 @@ export default defineConfig(
         // 代理
         proxy: proxys
       },
+
+      // 依赖优化配置
+      optimizeDeps: {
+        // 显式包含常用依赖，避免运行时动态发现
+        // include: [
+        //   'element-plus/es',
+        //   '@microsoft/fetch-event-source',
+        // ]
+        // 首次启动时强制预构建所有依赖（启动稍慢，但后续稳定）
+        // force: true,
+      }
     }
   })
 
