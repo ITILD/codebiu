@@ -19,7 +19,7 @@ declare module 'vue-router/auto-routes' {
    */
   export interface RouteNamedMap {
     '/': RouteRecordInfo<'/', '/', Record<never, never>, Record<never, never>>,
-    '/_sys': RouteRecordInfo<'/_sys', '/_sys', Record<never, never>, Record<never, never>, '/_sys/' | '/_sys/ai/chat' | '/_sys/ai/ocr' | '/_sys/database/model_config' | '/_sys/database/overview' | '/_sys/database/todolist' | '/_sys/database/user' | '/_sys/manager/user' | '/_sys/monitor/uistore' | '/_sys/template/container' | '/_sys/template/infoview' | '/_sys/template/overview' | '/_sys/template/template'>,
+    '/_sys': RouteRecordInfo<'/_sys', '/_sys', Record<never, never>, Record<never, never>, '/_sys/' | '/_sys/ai/chat' | '/_sys/ai/ocr' | '/_sys/database/model_config' | '/_sys/database/overview' | '/_sys/database/todolist' | '/_sys/database/user' | '/_sys/manager/user' | '/_sys/monitor/uistore' | '/_sys/template/babylon' | '/_sys/template/container' | '/_sys/template/infoview' | '/_sys/template/mediapipe_face' | '/_sys/template/overview' | '/_sys/template/template'>,
     '/_sys/': RouteRecordInfo<'/_sys/', '/_sys', Record<never, never>, Record<never, never>>,
     '/_sys/ai/chat': RouteRecordInfo<'/_sys/ai/chat', '/_sys/ai/chat', Record<never, never>, Record<never, never>>,
     '/_sys/ai/ocr': RouteRecordInfo<'/_sys/ai/ocr', '/_sys/ai/ocr', Record<never, never>, Record<never, never>>,
@@ -29,8 +29,10 @@ declare module 'vue-router/auto-routes' {
     '/_sys/database/user': RouteRecordInfo<'/_sys/database/user', '/_sys/database/user', Record<never, never>, Record<never, never>>,
     '/_sys/manager/user': RouteRecordInfo<'/_sys/manager/user', '/_sys/manager/user', Record<never, never>, Record<never, never>>,
     '/_sys/monitor/uistore': RouteRecordInfo<'/_sys/monitor/uistore', '/_sys/monitor/uistore', Record<never, never>, Record<never, never>>,
+    '/_sys/template/babylon': RouteRecordInfo<'/_sys/template/babylon', '/_sys/template/babylon', Record<never, never>, Record<never, never>>,
     '/_sys/template/container': RouteRecordInfo<'/_sys/template/container', '/_sys/template/container', Record<never, never>, Record<never, never>>,
     '/_sys/template/infoview': RouteRecordInfo<'/_sys/template/infoview', '/_sys/template/infoview', Record<never, never>, Record<never, never>>,
+    '/_sys/template/mediapipe_face': RouteRecordInfo<'/_sys/template/mediapipe_face', '/_sys/template/mediapipe_face', Record<never, never>, Record<never, never>>,
     '/_sys/template/overview': RouteRecordInfo<'/_sys/template/overview', '/_sys/template/overview', Record<never, never>, Record<never, never>>,
     '/_sys/template/template': RouteRecordInfo<'/_sys/template/template', '/_sys/template/template', Record<never, never>, Record<never, never>>,
     '/[..all]': RouteRecordInfo<'/[..all]', '/:ll(.*)', { ll: ParamValue<true> }, { ll: ParamValue<false> }>,
@@ -54,7 +56,7 @@ declare module 'vue-router/auto-routes' {
       views: never
     }
     'src/pages/_sys.vue': {
-      routes: '/_sys' | '/_sys/' | '/_sys/ai' | '/_sys/ai/chat' | '/_sys/template/container' | '/_sys/database' | '/_sys/template/infoview' | '/_sys/manager' | '/_sys/database/model_config' | '/_sys/monitor' | '/_sys/ai/ocr' | '/_sys/database/overview' | '/_sys/template/overview' | '/_sys/template' | '/_sys/template/template' | '/_sys/database/todolist' | '/_sys/monitor/uistore' | '/_sys/database/user' | '/_sys/manager/user'
+      routes: '/_sys' | '/_sys/' | '/_sys/ai' | '/_sys/template/babylon' | '/_sys/ai/chat' | '/_sys/template/container' | '/_sys/database' | '/_sys/template/infoview' | '/_sys/manager' | '/_sys/template/mediapipe_face' | '/_sys/database/model_config' | '/_sys/monitor' | '/_sys/ai/ocr' | '/_sys/database/overview' | '/_sys/template/overview' | '/_sys/template' | '/_sys/template/template' | '/_sys/database/todolist' | '/_sys/monitor/uistore' | '/_sys/database/user' | '/_sys/manager/user'
       views: 'default'
     }
     'src/pages/_sys/index.vue': {
@@ -93,12 +95,20 @@ declare module 'vue-router/auto-routes' {
       routes: '/_sys/monitor/uistore'
       views: never
     }
+    'src/pages/_sys/template/babylon.vue': {
+      routes: '/_sys/template/babylon'
+      views: never
+    }
     'src/pages/_sys/template/container.vue': {
       routes: '/_sys/template/container'
       views: never
     }
     'src/pages/_sys/template/infoview.vue': {
       routes: '/_sys/template/infoview'
+      views: never
+    }
+    'src/pages/_sys/template/mediapipe_face.vue': {
+      routes: '/_sys/template/mediapipe_face'
       views: never
     }
     'src/pages/_sys/template/overview.vue': {
