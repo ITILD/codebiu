@@ -3,15 +3,8 @@
   <!-- 内容 -->
   <div flex w-full>
     <!-- 左侧菜单 -->
-    <el-menu
-      h-full
-      :default-active="routerStore.routerPath.now"
-      :router="true"
-      overflow-y-auto
-      :collapse="isCollapse"
-      :w="!isCollapse ? '60' : ''"
-      @select="handleSelect"
-    >
+    <el-menu h-full :default-active="routerStore.routerPath.now" :router="true" overflow-y-auto :collapse="isCollapse"
+      :w="!isCollapse ? '60' : ''" @select="handleSelect">
       <!-- Logo 区域（折叠时隐藏文字） -->
       <div flex items-center justify-between p-3 border-b h-12>
         <div flex items-center transition-all duration-300 ease-in-out>
@@ -19,14 +12,8 @@
             <span v-if="!isCollapse" pl-4 text-xl font-bold whitespace-nowrap>Sys State</span>
           </transition>
         </div>
-        <el-button
-          transition-all
-          duration-300
-          hover:scale-110
-          @click="isCollapse = !isCollapse"
-          :icon="isCollapse ? DArrowRight : DArrowLeft"
-          plain
-        />
+        <el-button transition-all duration-300 hover:scale-110 @click="isCollapse = !isCollapse"
+          :icon="isCollapse ? DArrowRight : DArrowLeft" plain />
       </div>
       <!-- 菜单项 -->
       <template v-for="item in menuItems" :key="item.index">
@@ -53,12 +40,8 @@
             <el-sub-menu v-else :index="child.index">
               <!-- 子子菜单 -->
               <template #title>{{ child.title }}</template>
-              <el-menu-item
-                v-for="grandChild in child.children"
-                :key="(grandChild as any).index"
-                :index="(grandChild as any).index"
-                :disabled="(grandChild as any).disabled"
-              >
+              <el-menu-item v-for="grandChild in child.children" :key="(grandChild as any).index"
+                :index="(grandChild as any).index" :disabled="(grandChild as any).disabled">
                 {{ (grandChild as any).title }}
               </el-menu-item>
             </el-sub-menu>
@@ -128,7 +111,7 @@ const menuItems = ref([
       },
     ],
   },
-   {
+  {
     index: '/template',
     title: 'Template',
     icon: markRaw(Setting),
@@ -148,6 +131,18 @@ const menuItems = ref([
       {
         index: '/_sys/template/container',
         title: 'container布局',
+        disabled: false,
+        children: null,
+      },
+      {
+        index: '/_sys/template/mediapipe_face',
+        title: 'mediapipe_face',
+        disabled: false,
+        children: null,
+      },
+      {
+        index: '/_sys/template/babylon',
+        title: 'babylon',
         disabled: false,
         children: null,
       },
@@ -201,6 +196,7 @@ const menuItems = ref([
         disabled: false,
         children: null,
       },
+
     ],
   },
   {

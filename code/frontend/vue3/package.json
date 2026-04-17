@@ -23,16 +23,18 @@
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",
+    "@mediapipe/tasks-vision": "^0.10.17",
     "@microsoft/fetch-event-source": "^2.0.1",
     "@unocss/reset": "^66.5.4",
     "@vueuse/core": "^13.9.0",
+    "babylonjs": "^9.3.0",
     "element-plus": "^2.11.4",
     "monaco-editor": "^0.55.1",
     "pinia": "^3.0.3",
     "pinia-plugin-persistedstate": "^4.7.1",
     "vue": "^3.5.22",
     "vue-i18n": "^11.1.12",
-    "vue-router": "^4.6.3"
+    "vue-router": "5.0.4"
   },
   "devDependencies": {
     "@iconify-json/ep": "^1.2.3",
