@@ -7,6 +7,8 @@ from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_aws import BedrockEmbeddings, ChatBedrockConverse
 from langchain_ollama import ChatOllama, OllamaEmbeddings
 from langchain.agents import create_agent
+from langchain_core.embeddings import Embeddings
+from langchain_core.language_models import BaseChatModel
 from module_ai.do.llm_base import (
     Message,
     ChatRequest,
@@ -125,13 +127,16 @@ class LLMBaseService:
 
         # 转换为LLM配置
         llm_chain = self._llm_by_config(config)
+        
+        # 缓存模型
+        self._model_cache[cache_key] = llm_chain
 
         return llm_chain
 
     async def chat_completion(self, request: ChatRequest):
         """聊天完成接口"""
         # 获取LLM处理链
-        llm_chain = await self.get_llm(request.model_id, streaming=request.streaming)
+        llm_chain:BaseChatModel  = await self.get_llm(request.model_id, streaming=request.streaming)
         # request.messages 是langchain类型
         try:
             # 调用模型
@@ -164,7 +169,9 @@ class LLMBaseService:
             # 清除所有缓存
             self._model_cache.clear()
 
-    def _llm_by_config(self, config: ModelConfig, streaming: bool = True):
+    def _llm_by_config(
+        self, config: ModelConfig, streaming: bool = True
+    ) -> BaseChatModel | Embeddings:
         """将数据库模型配置转换为LLM配置对象"""
         # Ollama模型检测   ChatOpenAI, OpenAIEmbeddings
         if config.server_type == ModelServerType.OPENAI:
@@ -175,6 +182,9 @@ class LLMBaseService:
                     base_url=config.url,
                     streaming=streaming,
                     temperature=config.temperature,
+                    extra_body = {
+                        "enable_thinking": not config.no_think,
+                    }
                 )
             elif config.model_type == ModelType.EMBEDDINGS:
                 return OpenAIEmbeddings(

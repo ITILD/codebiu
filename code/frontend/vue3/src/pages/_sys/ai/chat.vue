@@ -3,22 +3,12 @@
     <!-- 顶部模型选择栏 -->
     <div p-4 border-b bg-white shadow-sm>
       <div flex items-center gap-4>
-        <div flex items-center gap-2>
-          <span text-sm font-medium text-gray-600>模型:</span>
-          <el-select
-            v-model="model_id"
-            placeholder="选择模型"
-            style="width: 240px"
-            :disabled="isSending"
-          >
-            <el-option
-              v-for="item in tableData"
-              :key="item.id"
-              :label="item.model"
-              :value="item.id"
-            />
-          </el-select>
-        </div>
+        <LLMSelect
+          v-model:model-id="model_id"
+          :model-list="tableData"
+          :disabled="isSending"
+          @change="handleModelChange"
+        />
         <el-button
           text
           type="danger"
@@ -48,7 +38,6 @@
         :class="message.role === 'user' ? 'justify-end' : 'justify-start'"
       >
         <div
-          max-w-70%
           p-4
           rounded-lg
           shadow-sm
@@ -131,7 +120,8 @@ import type { ModelConfig } from '@/types/model_config';
 import type { ChatMessage } from '@/types/chat';
 import { listModelConfigs } from '@/api/model_config'
 import { sendChatMessageStream } from '@/api/chat'
-import { triggerRef } from 'vue'
+// import { triggerRef } from 'vue'
+import LLMSelect from '@/components/app/ai/LLMSelect.vue'
 
 // 分页参数
 const pagination = ref<PaginationParams>({
@@ -179,6 +169,11 @@ const scrollToBottom = () => {
 // 清空对话
 const clearMessages = () => {
   messages.value = []
+}
+
+// 处理模型变化
+const handleModelChange = (modelId: string) => {
+  console.log('模型已切换至:', modelId)
 }
 
 // 发送消息（优化版）

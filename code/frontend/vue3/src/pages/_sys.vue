@@ -196,6 +196,12 @@ const menuItems = ref([
         disabled: false,
         children: null,
       },
+      {
+        index: '/_sys/ai/agent_baby_name',
+        title: 'agent_baby_name',
+        disabled: false,
+        children: null,
+      },
 
     ],
   },

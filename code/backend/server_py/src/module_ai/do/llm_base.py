@@ -116,3 +116,5 @@ class StreamChunkResponse(BaseModel):
     )
     # usage: Usage = Field(description="Token 使用统计信息")
     timestamp: float = Field(0.0, description="Unix 时间戳（秒）")
+    # 步骤节点名称
+    node_name: str | None = Field(None, description="节点名称")

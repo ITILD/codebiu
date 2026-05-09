@@ -108,8 +108,8 @@ const config = {
 };
 
 // 获取表单验证规则
-const formBase: unknown = {}
-const rules: unknown = {};
+const formBase: Record<string, unknown> = {}
+const rules: Record<string, unknown> = {};
 config.tableColumns.forEach(field => {
   if (field.edit) {
     formBase[field.prop] = field.edit.default;

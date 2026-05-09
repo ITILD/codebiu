@@ -12,7 +12,8 @@ from module_ai.do.llm_base import (
 from module_ai.config.server import module_app
 from module_ai.do.model_config import ModelConfigCreateRequest
 from sse_starlette import EventSourceResponse, ServerSentEvent
-from module_ai.utils.llm.do.llm_type import StreamStatus
+from module_ai.utils.llm.response.sse import event_generator
+
 import logging
 
 
@@ -20,31 +21,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-
-async def event_generator(responses, request: Request = None):
-    """SSE流式响应生成器"""
-    try:
-        stream_chunk_response = StreamChunkResponse(status=StreamStatus.START)
-        yield ServerSentEvent(data=stream_chunk_response.model_dump_json())
-        response_id = stream_chunk_response.response_id
-        async for chunk in responses:
-            # 检查客户端是否已断开连接
-            if request and await request.is_disconnected():
-                logger.info(f"response_id:{response_id} 的客户端已断开连接，停止流式响应")
-                break
-            if chunk.content:
-                stream_chunk_response = StreamChunkResponse(
-                    response_id=response_id, content=chunk.content
-                )
-                yield ServerSentEvent(data=stream_chunk_response.model_dump_json())
-        stream_chunk_response = StreamChunkResponse(status=StreamStatus.END)
-        yield ServerSentEvent(data=stream_chunk_response.model_dump_json())
-    except Exception as e:
-        logger.error(f"事件生成器错误: {e}")
-        stream_chunk_response = StreamChunkResponse(
-            status=StreamStatus.ERROR, content=str(e)
-        )
-        yield ServerSentEvent(data=stream_chunk_response.model_dump_json())
 
 
 @router.post("/check_config", summary="配置校验")
