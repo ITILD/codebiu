@@ -85,7 +85,7 @@ import {
 } from 'element-plus'
 
 // 表格行
-const tableColumns: any = ref(config.tableColumns);
+const tableColumns = ref(config.tableColumns);
 // 搜索条件
 const searchQuery = ref('')
 

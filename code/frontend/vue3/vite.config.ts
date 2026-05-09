@@ -23,7 +23,7 @@ export default defineConfig(
   ({ mode }) => {
     const env = loadEnv(mode, process.cwd(), '');
     // console.log('test_', env.VITE_PORT)
-    // killPort(env.VITE_PORT)
+    killPort(env.VITE_PORT)
 
     const proxys = createProxy(JSON.parse(env.VITE_PROXY as string) as string[][])
     return {
