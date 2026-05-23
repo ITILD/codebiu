@@ -29,6 +29,11 @@ if __name__ == "__main__":
 
     # 关闭之前运行的进程
     find_and_kill_process(conf.server.port)
+    
+    from fastmcp import FastMCP
+    mcp = FastMCP.from_fastapi(app=app)
+    mcp.run(transport="http", host="127.0.0.1", port=9001)
+
 
     # dev启动服务
     uvicorn.run(app, host=conf.server.host, port=conf.server.port)
