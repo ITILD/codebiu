@@ -7,7 +7,7 @@ class UserService:
     """用户服务"""
 
     def __init__(self, user_dao: UserDao):
-        self.user_dao = user_dao
+        self.user_dao = user_dao or UserDao()
 
     async def add(self, user: UserCreate)->UserResponse:
         """

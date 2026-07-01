@@ -112,3 +112,4 @@ async_cache: Redis = db_manager.async_cache
 db_vector: DBVectorInterface = db_manager.db_vector
 #  图数据库(neo4j/graph_local)
 db_graph: DBGraphInterface = db_manager.db_graph
+

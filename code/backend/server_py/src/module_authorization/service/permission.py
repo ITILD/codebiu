@@ -7,7 +7,7 @@ class PermissionService:
     """权限服务"""
 
     def __init__(self, permission_dao: PermissionDao):
-        self.permission_dao = permission_dao
+        self.permission_dao = permission_dao or PermissionDao()
 
     async def add(self, permission: PermissionCreate):
         """

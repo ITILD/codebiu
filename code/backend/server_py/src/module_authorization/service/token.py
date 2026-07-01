@@ -15,7 +15,7 @@ class TokenService:
     """令牌服务"""
 
     def __init__(self, token_dao: TokenDao):
-        self.token_dao = token_dao
+        self.token_dao = token_dao or TokenDao()
         # 初始化TokenUtil工具类(使用BaseModel配置类)
         self.token_util = TokenUtil(token_config)
 

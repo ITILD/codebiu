@@ -2,201 +2,254 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from module_authorization.do.casbin_rule import CasbinRule
 from common.config.db import DaoRel
-
+from module_authorization.config.casbin_rule import auth_manager
+import logging
+logger = logging.getLogger(__name__)
 
 class CasbinRuleDao:
     """Casbin规则数据访问对象"""
+    def __init__(self):
+        self.enforcer = auth_manager.enforcer
 
-    @DaoRel
-    async def create(self, casbin_rule: CasbinRule, session: AsyncSession | None = None) -> CasbinRule:
-        """创建Casbin规则
+    async def add_policy(self, sub: str, dom: str, obj: str, act: str) -> bool:
+        """添加策略规则
 
         Args:
-            casbin_rule: Casbin规则对象
-            session: 可选数据库会话
+            sub: 主体(用户或角色)
+            dom: 域(项目ID或"*"表示全局)
+            obj: 对象(资源)
+            act: 动作(操作)
 
         Returns:
-            创建后的Casbin规则对象
+            是否添加成功
         """
-        session.add(casbin_rule)
-        await session.flush()
-        return casbin_rule
+        try:
+            if self.enforcer.has_policy(sub, dom, obj, act):
+                return False
+            return await self.enforcer.add_policy(sub, dom, obj, act)
+        except Exception as e:
+            logger.error(f"添加策略失败: {e}")
+            return False
 
-    @DaoRel
-    async def batch_create(self, casbin_rules: list[CasbinRule], session: AsyncSession | None = None) -> list[CasbinRule]:
-        """批量创建Casbin规则
+    async def remove_policy(self, sub: str, dom: str, obj: str, act: str) -> bool:
+        """删除策略规则
 
         Args:
-            casbin_rules: Casbin规则对象列表
-            session: 可选数据库会话
+            sub: 主体(用户或角色)
+            dom: 域(项目ID或"*"表示全局)
+            obj: 对象(资源)
+            act: 动作(操作)
 
         Returns:
-            创建后的Casbin规则对象列表
+            是否删除成功
         """
-        session.add_all(casbin_rules)
-        await session.flush()
-        return casbin_rules
+        try:
+            return await self.enforcer.remove_policy(sub, dom, obj, act)
+        except Exception as e:
+            logger.error(f"删除策略失败: {e}")
+            return False
 
-    @DaoRel
-    async def get_by_id(self, id: int, session: AsyncSession | None = None) -> CasbinRule | None:
-        """根据ID获取Casbin规则
+    async def add_role_for_user(self, user_id: str, role_key: str, dom: str = "*") -> bool:
+        """为用户添加角色
 
         Args:
-            id: 规则ID
-            session: 可选数据库会话
-
-        Returns:
-            Casbin规则对象，如果不存在则返回None
-        """
-        return await session.get(CasbinRule, id)
-
-    @DaoRel
-    async def get_all(self, session: AsyncSession | None = None) -> list[CasbinRule]:
-        """获取所有Casbin规则
-
-        Args:
-            session: 可选数据库会话
-
-        Returns:
-            Casbin规则对象列表
-        """
-        statement = select(CasbinRule)
-        result = await session.exec(statement)
-        return result.all()
-
-    @DaoRel
-    async def delete_by_id(self, id: int, session: AsyncSession | None = None) -> bool:
-        """根据ID删除Casbin规则
-
-        Args:
-            id: 规则ID
-            session: 可选数据库会话
-
-        Returns:
-            删除是否成功
-        """
-        rule = await self.get_by_id(id, session)
-        if rule:
-            await session.delete(rule)
-            await session.flush()
-            return True
-        return False
-
-    @DaoRel
-    async def delete_batch(self, ids: list[int], session: AsyncSession | None = None) -> int:
-        """批量删除Casbin规则
-
-        Args:
-            ids: 规则ID列表
-            session: 可选数据库会话
-
-        Returns:
-            删除的规则数量
-        """
-        statement = select(CasbinRule).where(CasbinRule.id.in_(ids))
-        rules = (await session.exec(statement)).all()
-        for rule in rules:
-            await session.delete(rule)
-        await session.flush()
-        return len(rules)
-
-    @DaoRel
-    async def delete_by_sub_obj_act(self, sub: str, obj: str, act: str, session: AsyncSession | None = None) -> int:
-        """根据主体、对象和动作删除Casbin规则
-
-        Args:
-            sub: 主体
-            obj: 对象
-            act: 动作
-            session: 可选数据库会话
-
-        Returns:
-            删除的规则数量
-        """
-        statement = select(CasbinRule).where(
-            CasbinRule.v0 == sub,
-            CasbinRule.v1 == obj,
-            CasbinRule.v2 == act,
-            CasbinRule.ptype == "p"
-        )
-        rules = (await session.exec(statement)).all()
-        for rule in rules:
-            await session.delete(rule)
-        await session.flush()
-        return len(rules)
-
-    @DaoRel
-    async def delete_by_role_permission(self, role_key: str, permission_code: str, method: str, session: AsyncSession | None = None) -> int:
-        """根据角色和权限删除Casbin规则
-
-        Args:
+            user_id: 用户ID
             role_key: 角色键
-            permission_code: 权限代码
-            method: 请求方法
-            session: 可选数据库会话
+            dom: 域(项目ID或"*"表示全局，默认为全局)
 
         Returns:
-            删除的规则数量
+            是否添加成功
         """
-        return await self.delete_by_sub_obj_act(role_key, permission_code, method, session)
+        try:
+            if await self.enforcer.has_grouping_policy(user_id, role_key, dom):
+                return False
+            return await self.enforcer.add_grouping_policy(user_id, role_key, dom)
+        except Exception as e:
+            logger.error(f"添加用户角色失败: {e}")
+            return False
 
+    async def remove_role_for_user(self, user_id: str, role_key: str, dom: str = "*") -> bool:
+        """删除用户的角色
 
-    @DaoRel
-    async def get_role_permissions(self, role_key: str, session: AsyncSession | None = None) -> list[tuple]:
+        Args:
+            user_id: 用户ID
+            role_key: 角色键
+            dom: 域(项目ID或"*"表示全局，默认为全局)
+
+        Returns:
+            是否删除成功
+        """
+        try:
+            return await self.enforcer.remove_grouping_policy(user_id, role_key, dom)
+        except Exception as e:
+            logger.error(f"删除用户角色失败: {e}")
+            return False
+
+    async def get_roles_for_user(self, user_id: str, dom: str = "*") -> list[str]:
+        """获取用户的所有角色
+
+        Args:
+            user_id: 用户ID
+            dom: 域(项目ID或"*"表示全局，默认为全局)
+
+        Returns:
+            角色列表
+        """
+        try:
+            return await self.enforcer.get_roles_for_user_in_domain(user_id, dom)
+        except Exception as e:
+            logger.error(f"获取用户角色失败: {e}")
+            return []
+
+    async def get_permissions_for_role(self, role_key: str, dom: str = "*") -> list[dict[str, str]]:
         """获取角色的所有权限
 
         Args:
             role_key: 角色键
-            session: 可选数据库会话
+            dom: 域(项目ID或"*"表示全局，默认为全局)
 
         Returns:
-            权限列表，每项为(permission_code, method)元组
+            权限列表，每项为字典包含 domain, permission_code, method
         """
-        statement = select(CasbinRule.v1, CasbinRule.v2).where(
-            CasbinRule.v0 == role_key,
-            CasbinRule.ptype == "p"
-        )
-        result = await session.exec(statement)
-        return result.all()
+        try:
+            permissions = await self.enforcer.get_filtered_policy(0, role_key)
+        except Exception as e:
+            logger.error(f"获取角色权限失败: {e}")
+            return []
+        filtered_permissions = [
+            perm for perm in permissions if perm[1] == dom or perm[1] == "*"
+        ]
+        formatted_permissions = [
+            {"domain": perm[1], "permission_code": perm[2], "method": perm[3]}
+            for perm in filtered_permissions
+        ]
+        return formatted_permissions
 
-    @DaoRel
-    async def delete_role_permissions(self, role_key: str, session: AsyncSession | None = None) -> int:
+    async def has_permission(self, user_id: str, dom: str, obj: str, act: str) -> bool:
+        """检查用户是否有指定权限
+
+        Args:
+            user_id: 用户ID
+            dom: 域(项目ID或"*"表示全局)
+            obj: 对象(资源)
+            act: 动作(操作)
+
+        Returns:
+            是否有权限
+        """
+        try:
+            return await self.enforcer.enforce(user_id, dom, obj, act)
+        except Exception as e:
+            logger.error(f"权限检查失败: {e}")
+            return False
+
+    async def batch_add_role_permissions(
+        self, role_key: str, dom: str, permissions: list[tuple[str, str]]
+    ) -> int:
+        """批量添加角色权限
+
+        Args:
+            role_key: 角色键
+            dom: 域(项目ID或"*"表示全局)
+            permissions: 权限列表，每项为(permission_code, method)元组
+
+        Returns:
+            添加成功的权限数量
+        """
+        added_count = 0
+        try:
+            await self.enforcer.remove_filtered_policy(0, role_key, dom)
+            for permission_code, method in permissions:
+                if await self.enforcer.add_policy(role_key, dom, permission_code, method):
+                    added_count += 1
+        except Exception as e:
+            logger.error(f"批量添加角色权限失败: {e}")
+        return added_count
+
+    async def batch_add_user_roles(self, user_id: str, dom: str, role_keys: list[str]) -> int:
+        """批量添加用户角色
+
+        Args:
+            user_id: 用户ID
+            dom: 域(项目ID或"*"表示全局)
+            role_keys: 角色键列表
+
+        Returns:
+            添加成功的角色数量
+        """
+        added_count = 0
+        try:
+            await self.enforcer.remove_filtered_grouping_policy(0, user_id, dom)
+            for role_key in role_keys:
+                if await self.enforcer.add_grouping_policy(user_id, role_key, dom):
+                    added_count += 1
+        except Exception as e:
+            logger.error(f"批量添加用户角色失败: {e}")
+        return added_count
+
+    async def delete_role_permissions(self, role_key: str, dom: str = "*") -> int:
         """删除角色的所有权限
 
         Args:
             role_key: 角色键
-            session: 可选数据库会话
+            dom: 域(项目ID或"*"表示全局，默认为全局)
 
         Returns:
             删除的权限数量
         """
-        statement = select(CasbinRule).where(
-            CasbinRule.v0 == role_key,
-            CasbinRule.ptype == "p"
-        )
-        rules = (await session.exec(statement)).all()
-        for rule in rules:
-            await session.delete(rule)
-        await session.flush()
-        return len(rules)
+        try:
+            policy_count = len(await self.enforcer.get_filtered_policy(0, role_key, dom))
+            await self.enforcer.remove_filtered_policy(0, role_key, dom)
+            return policy_count
+        except Exception as e:
+            logger.error(f"删除角色权限失败: {e}")
+            return 0
 
-    @DaoRel
-    async def delete_user_roles(self, user_id: str, session: AsyncSession | None = None) -> int:
+    async def delete_user_roles(self, user_id: str, dom: str = "*") -> int:
         """删除用户的所有角色
 
         Args:
             user_id: 用户ID
-            session: 可选数据库会话
+            dom: 域(项目ID或"*"表示全局，默认为全局)
 
         Returns:
             删除的角色数量
         """
-        statement = select(CasbinRule).where(
-            CasbinRule.v0 == user_id,
-            CasbinRule.ptype == "g"
-        )
-        rules = (await session.exec(statement)).all()
-        for rule in rules:
-            await session.delete(rule)
-        await session.flush()
-        return len(rules)
+        try:
+            role_count = len(await self.enforcer.get_roles_for_user_in_domain(user_id, dom))
+            await self.enforcer.remove_filtered_grouping_policy(0, user_id, dom)
+            return role_count
+        except Exception as e:
+            logger.error(f"删除用户角色失败: {e}")
+            return 0
+
+    async def reload_policy(self) -> None:
+        """重新从数据库加载策略"""
+        try:
+            await self.enforcer.load_policy()
+        except Exception as e:
+            logger.error(f"重新加载策略失败: {e}")
+
+    async def get_all_policies(self) -> list[tuple[str, str, str]]:
+        """获取所有策略规则
+
+        Returns:
+            策略规则列表
+        """
+        try:
+            return await self.enforcer.get_policy()
+        except Exception as e:
+            logger.error(f"获取所有策略失败: {e}")
+            return []
+
+    async def get_all_grouping_policies(self) -> list[tuple[str, str]]:
+        """获取所有角色分配规则
+
+        Returns:
+            角色分配规则列表
+        """
+        try:
+            return await self.enforcer.get_grouping_policy()
+        except Exception as e:
+            logger.error(f"获取所有角色分配规则失败: {e}")
+            return []

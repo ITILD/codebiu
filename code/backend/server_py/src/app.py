@@ -10,16 +10,17 @@ from common.config.server import app
 from module_main.controller import static as main_static, status, db, dict_type, dict_item
 # # 基础模块
 # from module_file.controller import filesystem
-# from module_authorization.controller import token, casbin_rule, permission, role, user,auth
+from module_authorization.controller import token, casbin_rule, permission, role, user,auth
 # # 业务模块
 from module_template.controller import static,template,template_ex,template_async_learn
-from module_ai.controller import static as ai_static,model_config,llm_base
+# from module_ai.controller import static as ai_static,model_config,llm_base
 # # ,ocr 
 # from module_dev_tools.controller import template_string
 # from module_little_utils.controller import todolist
 # # 语言模块
 # from module_nlp.controller import synonym
 # from module_life.controller import baby_name
+from module_rag.controller import project, project_member
 import logging
 logger = logging.getLogger(__name__)
 
@@ -30,9 +31,9 @@ if __name__ == "__main__":
     # 关闭之前运行的进程
     find_and_kill_process(conf.server.port)
     
-    from fastmcp import FastMCP
-    mcp = FastMCP.from_fastapi(app=app)
-    mcp.run(transport="http", host="127.0.0.1", port=9001)
+    # from fastmcp import FastMCP
+    # mcp = FastMCP.from_fastapi(app=app)
+    # mcp.run(transport="http", host="127.0.0.1", port=9001)
 
 
     # dev启动服务

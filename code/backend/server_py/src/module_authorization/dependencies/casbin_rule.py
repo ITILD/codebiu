@@ -1,6 +1,4 @@
-from typing import AsyncGenerator
 from fastapi import Depends
-from sqlmodel.ext.asyncio.session import AsyncSession
 from module_authorization.service.casbin_rule import CasbinRuleService
 from module_authorization.dao.casbin_rule import CasbinRuleDao
 
