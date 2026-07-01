@@ -24,14 +24,14 @@ async def add_policy(
     """添加策略规则
 
     Args:
-        request: 添加策略请求数据
+        request: 添加策略请求数据（包含sub, dom, obj, act）
         casbin_service: Casbin服务实例
 
     Returns:
         成功添加的策略信息
     """
     success = casbin_service.add_policy(
-        sub=request.sub, obj=request.obj, act=request.act
+        sub=request.sub, dom=request.dom, obj=request.obj, act=request.act
     )
 
     if not success:
@@ -50,14 +50,14 @@ async def remove_policy(
     """删除策略规则
 
     Args:
-        request: 删除策略请求数据
+        request: 删除策略请求数据（包含sub, dom, obj, act）
         casbin_service: Casbin服务实例
 
     Returns:
         删除结果信息
     """
     success = casbin_service.remove_policy(
-        sub=request.sub, obj=request.obj, act=request.act
+        sub=request.sub, dom=request.dom, obj=request.obj, act=request.act
     )
 
     if not success:
@@ -76,14 +76,14 @@ async def add_role_for_user(
     """为用户添加角色
 
     Args:
-        request: 添加角色请求数据
+        request: 添加角色请求数据（包含user_id, role_key, dom）
         casbin_service: Casbin服务实例
 
     Returns:
         添加结果信息
     """
     success = casbin_service.add_role_for_user(
-        user_id=request.user_id, role_key=request.role_key
+        user_id=request.user_id, role_key=request.role_key, dom=request.dom
     )
 
     if not success:
@@ -102,14 +102,14 @@ async def remove_role_for_user(
     """删除用户的角色
 
     Args:
-        request: 删除角色请求数据
+        request: 删除角色请求数据（包含user_id, role_key, dom）
         casbin_service: Casbin服务实例
 
     Returns:
         删除结果信息
     """
     success = casbin_service.remove_role_for_user(
-        user_id=request.user_id, role_key=request.role_key
+        user_id=request.user_id, role_key=request.role_key, dom=request.dom
     )
 
     if not success:
@@ -122,56 +122,57 @@ async def remove_role_for_user(
 
 @router.get("/roles/{user_id}", status_code=status.HTTP_200_OK)
 async def get_roles_for_user(
-    user_id: str, casbin_service: CasbinRuleService = Depends(get_casbin_rule_service)
+    user_id: str, dom: str = "*", casbin_service: CasbinRuleService = Depends(get_casbin_rule_service)
 ):
     """获取用户的所有角色
 
     Args:
         user_id: 用户ID
+        dom: 域(项目ID或"*"表示全局，默认为全局)
         casbin_service: Casbin服务实例
 
     Returns:
         用户角色列表
     """
-    roles = casbin_service.get_roles_for_user(user_id)
+    roles = casbin_service.get_roles_for_user(user_id, dom)
     return {"message": "获取成功", "data": roles}
 
 
 @router.get("/permissions/{role_key}", status_code=status.HTTP_200_OK)
 async def get_permissions_for_role(
-    role_key: str, casbin_service: CasbinRuleService = Depends(get_casbin_rule_service)
+    role_key: str, dom: str = "*", casbin_service: CasbinRuleService = Depends(get_casbin_rule_service)
 ):
     """获取角色的所有权限
 
     Args:
         role_key: 角色键
+        dom: 域(项目ID或"*"表示全局，默认为全局)
         casbin_service: Casbin服务实例
 
     Returns:
         角色权限列表
     """
-    formatted_permissions = casbin_service.get_permissions_for_role(role_key)
+    formatted_permissions = casbin_service.get_permissions_for_role(role_key, dom)
 
     return {"message": "获取成功", "data": formatted_permissions}
 
 
 @router.post("/check-permission", status_code=status.HTTP_200_OK)
 async def check_permission(
-    request: CheckPermissionRequest,  # 使用字典接收动态参数
+    request: CheckPermissionRequest,
     casbin_service: CasbinRuleService = Depends(get_casbin_rule_service),
 ):
     """检查用户是否有指定权限
 
     Args:
-        request: 包含user_id, obj, act的请求数据
+        request: 包含user_id, dom, obj, act的请求数据
         casbin_service: Casbin服务实例
 
     Returns:
         权限检查结果
     """
-    # 验证请求参数
     has_permission = casbin_service.has_permission(
-        user_id=request.user_id, obj=request.obj, act=request.act
+        user_id=request.user_id, dom=request.dom, obj=request.obj, act=request.act
     )
     return PermissionCheckResponse(has_permission=has_permission)
 
@@ -184,7 +185,7 @@ async def batch_add_role_permissions(
     """批量添加角色权限
 
     Args:
-        request: 批量添加角色权限请求数据
+        request: 批量添加角色权限请求数据（包含role_key, dom, permissions）
         casbin_service: Casbin服务实例
 
     Returns:
@@ -196,7 +197,7 @@ async def batch_add_role_permissions(
     ]
 
     added_count = casbin_service.batch_add_role_permissions(
-        role_key=request.role_key, permissions=permissions
+        role_key=request.role_key, dom=request.dom, permissions=permissions
     )
 
     return {"message": f"成功添加{added_count}个权限", "added_count": added_count}
@@ -210,14 +211,14 @@ async def batch_add_user_roles(
     """批量添加用户角色
 
     Args:
-        request: 批量添加用户角色请求数据
+        request: 批量添加用户角色请求数据（包含user_id, role_keys, dom）
         casbin_service: Casbin服务实例
 
     Returns:
         添加结果信息
     """
     added_count = casbin_service.batch_add_user_roles(
-        user_id=request.user_id, role_keys=request.role_keys
+        user_id=request.user_id, dom=request.dom, role_keys=request.role_keys
     )
 
     return {"message": f"成功添加{added_count}个角色", "added_count": added_count}
@@ -225,36 +226,38 @@ async def batch_add_user_roles(
 
 @router.delete("/role-permissions/{role_key}", status_code=status.HTTP_200_OK)
 async def delete_role_permissions(
-    role_key: str, casbin_service: CasbinRuleService = Depends(get_casbin_rule_service)
+    role_key: str, dom: str = "*", casbin_service: CasbinRuleService = Depends(get_casbin_rule_service)
 ):
     """删除角色的所有权限
 
     Args:
         role_key: 角色键
+        dom: 域(项目ID或"*"表示全局，默认为全局)
         casbin_service: CasbinService实例
 
     Returns:
         删除结果信息
     """
-    deleted_count = casbin_service.delete_role_permissions(role_key)
+    deleted_count = casbin_service.delete_role_permissions(role_key, dom)
 
     return {"message": f"成功删除{deleted_count}个权限", "deleted_count": deleted_count}
 
 
 @router.delete("/user-roles/{user_id}", status_code=status.HTTP_200_OK)
 async def delete_user_roles(
-    user_id: str, casbin_service: CasbinRuleService = Depends(get_casbin_rule_service)
+    user_id: str, dom: str = "*", casbin_service: CasbinRuleService = Depends(get_casbin_rule_service)
 ):
     """删除用户的所有角色
 
     Args:
         user_id: 用户ID
+        dom: 域(项目ID或"*"表示全局，默认为全局)
         casbin_service: CasbinService实例
 
     Returns:
         删除结果信息
     """
-    deleted_count = casbin_service.delete_user_roles(user_id)
+    deleted_count = casbin_service.delete_user_roles(user_id, dom)
 
     return {"message": f"成功删除{deleted_count}个角色", "deleted_count": deleted_count}
 

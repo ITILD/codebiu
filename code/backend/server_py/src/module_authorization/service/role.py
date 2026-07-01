@@ -7,7 +7,7 @@ class RoleService:
     """角色服务"""
 
     def __init__(self, role_dao: RoleDao):
-        self.role_dao = role_dao
+        self.role_dao = role_dao or RoleDao()
 
     async def add(self, role: RoleCreate):
         """
