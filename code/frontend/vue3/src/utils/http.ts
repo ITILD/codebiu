@@ -1,5 +1,7 @@
 // src/utils/http.ts
 
+import { useAuthStore } from '@/stores/auth';
+
 // // 定义基础响应类型
 // interface ApiResponse<T = any> {
 //   code: number;
@@ -53,10 +55,16 @@ class HttpClient {
   private requestInterceptor(config: RequestConfig): RequestInit {
     const headers = new Headers(config.headers);
 
-    // 添加认证 token（示例）
-    const token = localStorage.getItem('token');
-    if (token) {
-      headers.append('Authorization', `Bearer ${token}`);
+    // 从 Pinia 认证 store 中读取访问令牌，自动携带到请求头
+    // 后端通过 OAuth2PasswordBearer 解析 Authorization: Bearer {token}
+    try {
+      const authStore = useAuthStore();
+      const token = authStore.authState.tokens.access.token;
+      if (token) {
+        headers.append('Authorization', `Bearer ${token}`);
+      }
+    } catch {
+      // Pinia 尚未初始化时静默跳过（如应用启动前的早期请求）
     }
 
     // // 默认 JSON 内容类型，但FormData除外

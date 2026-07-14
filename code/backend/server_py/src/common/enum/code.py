@@ -1,8 +1,8 @@
-from enum import Enum
+from enum import StrEnum
 
 
 # class syntax
-class CodeType(str, Enum):
+class CodeType(StrEnum):
     python = "python"
     java = "java"
     cpp = "cpp"
@@ -13,7 +13,3 @@ class CodeType(str, Enum):
     dart = "dart"
     ruby = "ruby"
     c_sharp = "c-sharp"
-    
-    
-    def __str__(self) -> str:
-        return self.value
