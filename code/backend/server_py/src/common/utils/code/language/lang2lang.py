@@ -1,6 +1,6 @@
-from enum import Enum
+from enum import StrEnum
 
-class Language(str, Enum):
+class Language(StrEnum):
     JA = "ja"
     EN = "en"
     ZH = "zh"
@@ -22,10 +22,10 @@ class Language(str, Enum):
             "es": "spanish",
             "de": "german"
         }
-        return mapping[self.value]
+        return mapping[self]
 
 if __name__ == "__main__":
     # 使用示例
-    print(Language.ZH.value)  # 输出: zh
+    print(Language.ZH)  # 输出: zh
     print(Language.ZH.full_name)  # 输出: chinese
     print(Language["FR"].full_name)  # 输出: french

@@ -1,6 +1,6 @@
-from enum import Enum
+from enum import StrEnum
 
-class PlatformId(str, Enum):
+class PlatformId(StrEnum):
     """平台枚举类"""
     WIN_x86 = "win-x86"
     WIN_x64 = "win-x64"

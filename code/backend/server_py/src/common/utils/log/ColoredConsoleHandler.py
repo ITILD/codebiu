@@ -7,10 +7,10 @@ class ColoredConsoleHandler(logging.StreamHandler):
     def emit(self, record):
         try:
             # 获取日志级别对应的颜色
-            color = LogLevelColor[record.levelname].value if record.levelname in LogLevelColor.__members__ else Color.RESET
+            color = LogLevelColor[record.levelname] if record.levelname in LogLevelColor.__members__ else Color.RESET
             message = self.format(record)
             # 输出带颜色的日志
-            self.stream.write(color.value + message + Color.RESET.value + '\n')
+            self.stream.write(color + message + Color.RESET + '\n')
         except Exception:
             self.handleError(record)
             
