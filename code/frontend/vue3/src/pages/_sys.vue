@@ -1,242 +1,164 @@
 <template>
-  <!-- sys 页-->
-  <!-- 内容 -->
-  <div flex w-full>
-    <!-- 左侧菜单 -->
-    <el-menu h-full :default-active="routerStore.routerPath.now" :router="true" overflow-y-auto :collapse="isCollapse"
-      :w="!isCollapse ? '60' : ''" @select="handleSelect">
-      <!-- Logo 区域（折叠时隐藏文字） -->
-      <div flex items-center justify-between p-3 border-b h-12>
-        <div flex items-center transition-all duration-300 ease-in-out>
-          <transition name="fade" mode="out-in">
-            <span v-if="!isCollapse" pl-4 text-xl font-bold whitespace-nowrap>Sys State</span>
-          </transition>
+  <div flex w-full h-full>
+    <!-- 桌面端侧边栏 -->
+    <el-aside v-if="sysSettingStore.sysStyle.isMd" :width="isCollapse ? '64px' : '220px'" transition-all duration-300 border-r bg-deep-1>
+      <div flex flex-col h-full>
+        <!-- Logo -->
+        <div flex items-center h-14 border-b shrink-0 :class="isCollapse ? 'justify-center' : 'px-4'">
+          <img src="@/assets/img/ion/sy_w.svg" h-6 />
+          <span v-if="!isCollapse" ml-2 text-lg font-bold whitespace-nowrap>管理后台</span>
         </div>
-        <el-button transition-all duration-300 hover:scale-110 @click="isCollapse = !isCollapse"
-          :icon="isCollapse ? DArrowRight : DArrowLeft" plain />
-      </div>
-      <!-- 菜单项 -->
-      <template v-for="item in menuItems" :key="item.index">
-        <el-menu-item v-if="!item.children" :index="item.index" :disabled="item.disabled">
-          <el-icon v-if="item.icon">
-            <component :is="item.icon" />
-          </el-icon>
-          <template #title>{{ item.title }}</template>
-        </el-menu-item>
 
-        <el-sub-menu v-else :index="item.index">
-          <template #title>
-            <el-icon v-if="item.icon">
-              <component :is="item.icon" />
-            </el-icon>
-            <span>{{ item.title }}</span>
-          </template>
+        <!-- 折叠按钮 -->
+        <div flex :class="isCollapse ? 'justify-center' : 'justify-end'" p-2 shrink-0>
+          <el-button :icon="isCollapse ? Expand : Fold" circle size="small" @click="isCollapse = !isCollapse" />
+        </div>
 
-          <!-- 子菜单项 -->
-          <template v-for="child in item.children" :key="child.index">
-            <el-menu-item v-if="!child.children" :index="child.index" :disabled="child.disabled">
-              {{ child.title }}
+        <!-- 菜单 -->
+        <el-menu flex-1 :default-active="routerStore.routerPath.now" :router="true" :collapse="isCollapse"
+          overflow-y-auto border-0 bg-transparent>
+          <template v-for="item in menuItems" :key="item.index">
+            <el-menu-item v-if="!item.children" :index="item.index">
+              <el-icon><component :is="item.icon" /></el-icon>
+              <template #title>{{ item.title }}</template>
             </el-menu-item>
-            <el-sub-menu v-else :index="child.index">
-              <!-- 子子菜单 -->
-              <template #title>{{ child.title }}</template>
-              <el-menu-item v-for="grandChild in child.children" :key="(grandChild as any).index"
-                :index="(grandChild as any).index" :disabled="(grandChild as any).disabled">
-                {{ (grandChild as any).title }}
+
+            <el-sub-menu v-else :index="item.index">
+              <template #title>
+                <el-icon><component :is="item.icon" /></el-icon>
+                <span>{{ item.title }}</span>
+              </template>
+              <el-menu-item v-for="child in item.children" :key="child.index" :index="child.index">
+                {{ child.title }}
               </el-menu-item>
             </el-sub-menu>
           </template>
-        </el-sub-menu>
-      </template>
-    </el-menu>
-    <!-- 右侧菜单 -->
-    <div flex-1 min-w-0 overflow-auto>
-      <!-- flex剩余 -->
-      <router-view w-full h-full></router-view>
+        </el-menu>
+      </div>
+    </el-aside>
+
+    <!-- 移动端抽屉 -->
+    <el-drawer v-model="mobileDrawer" title="管理后台" direction="ltr" size="260px">
+      <el-menu :default-active="routerStore.routerPath.now" :router="true" @select="mobileDrawer = false">
+        <template v-for="item in menuItems" :key="item.index">
+          <el-menu-item v-if="!item.children" :index="item.index">
+            <el-icon><component :is="item.icon" /></el-icon>
+            <template #title>{{ item.title }}</template>
+          </el-menu-item>
+
+          <el-sub-menu v-else :index="item.index">
+            <template #title>
+              <el-icon><component :is="item.icon" /></el-icon>
+              <span>{{ item.title }}</span>
+            </template>
+            <el-menu-item v-for="child in item.children" :key="child.index" :index="child.index">
+              {{ child.title }}
+            </el-menu-item>
+          </el-sub-menu>
+        </template>
+      </el-menu>
+    </el-drawer>
+
+    <!-- 主内容区 -->
+    <div flex-1 min-w-0 flex flex-col overflow-hidden>
+      <!-- 移动端顶部栏 -->
+      <div v-if="!sysSettingStore.sysStyle.isMd" flex items-center gap-3 h-12 px-3 border-b bg-deep-1 shrink-0>
+        <el-button :icon="Expand" circle size="small" @click="mobileDrawer = true" />
+        <span text-sm font-semibold>管理后台</span>
+      </div>
+
+      <!-- 路由内容 -->
+      <div flex-1 overflow-auto>
+        <router-view w-full h-full />
+      </div>
     </div>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { ref, markRaw } from 'vue'
-import { Document, Menu, Location, Setting, DArrowRight, DArrowLeft } from '@element-plus/icons-vue'
+import { ref, markRaw, watch } from 'vue'
+import {
+  HomeFilled, UserFilled, Document,
+  Monitor, ChatDotRound, Setting,
+  Expand, Fold, Files
+} from '@element-plus/icons-vue'
 import { RouterStore } from '@/stores/router'
+import { SysSettingStore } from '@/stores/sys'
 
-// 初始化路由存储
 const routerStore = RouterStore()
+const sysSettingStore = SysSettingStore()
 
-// 菜单折叠状态
-const isCollapse = ref(true)
+const isCollapse = ref(false)
+const mobileDrawer = ref(false)
 
-// 菜单项配置 TODO 多语言
-const menuItems = ref([
+// 菜单项配置
+const menuItems = [
   {
     index: '/_sys',
-    icon: markRaw(Location),
-    title: 'Overview',
-    disabled: false,
-    children: null,
+    icon: markRaw(HomeFilled),
+    title: '系统概览',
   },
   {
-    index: '/manager',
-    title: 'Manager',
-    icon: markRaw(Setting),
-    disabled: false,
+    index: '/_sys/manager',
+    icon: markRaw(UserFilled),
+    title: '管理员',
     children: [
-      {
-        index: '/_sys/manager/user',
-        title: 'user',
-        disabled: false,
-        children: null,
-      },
+      { index: '/_sys/manager/user', title: '用户管理' },
+      { index: '/_sys/manager/role', title: '角色管理' },
+      { index: '/_sys/manager/dept', title: '部门管理' },
+      { index: '/_sys/manager/permission', title: '权限管理' },
+    ],
+  },
+  {
+    index: '/_sys/database',
+    icon: markRaw(Document),
+    title: '数据库',
+    children: [
+      { index: '/_sys/database/overview', title: '数据概览' },
+      { index: '/_sys/database/user', title: '用户数据' },
+      { index: '/_sys/database/model_config', title: '模型配置' },
+      { index: '/_sys/database/todolist', title: '待办事项' },
+    ],
+  },
+  {
+    index: '/_sys/ai',
+    icon: markRaw(ChatDotRound),
+    title: 'AI 功能',
+    children: [
+      { index: '/_sys/ai/chat', title: 'AI 对话' },
+      { index: '/_sys/ai/ocr', title: 'OCR 识别' },
+      { index: '/_sys/ai/agent_baby_name', title: '宝宝取名' },
     ],
   },
   {
     index: '/_sys/monitor',
-    title: 'Monitor',
-    icon: markRaw(Setting),
-    disabled: false,
+    icon: markRaw(Monitor),
+    title: '监控',
     children: [
-      {
-        index: '/_sys/monitor/overview',
-        title: 'overview',
-        disabled: false,
-        children: null,
-      },
-      {
-        index: '/_sys/monitor/uistore',
-        title: 'uistore',
-        disabled: false,
-        children: null,
-      },
+      { index: '/_sys/monitor/uistore', title: '状态查看' },
     ],
   },
   {
-    index: '/template',
-    title: 'Template',
-    icon: markRaw(Setting),
+    index: '/_sys/template',
+    icon: markRaw(Files),
+    title: '模板示例',
     children: [
-      {
-        index: '/_sys/template/overview',
-        title: 'overview',
-        disabled: false,
-        children: null,
-      },
-      {
-        index: '/_sys/template/template',
-        title: 'template',
-        disabled: false,
-        children: null,
-      },
-      {
-        index: '/_sys/template/container',
-        title: 'container布局',
-        disabled: false,
-        children: null,
-      },
-      {
-        index: '/_sys/template/mediapipe_face',
-        title: 'mediapipe_face',
-        disabled: false,
-        children: null,
-      },
-      {
-        index: '/_sys/template/babylon',
-        title: 'babylon',
-        disabled: false,
-        children: null,
-      },
+      { index: '/_sys/template/overview', title: '模板概览' },
+      { index: '/_sys/template/template', title: '模板管理' },
+      { index: '/_sys/template/container', title: '布局容器' },
+      { index: '/_sys/template/mediapipe_face', title: '人脸识别' },
+      { index: '/_sys/template/babylon', title: 'Babylon 3D' },
     ],
   },
   {
-    index: '/db',
-    title: 'DataBase',
-    icon: markRaw(Menu),
-    children: [
-      {
-        index: '/_sys/database/overview',
-        title: 'overview',
-        disabled: false,
-        children: null,
-      },
-      {
-        index: '/_sys/database/user',
-        title: 'user',
-        disabled: false,
-        children: null,
-      },
-      {
-        index: '/_sys/database/model_config',
-        title: 'model_config',
-        disabled: false,
-        children: null,
-      },
-      {
-        index: '/_sys/database/todolist',
-        title: 'todolist',
-        disabled: false,
-        children: null,
-      },
-    ],
-  },
-  {
-    index: '/ai',
-    title: 'AI',
+    index: '/_sys/setting',
     icon: markRaw(Setting),
-    children: [
-      {
-        index: '/_sys/ai/ocr',
-        title: 'ocr',
-        disabled: false,
-        children: null,
-      },
-      {
-        index: '/_sys/ai/chat',
-        title: 'chat',
-        disabled: false,
-        children: null,
-      },
-      {
-        index: '/_sys/ai/agent_baby_name',
-        title: 'agent_baby_name',
-        disabled: false,
-        children: null,
-      },
+    title: '系统设置',
+  },
+]
 
-    ],
-  },
-  {
-    index: '/_sys/test',
-    title: 'test',
-    icon: markRaw(Menu),
-    disabled: false,
-    children: null,
-  },
-  {
-    index: '4',
-    title: 'no_page',
-    icon: markRaw(Document),
-    disabled: false,
-    children: null,
-  },
-  {
-    index: '5',
-    title: 'disabled',
-    icon: markRaw(Document),
-    disabled: true,
-    children: null,
-  },
-])
-
-// 菜单选择处理
-const handleSelect = (index: string) => {
-  console.log('选中菜单:', index)
-}
+// 桌面端时关闭移动抽屉
+watch(() => sysSettingStore.sysStyle.isMd, (isMd) => {
+  if (isMd) mobileDrawer.value = false
+})
 </script>
-
-<style scoped>
-/* 使用CSS类替代属性选择器以确保兼容性 */
-:deep(.el-menu) {
-  height: 100%;
-}
-</style>

@@ -1,111 +1,68 @@
 <template>
-  <div w-full m-10>
-    <section class="hero-section">
-      <h2>欢迎来到网站首页</h2>
-      <p>首页示例，您可以通过顶部导航栏切换到服务器管理页面。</p>
-      <RouterLink to="/_sys" class="btn-primary">前往服务器管理</RouterLink>
+  <div w-full max-w-5xl mx-auto p-4 md:p-10>
+    <section
+      text-center
+      p-6 md:p-12
+      mb-8
+      rounded-lg
+      bg-gradient-to-br
+      from-indigo-500
+      to-purple-700
+      text-white
+    >
+      <h2 text-3xl md:text-4xl font-bold mb-4>欢迎来到网站首页</h2>
+      <p text-base md:text-lg mb-8 max-w-2xl mx-auto>
+        首页示例，您可以通过顶部导航栏切换到服务器管理页面。
+      </p>
+      <RouterLink
+        to="/_sys"
+        inline-block
+        bg-white
+        text-indigo-600
+        px-6
+        py-3
+        rounded
+        font-bold
+        transition-all
+        duration-300
+        hover:bg-gray-100
+        hover:-translate-y-0.5
+        hover:shadow-md
+      >
+        前往管理后台
+      </RouterLink>
     </section>
 
-    <section class="features-section">
-      <h3>主要功能</h3>
-      <div class="features-grid">
-        <div class="feature-card">
-          <h4>简单易用</h4>
-          <p>直观的界面设计，让您轻松上手。</p>
-        </div>
-        <div class="feature-card">
-          <h4>服务器管理</h4>
-          <p>查看和管理您的服务器资源。</p>
-        </div>
-        <div class="feature-card">
-          <h4>响应式设计</h4>
-          <p>在各种设备上都能获得良好的体验。</p>
+    <section mt-12>
+      <h3 text-center text-2xl md:text-3xl mb-8>主要功能</h3>
+      <div grid grid-cols-1 md:grid-cols-3 gap-6>
+        <div
+          v-for="feature in features"
+          :key="feature.title"
+          bg-gray-50
+          dark:bg-gray-800
+          p-8
+          rounded-lg
+          text-center
+          transition-all
+          duration-300
+          hover:-translate-y-1
+          hover:shadow-lg
+        >
+          <h4 text-blue-700 dark:text-blue-400 mb-3 text-xl font-semibold>
+            {{ feature.title }}
+          </h4>
+          <p text-gray-600 dark:text-gray-300>{{ feature.desc }}</p>
         </div>
       </div>
     </section>
   </div>
 </template>
+
 <script setup lang="ts">
-import { RouterLink } from 'vue-router'
+const features = [
+  { title: '简单易用', desc: '直观的界面设计，让您轻松上手。' },
+  { title: '服务器管理', desc: '查看和管理您的服务器资源。' },
+  { title: '响应式设计', desc: '在各种设备上都能获得良好的体验。' },
+]
 </script>
-
-<style scoped>
-.home-page {
-  max-width: 1000px;
-  margin: 0 auto;
-}
-
-.hero-section {
-  text-align: center;
-  padding: 3rem 0;
-  margin-bottom: 2rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border-radius: 8px;
-}
-
-.hero-section h2 {
-  font-size: 2.5rem;
-  margin-bottom: 1rem;
-}
-
-.hero-section p {
-  font-size: 1.2rem;
-  margin-bottom: 2rem;
-  max-width: 600px;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.btn-primary {
-  display: inline-block;
-  background-color: #ffffff;
-  color: #667eea;
-  padding: 0.8rem 1.5rem;
-  border-radius: 4px;
-  text-decoration: none;
-  font-weight: bold;
-  transition: all 0.3s;
-}
-
-.btn-primary:hover {
-  background-color: #f8f9fa;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-}
-
-.features-section {
-  margin-top: 3rem;
-}
-
-.features-section h3 {
-  text-align: center;
-  font-size: 1.8rem;
-  margin-bottom: 2rem;
-}
-
-.features-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.5rem;
-}
-
-.feature-card {
-  background-color: #f8f9fa;
-  padding: 2rem;
-  border-radius: 8px;
-  text-align: center;
-  transition: transform 0.3s, box-shadow 0.3s;
-}
-
-.feature-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
-}
-
-.feature-card h4 {
-  color: #4a6fa5;
-  margin-bottom: 0.8rem;
-  font-size: 1.2rem;
-}
-</style>

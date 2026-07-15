@@ -1,14 +1,13 @@
 <template>
   <div p-2 w-full>
     <!-- 搜索栏 -->
-    <div mb-5 flex items-center>
-      <el-input w-5 v-model="searchQuery" placeholder="输入用户名搜索" clearable @clear="handleSearch" @keyup.enter="handleSearch"
-      >
+    <div mb-5 flex flex-wrap items-center gap-2>
+      <el-input class="w-full sm:w-80" v-model="searchQuery" placeholder="输入用户名搜索" clearable @clear="handleSearch" @keyup.enter="handleSearch">
         <template #append>
           <el-button :icon="Search" @click="handleSearch" />
         </template>
       </el-input>
-      <el-button type="primary" @click="handleCreate" ml-16>
+      <el-button type="primary" @click="handleCreate">
         新增用户
       </el-button>
     </div>
@@ -42,14 +41,14 @@
     </el-table>
 
     <!-- 分页 -->
-    <div mt-20 flex justify-end>
+    <div mt-5 flex justify-end>
       <el-pagination v-model:current-page="pagination.page" v-model:page-size="pagination.size"
         :page-sizes="[10, 20, 50, 100]" :total="total" layout="total, sizes, prev, pager, next, jumper"
         @size-change="fetchData" @current-change="fetchData" />
     </div>
 
     <!-- 编辑/创建对话框 -->
-    <el-dialog v-model="dialogVisible" :title="dialogTitle">
+    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="90%" class="max-w-[600px]">
       <el-form :model="form" :rules="rules" ref="formRef" label-width="80px">
         <template v-for="column in tableColumns" :key="column.prop">
           <el-form-item v-if="column.edit" :prop="column.prop" :label="column.label">
@@ -270,10 +269,3 @@ onMounted(() => {
   fetchData()
 })
 </script>
-
-<style scoped>
-/* 覆盖 Element Plus 组件样式 */
-:deep(.el-input) {
-  width: 20rem !important; /* w-5 对应的宽度 */
-}
-</style>

@@ -1,5 +1,5 @@
 <template>
-  <el-dialog v-model="visible" :title="$t('sign_in')" :width="dialogWidth" :modal="true" :close-on-click-modal="true"
+  <el-dialog v-model="visible" :title="$t('sign_in')" width="90%" class="max-w-[400px]" :modal="true" :close-on-click-modal="true"
     draggable @close="handleClose">
     <template #header="{  titleId, titleClass }">
       <div flex justify-between items-center>
@@ -92,9 +92,6 @@ const loginRules = {
   ]
 }
 
-// 对话框宽度
-const dialogWidth = ref('400px')
-
 // 关闭弹窗
 const handleClose = () => {
   visible.value = false
@@ -120,7 +117,6 @@ const handleLogin = async () => {
         emit('login', authResponse)
         handleClose()
       } catch (error: unknown) {
-        debugger
         console.error('登录失败:', error)
         // 添加错误提示
         ElMessage.error((error as { message?: string }).message || '登录失败，请检查用户名和密码')
@@ -139,5 +135,3 @@ const handleSignUp = () => {
 
 
 </script>
-
-<style scoped></style>

@@ -1,13 +1,15 @@
 <template>
-  <div flex overflow-hidden h-full>
+  <div flex flex-col md:flex-row overflow-hidden h-full>
     <!--左侧树状 选择器 -->
-    <div w-60  h-full><el-tree :data="data" :props="defaultProps" @node-click="handleNodeClick" /></div>
+    <div w-full md:w-60 shrink-0 border-b md:border-b-0 md:border-r overflow-auto max-h-40 md:max-h-full>
+      <el-tree :data="data" :props="defaultProps" @node-click="handleNodeClick" />
+    </div>
 
     <!--右侧 Monaco 编辑器 -->
-    <div flex-1 flex flex-col overflow-auto h-full>
+    <div flex-1 flex flex-col overflow-auto h-full min-w-0>
       <Suspense>
         <template #default>
-          <LazyBaseMoacoEdit flex-1 min-h-10 min-w-160 v-model="editorContent" :language="selectedLanguage"
+          <LazyBaseMoacoEdit flex-1 min-h-10 v-model="editorContent" :language="selectedLanguage"
             :theme="selectedTheme" :encoding="selectedEncoding" :font-size="14" :line-height="1.5" />
         </template>
         <template #fallback>
@@ -68,7 +70,6 @@ interface Tree {
 // 树状节点点击事件处理函数
 const handleNodeClick = (data: Tree, node: Node) => {
   const label = data.label
-  debugger
   switch (label) {
     case 'authStore':
       handleLoadSample(CodeType.json, JSON.stringify(authStore, null, 2))
@@ -123,5 +124,3 @@ const data: Tree[] = [
   },
 ]
 </script>
-
-<style scoped></style>

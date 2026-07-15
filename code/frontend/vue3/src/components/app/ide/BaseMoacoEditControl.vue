@@ -77,5 +77,3 @@ const codeTypeOptions = computed(() => {
   return options
 })
 </script>
-
-<style scoped></style>

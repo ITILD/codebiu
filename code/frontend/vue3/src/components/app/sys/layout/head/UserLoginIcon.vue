@@ -19,4 +19,3 @@ const authState = authStore.authState
  */
 onMounted(() => { })
 </script>
-<style scoped></style>

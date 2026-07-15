@@ -1,9 +1,9 @@
 <template>
   <div p-2 w-full>
     <!-- 搜索栏 -->
-    <div mb-5 flex items-center>
+    <div mb-5 flex flex-wrap items-center gap-2>
       <el-input
-        style="width: 240px"
+        class="w-full sm:w-60"
         v-model="searchQuery"
         placeholder="输入模型名称搜索"
         clearable
@@ -14,7 +14,7 @@
           <el-button :icon="Search" @click="handleSearch" />
         </template>
       </el-input>
-      <el-button  @click="handleCreate" ml-16px>
+      <el-button @click="handleCreate">
         新增模型配置
       </el-button>
     </div>
@@ -58,7 +58,7 @@
     </div>
 
     <!-- 编辑/创建对话框 -->
-    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="600px">
+    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="90%" class="max-w-[600px]">
       <el-form :model="form" :rules="rules" ref="formRef" label-width="120px">
         <template v-for="column in tableColumns" :key="column.prop">
           <el-form-item v-if="column.edit" :prop="column.prop" :label="column.label">
@@ -138,7 +138,6 @@ const dialogTitle = computed(() => {
 
 // 获取数据
 const fetchData = async () => {
-  debugger
   try {
     loading.value = true
     const params = {
@@ -311,5 +310,3 @@ onMounted(() => {
   fetchData()
 })
 </script>
-
-<style scoped></style>

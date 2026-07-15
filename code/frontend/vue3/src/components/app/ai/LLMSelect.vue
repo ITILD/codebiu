@@ -4,7 +4,7 @@
     <el-select
       v-model="selectedModelId"
       placeholder="选择模型"
-      style="width: 240px"
+      w-60
       :disabled="disabled"
       @change="handleModelChange"
     >

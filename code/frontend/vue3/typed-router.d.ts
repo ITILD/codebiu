@@ -19,7 +19,7 @@ declare module 'vue-router/auto-routes' {
    */
   export interface RouteNamedMap {
     '/': RouteRecordInfo<'/', '/', Record<never, never>, Record<never, never>>,
-    '/_sys': RouteRecordInfo<'/_sys', '/_sys', Record<never, never>, Record<never, never>, '/_sys/' | '/_sys/ai/agent_baby_name' | '/_sys/ai/chat' | '/_sys/ai/ocr' | '/_sys/database/model_config' | '/_sys/database/overview' | '/_sys/database/todolist' | '/_sys/database/user' | '/_sys/manager/user' | '/_sys/monitor/uistore' | '/_sys/template/babylon' | '/_sys/template/container' | '/_sys/template/infoview' | '/_sys/template/mediapipe_face' | '/_sys/template/overview' | '/_sys/template/template'>,
+    '/_sys': RouteRecordInfo<'/_sys', '/_sys', Record<never, never>, Record<never, never>, '/_sys/' | '/_sys/ai/agent_baby_name' | '/_sys/ai/chat' | '/_sys/ai/ocr' | '/_sys/database/model_config' | '/_sys/database/overview' | '/_sys/database/todolist' | '/_sys/database/user' | '/_sys/manager/dept' | '/_sys/manager/permission' | '/_sys/manager/role' | '/_sys/manager/user' | '/_sys/monitor/uistore' | '/_sys/setting' | '/_sys/template/babylon' | '/_sys/template/container' | '/_sys/template/infoview' | '/_sys/template/mediapipe_face' | '/_sys/template/overview' | '/_sys/template/template'>,
     '/_sys/': RouteRecordInfo<'/_sys/', '/_sys', Record<never, never>, Record<never, never>>,
     '/_sys/ai/agent_baby_name': RouteRecordInfo<'/_sys/ai/agent_baby_name', '/_sys/ai/agent_baby_name', Record<never, never>, Record<never, never>>,
     '/_sys/ai/chat': RouteRecordInfo<'/_sys/ai/chat', '/_sys/ai/chat', Record<never, never>, Record<never, never>>,
@@ -28,8 +28,12 @@ declare module 'vue-router/auto-routes' {
     '/_sys/database/overview': RouteRecordInfo<'/_sys/database/overview', '/_sys/database/overview', Record<never, never>, Record<never, never>>,
     '/_sys/database/todolist': RouteRecordInfo<'/_sys/database/todolist', '/_sys/database/todolist', Record<never, never>, Record<never, never>>,
     '/_sys/database/user': RouteRecordInfo<'/_sys/database/user', '/_sys/database/user', Record<never, never>, Record<never, never>>,
+    '/_sys/manager/dept': RouteRecordInfo<'/_sys/manager/dept', '/_sys/manager/dept', Record<never, never>, Record<never, never>>,
+    '/_sys/manager/permission': RouteRecordInfo<'/_sys/manager/permission', '/_sys/manager/permission', Record<never, never>, Record<never, never>>,
+    '/_sys/manager/role': RouteRecordInfo<'/_sys/manager/role', '/_sys/manager/role', Record<never, never>, Record<never, never>>,
     '/_sys/manager/user': RouteRecordInfo<'/_sys/manager/user', '/_sys/manager/user', Record<never, never>, Record<never, never>>,
     '/_sys/monitor/uistore': RouteRecordInfo<'/_sys/monitor/uistore', '/_sys/monitor/uistore', Record<never, never>, Record<never, never>>,
+    '/_sys/setting': RouteRecordInfo<'/_sys/setting', '/_sys/setting', Record<never, never>, Record<never, never>>,
     '/_sys/template/babylon': RouteRecordInfo<'/_sys/template/babylon', '/_sys/template/babylon', Record<never, never>, Record<never, never>>,
     '/_sys/template/container': RouteRecordInfo<'/_sys/template/container', '/_sys/template/container', Record<never, never>, Record<never, never>>,
     '/_sys/template/infoview': RouteRecordInfo<'/_sys/template/infoview', '/_sys/template/infoview', Record<never, never>, Record<never, never>>,
@@ -37,8 +41,6 @@ declare module 'vue-router/auto-routes' {
     '/_sys/template/overview': RouteRecordInfo<'/_sys/template/overview', '/_sys/template/overview', Record<never, never>, Record<never, never>>,
     '/_sys/template/template': RouteRecordInfo<'/_sys/template/template', '/_sys/template/template', Record<never, never>, Record<never, never>>,
     '/[..all]': RouteRecordInfo<'/[..all]', '/:ll(.*)', { ll: ParamValue<true> }, { ll: ParamValue<false> }>,
-    '/AboutView': RouteRecordInfo<'/AboutView', '/AboutView', Record<never, never>, Record<never, never>>,
-    '/setting': RouteRecordInfo<'/setting', '/setting', Record<never, never>, Record<never, never>>,
   }
 
   /**
@@ -57,7 +59,7 @@ declare module 'vue-router/auto-routes' {
       views: never
     }
     'src/pages/_sys.vue': {
-      routes: '/_sys' | '/_sys/' | '/_sys/ai/agent_baby_name' | '/_sys/ai' | '/_sys/template/babylon' | '/_sys/ai/chat' | '/_sys/template/container' | '/_sys/database' | '/_sys/template/infoview' | '/_sys/manager' | '/_sys/template/mediapipe_face' | '/_sys/database/model_config' | '/_sys/monitor' | '/_sys/ai/ocr' | '/_sys/database/overview' | '/_sys/template/overview' | '/_sys/template' | '/_sys/template/template' | '/_sys/database/todolist' | '/_sys/monitor/uistore' | '/_sys/database/user' | '/_sys/manager/user'
+      routes: '/_sys' | '/_sys/' | '/_sys/ai/agent_baby_name' | '/_sys/ai' | '/_sys/template/babylon' | '/_sys/ai/chat' | '/_sys/template/container' | '/_sys/database' | '/_sys/manager/dept' | '/_sys/template/infoview' | '/_sys/manager' | '/_sys/template/mediapipe_face' | '/_sys/database/model_config' | '/_sys/monitor' | '/_sys/ai/ocr' | '/_sys/database/overview' | '/_sys/template/overview' | '/_sys/manager/permission' | '/_sys/manager/role' | '/_sys/setting' | '/_sys/template' | '/_sys/template/template' | '/_sys/database/todolist' | '/_sys/monitor/uistore' | '/_sys/database/user' | '/_sys/manager/user'
       views: 'default'
     }
     'src/pages/_sys/index.vue': {
@@ -92,12 +94,28 @@ declare module 'vue-router/auto-routes' {
       routes: '/_sys/database/user'
       views: never
     }
+    'src/pages/_sys/manager/dept.vue': {
+      routes: '/_sys/manager/dept'
+      views: never
+    }
+    'src/pages/_sys/manager/permission.vue': {
+      routes: '/_sys/manager/permission'
+      views: never
+    }
+    'src/pages/_sys/manager/role.vue': {
+      routes: '/_sys/manager/role'
+      views: never
+    }
     'src/pages/_sys/manager/user.vue': {
       routes: '/_sys/manager/user'
       views: never
     }
     'src/pages/_sys/monitor/uistore.vue': {
       routes: '/_sys/monitor/uistore'
+      views: never
+    }
+    'src/pages/_sys/setting.vue': {
+      routes: '/_sys/setting'
       views: never
     }
     'src/pages/_sys/template/babylon.vue': {
@@ -126,14 +144,6 @@ declare module 'vue-router/auto-routes' {
     }
     'src/pages/[..all].vue': {
       routes: '/[..all]'
-      views: never
-    }
-    'src/pages/AboutView.vue': {
-      routes: '/AboutView'
-      views: never
-    }
-    'src/pages/setting.vue': {
-      routes: '/setting'
       views: never
     }
   }

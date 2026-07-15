@@ -8,6 +8,7 @@ class UserBase(SQLModel):
 
     username: str = Field(..., max_length=50, description="用户名")
     password: str = Field(..., max_length=255, description="密码")
+    dept_id: str | None = Field(default=None, description="部门ID")
     email: str | None = Field(default=None,max_length=100, description="邮箱")
     phone: str | None = Field(default=None,max_length=20, description="电话号码")
     nickname: str | None = Field(default=None, max_length=50, description="昵称")
@@ -52,6 +53,7 @@ class UserUpdate(SQLModel):
 
     username: str | None = Field(None, max_length=50, description="用户名")
     password: str | None = Field(None, max_length=255, description="密码")
+    dept_id: str | None = Field(None, description="部门ID")
     email: str | None = Field(None, max_length=100, description="邮箱")
     phone: str | None = Field(None, max_length=20, description="电话号码")
     nickname: str | None = Field(None, max_length=50, description="昵称")
@@ -64,6 +66,7 @@ class UserResponse(SQLModel):
 
     id: str = Field(..., description="唯一标识符")
     username: str = Field(..., description="用户名")
+    dept_id: str | None = Field(description="部门ID")
     email: str | None = Field( description="邮箱")
     phone: str | None = Field( description="电话号码")
     nickname: str | None = Field( description="昵称")

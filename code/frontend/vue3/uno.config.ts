@@ -26,6 +26,20 @@ export default defineConfig({
     transformerDirectives(), // 允许在 CSS 或 SFC 的 style 中使用 /* @apply btn */ 语法
     transformerVariantGroup() // 支持分组写法，如 md:(p-2 text-lg) 等价于多个类组合
   ],
+  theme: {
+    animation: {
+      keyframes: {
+        // 光标闪烁动画
+        blink: '{0%,50%{opacity:1}51%,100%{opacity:0}}',
+      },
+      durations: {
+        blink: '1s',
+      },
+      counts: {
+        blink: 'infinite',
+      },
+    },
+  },
   rules: [
     // 抽屉
     ['m-1', { margin: '0.3rem' }],

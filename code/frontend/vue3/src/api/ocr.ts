@@ -16,6 +16,5 @@ export const performOCR = async (formData: FormData) => {
 
 // 执行OCR识别并翻译
 export const performOCRWithTranslation = async (formData: FormData) => {
-  debugger
   return http_base_server.post<OcrResponseWithTranslation>('/ai/translate/ocr', formData);
 }

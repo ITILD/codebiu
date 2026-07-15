@@ -1,13 +1,13 @@
 <template>
-  <div flex flex-col h-screen w-full bg-gray-50>
-    <div>
-      <video id="videoDom" width="500" height="500"></video>
-      <div>fps:{{ fps.toFixed(3) }}</div>
+  <div flex flex-col h-full w-full bg-gray-50 overflow-auto p-2 md:p-4>
+    <div flex flex-col md:flex-row gap-4>
+      <video id="videoDom" width="500" height="500" -scale-x-100 class="w-full max-w-[500px] h-auto rounded"></video>
+      <div text-sm text-gray-600>fps:{{ fps.toFixed(3) }}</div>
     </div>
-    <div flex flex-wrap w-160>
-      <div v-for="categorie in categories" :key="categorie.index" w-40>
-        <div>{{ categorie.categoryName }}</div>
-        <div>{{ categorie.score.toFixed(8) }}</div>
+    <div flex flex-wrap w-full gap-2 mt-4>
+      <div v-for="categorie in categories" :key="categorie.index" class="w-1/2 sm:w-40 p-2 bg-white rounded shadow-sm">
+        <div text-sm font-medium>{{ categorie.categoryName }}</div>
+        <div text-xs text-gray-500>{{ categorie.score.toFixed(8) }}</div>
       </div>
     </div>
   </div>
@@ -149,9 +149,3 @@ function detectFaceLandmarks(time: any) {
   // console.log(blendshapes)
 }
 </script>
-
-<style scoped>
-video {
-  transform: scaleX(-1);
-}
-</style>
