@@ -1,5 +1,5 @@
 <template>
-  <el-dialog v-model="visible" :title="$t('sign_up')" :width="dialogWidth" :modal="true" :close-on-click-modal="true"
+  <el-dialog v-model="visible" :title="$t('sign_up')" width="90%" class="max-w-[400px]" :modal="true" :close-on-click-modal="true"
     draggable @close="handleClose">
     <template #header="{ titleId, titleClass }">
       <div flex justify-between items-center>
@@ -110,9 +110,6 @@ const registerRules = {
   ]
 }
 
-// 对话框宽度
-const dialogWidth = ref('400px')
-
 // 关闭弹窗
 const handleClose = () => {
   visible.value = false
@@ -160,5 +157,3 @@ const handleBackToLogin = () => {
 
 
 </script>
-
-<style scoped></style>

@@ -42,7 +42,6 @@ export const sendChatMessageStream = async (
     body: JSON.stringify(request),
     onmessage: (event) => {
       try {
-        debugger
         const parsed = JSON.parse(event.data)
 
         if (parsed.status === 'error') {

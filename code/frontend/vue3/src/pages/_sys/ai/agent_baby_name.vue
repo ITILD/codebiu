@@ -1,17 +1,17 @@
 <template>
-  <div flex flex-col h-screen w-full bg-gray-50>
+  <div flex flex-col h-full w-full bg-gray-50>
     <!-- 顶部模型选择栏 -->
     <div p-4 border-b bg-white shadow-sm>
-      <div flex items-center gap-4>
+      <div flex flex-wrap items-center gap-4>
         <LLMSelect v-model:model-id="model_id" :model-list="tableData" :disabled="isSending"
           @change="handleModelChange" />
       </div>
     </div>
 
     <!-- 主体内容区 -->
-    <div flex flex-1 overflow-hidden>
+    <div flex flex-1 flex-col md:flex-row overflow-hidden>
       <!-- 左侧表单输入区 -->
-      <div w-400px border-r bg-white p-4 overflow-y-auto>
+      <div w-full md:w-100 border-r bg-white p-4 overflow-y-auto>
         <div text-lg font-bold mb-4>宝宝信息</div>
 
         <el-form :model="formData" label-width="80px" size="small">
@@ -29,17 +29,17 @@
 
           <el-form-item label="出生日期" required>
             <el-date-picker v-model="formData.birth_date" type="date" placeholder="选择出生日期" format="YYYY-MM-DD"
-              value-format="YYYY-MM-DD" :disabled="isSending" style="width: 100%" />
+              value-format="YYYY-MM-DD" :disabled="isSending" w-full />
           </el-form-item>
 
           <el-form-item label="出生时辰" required>
             <el-time-picker v-model="formData.birth_time" placeholder="选择出生时辰" format="HH:mm" value-format="HH:mm"
-              :disabled="isSending" style="width: 100%" />
+              :disabled="isSending" w-full />
           </el-form-item>
 
           <el-form-item label="名字长度">
             <el-input-number v-model="formData.name_length" :min="1" :max="5" :step="1" :disabled="isSending"
-              style="width: 100%" />
+              w-full />
           </el-form-item>
 
           <el-form-item label="其他要求">
@@ -48,7 +48,7 @@
           </el-form-item>
 
           <el-button type="primary" :loading="isSending" :disabled="!canSubmit" @click="handlePredict"
-            style="width: 100%">
+            w-full>
             {{ isSending ? '预测中...' : '开始预测' }}
           </el-button>
         </el-form>
@@ -202,7 +202,6 @@ const handlePredict = async () => {
       // 接收数据块回调（立即更新）
       (result_obj: any) => {
         // 添加结果
-        debugger
         if (result_obj.node_name == "calculate_constellation_preference") {
           result.value.explanation_constellation += result_obj.content
         }
@@ -245,23 +244,3 @@ onMounted(async () => {
   }
 })
 </script>
-
-<style scoped>
-/* 光标闪烁动画 */
-@keyframes blink {
-
-  0%,
-  50% {
-    opacity: 1;
-  }
-
-  51%,
-  100% {
-    opacity: 0;
-  }
-}
-
-.animate-blink {
-  animation: blink 1s infinite;
-}
-</style>

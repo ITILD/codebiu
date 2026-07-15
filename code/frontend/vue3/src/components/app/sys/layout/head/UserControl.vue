@@ -4,7 +4,7 @@
     <template #dropdown>
       <el-dropdown-menu>
         <!-- 用户信息 -->
-        <el-dropdown-item command="profile">
+        <el-dropdown-item command="profile" disabled>
           <div flex items-center>
             <UserLoginIcon m-2 w-8 h-8 />
             <div>
@@ -24,23 +24,18 @@
       </el-dropdown-menu>
     </template>
   </el-dropdown>
-
 </template>
 
 <script setup lang="ts">
 import { markRaw } from 'vue'
-import { FolderOpened, Setting, Monitor, EditPen, SwitchButton } from '@element-plus/icons-vue'
+import { Setting, Monitor, SwitchButton } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
-import { SysSettingStore } from '@/stores/sys'
 
-// 获取路由和存储实例
 const router = useRouter()
 const authStore = useAuthStore()
 const authState = authStore.authState
 const initAuthState = authStore.initAuthState
-const sysSettingStore = SysSettingStore()
 
-// 定义菜单项类型
 interface MenuItem {
   command: string
   label: string
@@ -49,60 +44,30 @@ interface MenuItem {
   action?: () => void
 }
 
-// 菜单项配置
 const menuItems: MenuItem[] = [
-  {
-    command: 'projects',
-    label: '项目列表',
-    icon: markRaw(FolderOpened),
-    action: () => {
-      // 跳转到项目列表页面
-      router.push('/projects')
-    },
-  },
-  {
-    command: 'blog',
-    label: '博客记录',
-    icon: markRaw(EditPen),
-    action: () => {
-      router.push('/blog')
-    },
-  },
-  {
-    command: 'settings',
-    divided: true,
-    label: '设置',
-    icon: markRaw(Setting),
-    action: () => {
-      // sysSettingStore.isSysSettingShow = true
-      router.push('/setting')
-    },
-  },
   {
     command: 'admin',
     label: '后台管理',
     icon: markRaw(Monitor),
+    divided: true,
     action: () => {
       router.push('/_sys')
     },
   },
   {
-    command: 'dev',
-    label: '开发测试',
-    icon: markRaw(EditPen),
+    command: 'settings',
+    label: '设置',
+    icon: markRaw(Setting),
     action: () => {
-      router.push('/_dev')
+      router.push('/_sys/setting')
     },
   },
   {
     command: 'logout',
     label: '退出登录',
     icon: markRaw(SwitchButton),
-    // divided 分隔线
     divided: true,
     action: () => {
-      // TODO 调用后端的退出接口 token和refresh_token强制过期
-      // 退出登录，重置用户状态
       initAuthState()
     },
   },
@@ -114,7 +79,4 @@ const handleCommand = (command: string) => {
     item.action()
   }
 }
-
 </script>
-
-<style scoped></style>

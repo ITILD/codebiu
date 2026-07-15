@@ -1,12 +1,12 @@
 <template>
-  <div>
+  <div p-4 max-w-6xl mx-auto>
     <h1 text-center mb-5 text-2xl font-bold>OCR 文字识别</h1>
 
     <!-- 文件上传和语言选择区域 -->
     <el-card mb-5>
       <div flex flex-col gap-4>
         <!-- 文件选择 -->
-        <div flex items-center gap-3>
+        <div flex flex-wrap items-center gap-3>
           <el-button type="primary" @click="triggerFileInput">
             选择图片 <span text-xs ml-1>支持拖拽</span>
           </el-button>
@@ -21,9 +21,9 @@
         </div>
 
         <!-- 识别语言选择 -->
-        <div flex items-center gap-3>
+        <div flex flex-wrap items-center gap-3>
           <span>识别语言:</span>
-          <el-radio-group v-model="selectedLang">
+          <el-radio-group v-model="selectedLang" class="flex flex-wrap gap-2">
             <el-radio
               v-for="lang in languages"
               :key="lang.code"
@@ -44,9 +44,9 @@
         </div>
 
         <!-- 翻译语言选择 -->
-        <div flex items-center gap-3>
+        <div flex flex-wrap items-center gap-3>
           <span>翻译语言:</span>
-          <el-radio-group v-model="selectedLangTranslate">
+          <el-radio-group v-model="selectedLangTranslate" class="flex flex-wrap gap-2">
             <el-radio
               v-for="lang in languages"
               :key="lang.code"
@@ -459,7 +459,6 @@ const startRecognitionTranslate = async () => {
   formData.append('lang_ocr', selectedLang.value)
   formData.append('lang_translate', selectedLangTranslate.value)
 
-  debugger
   isProcessing.value = true
   results.value = []
   processingTime.value = 0
@@ -501,15 +500,3 @@ const startRecognitionTranslate = async () => {
   }
 }
 </script>
-
-<style scoped>
-.ocr-container {
-  padding: 20px;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-:deep(.el-card) {
-  --el-card-padding: 20px;
-}
-</style>

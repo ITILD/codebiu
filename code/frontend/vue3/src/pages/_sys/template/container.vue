@@ -1,31 +1,21 @@
 <template>
-  <div flex>
-    <div class="w-1/3 h-1/3" bg-gray-900 flex p-1>
-      <!-- left: 1/3 -->
-      <div class="w-1/3" bg-gray-100>Left Panel</div>
-
-      <!-- right: 剩余 2/3 -->
-      <div flex-1 bg-gray-200>Right Panel (auto fills remaining space)</div>
+  <div p-4 flex flex-wrap gap-4>
+    <!-- 示例1: 左1/3 + 右2/3 -->
+    <div class="w-full md:w-1/3" h-48 bg-gray-900 flex p-1 rounded>
+      <div class="w-1/3" bg-gray-100 rounded flex items-center justify-center>Left Panel</div>
+      <div flex-1 bg-gray-200 rounded ml-1 flex items-center justify-center>Right Panel</div>
     </div>
 
-    <div class="w-1/3 h-1/3" bg-gray-900 flex p-1>
-      <!-- left: 1/3 -->
-      <div class="w-1/3" bg-gray-100>Left Panel</div>
-
-      <!-- right: 剩余 2/3 -->
-      <div flex-1 bg-gray-200 flex flex-col>
-        <!-- up: 9/10 -->
-        <div class="h-9/10" bg-gray-300>Up Panel (9/10)</div>
-
-        <!-- down: 剩余 1/10 -->
-        <div flex-1 bg-gray-400>Down Panel (1/10)</div>
+    <!-- 示例2: 左1/3 + 右2/3 上下分割 -->
+    <div class="w-full md:w-1/3" h-48 bg-gray-900 flex p-1 rounded>
+      <div class="w-1/3" bg-gray-100 rounded flex items-center justify-center>Left Panel</div>
+      <div flex-1 bg-gray-200 rounded ml-1 flex flex-col>
+        <div class="h-[90%]" bg-gray-300 rounded flex items-center justify-center>Up Panel (90%)</div>
+        <div flex-1 bg-gray-400 rounded mt-1 flex items-center justify-center>Down Panel (10%)</div>
       </div>
     </div>
-    <!-- <div class="w-1/3 h-1/3" bg-gray-900>
-      <el-container>
-        <el-header bg-gray-100>Header</el-header>
-        <el-main bg-gray-200>Main</el-main>
-      </el-container>
-    </div> -->
   </div>
 </template>
+
+<script setup lang="ts">
+</script>

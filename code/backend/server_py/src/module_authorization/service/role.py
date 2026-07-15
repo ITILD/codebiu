@@ -41,19 +41,19 @@ class RoleService:
         return await self.role_dao.get(role_id)
 
     async def get_by_name(self, name: str) -> Role | None:
-        """
-        根据角色名称获取角色
-        :param name: 角色名称
-        :return: 角色对象
-        """
+        """根据角色名称获取角色"""
         return await self.role_dao.get_by_name(name)
 
+    async def get_by_role_key(self, role_key: str) -> Role | None:
+        """根据角色权限字符串获取角色"""
+        return await self.role_dao.get_by_role_key(role_key)
+
+    async def list_all_no_page(self) -> list[Role]:
+        """获取所有角色(不分页)"""
+        return await self.role_dao.list_all_no_page()
+
     async def list_all(self, pagination: PaginationParams) -> PaginationResponse:
-        """
-        分页获取角色列表
-        :param pagination: 分页参数
-        :return: 分页角色列表
-        """
+        """分页获取角色列表"""
         items = await self.role_dao.list_all(pagination)
         total = await self.role_dao.count()
         return PaginationResponse.create(items, total, pagination)

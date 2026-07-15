@@ -1,8 +1,8 @@
 <template>
-  <div flex flex-col h-screen w-full bg-gray-50>
+  <div flex flex-col h-full w-full bg-gray-50>
     <!-- 顶部模型选择栏 -->
     <div p-4 border-b bg-white shadow-sm>
-      <div flex items-center gap-4>
+      <div flex flex-wrap items-center gap-4>
         <LLMSelect
           v-model:model-id="model_id"
           :model-list="tableData"
@@ -103,7 +103,7 @@
         :loading="isSending"
         :disabled="!inputMessage.trim() || !model_id"
         @click="handleSend"
-        class="self-end"
+        class="self-end shrink-0"
       >
         {{ isSending ? '生成中' : '发送' }}
       </el-button>
@@ -284,19 +284,3 @@ onBeforeUnmount(() => {
   }
 })
 </script>
-
-<style scoped>
-/* 光标闪烁动画 */
-@keyframes blink {
-  0%, 50% {
-    opacity: 1;
-  }
-  51%, 100% {
-    opacity: 0;
-  }
-}
-
-.animate-blink {
-  animation: blink 1s infinite;
-}
-</style>

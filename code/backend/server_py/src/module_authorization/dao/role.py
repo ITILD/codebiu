@@ -76,15 +76,24 @@ class RoleDao:
 
     @DaoRel
     async def get_by_name(self, name, session: AsyncSession | None = None):
-        """
-        根据角色名称查询角色
-        :param name: 角色名称
-        :param session: 可选数据库会话
-        :return: 角色对象，未找到返回None
-        """
+        """根据角色名称查询角色"""
         stmt = select(Role).where(Role.name == name)
         result = await session.exec(stmt)
         return result.first()
+
+    @DaoRel
+    async def get_by_role_key(self, role_key: str, session: AsyncSession | None = None):
+        """根据角色权限字符串查询角色"""
+        stmt = select(Role).where(Role.role_key == role_key)
+        result = await session.exec(stmt)
+        return result.first()
+
+    @DaoRel
+    async def list_all_no_page(self, session: AsyncSession | None = None) -> list[Role]:
+        """查询所有角色(不分页)"""
+        statement = select(Role).order_by(Role.sort)
+        result = await session.exec(statement)
+        return result.all()
 
     @DaoRel
     async def list_all(

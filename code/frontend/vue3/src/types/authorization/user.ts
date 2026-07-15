@@ -2,6 +2,7 @@
 interface UserBase {
   username: string;
   password: string;
+  dept_id?: string;
   email?: string;
   phone?: string;
   nickname?: string;
@@ -11,16 +12,25 @@ interface UserBase {
 
 interface User extends UserBase {
   id: string;
-  created_at: string; // ISO格式日期字符串
-  updated_at: string; // ISO格式日期字符串
+  created_at: string;
+  updated_at: string;
 }
 
 interface UserCreate extends UserBase {
-  username: string; // 必填字段
-  password: string; // 必填字段
+  username: string;
+  password: string;
 }
 
-type UserUpdate = UserBase
+interface UserUpdate {
+  username?: string;
+  password?: string;
+  dept_id?: string;
+  email?: string;
+  phone?: string;
+  nickname?: string;
+  avatar?: string;
+  is_active?: boolean;
+}
 
 // 通用配置对象
 const config = {

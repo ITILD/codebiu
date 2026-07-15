@@ -1,6 +1,6 @@
 <template>
   <!-- 场景-->
-  <div w-200 h-200 overflow-hidden relative bg-blue>
+  <div w-full class="h-[60vh] md:h-[80vh]" overflow-hidden relative bg-blue>
     <div id="canvasP" w-full h-full absolute>
       <canvas id="glDom" w-full h-full></canvas>
     </div>
@@ -59,5 +59,3 @@ onBeforeUnmount(() => {
   }
 })
 </script>
-
-<style scoped></style>

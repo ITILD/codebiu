@@ -5,9 +5,12 @@ from datetime import datetime, timezone
 
 class RoleBase(SQLModel):
     """角色基础模型(不含数据库表配置)"""
-    
+
     name: str = Field(..., max_length=50, description="角色名称")
-    description: str | None = Field( max_length=255, description="角色描述")
+    role_key: str = Field(..., max_length=100, description="角色权限字符串(如admin, editor)")
+    description: str | None = Field(default=None, max_length=255, description="角色描述")
+    sort: int = Field(default=0, description="显示顺序")
+    data_scope: str = Field(default="1", description="数据权限范围: 1=全部 2=自定数据 3=本部门 4=本部门及以下 5=仅本人")
     is_active: bool = Field(default=True, description="是否激活")
 
 
@@ -42,18 +45,26 @@ class RoleCreate(RoleBase):
     pass
 
 
-class RoleUpdate(RoleBase):
+class RoleUpdate(SQLModel):
     """更新角色的请求模型"""
-    
-    pass
+
+    name: str | None = Field(None, max_length=50, description="角色名称")
+    role_key: str | None = Field(None, max_length=100, description="角色权限字符串")
+    description: str | None = Field(None, max_length=255, description="角色描述")
+    sort: int | None = Field(None, description="显示顺序")
+    data_scope: str | None = Field(None, description="数据权限范围")
+    is_active: bool | None = Field(None, description="是否激活")
 
 
 class RoleResponse(SQLModel):
     """角色响应模型"""
-    
+
     id: str = Field(..., description="唯一标识符")
     name: str = Field(..., description="角色名称")
-    description: str | None = Field( description="角色描述")
+    role_key: str = Field(..., description="角色权限字符串")
+    description: str | None = Field(description="角色描述")
+    sort: int = Field(description="显示顺序")
+    data_scope: str = Field(description="数据权限范围")
     is_active: bool = Field(default=True, description="是否激活")
     created_at: datetime = Field(..., description="创建时间")
     updated_at: datetime = Field(..., description="最后更新时间")

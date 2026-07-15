@@ -1,14 +1,16 @@
 <template>
   <!-- 系统用到的文本图表展示 -->
-  <div p-2 w-full flex>
+  <div p-2 w-full flex flex-col md:flex-row h-full>
     <!--左侧树状 选择器 -->
-    <div w-60><el-tree :data="data" :props="defaultProps" @node-click="handleNodeClick" /></div>
+    <div w-full md:w-60 shrink-0 border-b md:border-b-0 md:border-r overflow-auto max-h-40 md:max-h-full>
+      <el-tree :data="data" :props="defaultProps" @node-click="handleNodeClick" />
+    </div>
 
     <!--右侧 Monaco 编辑器 -->
-    <div flex-1 mb-4 flex flex-col>
+    <div flex-1 mb-4 flex flex-col min-w-0>
       <!-- up: 9/10 -->
       <LazyBaseMoacoEdit
-        class="h-19/20"
+        class="h-[90%]"
         bg-gray-300
         v-model="editorContent"
         :language="selectedLanguage"
@@ -105,5 +107,3 @@ const data: Tree[] = [
   },
 ]
 </script>
-
-<style scoped></style>

@@ -34,14 +34,21 @@ async def list_all(
     pagination: PaginationParams = Depends(),
     service: RoleService = Depends(get_role_service)
 ):
-    """
-    分页查询角色列表
-    :param pagination: 分页参数 (通过查询参数传递)
-    :param service: 角色服务依赖注入
-    :return: 分页响应结果
-    """
+    """分页查询角色列表"""
     try:
         return await service.list_all(pagination)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+@router.get("/list_all", summary="获取所有角色(不分页)")
+async def list_all_no_page(
+    service: RoleService = Depends(get_role_service)
+):
+    """获取所有角色列表(不分页, 用于下拉选择)"""
+    try:
+        return await service.list_all_no_page()
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -115,14 +122,27 @@ async def get_role_by_name(
     name: str,
     service: RoleService = Depends(get_role_service)
 ):
-    """
-    通过名称获取角色
-    :param name: 角色名称
-    :param service: 角色服务依赖注入
-    :return: 角色详情
-    """
+    """通过名称获取角色"""
     try:
         result = await service.get_by_name(name)
+        if not result:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Role not found"
+            )
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+@router.get("/key/{role_key}", summary="通过权限字符串获取角色", response_model=Role)
+async def get_role_by_key(
+    role_key: str,
+    service: RoleService = Depends(get_role_service)
+):
+    """通过角色权限字符串获取角色"""
+    try:
+        result = await service.get_by_role_key(role_key)
         if not result:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Role not found"

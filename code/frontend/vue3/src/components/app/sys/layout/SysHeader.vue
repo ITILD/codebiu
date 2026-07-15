@@ -29,21 +29,9 @@
       <!--中间 空标题 可以加装饰 -->
       <!-- <span left-0 right-0 m-auto></span> -->
       <!-- 搜索/登陆/注册/登陆后图标导航 -->
-      <div flex m-3>
-        <!-- 搜索组件 小屏幕：隐藏 -->
-        <div max-md:hidden mr-4>
-          <el-input v-model="searchText" :placeholder="$t('search') + '...'" rounded-full clearable>
-            <template #prefix>
-              <el-icon>
-                <Search />
-              </el-icon>
-            </template>
-          </el-input>
-        </div>
-
+      <div flex items-center m-3 gap-2>
         <!-- 主题切换 -->
-        <ButtonSwitch v-model="sysSettingStore.sysStyle.theme.isDark"
-          @change="sysSettingStore.changeThemeValueByIsDark" />
+        <el-switch v-model="sysSettingStore.sysStyle.theme.isDark" @change="sysSettingStore.changeThemeValueByIsDark" />
         <!-- 登录/用户 -->
         <template v-if="authState.user.id">
           <!-- 用户图标下拉菜单-->
@@ -80,7 +68,7 @@
 <script setup lang="ts">
 // 样式控制
 import { SysSettingStore } from '@/stores/sys'
-import { Search, Menu } from '@element-plus/icons-vue'
+import { Menu } from '@element-plus/icons-vue'
 import LoginDialog from './head/LoginDialog.vue'
 import RegisterDialog from './head/RegisterDialog.vue'
 import UserControl from './head/UserControl.vue'
@@ -94,8 +82,6 @@ const showMobileMenu = ref(false)
 const showLoginDialog = ref(false)
 const showRegisterDialog = ref(false)
 const TITLE = ref(import.meta.env.VITE_GLOB_APP_TITLE)
-// 搜索
-const searchText = ref('')
 // 处理登录
 const handleLogin = (authResponse: AuthResponse) => {
   // 登陆事件
@@ -109,5 +95,3 @@ const handleRegisterSuccess = (authResponse: AuthResponse) => {
 
 }
 </script>
-
-<style scoped></style>
