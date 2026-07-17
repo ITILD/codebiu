@@ -15,6 +15,7 @@ from module_authorization.controller import token, casbin_rule, permission, role
 from module_template.controller import static,template,template_ex,template_async_learn
 # from module_ai.controller import static as ai_static,model_config,llm_base
 # # ,ocr 
+from module_ai.controller import voice
 # from module_dev_tools.controller import template_string
 # from module_little_utils.controller import todolist
 # # 语言模块
