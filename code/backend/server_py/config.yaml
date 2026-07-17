@@ -141,3 +141,22 @@ email:
   sender_email: todo
   sender_password: todo # 授权码
   sender_name: todo # 发件人 可以不写
+
+# ############################# 语音 ASR/TTS 配置 #############################
+# 模型默认放置在 temp_source/model/voice 下，缺失时使用下列默认子目录名。
+# engine 参数(sherpa/qwen)在接口请求时传入，默认 sherpa。
+voice:
+  sherpa:
+    # sherpa ASR 流式模型(中英双语 zipformer)
+    asr_model: sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20
+    asr_tokens: tokens.txt
+    # sherpa TTS 模型(vits-zh-llj)
+    tts_model: vits-zh-llj/vits-zh-llj.onnx
+    tts_tokens: vits-zh-llj/tokens.txt
+    tts_lexicon: vits-zh-llj/lexicon.txt
+    tts_dict_dir: vits-zh-llj/dict
+  qwen:
+    # Qwen3 ASR/TTS 本地模型目录名
+    asr_model: Qwen3-ASR-1.7B
+    tts_model: Qwen3-TTS-1.7B
+    device: cpu

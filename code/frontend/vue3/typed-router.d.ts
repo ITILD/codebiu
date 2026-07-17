@@ -19,11 +19,12 @@ declare module 'vue-router/auto-routes' {
    */
   export interface RouteNamedMap {
     '/': RouteRecordInfo<'/', '/', Record<never, never>, Record<never, never>>,
-    '/_sys': RouteRecordInfo<'/_sys', '/_sys', Record<never, never>, Record<never, never>, '/_sys/' | '/_sys/ai/agent_baby_name' | '/_sys/ai/chat' | '/_sys/ai/ocr' | '/_sys/database/model_config' | '/_sys/database/overview' | '/_sys/database/todolist' | '/_sys/database/user' | '/_sys/manager/dept' | '/_sys/manager/permission' | '/_sys/manager/role' | '/_sys/manager/user' | '/_sys/monitor/uistore' | '/_sys/setting' | '/_sys/template/babylon' | '/_sys/template/container' | '/_sys/template/infoview' | '/_sys/template/mediapipe_face' | '/_sys/template/overview' | '/_sys/template/template'>,
+    '/_sys': RouteRecordInfo<'/_sys', '/_sys', Record<never, never>, Record<never, never>, '/_sys/' | '/_sys/ai/agent_baby_name' | '/_sys/ai/chat' | '/_sys/ai/ocr' | '/_sys/ai/voice' | '/_sys/database/model_config' | '/_sys/database/overview' | '/_sys/database/todolist' | '/_sys/database/user' | '/_sys/manager/dept' | '/_sys/manager/permission' | '/_sys/manager/role' | '/_sys/manager/user' | '/_sys/monitor/uistore' | '/_sys/setting' | '/_sys/template/babylon' | '/_sys/template/container' | '/_sys/template/infoview' | '/_sys/template/mediapipe_face' | '/_sys/template/overview' | '/_sys/template/template'>,
     '/_sys/': RouteRecordInfo<'/_sys/', '/_sys', Record<never, never>, Record<never, never>>,
     '/_sys/ai/agent_baby_name': RouteRecordInfo<'/_sys/ai/agent_baby_name', '/_sys/ai/agent_baby_name', Record<never, never>, Record<never, never>>,
     '/_sys/ai/chat': RouteRecordInfo<'/_sys/ai/chat', '/_sys/ai/chat', Record<never, never>, Record<never, never>>,
     '/_sys/ai/ocr': RouteRecordInfo<'/_sys/ai/ocr', '/_sys/ai/ocr', Record<never, never>, Record<never, never>>,
+    '/_sys/ai/voice': RouteRecordInfo<'/_sys/ai/voice', '/_sys/ai/voice', Record<never, never>, Record<never, never>>,
     '/_sys/database/model_config': RouteRecordInfo<'/_sys/database/model_config', '/_sys/database/model_config', Record<never, never>, Record<never, never>>,
     '/_sys/database/overview': RouteRecordInfo<'/_sys/database/overview', '/_sys/database/overview', Record<never, never>, Record<never, never>>,
     '/_sys/database/todolist': RouteRecordInfo<'/_sys/database/todolist', '/_sys/database/todolist', Record<never, never>, Record<never, never>>,
@@ -59,7 +60,7 @@ declare module 'vue-router/auto-routes' {
       views: never
     }
     'src/pages/_sys.vue': {
-      routes: '/_sys' | '/_sys/' | '/_sys/ai/agent_baby_name' | '/_sys/ai' | '/_sys/template/babylon' | '/_sys/ai/chat' | '/_sys/template/container' | '/_sys/database' | '/_sys/manager/dept' | '/_sys/template/infoview' | '/_sys/manager' | '/_sys/template/mediapipe_face' | '/_sys/database/model_config' | '/_sys/monitor' | '/_sys/ai/ocr' | '/_sys/database/overview' | '/_sys/template/overview' | '/_sys/manager/permission' | '/_sys/manager/role' | '/_sys/setting' | '/_sys/template' | '/_sys/template/template' | '/_sys/database/todolist' | '/_sys/monitor/uistore' | '/_sys/database/user' | '/_sys/manager/user'
+      routes: '/_sys' | '/_sys/' | '/_sys/ai/agent_baby_name' | '/_sys/ai' | '/_sys/template/babylon' | '/_sys/ai/chat' | '/_sys/template/container' | '/_sys/database' | '/_sys/manager/dept' | '/_sys/template/infoview' | '/_sys/manager' | '/_sys/template/mediapipe_face' | '/_sys/database/model_config' | '/_sys/monitor' | '/_sys/ai/ocr' | '/_sys/database/overview' | '/_sys/template/overview' | '/_sys/manager/permission' | '/_sys/manager/role' | '/_sys/setting' | '/_sys/template' | '/_sys/template/template' | '/_sys/database/todolist' | '/_sys/monitor/uistore' | '/_sys/manager/user' | '/_sys/database/user' | '/_sys/ai/voice'
       views: 'default'
     }
     'src/pages/_sys/index.vue': {
@@ -76,6 +77,10 @@ declare module 'vue-router/auto-routes' {
     }
     'src/pages/_sys/ai/ocr.vue': {
       routes: '/_sys/ai/ocr'
+      views: never
+    }
+    'src/pages/_sys/ai/voice.vue': {
+      routes: '/_sys/ai/voice'
       views: never
     }
     'src/pages/_sys/database/model_config.vue': {

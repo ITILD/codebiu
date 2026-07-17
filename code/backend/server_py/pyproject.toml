@@ -44,6 +44,9 @@ dependencies = [
     "freetype-py>=2.5.1",
     "beautifulsoup4>=4.14.3",
     "lxml>=6.0.2",
+    # 语音 asr/tts
+    "sherpa-onnx>=1.10.36",
+    "soundfile>=0.13.1",
     # yolo26 视觉模型训练/推理
     "ultralytics>=8.3.0",
     # 浏览器操作
