@@ -83,6 +83,10 @@ dependencies = [
     # "zh_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/zh_core_web_sm-3.8.0/zh_core_web_sm-3.8.0-py3-none-any.whl",
     "real-ladybug>=0.15.2",
     "fastmcp>=3.3.1",
+    "sherpa-onnx-core>=1.13.4",
+    "langchain-huggingface>=1.2.2",
+    "sentence-transformers>=5.6.0",
+    "peft>=0.19.1",
 ]
 
 [[tool.uv.index]]# uv的索引

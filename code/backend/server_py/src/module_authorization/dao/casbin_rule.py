@@ -1,7 +1,3 @@
-from sqlmodel import select
-from sqlmodel.ext.asyncio.session import AsyncSession
-from module_authorization.do.casbin_rule import CasbinRule
-from common.config.db import DaoRel
 from module_authorization.config.casbin_rule import auth_manager
 import logging
 logger = logging.getLogger(__name__)

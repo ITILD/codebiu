@@ -31,18 +31,18 @@ SHERPA_ASR_MODEL_DIR: Path = DIR_VOICE_MODEL / conf_voice_sherpa.get(
 )
 SHERPA_ASR_TOKENS: Path = SHERPA_ASR_MODEL_DIR / conf_voice_sherpa.get("asr_tokens", "tokens.txt")
 
-# sherpa TTS 模型(vits-zh-llj)
+# sherpa TTS 模型(vits-melo-tts-zh_en)
 SHERPA_TTS_MODEL: Path = DIR_VOICE_MODEL / conf_voice_sherpa.get(
-    "tts_model", "vits-zh-llj/vits-zh-llj.onnx"
+    "tts_model", "vits-melo-tts-zh_en/model.onnx"
 )
 SHERPA_TTS_TOKENS: Path = DIR_VOICE_MODEL / conf_voice_sherpa.get(
-    "tts_tokens", "vits-zh-llj/tokens.txt"
+    "tts_tokens", "vits-melo-tts-zh_en/tokens.txt"
 )
 SHERPA_TTS_LEXICON: Path = DIR_VOICE_MODEL / conf_voice_sherpa.get(
-    "tts_lexicon", "vits-zh-llj/lexicon.txt"
+    "tts_lexicon", "vits-melo-tts-zh_en/lexicon.txt"
 )
 SHERPA_TTS_DICT_DIR: Path = DIR_VOICE_MODEL / conf_voice_sherpa.get(
-    "tts_dict_dir", "vits-zh-llj/dict"
+    "tts_dict_dir", "vits-melo-tts-zh_en/dict"
 )
 # TTS 单次合成最长文本
 SHERPA_TTS_MAX_NUM_SENTENCES: int = int(conf_voice_sherpa.get("max_num_sentences", 2))

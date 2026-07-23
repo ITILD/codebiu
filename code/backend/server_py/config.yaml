@@ -4,11 +4,11 @@ global:
   name: codebiu
   # 应用版本
   version: 0.0.1
-  
+
 # ############################# 状态配置 #############################
 state:
   is_dev: true
-  # config_path: config.dev.yaml
+  config_path: config.dev.yaml
   check_db: true
 
 
@@ -157,11 +157,11 @@ voice:
     # sherpa ASR 流式模型(中英双语 zipformer)
     asr_model: sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20
     asr_tokens: tokens.txt
-    # sherpa TTS 模型(vits-zh-llj)
-    tts_model: vits-zh-llj/vits-zh-llj.onnx
-    tts_tokens: vits-zh-llj/tokens.txt
-    tts_lexicon: vits-zh-llj/lexicon.txt
-    tts_dict_dir: vits-zh-llj/dict
+    # sherpa TTS 模型(vits-melo-tts-zh_en)
+    tts_model: vits-melo-tts-zh_en/model.onnx
+    tts_tokens: vits-melo-tts-zh_en/tokens.txt
+    tts_lexicon: vits-melo-tts-zh_en/lexicon.txt
+    tts_dict_dir: vits-melo-tts-zh_en/dict
   qwen:
     # Qwen3 ASR/TTS 本地模型目录名
     asr_model: Qwen3-ASR-1.7B
