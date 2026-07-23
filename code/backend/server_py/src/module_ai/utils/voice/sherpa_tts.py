@@ -11,7 +11,8 @@ from module_ai.config.voice import (
 )
 from module_ai.utils.voice.audio_utils import to_pcm16
 from module_ai.utils.voice.interface import TTSEngine
-
+from sherpa_onnx import OfflineTts, OfflineTtsConfig, OfflineTtsModelConfig, OfflineTtsVitsModelConfig
+# https://github.com/k2-fsa/sherpa-onnx/issues/2791 解决 OfflineTts 未初始化问题
 logger = logging.getLogger(__name__)
 
 
@@ -22,12 +23,7 @@ class SherpaTTS(TTSEngine):
     def _ensure(self):
         if self._tts is not None:
             return self._tts
-        try:
-            from sherpa_onnx import OfflineTts, OfflineTtsConfig, OfflineTtsModelConfig, OfflineTtsVitsModelConfig
-        except ImportError as e:
-            raise RuntimeError(
-                "未安装 sherpa-onnx，无法使用 sherpa TTS。请执行 `pip install sherpa-onnx`"
-            ) from e
+
         if not SHERPA_TTS_MODEL.exists():
             raise RuntimeError(
                 f"sherpa TTS 模型不存在: {SHERPA_TTS_MODEL}，请下载模型放置到该目录"
@@ -42,7 +38,6 @@ class SherpaTTS(TTSEngine):
         cfg = OfflineTtsConfig(
             model=model_cfg,
             max_num_sentences=SHERPA_TTS_MAX_NUM_SENTENCES,
-            num_threads=1,
         )
         self._tts = OfflineTts(cfg)
         logger.info("sherpa TTS OfflineTts 加载完成")
