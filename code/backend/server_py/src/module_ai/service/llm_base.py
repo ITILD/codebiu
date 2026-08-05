@@ -20,6 +20,7 @@ from module_ai.do.llm_base import (
 from pydantic import SecretStr
 from module_ai.utils.llm.do.llm_type import ModelType, ModelServerType
 from module_ai.dao.llm_base_prompt import LLMBasePrompt
+from module_ai.utils.llm.utils.llm_think_ex import ChatQwenWithReasoning
 import logging
 
 logger = logging.getLogger(__name__)
@@ -55,8 +56,13 @@ class LLMBaseService:
         model_config_check_response = ModelConfigCheckResponse()
         if model_config_create_request.model_type == ModelType.CHAT:
             # 校验简单问答 判断包含2
-            result_chat = await llm_chain.ainvoke("1+1=? only return result number")
-            model_config_check_response.is_valid = "2" in result_chat.content
+            try:
+                result_chat = await llm_chain.ainvoke("1+1=? only return result number")
+                model_config_check_response.is_valid = "2" in result_chat.content
+            except Exception as e:
+                logger.warning(f"校验模型连通性失败: {e}")
+                model_config_check_response.is_valid = False
+                return model_config_check_response
             # 校验format格式
             try:
                 messages = await self.llm_base_prompt.get_prompt_format_check()
@@ -77,8 +83,12 @@ class LLMBaseService:
                 logger.warning(f"校验format格式失败: {e}")
                 pass
         elif model_config_create_request.model_type == ModelType.EMBEDDINGS:
-            aembed_result = await llm_chain.aembed_query("1")
-            model_config_check_response.is_valid = len(aembed_result) > 0
+            try:
+                aembed_result = await llm_chain.aembed_query("你好啊")
+                model_config_check_response.is_valid = len(aembed_result) > 0
+            except Exception as e:
+                logger.warning(f"校验向量化模型失败: {e}")
+                model_config_check_response.is_valid = False
         # TODO rerank
         # elif model_config_create_request.model_type == ModelType.RERANK:
         #     result = await llm_chain.arank_documents(
@@ -90,18 +100,21 @@ class LLMBaseService:
             logger.error(f"不支持的模型类型: {model_config_create_request.model_type}")
         return model_config_check_response
 
-    async def check_config_by_model_id(self, model_id: str):
+    async def check_config_by_model_id(self, model_id: str) -> bool:
         """
         校验模型配置是否有效
 
         Args:
             model_id: 模型配置ID或模型标识名称
+        Returns:
+            bool: 模型配置是否有效
         """
         config = await self.model_config_service.get(model_id)
         if not config:
             logger.error(f"模型配置不存在: {model_id}")
             return False
-        return await self.check_config(config)
+        result = await self.check_config(config)
+        return result.is_valid
 
     async def get_llm(self, model_id: str, streaming: bool = True):
         """
@@ -176,7 +189,8 @@ class LLMBaseService:
         # Ollama模型检测   ChatOpenAI, OpenAIEmbeddings
         if config.server_type == ModelServerType.OPENAI:
             if config.model_type == ModelType.CHAT:
-                return ChatOpenAI(
+                # return ChatOpenAI(
+                return ChatQwenWithReasoning(
                     model=config.model,
                     api_key=config.api_key,
                     base_url=config.url,
@@ -187,11 +201,15 @@ class LLMBaseService:
                     }
                 )
             elif config.model_type == ModelType.EMBEDDINGS:
+                if "jina-embeddings" in config.model:
+                    config.out_tokens = None
                 return OpenAIEmbeddings(
                     model=config.model,
                     api_key=config.api_key,
                     base_url=config.url,
                     dimensions=config.out_tokens,
+                    # qwen模型向量化长度检查关闭
+                    check_embedding_ctx_length=False,
                 )
         elif config.server_type == ModelServerType.OLLAMA:
             if config.model_type == ModelType.CHAT:
@@ -208,6 +226,7 @@ class LLMBaseService:
                     dimensions=config.out_tokens,
                 )
         elif config.server_type == ModelServerType.VLLM:
+            
             pass
         elif config.server_type == ModelServerType.AWS:
             aws_access_key_id = config.extra.get("aws_access_key_id")
@@ -215,7 +234,7 @@ class LLMBaseService:
             if config.model_type == ModelType.CHAT:
                 return ChatBedrockConverse(
                     provider="anthropic",
-                    model_id=config.model,
+                    model=config.model,
                     aws_access_key_id=SecretStr(aws_access_key_id),
                     aws_secret_access_key=SecretStr(config.api_key),
                     region_name=region_name,
