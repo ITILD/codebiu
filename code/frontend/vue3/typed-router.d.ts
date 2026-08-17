@@ -60,7 +60,7 @@ declare module 'vue-router/auto-routes' {
       views: never
     }
     'src/pages/_sys.vue': {
-      routes: '/_sys' | '/_sys/' | '/_sys/ai/agent_baby_name' | '/_sys/ai' | '/_sys/template/babylon' | '/_sys/ai/chat' | '/_sys/template/container' | '/_sys/database' | '/_sys/manager/dept' | '/_sys/template/infoview' | '/_sys/manager' | '/_sys/template/mediapipe_face' | '/_sys/database/model_config' | '/_sys/monitor' | '/_sys/ai/ocr' | '/_sys/database/overview' | '/_sys/template/overview' | '/_sys/manager/permission' | '/_sys/manager/role' | '/_sys/setting' | '/_sys/template' | '/_sys/template/template' | '/_sys/database/todolist' | '/_sys/monitor/uistore' | '/_sys/manager/user' | '/_sys/database/user' | '/_sys/ai/voice'
+      routes: '/_sys' | '/_sys/' | '/_sys/ai/agent_baby_name' | '/_sys/ai' | '/_sys/template/babylon' | '/_sys/ai/chat' | '/_sys/template/container' | '/_sys/database' | '/_sys/manager/dept' | '/_sys/template/infoview' | '/_sys/manager' | '/_sys/template/mediapipe_face' | '/_sys/database/model_config' | '/_sys/monitor' | '/_sys/ai/ocr' | '/_sys/database/overview' | '/_sys/template/overview' | '/_sys/manager/permission' | '/_sys/manager/role' | '/_sys/setting' | '/_sys/template' | '/_sys/template/template' | '/_sys/database/todolist' | '/_sys/monitor/uistore' | '/_sys/database/user' | '/_sys/manager/user' | '/_sys/ai/voice'
       views: 'default'
     }
     'src/pages/_sys/index.vue': {

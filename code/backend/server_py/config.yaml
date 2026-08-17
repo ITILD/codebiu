@@ -96,16 +96,16 @@ file_system:
 #   secure: false  
 
 # ############################# 数据库配置 #############################
-db_rel:
-  type: postgres
-  database: server_example
-  host: localhost
-  port: 5432
-  user: postgres
-  password: '123456'
 # db_rel:
-#   type: sqlite
-#   database: temp_source\db\data.db
+#   type: postgres
+#   database: server_example
+#   host: localhost
+#   port: 5432
+#   user: postgres
+#   password: '123456'
+db_rel:
+  type: sqlite
+  database: temp_source\db\data.db
 # db_cache:
 #   type: redis
 #   db: 0

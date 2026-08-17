@@ -89,6 +89,10 @@ dependencies = [
     "peft>=0.19.1",
     # "langchain-qwq>=0.3.5",
     "huggingface-hub>=1.22.0",
+    # 模型下载(国内加速)
+    "modelscope>=1.20.0",
+    # 权重格式转换 safetensors <-> pytorch
+    "safetensors>=0.4.0",
 ]
 
 [[tool.uv.index]]# uv的索引
