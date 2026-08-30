@@ -1,0 +1,24 @@
+{
+  "name": "slidev",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "slidev build",
+    "build_base": "slidev build --base /codebiu_dev_intro/",
+    "dev": "slidev --remote --port 50004",
+    "export-pdf": "slidev export --output ./dist_export/slides-export.pdf",
+    "export-pptx": "slidev export --format pptx --output ./dist_export/slides-export.pptx --dark",
+    "export-png": "slidev export --format png --output ./dist_export/slides-export.png",
+    "export-md": "slidev export --format md --output ./dist_export/slides-export.md --timeout 60000"
+  },
+  "dependencies": {
+    "@slidev/cli": "52.14.2",
+    "@slidev/theme-default": "latest",
+    "@slidev/theme-seriph": "latest",
+    "seedrandom": "^3.0.5",
+    "vue": "^3.5.33"
+  },
+  "devDependencies": {
+    "playwright-chromium": "^1.59.1"
+  }
+}

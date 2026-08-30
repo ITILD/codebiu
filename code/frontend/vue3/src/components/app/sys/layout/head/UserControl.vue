@@ -28,7 +28,7 @@
 
 <script setup lang="ts">
 import { markRaw } from 'vue'
-import { Setting, Monitor, SwitchButton } from '@element-plus/icons-vue'
+import { Monitor, Setting, SwitchButton } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
@@ -56,7 +56,7 @@ const menuItems: MenuItem[] = [
   },
   {
     command: 'settings',
-    label: '设置',
+    label: '账户设置',
     icon: markRaw(Setting),
     action: () => {
       router.push('/_sys/setting')
@@ -69,6 +69,7 @@ const menuItems: MenuItem[] = [
     divided: true,
     action: () => {
       initAuthState()
+      router.push('/')
     },
   },
 ]

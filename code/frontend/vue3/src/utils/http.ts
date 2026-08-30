@@ -9,11 +9,14 @@ import { useAuthStore } from '@/stores/auth';
 //   message: string;
 // }
 
+// 查询参数值类型(数字/布尔会自动转为字符串)
+type QueryParamValue = string | number | boolean | undefined | null;
+
 // 定义请求配置类型
 interface RequestConfig extends RequestInit {
   apiPrefix?: string;
   timeout?: number;
-  params?: Record<string, string>;
+  params?: Record<string, QueryParamValue>;
 }
 
 class HttpClient {
@@ -108,13 +111,15 @@ class HttpClient {
   }
 
   // 构建完整 URL
-  private buildURL(endpoint: string, params?: Record<string, string>): string {
+  private buildURL(endpoint: string, params?: Record<string, QueryParamValue>): string {
     // 创建 URL 对象（使用当前域名作为基准）
     const url = new URL(`${this.apiPrefix}${endpoint}`, window.location.origin);
 
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
-        url.searchParams.append(key, value);
+        // 跳过空值参数(undefined/null/空字符串)
+        if (value === undefined || value === null || value === '') return;
+        url.searchParams.append(key, String(value));
       });
     }
 

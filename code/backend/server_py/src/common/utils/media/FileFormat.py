@@ -1,8 +1,10 @@
 import base64
+import io
 import math
 import cv2
 from cv2 import Mat
 import numpy as np
+from PIL import Image
 
 
 # from fastapi import (UploadFile)
@@ -20,6 +22,24 @@ def cv2_to_base64(image_cv):
     base64_image = base64.b64encode(image_bytes).decode("utf-8")
 
     return base64_image
+
+
+def pil_to_base64(pil_img: Image.Image, quality: int = 85) -> str:
+    """将 PIL Image 编码为 base64 字符串(JPEG,quality=85)
+
+    VLM 输入会 resize 到固定分辨率,原图超分辨率被丢弃,故 JPEG 有损不影响识别;
+    RGBA 先转 RGB(JPEG 不支持 alpha 通道)。
+    """
+    if pil_img.mode != "RGB":
+        pil_img = pil_img.convert("RGB")
+    buffer = io.BytesIO()
+    pil_img.save(buffer, format="JPEG", quality=quality)
+    return base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+
+def base64_to_url(img_base64: str, mime: str = "image/jpeg") -> str:
+    """将 base64 图片字符串转为 data URL(供 VLM image_url 输入)"""
+    return f"data:{mime};base64,{img_base64}"
 
 
 def resize_norm_img(img, img_w, img_h, img_c):

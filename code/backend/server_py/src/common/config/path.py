@@ -12,6 +12,8 @@ DIR_TEMP: Path = Dir.ensure_dir(DIR_BASE / conf.dir.base_child.temp)
 DIR_DB: Path = Dir.ensure_dir(DIR_BASE / conf.dir.base_child.db)
 DIR_TEST: Path = Dir.ensure_dir(DIR_BASE / conf.dir.base_child.test)
 DIR_MODEL: Path = Dir.ensure_dir(DIR_BASE / conf.dir.base_child.model)
+# tiktoken 编码缓存目录(离线/加速场景)
+DIR_TIKTOKEN_CACHE: Path = Dir.ensure_dir(DIR_TEMP / "tiktoken")
 
 # 静态资源路径
 DIR_PUBLIC: Path = Dir.ensure_dir(Path(conf.dir.public))

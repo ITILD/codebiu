@@ -21,9 +21,11 @@ _STORAGE_REGISTRY: dict[str, type["StorageConfig"]] = {}
 
 
 class StorageConfig(BaseModel):
-    max_size_mb: int = Field(10, description="单文件最大存储（MB）,默认10MB")
+    # 字段名与 config.yaml 的 file_system.max_size 保持一致(MB)
+    max_size: int = Field(10, description="单文件最大存储（MB）,默认10MB")
+    # 允许的 MIME 类型列表(支持 image/* 通配),空表示不限制
     allowed_extensions: list[str] = Field(
-        default_factory=list, description="允许的文件扩展名列表，空表示不限制"
+        default_factory=list, description="允许的文件MIME类型列表，空表示不限制"
     )
 
     def __init_subclass__(cls, config_type: str | None = None, **kwargs):
@@ -34,7 +36,27 @@ class StorageConfig(BaseModel):
     # 提供获取最大文件大小的字节表示
     @property
     def max_size_bytes(self) -> int:
-        return self.max_size_mb * 1024 * 1024
+        return self.max_size * 1024 * 1024
+
+    def is_mime_allowed(self, mime_type: str | None) -> bool:
+        """
+        校验 MIME 类型是否在允许列表内
+        :param mime_type: 文件 MIME 类型(如 image/png)
+        :return: 允许列表为空返回True;否则按精确/通配(image/*)匹配
+        """
+        if not self.allowed_extensions:
+            return True
+        if not mime_type:
+            return False
+        mime = mime_type.lower()
+        for pattern in self.allowed_extensions:
+            p = pattern.lower()
+            # 通配匹配主类型(如 image/* 匹配 image/png)
+            if p.endswith("/*") and mime.startswith(p[:-1]):
+                return True
+            if p == mime:
+                return True
+        return False
 
 
 class LocalStorage(StorageConfig, config_type=StorageType.LOCAL):

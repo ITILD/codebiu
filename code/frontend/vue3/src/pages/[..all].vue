@@ -1,5 +1,5 @@
 <template>
-  <div h-full flex items-center justify-center p-4>
+  <div class="min-h-[60vh]" flex items-center justify-center p-4>
     <el-result
       icon="warning"
       title="404"

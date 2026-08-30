@@ -26,11 +26,11 @@ class PaginationParams(BaseModel):
 
     @field_validator("size")
     def validate_size(cls, v):
-        """确保 size >= 1 且 <= 100(防止查询过大)"""
+        """确保 size >= 1 且 <= 500(管理后台需一次拉取较多数据)"""
         if v < 1:
             raise ValueError("size 必须大于等于 1")
-        if v > 100:
-            raise ValueError("size 不能超过 100")
+        if v > 500:
+            raise ValueError("size 不能超过 500")
         return v
 
 

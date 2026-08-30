@@ -1,5 +1,5 @@
 <template>
-  <div flex flex-col md:flex-row overflow-hidden h-full>
+  <div flex flex-col md:flex-row overflow-hidden h-app>
     <!--左侧树状 选择器 -->
     <div w-full md:w-60 shrink-0 border-b md:border-b-0 md:border-r overflow-auto max-h-40 md:max-h-full>
       <el-tree :data="data" :props="defaultProps" @node-click="handleNodeClick" />

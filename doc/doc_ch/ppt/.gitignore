@@ -1,0 +1,8 @@
+node_modules
+.DS_Store
+dist
+dist_export
+*.local
+.vite-inspect
+.remote-assets
+components.d.ts

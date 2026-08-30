@@ -75,14 +75,24 @@ class DatabaseManager:
 
     async def table_create_all(self):
         # 创建所有数据库表
-        await self.db_rel.create_all()
+        if self.db_rel:
+            await self.db_rel.create_all()
+        # 创建所有向量表(VectorModel(table=True) 注册的表),向量库需先建立连接
+        if self.db_vector:
+            if self._async_vector is None:
+                await self.db_vector.connect()
+                self._async_vector = self.db_vector.async_vector
+            await self.db_vector.create_all()
 
     async def connect_all(self):
         """特殊的连接"""
         # 向量数据库连接
         if self.db_vector:
-            await self.db_vector.connect()
-            self._async_vector = self.db_vector.async_vector
+            # table_create_all 可能已建立连接,避免重复连接
+            if self._async_vector is None:
+                await self.db_vector.connect()
+                self._async_vector = self.db_vector.async_vector
+            await self.db_vector.load_all()
 
     async def shutdown(self):
         """关闭资源"""

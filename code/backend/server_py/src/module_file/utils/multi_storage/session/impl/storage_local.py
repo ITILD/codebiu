@@ -49,6 +49,13 @@ class LocalStorageInterface(StorageInterface):
         async with aiofiles.open(file_path, "rb") as f:
             return await f.read()
 
+    async def iter_chunks(self, key: str, chunk_size: int = 8192) -> AsyncIterator[bytes]:
+        """流式分块读取本地文件(大文件下载避免全量载入内存)"""
+        file_path = self.base_dir / key
+        async with aiofiles.open(file_path, "rb") as f:
+            while chunk := await f.read(chunk_size):
+                yield chunk
+
     async def delete(self, key: str) -> bool:
         file_path = self.base_dir / key
         try:
@@ -103,8 +110,8 @@ class LocalStorageInterface(StorageInterface):
         self,
         file_path: str,
         presigned_upload_params: PresignedParamsBase,
-    ) -> tuple[str, str] | None:
-        """验证预签名参数"""
+    ) -> bool:
+        """验证预签名参数(过期与签名校验)"""
         # 检查URL是否过期
         if time.time() > presigned_upload_params.expires:
             return False
@@ -113,13 +120,10 @@ class LocalStorageInterface(StorageInterface):
         expected_signature = await self.generate_signature(
             file_path, presigned_upload_params.method, presigned_upload_params.expires
         )
-        # 验证签名是否匹配
-        if not hmac.compare_digest(
+        # 验证签名是否匹配(等长字符串比较,防时序攻击)
+        return hmac.compare_digest(
             presigned_upload_params.signature, expected_signature
-        ):
-            return False
-
-        return True
+        )
 
     # 生成验证签名
     async def generate_signature(
@@ -128,7 +132,7 @@ class LocalStorageInterface(StorageInterface):
         method: str,
         expires: int,
     ) -> str:
-        """生成验证签名"""
+        """生成验证签名(HMAC-SHA256)"""
         sign_content = f"{key}:{method}:{expires}"
         return hmac.new(
             self.config.secret_key.encode("utf-8"),
@@ -144,14 +148,12 @@ class LocalStorageInterface(StorageInterface):
     ) -> bool:
         """使用预签名URL上传数据"""
         try:
-            result: bool = await self.validate_presigned_params(
+            if await self.validate_presigned_params(
                 file_path, presigned_upload_params
-            )
-            if result:
+            ):
                 await self.save(file_path, content)
                 return True
-            else:
-                raise ValueError("Invalid presigned upload params")
+            raise ValueError("Invalid presigned upload params")
         except Exception:
             return False
 
@@ -162,13 +164,9 @@ class LocalStorageInterface(StorageInterface):
     ) -> bytes | None:
         """使用预签名URL下载数据"""
         try:
-            result: bool = await self.validate_presigned_params(
-                file_path, presigned_params
-            )
-            if result:
+            if await self.validate_presigned_params(file_path, presigned_params):
                 return await self.load(file_path)
-            else:
-                raise ValueError("Invalid presigned upload params")
+            return None
         except Exception:
             return None
 
@@ -176,17 +174,9 @@ class LocalStorageInterface(StorageInterface):
         self, file_path: str, presigned_params: PresignedParamsBase
     ) -> bool:
         """使用预签名URL删除数据"""
-        result = await self.validate_presigned_params(
-            file_path, presigned_params
-        )
-        if result is None:
+        if not await self.validate_presigned_params(file_path, presigned_params):
             return False
-
-        key, method = result
-        if method.lower() != "delete":
-            return False
-
         try:
-            return await self.delete(key)
+            return await self.delete(file_path)
         except Exception:
             return False

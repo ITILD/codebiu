@@ -32,8 +32,31 @@ interface UserUpdate {
   is_active?: boolean;
 }
 
+// 表格列配置类型(动态表单渲染所需的宽松类型)
+interface TableColumnEdit {
+  default?: any;
+  component: string;
+  placeholder?: string;
+  rules?: any[];
+  props?: Record<string, any>;
+}
+
+interface TableColumn {
+  prop: string;
+  label: string;
+  width?: number;
+  formatter?: (value: string | number | Date) => string;
+  button_list?: Record<string, {
+    type?: any;
+    label: string;
+    fuc_type: string;
+    fuc: (row: any) => void;
+  }>;
+  edit?: TableColumnEdit;
+}
+
 // 通用配置对象
-const config = {
+const config: { tableColumns: TableColumn[] } = {
   // search
   // add
   // download
@@ -118,8 +141,8 @@ const config = {
 };
 
 // 获取表单验证规则
-const formBase: Record<string, unknown> = {}
-const rules: Record<string, unknown> = {};
+const formBase: Record<string, any> = {}
+const rules: Record<string, any> = {};
 config.tableColumns.forEach(field => {
   if (field.edit) {
     formBase[field.prop] = field.edit.default;

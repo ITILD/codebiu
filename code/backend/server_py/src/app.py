@@ -10,7 +10,8 @@ from common.config.server import app
 from module_main.controller import static as main_static, status, db, dict_type, dict_item
 # # 基础模块
 from module_file.controller import filesystem
-from module_authorization.controller import token, casbin_rule, permission, role, user,auth
+from module_websearch.controller import websearch
+from module_authorization.controller import token, casbin_rule, permission, role, user,auth,dept
 # # 业务模块
 from module_template.controller import static,template,template_ex,template_async_learn
 from module_ai.controller import static as ai_static,model_config,llm_base,voice
@@ -20,7 +21,17 @@ from module_ai.controller import static as ai_static,model_config,llm_base,voice
 # # 语言模块
 # from module_nlp.controller import synonym
 # from module_life.controller import baby_name
-# from module_rag.controller import project, project_member
+# # 知识库模块
+from module_office.controller import document_parse, document_chunk
+from module_rag.controller import (
+    conversation,
+    project,
+    project_document,
+    project_document_chunk,
+    project_member,
+    rag_chat,
+    user_model,
+)
 import logging
 logger = logging.getLogger(__name__)
 

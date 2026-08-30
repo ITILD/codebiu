@@ -4,13 +4,15 @@ export enum ScrollDirection {
   DOWN = "down"
 }
 
-export interface PaginationParams {
+// 注意: 使用 type 而非 interface，type 别名具有隐式索引签名，
+// 可直接赋值给 http 层的 Record<string, QueryParamValue> 查询参数类型
+export type PaginationParams = {
   page: number;
   size: number;
   sort?: string;
 }
 
-export interface PaginationResponse<T> {
+export type PaginationResponse<T> = {
   items: T[];
   total: number;
   page: number;
@@ -18,14 +20,14 @@ export interface PaginationResponse<T> {
   pages: number;
 }
 
-export interface InfiniteScrollParams {
+export type InfiniteScrollParams = {
   last_id?: string;
   limit: number;
   direction?: ScrollDirection;
   sort_by?: string;
 }
 
-export interface InfiniteScrollResponse<T> {
+export type InfiniteScrollResponse<T> = {
   items: T[];
   last_id?: string;
   has_more: boolean;

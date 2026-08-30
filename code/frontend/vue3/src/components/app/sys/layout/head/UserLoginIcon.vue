@@ -1,7 +1,7 @@
 <template>
   <div ml-2>
-    <div v-if="authState.img">
-      <img w-full h-full :src="authState.img" alt="" srcset="" />
+    <div v-if="authState.user.avatar">
+      <img w-full h-full :src="authState.user.avatar" alt="" srcset="" />
     </div>
     <!--游客图标 -->
     <!-- <UserSVG w-full h-full v-else /> -->

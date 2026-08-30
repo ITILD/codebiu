@@ -1,2 +1,0 @@
-# 依赖服务
-https://api.onlyoffice.com/zh-CN/docs/docs-api/additional-api/conversion-api/request/#sample-of-json-object-sent-to-document-conversion-service-used-to-generate-png-thumbnail-of-file-in-docx-format

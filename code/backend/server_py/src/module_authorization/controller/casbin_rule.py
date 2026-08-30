@@ -30,7 +30,7 @@ async def add_policy(
     Returns:
         成功添加的策略信息
     """
-    success = casbin_service.add_policy(
+    success = await casbin_service.add_policy(
         sub=request.sub, dom=request.dom, obj=request.obj, act=request.act
     )
 
@@ -56,7 +56,7 @@ async def remove_policy(
     Returns:
         删除结果信息
     """
-    success = casbin_service.remove_policy(
+    success = await casbin_service.remove_policy(
         sub=request.sub, dom=request.dom, obj=request.obj, act=request.act
     )
 
@@ -82,7 +82,7 @@ async def add_role_for_user(
     Returns:
         添加结果信息
     """
-    success = casbin_service.add_role_for_user(
+    success = await casbin_service.add_role_for_user(
         user_id=request.user_id, role_key=request.role_key, dom=request.dom
     )
 
@@ -108,7 +108,7 @@ async def remove_role_for_user(
     Returns:
         删除结果信息
     """
-    success = casbin_service.remove_role_for_user(
+    success = await casbin_service.remove_role_for_user(
         user_id=request.user_id, role_key=request.role_key, dom=request.dom
     )
 
@@ -134,7 +134,7 @@ async def get_roles_for_user(
     Returns:
         用户角色列表
     """
-    roles = casbin_service.get_roles_for_user(user_id, dom)
+    roles = await casbin_service.get_roles_for_user(user_id, dom)
     return {"message": "获取成功", "data": roles}
 
 
@@ -152,7 +152,7 @@ async def get_permissions_for_role(
     Returns:
         角色权限列表
     """
-    formatted_permissions = casbin_service.get_permissions_for_role(role_key, dom)
+    formatted_permissions = await casbin_service.get_permissions_for_role(role_key, dom)
 
     return {"message": "获取成功", "data": formatted_permissions}
 
@@ -171,7 +171,7 @@ async def check_permission(
     Returns:
         权限检查结果
     """
-    has_permission = casbin_service.has_permission(
+    has_permission = await casbin_service.has_permission(
         user_id=request.user_id, dom=request.dom, obj=request.obj, act=request.act
     )
     return PermissionCheckResponse(has_permission=has_permission)
@@ -196,7 +196,7 @@ async def batch_add_role_permissions(
         (perm["permission_code"], perm["method"]) for perm in request.permissions
     ]
 
-    added_count = casbin_service.batch_add_role_permissions(
+    added_count = await casbin_service.batch_add_role_permissions(
         role_key=request.role_key, dom=request.dom, permissions=permissions
     )
 
@@ -217,7 +217,7 @@ async def batch_add_user_roles(
     Returns:
         添加结果信息
     """
-    added_count = casbin_service.batch_add_user_roles(
+    added_count = await casbin_service.batch_add_user_roles(
         user_id=request.user_id, dom=request.dom, role_keys=request.role_keys
     )
 
@@ -238,7 +238,7 @@ async def delete_role_permissions(
     Returns:
         删除结果信息
     """
-    deleted_count = casbin_service.delete_role_permissions(role_key, dom)
+    deleted_count = await casbin_service.delete_role_permissions(role_key, dom)
 
     return {"message": f"成功删除{deleted_count}个权限", "deleted_count": deleted_count}
 
@@ -257,7 +257,7 @@ async def delete_user_roles(
     Returns:
         删除结果信息
     """
-    deleted_count = casbin_service.delete_user_roles(user_id, dom)
+    deleted_count = await casbin_service.delete_user_roles(user_id, dom)
 
     return {"message": f"成功删除{deleted_count}个角色", "deleted_count": deleted_count}
 
@@ -274,9 +274,49 @@ async def reload_policy(
     Returns:
         重新加载结果信息
     """
-    casbin_service.reload_policy()
+    await casbin_service.reload_policy()
 
     return {"message": "策略规则重新加载成功"}
+
+
+@router.get("/policies", status_code=status.HTTP_200_OK)
+async def get_all_policies(
+    dom: str | None = None,
+    casbin_service: CasbinRuleService = Depends(get_casbin_rule_service),
+):
+    """获取全部策略规则(可按域过滤)
+
+    Args:
+        dom: 域过滤(为空返回全部)
+        casbin_service: Casbin服务实例
+
+    Returns:
+        策略规则列表 [sub, dom, obj, act]
+    """
+    policies = await casbin_service.get_all_policies()
+    if dom:
+        policies = [p for p in policies if p[1] == dom or p[1] == "*"]
+    return {"message": "获取成功", "data": [list(p) for p in policies]}
+
+
+@router.get("/grouping-policies", status_code=status.HTTP_200_OK)
+async def get_all_grouping_policies(
+    dom: str | None = None,
+    casbin_service: CasbinRuleService = Depends(get_casbin_rule_service),
+):
+    """获取全部用户-角色绑定规则(可按域过滤)
+
+    Args:
+        dom: 域过滤(为空返回全部)
+        casbin_service: Casbin服务实例
+
+    Returns:
+        角色绑定规则列表 [user_id, role_key, dom]
+    """
+    policies = await casbin_service.get_all_grouping_policies()
+    if dom:
+        policies = [p for p in policies if p[2] == dom or p[2] == "*"]
+    return {"message": "获取成功", "data": [list(p) for p in policies]}
 
 
 # 注册路由

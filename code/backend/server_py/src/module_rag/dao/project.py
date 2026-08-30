@@ -10,18 +10,17 @@ class ProjectDao:
 
     @DaoRel
     async def add(
-        self, project: ProjectCreate, session: AsyncSession | None = None
+        self, project: Project, session: AsyncSession | None = None
     ) -> str:
         """
         新增项目记录
-        :param project: 项目创建数据
+        :param project: 项目数据库对象(包含 created_by)
         :param session: 可选数据库会话
         :return: 新创建项目的ID
         """
-        db_project = Project.model_validate(project.model_dump(exclude_unset=True))
-        session.add(db_project)
+        session.add(project)
         await session.flush()
-        return db_project.id
+        return project.id
 
     @DaoRel
     async def delete(self, id: str, session: AsyncSession | None = None):
@@ -68,25 +67,33 @@ class ProjectDao:
 
     @DaoRel
     async def list_all(
-        self, pagination: PaginationParams, session: AsyncSession | None = None
+        self, pagination: PaginationParams, session: AsyncSession | None = None,
+        kb_category: str | None = None,
     ) -> list[Project]:
         """
         分页查询项目列表
         :param pagination: 分页参数
         :param session: 可选数据库会话
+        :param kb_category: 可选知识库分类过滤(personal/project/company)
         :return: 项目列表
         """
-        statement = select(Project).offset(pagination.offset).limit(pagination.limit)
+        statement = select(Project)
+        if kb_category is not None:
+            statement = statement.where(Project.kb_category == kb_category)
+        statement = statement.offset(pagination.offset).limit(pagination.limit)
         result = await session.exec(statement)
         return result.all()
 
     @DaoRel
-    async def count(self, session: AsyncSession | None = None) -> int:
+    async def count(self, session: AsyncSession | None = None, kb_category: str | None = None) -> int:
         """
         获取项目总数
         :param session: 可选数据库会话
+        :param kb_category: 可选知识库分类过滤(personal/project/company)
         :return: 项目总数
         """
         statement = select(func.count()).select_from(Project)
+        if kb_category is not None:
+            statement = statement.where(Project.kb_category == kb_category)
         result = await session.exec(statement)
         return result.one()

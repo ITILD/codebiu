@@ -95,4 +95,55 @@ export const reloadPolicy = () => {
   return http_base_server.post('/authorization/casbin_rules/reload-policy');
 };
 
-export type { PolicyRequest, RoleForUserRequest, BatchAddRolePermissionsRequest, BatchAddUserRolesRequest, CheckPermissionRequest };
+/** 策略规则(主体, 域, 资源, 动作) */
+interface PolicyRow {
+  sub: string;
+  dom: string;
+  obj: string;
+  act: string;
+}
+
+/** 用户-角色绑定规则(用户ID, 角色键, 域) */
+interface GroupingPolicyRow {
+  user_id: string;
+  role_key: string;
+  dom: string;
+}
+
+/** 获取全部策略规则(可按域过滤) */
+export const getAllPolicies = (dom?: string) => {
+  return http_base_server.get<{ message: string; data: PolicyRow[] }>(
+    '/authorization/casbin_rules/policies',
+    { params: dom ? { dom } : {} }
+  );
+};
+
+/** 获取全部用户-角色绑定规则(可按域过滤) */
+export const getAllGroupingPolicies = (dom?: string) => {
+  return http_base_server.get<{ message: string; data: GroupingPolicyRow[] }>(
+    '/authorization/casbin_rules/grouping-policies',
+    { params: dom ? { dom } : {} }
+  );
+};
+
+/** 添加策略规则 */
+export const addPolicy = (data: PolicyRequest) => {
+  return http_base_server.post('/authorization/casbin_rules/policy', data);
+};
+
+/** 删除策略规则 */
+export const removePolicy = (data: PolicyRequest) => {
+  return http_base_server.delete('/authorization/casbin_rules/policy', {
+    body: JSON.stringify(data),
+  });
+};
+
+export type {
+  PolicyRequest,
+  RoleForUserRequest,
+  BatchAddRolePermissionsRequest,
+  BatchAddUserRolesRequest,
+  CheckPermissionRequest,
+  PolicyRow,
+  GroupingPolicyRow,
+};

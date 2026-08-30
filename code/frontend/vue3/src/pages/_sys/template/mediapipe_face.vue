@@ -1,5 +1,5 @@
 <template>
-  <div flex flex-col h-full w-full bg-gray-50 overflow-auto p-2 md:p-4>
+  <div flex flex-col w-full bg-gray-50 p-2 md:p-4>
     <div flex flex-col md:flex-row gap-4>
       <video id="videoDom" width="500" height="500" -scale-x-100 class="w-full max-w-[500px] h-auto rounded"></video>
       <div text-sm text-gray-600>fps:{{ fps.toFixed(3) }}</div>

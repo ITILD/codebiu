@@ -2,7 +2,12 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select, func, update
 from common.utils.db.schema.pagination import PaginationParams
 from common.config.db import DaoRel
-from module_rag.do.project_member import ProjectMember, ProjectMemberCreate, ProjectMemberUpdate
+from module_rag.do.project_member import (
+    ProjectMember,
+    ProjectMemberCreate,
+    ProjectMemberUpdate,
+    MyProjectResponse,
+)
 from module_rag.do.project import Project
 
 
@@ -108,6 +113,28 @@ class ProjectMemberDao:
         return result.all()
 
     @DaoRel
+    async def delete_by_project(
+        self,
+        project_id: str,
+        session: AsyncSession | None = None,
+    ) -> int:
+        """
+        按项目ID批量删除成员记录(用于删除项目时级联清理)
+        :param project_id: 项目ID
+        :param session: 可选数据库会话
+        :return: 删除的记录数
+        """
+        statement = select(ProjectMember).where(
+            ProjectMember.project_id == project_id
+        )
+        result = await session.exec(statement)
+        members = result.all()
+        for m in members:
+            await session.delete(m)
+        await session.flush()
+        return len(members)
+
+    @DaoRel
     async def count_by_project(
         self, project_id: str, session: AsyncSession | None = None
     ) -> int:
@@ -128,7 +155,7 @@ class ProjectMemberDao:
     @DaoRel
     async def list_my_projects(
         self, user_id: str, pagination: PaginationParams, session: AsyncSession | None = None
-    ) -> list[dict]:
+    ) -> list[MyProjectResponse]:
         """
         查询我参与的项目列表（用于前端展示"我参与的项目及我的身份"）
         :param user_id: 用户ID
@@ -142,6 +169,7 @@ class ProjectMemberDao:
                 Project.name.label("project_name"),
                 Project.description.label("project_description"),
                 Project.is_private.label("is_private"),
+                Project.kb_category.label("kb_category"),
                 ProjectMember.role.label("role"),
                 Project.created_at.label("created_at")
             )
@@ -151,7 +179,8 @@ class ProjectMemberDao:
             .limit(pagination.limit)
         )
         result = await session.exec(statement)
-        return result.all()
+        rows = result.all()
+        return [MyProjectResponse(**row._mapping) for row in rows]
 
     @DaoRel
     async def count_my_projects(

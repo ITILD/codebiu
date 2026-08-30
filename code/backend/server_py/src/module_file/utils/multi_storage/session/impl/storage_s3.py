@@ -79,6 +79,13 @@ class S3StorageInterface(StorageInterface):
             except Exception as e:
                 raise e
 
+    async def iter_chunks(self, key: str, chunk_size: int = 8192) -> AsyncIterator[bytes]:
+        """流式分块读取S3对象(大文件下载避免全量载入内存)"""
+        async with self._get_client() as client:
+            response = await client.get_object(Bucket=self.bucket, Key=key)
+            async for chunk in response["Body"].iter_chunks(chunk_size):
+                yield chunk
+
     async def delete(self, key: str) -> bool:
         """删除S3存储中的对象"""
         async with self._get_client() as client:
