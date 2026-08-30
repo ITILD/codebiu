@@ -1,7 +1,7 @@
 <template>
-  <div p-2 w-full>
+  <div p-4 md:p-6 w-full>
     <!-- 搜索栏 -->
-    <div mb-5 flex flex-wrap items-center gap-2>
+    <div mb-4 flex flex-wrap items-center gap-2>
       <el-input
         class="w-full sm:w-80"
         v-model="searchQuery"
@@ -18,7 +18,7 @@
     </div>
 
     <!-- 数据表格 -->
-    <el-table :data="tableData" v-loading="loading" border stripe w-full>
+    <el-table :data="tableData" v-loading="loading" stripe w-full>
       <el-table-column
         v-for="column in tableColumns"
         :key="column.prop"
@@ -50,14 +50,13 @@
       </el-table-column>
     </el-table>
 
-    <!-- 分页 -->
-    <div mt-5 flex justify-end>
+    <!-- 分页(手机居中, 桌面靠右) -->
+    <div mt-4 flex flex-wrap justify-center sm:justify-end>
       <el-pagination
         v-model:current-page="pagination.page"
         v-model:page-size="pagination.size"
-        :page-sizes="[10, 20, 50, 100]"
         :total="total"
-        layout="total, sizes, prev, pager, next, jumper"
+        layout="total, prev, pager, next"
         @size-change="fetchData"
         @current-change="fetchData"
       />

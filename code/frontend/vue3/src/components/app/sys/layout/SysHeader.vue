@@ -1,64 +1,89 @@
 <template>
-  <!-- 网站页首区域 TODO动画去隐藏-->
+  <!-- 网站页首: Logo/汉堡(左) + 主题切换/登录/头像(右) -->
   <header v-if="sysStyle.headFootShow">
-    <!-- justify-between 主轴上均匀分布 第一个项目靠左，最后一个项目靠右，其余项目平均分布剩余空间-->
     <div flex justify-between h-full>
-      <!--小汉堡菜单 小屏幕：最左侧显示 -->
-      <button md:hidden m-4 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700
-        @click="showMobileMenu = !showMobileMenu">
-        <el-icon :size="40">
-          <Menu />
-        </el-icon>
-      </button>
+      <!-- 左侧: 移动端汉堡(仅后台路由, 打开模块列表抽屉) -->
+      <div flex items-center>
+        <button
+          v-if="isAdmin && !sysSettingStore.sysStyle.isMd"
+          ml-3
+          rounded-full
+          hover:bg-note-tint
+          p-2
+          @click="sysSettingStore.sysStyle.isSidebarDrawerOpen = true"
+        >
+          <el-icon :size="22" text-note>
+            <Menu />
+          </el-icon>
+        </button>
 
-      <el-drawer v-model="showMobileMenu" title="服务菜单" direction="ltr" size="70%">
-        <MenuLarge max-h-14 :mode="false" />
-      </el-drawer>
-
-      <div flex md:mx-4 lg:mx-12>
-        <!--网站Logo和名称 大屏幕：最左侧 小屏幕：中间-->
-        <router-link to="/" flex m-6 md:m-3>
+        <router-link to="/" flex items-center ml-4 md:ml-8>
           <img src="@/assets/img/ion/sy_w.svg" h-8 mr-3 />
-          <span text-6 font-semibold whitespace-nowrap>{{ TITLE }}</span>
+          <span text-lg md:text-xl font-semibold whitespace-nowrap text-note>
+            {{ TITLE }}
+          </span>
         </router-link>
-        <!-- 大选择菜单 大屏幕：顺序左 小屏幕：隐藏-->
-        <div max-md:hidden ml-4>
-          <MenuLarge max-h-14 />
-        </div>
       </div>
-      <!--中间 空标题 可以加装饰 -->
-      <!-- <span left-0 right-0 m-auto></span> -->
-      <!-- 搜索/登陆/注册/登陆后图标导航 -->
-      <div flex items-center m-3 gap-2>
+
+      <!-- 右侧: 主题切换 + 登录/用户 -->
+      <div flex items-center mr-4 md:mr-8 gap-3>
         <!-- 主题切换 -->
-        <el-switch v-model="sysSettingStore.sysStyle.theme.isDark" @change="sysSettingStore.changeThemeValueByIsDark" />
+        <el-switch
+          v-model="sysSettingStore.sysStyle.theme.isDark"
+          @change="sysSettingStore.changeThemeValueByIsDark"
+        />
         <!-- 登录/用户 -->
         <template v-if="authState.user.id">
-          <!-- 用户图标下拉菜单-->
           <UserControl />
         </template>
         <template v-else>
-          <button flex items-center justify-center hover:shadow mx-1 hover:bg-deep-3 @click="showLoginDialog = true">
-            <span text-deep-2 px-2 py-1 w-18>
-              <!-- 登录 -->
-              {{ $t('sign_in') }}
-            </span>
+          <button
+            flex
+            items-center
+            justify-center
+            rounded
+            px-3
+            py-1.5
+            text-note
+            hover:bg-note-tint
+            transition-colors
+            @click="showLoginDialog = true"
+          >
+            <!-- 登录 -->
+            {{ $t('sign_in') }}
           </button>
-          <!-- 注册按钮  小屏幕：隐藏 -->
-          <button max-lg:hidden flex items-center justify-center shadow mx-1 border-1 border-gray-300 hover:bg-deep-3
-            @click="showRegisterDialog = true">
-            <span text-deep-2 px-2 py-1 w-18>
-              {{ $t('sign_up') }}
-            </span>
+          <!-- 注册按钮 小屏幕隐藏 -->
+          <button
+            max-lg:hidden
+            flex
+            items-center
+            justify-center
+            rounded
+            px-3
+            py-1.5
+            border-1
+            border-note
+            text-note
+            hover:bg-note-tint
+            transition-colors
+            @click="showRegisterDialog = true"
+          >
+            {{ $t('sign_up') }}
           </button>
 
           <!-- 登录弹窗 -->
-          <LoginDialog v-model="showLoginDialog" @login="handleLogin"
-            @register="showRegisterDialog = true; showLoginDialog = false" />
+          <LoginDialog
+            v-model="showLoginDialog"
+            @login="handleLogin"
+            @register="showRegisterDialog = true; showLoginDialog = false"
+          />
 
           <!-- 注册弹窗 -->
-          <RegisterDialog v-model="showRegisterDialog" @register-success="handleRegisterSuccess"
-            @back-to-login="showRegisterDialog = false; showLoginDialog = true" />
+          <RegisterDialog
+            v-model="showRegisterDialog"
+            @register-success="handleRegisterSuccess"
+            @back-to-login="showRegisterDialog = false; showLoginDialog = true"
+          />
         </template>
       </div>
     </div>
@@ -78,20 +103,37 @@ const authStore = useAuthStore()
 const authState = authStore.authState
 const sysSettingStore = SysSettingStore()
 const sysStyle = sysSettingStore.sysStyle
-const showMobileMenu = ref(false)
 const showLoginDialog = ref(false)
 const showRegisterDialog = ref(false)
 const TITLE = ref(import.meta.env.VITE_GLOB_APP_TITLE)
+
+const route = useRoute()
+const router = useRouter()
+// 仅后台路由显示汉堡(打开侧边栏抽屉)
+const isAdmin = computed(() => route.path.startsWith('/_sys'))
+
+// 未登录被拦截回首页时自动弹出登录框
+watch(
+  () => route.query.login,
+  (v) => {
+    if (v === '1') showLoginDialog.value = true
+  },
+  { immediate: true },
+)
+
 // 处理登录
 const handleLogin = (authResponse: AuthResponse) => {
-  // 登陆事件
   authStore.setAuthState(authResponse)
+  // 清理登录引导参数, 避免再次进入首页重复弹出登录框
+  if (route.query.login) {
+    const { login: _login, ...rest } = route.query
+    router.replace({ query: rest })
+  }
 }
 
 // 处理注册成功
 const handleRegisterSuccess = (authResponse: AuthResponse) => {
   // 注册成功后自动登录
   authStore.setAuthState(authResponse)
-
 }
 </script>

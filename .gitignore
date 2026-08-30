@@ -208,3 +208,6 @@ code/other/template/server_base_py/uv.lock
 code/backend/server_py/nuitka-crash-report.xml
 
 node_modules
+
+template_source
+temp_source

@@ -1,5 +1,5 @@
 <template>
-  <div p-4 md:p-6 overflow-y-auto h-full>
+  <div p-4 md:p-6>
     <!-- 欢迎区域 -->
     <div mb-6 flex items-center justify-between flex-wrap gap-4>
       <div>
@@ -53,7 +53,7 @@
           <el-descriptions-item label="系统版本">v1.0.0</el-descriptions-item>
           <el-descriptions-item label="运行环境">{{ sysInfo.env }}</el-descriptions-item>
           <el-descriptions-item label="主题模式">{{ sysSettingStore.sysStyle.theme.isDark ? '深色' : '浅色' }}</el-descriptions-item>
-          <el-descriptions-item label="当前语言">{{ sysSettingStore.language === 'zh' ? '中文' : 'English' }}</el-descriptions-item>
+          <el-descriptions-item label="当前语言">{{ sysSettingStore.sysStyle.language === 'zh' ? '中文' : 'English' }}</el-descriptions-item>
         </el-descriptions>
       </el-card>
 

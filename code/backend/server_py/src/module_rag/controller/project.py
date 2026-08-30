@@ -1,8 +1,13 @@
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, Query
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
-from module_rag.do.project import Project, ProjectCreate, ProjectUpdate, ProjectResponse
+from module_rag.do.project import Project, ProjectCreate, ProjectUpdate, ProjectResponse, KbCategory
 from module_rag.service.project import ProjectService
 from module_rag.dependencies.project import get_project_service
+from module_authorization.dependencies.auth import get_current_user_id
+from module_authorization.dependencies.permission import (
+    require_permission,
+    require_project_permission,
+)
 from module_rag.config.server import module_app
 
 router = APIRouter()
@@ -13,16 +18,22 @@ router = APIRouter()
 )
 async def create_project(
     project: ProjectCreate,
-    service: ProjectService = Depends(get_project_service)
+    current_user_id: str = Depends(require_permission("rag", "project", "create")),
+    service: ProjectService = Depends(get_project_service),
 ):
     """
-    创建新项目
-    :param project: 项目数据
+    创建新项目，并自动将当前登录用户设为项目管理员
+    :param project: 项目数据(created_by 由系统从 token 自动填充)
+    :param current_user_id: 当前登录用户ID(由 token 自动解析)
     :param service: 项目服务依赖注入
     :return: 创建的项目ID
     """
     try:
-        return await service.add(project)
+        return await service.add(project, current_user_id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -34,16 +45,26 @@ async def create_project(
 )
 async def list_projects(
     pagination: PaginationParams = Depends(),
+    kb_category: str | None = Query(None, description="知识库分类过滤(personal/project/company)"),
+    current_user_id: str = Depends(require_permission("rag", "project", "read")),
     service: ProjectService = Depends(get_project_service)
 ):
     """
     分页查询项目列表
     :param pagination: 分页参数
+    :param kb_category: 可选知识库分类过滤(personal/project/company)
     :param service: 项目服务依赖注入
     :return: 分页响应结果
     """
     try:
-        return await service.list_all(pagination)
+        if kb_category is not None and kb_category not in KbCategory.values():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"无效的知识库分类 '{kb_category}'，允许的值: {'/'.join(KbCategory.values())}",
+            )
+        return await service.list_all(pagination, kb_category=kb_category)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -53,6 +74,7 @@ async def list_projects(
 @router.get("/{project_id}", summary="获取单个项目", response_model=Project)
 async def get_project(
     project_id: str,
+    current_user_id: str = Depends(require_project_permission("project", "read")),
     service: ProjectService = Depends(get_project_service)
 ):
     """
@@ -79,6 +101,7 @@ async def get_project(
 )
 async def delete_project(
     project_id: str,
+    current_user_id: str = Depends(require_project_permission("project", "delete")),
     service: ProjectService = Depends(get_project_service)
 ):
     """
@@ -100,6 +123,7 @@ async def delete_project(
 async def update_project(
     project_id: str,
     project: ProjectUpdate,
+    current_user_id: str = Depends(require_project_permission("project", "update")),
     service: ProjectService = Depends(get_project_service)
 ):
     """
@@ -110,6 +134,10 @@ async def update_project(
     """
     try:
         await service.update(project_id, project)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)

@@ -3,10 +3,9 @@ import numpy as np
 import re
 import tiktoken
 
-from config.index import tiktoken_cache_dir
+from common.config.path import DIR_TIKTOKEN_CACHE
 
-tiktoken_path = tiktoken_cache_dir / "tiktoken"
-os.environ["TIKTOKEN_CACHE_DIR"] = str(tiktoken_path)
+os.environ["TIKTOKEN_CACHE_DIR"] = str(DIR_TIKTOKEN_CACHE)
 tiktokenenc = tiktoken.get_encoding("cl100k_base")
 
 class LLMUtils:

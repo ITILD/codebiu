@@ -13,7 +13,9 @@ enum ModelServerType {
 enum ModelType {
   CHAT = "chat",
   EMBEDDINGS = "embeddings",
-  RERANK = "rerank"
+  RERANK = "rerank",
+  ASR = "asr",
+  TTS = "tts"
 }
 
 interface ModelConfigBase {
@@ -59,17 +61,44 @@ interface ModelConfigUpdate {
   extra?: Record<string, any>;
 }
 
+// 表格列配置类型(动态表单渲染所需的宽松类型)
+interface TableColumnEdit {
+  default?: any;
+  component: string;
+  placeholder?: string;
+  options?: { label: string; value: string }[];
+  rules?: any[];
+  props?: Record<string, any>;
+}
+
+interface TableColumn {
+  prop: string;
+  label: string;
+  width?: number;
+  enum?: Record<string, string>;
+  formatter?: (value: string | number | Date) => string;
+  button_list?: Record<string, {
+    type?: any;
+    label: string;
+    fuc_type: string;
+    fuc: (row: any) => void;
+  }>;
+  edit?: TableColumnEdit;
+}
+
 // 通用配置对象
-const config = {
+const config: { tableColumns: TableColumn[] } = {
   tableColumns: [
     {
-      prop: 'model_type', 
-      label: '模型类型', 
-      width: 100, 
+      prop: 'model_type',
+      label: '模型类型',
+      width: 100,
       enum: {
         [ModelType.CHAT]: '对话',
         [ModelType.EMBEDDINGS]: '嵌入',
-        [ModelType.RERANK]: '重排'
+        [ModelType.RERANK]: '重排',
+        [ModelType.ASR]: '语音识别',
+        [ModelType.TTS]: '语音合成'
       },
       edit: {
         default: ModelType.CHAT,
@@ -78,7 +107,9 @@ const config = {
         options: [
           { label: '对话', value: ModelType.CHAT },
           { label: '嵌入', value: ModelType.EMBEDDINGS },
-          { label: '重排', value: ModelType.RERANK }
+          { label: '重排', value: ModelType.RERANK },
+          { label: '语音识别', value: ModelType.ASR },
+          { label: '语音合成', value: ModelType.TTS }
         ],
         rules: [
           { required: true, message: '请选择模型类型', trigger: 'change' }
@@ -86,9 +117,9 @@ const config = {
       }
     },
     {
-      prop: 'server_type', 
-      label: '服务类型', 
-      width: 100, 
+      prop: 'server_type',
+      label: '服务类型',
+      width: 100,
       enum: {
         [ModelServerType.OPENAI]: 'OpenAI',
         [ModelServerType.DASHSCOPE]: 'DashScope',
@@ -113,8 +144,8 @@ const config = {
       }
     },
     {
-      prop: 'model', 
-      label: '模型标识', 
+      prop: 'model',
+      label: '模型标识',
       width: 150,
       edit: {
         default: '',
@@ -127,8 +158,8 @@ const config = {
       }
     },
     {
-      prop: 'url', 
-      label: 'API地址', 
+      prop: 'url',
+      label: 'API地址',
       width: 200,
       edit: {
         default: '',
@@ -141,8 +172,8 @@ const config = {
     },
     // api_key
     {
-      prop: 'api_key', 
-      label: 'API密钥', 
+      prop: 'api_key',
+      label: 'API密钥',
       width: 200,
       edit: {
         default: '',
@@ -154,8 +185,8 @@ const config = {
       }
     },
     {
-      prop: 'pay_in', 
-      label: '输入成本', 
+      prop: 'pay_in',
+      label: '输入成本',
       width: 100,
       edit: {
         default: 0.0,
@@ -167,8 +198,8 @@ const config = {
       }
     },
     {
-      prop: 'pay_out', 
-      label: '输出成本', 
+      prop: 'pay_out',
+      label: '输出成本',
       width: 100,
       edit: {
         default: 0.0,
@@ -180,8 +211,8 @@ const config = {
       }
     },
     {
-      prop: 'input_tokens', 
-      label: '输入Token', 
+      prop: 'input_tokens',
+      label: '输入Token',
       width: 100,
       edit: {
         default: 8192,
@@ -194,8 +225,8 @@ const config = {
       }
     },
     {
-      prop: 'out_tokens', 
-      label: '输出Token', 
+      prop: 'out_tokens',
+      label: '输出Token',
       width: 100,
       edit: {
         default: 8192,
@@ -208,8 +239,8 @@ const config = {
       }
     },
     {
-      prop: 'temperature', 
-      label: '温度系数', 
+      prop: 'temperature',
+      label: '温度系数',
       width: 100,
       edit: {
         default: 0.7,
@@ -221,8 +252,8 @@ const config = {
       }
     },
     {
-      prop: 'timeout', 
-      label: '超时时间', 
+      prop: 'timeout',
+      label: '超时时间',
       width: 100,
       edit: {
         default: 60,
@@ -235,8 +266,8 @@ const config = {
       }
     },
     {
-      prop: 'no_think', 
-      label: '禁用思考', 
+      prop: 'no_think',
+      label: '禁用思考',
       width: 100,
       edit: {
         default: false,
@@ -251,21 +282,21 @@ const config = {
       formatter: (value: string | number | Date) => new Date(value).toLocaleString()
     },
     {
-      prop: 'detail', 
-      label: '操作', 
-      width: 150, 
+      prop: 'detail',
+      label: '操作',
+      width: 150,
       button_list: {
         "edit": {
           label: '编辑',
-          fuc_type: 'click', 
+          fuc_type: 'click',
           fuc: (row: any) => {
             alert('点击了编辑')
           }
         },
         "delete": {
-          type: 'danger', 
-          label: '删除', 
-          fuc_type: 'click', 
+          type: 'danger',
+          label: '删除',
+          fuc_type: 'click',
           fuc: (row: any) => {
             alert('点击了删除')
           }

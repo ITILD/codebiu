@@ -7,6 +7,8 @@ const SysSettingStore = defineStore('sysSetting', () => {
     isUserControlShow: false,
     // 左侧选择栏
     leftControlShow: true,
+    // 移动端侧边栏抽屉开关
+    isSidebarDrawerOpen: false,
     // 大小屏切分 普通页面不需要考虑横屏，部分三维场景考虑
     isMd: window.innerWidth > baseMd,
     theme: {

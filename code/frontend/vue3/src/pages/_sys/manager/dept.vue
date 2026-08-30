@@ -1,7 +1,7 @@
 <template>
-  <div p-2 w-full>
+  <div p-4 md:p-6 w-full>
     <!-- 搜索栏 -->
-    <div mb-5 flex flex-wrap items-center gap-2>
+    <div mb-4 flex flex-wrap items-center gap-2>
       <el-input class="w-full sm:w-80" v-model="searchQuery" placeholder="输入部门名称搜索" clearable @clear="handleSearch" @keyup.enter="handleSearch">
         <template #append>
           <el-button :icon="Search" @click="handleSearch" />
@@ -13,7 +13,7 @@
     </div>
 
     <!-- 数据表格 -->
-    <el-table :data="tableData" v-loading="loading" border stripe w-full row-key="id" :tree-props="{ children: 'children' }" default-expand-all>
+    <el-table :data="tableData" v-loading="loading" stripe w-full row-key="id" :tree-props="{ children: 'children' }" default-expand-all>
       <el-table-column prop="name" label="部门名称" min-width="180" />
       <el-table-column prop="order_num" label="排序" min-width="80" align="center" />
       <el-table-column prop="leader" label="负责人" min-width="100" />
@@ -80,7 +80,7 @@
 import { Search } from '@element-plus/icons-vue'
 import { createDept, deleteDept, getDept, getDeptTree, updateDept } from '@/api/authorization/dept'
 import type { DeptCreate, DeptTree, DeptUpdate } from '@/types/authorization/dept'
-import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
+import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 
 // 树节点类型（DeptTree 树形接口未包含 created_at，此处扩展以便表格展示后端可能返回的创建时间）
 interface DeptTreeNode extends DeptTree {
@@ -146,7 +146,7 @@ const form_copy = JSON.parse(JSON.stringify(formBase))
 const form = reactive(form_copy)
 
 // 表单校验规则
-const rules = {
+const rules: FormRules = {
   name: [
     { required: true, message: '请输入部门名称', trigger: 'blur' },
     { max: 50, message: '长度不超过 50 个字符', trigger: 'blur' }

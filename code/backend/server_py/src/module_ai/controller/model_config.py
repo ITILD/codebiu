@@ -7,6 +7,7 @@ from module_ai.do.model_config import (
     ModelConfigCreate,
     ModelConfigUpdate,
 )
+from module_authorization.dependencies.auth import get_current_user_id
 from common.utils.db.schema.pagination import (
     InfiniteScrollParams,
     InfiniteScrollResponse,
@@ -21,15 +22,6 @@ logger = logging.getLogger(__name__)
 
 
 router = APIRouter()
-
-
-def get_current_user_id() -> str:
-    """
-    mock获取当前用户ID
-    :return: 当前用户ID
-    mock 数据: admin
-    """
-    return "admin"  # 示例用户ID，实际应从认证系统获取
 
 
 @router.post(

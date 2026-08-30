@@ -11,7 +11,7 @@ class UserService:
 
     async def add(self, user: UserCreate)->UserResponse:
         """
-        创建用户
+        创建用户(并分配子模块默认角色: main_viewer/rag_user)
         :param user: 用户创建数据
         :return: 创建的用户ID
         """
@@ -21,7 +21,18 @@ class UserService:
             raise ValueError(f"用户名 '{user.username}' 已存在")
         # 密码进行加密处理
         user.password = hash_password(user.password)
-        return await self.user_dao.add(user)
+        user_id = await self.user_dao.add(user)
+
+        # 分配子模块默认角色(幂等,失败不影响用户创建)
+        try:
+            from module_authorization.dependencies.permission import (
+                sync_default_user_roles,
+            )
+            await sync_default_user_roles(user_id)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"分配默认角色失败: {e}")
+        return user_id
 
     async def delete(self, user_id: str):
         """

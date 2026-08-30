@@ -1,0 +1,222 @@
+<template>
+  <!-- 桌面端: 吸顶侧边栏(随页面滚动钉在导航下方, 超高时内部滚动) -->
+  <el-aside
+    v-if="sysSettingStore.sysStyle.isMd"
+    :width="isCollapse ? '64px' : '230px'"
+    transition-all
+    duration-300
+    class="sidebar-note"
+    self-start
+    sticky
+    top-16
+    z-10
+    shrink-0
+  >
+    <div flex flex-col max-h-app>
+      <!-- 折叠按钮(点击切换 抽屉式收窄/展开) -->
+      <div flex p-2 shrink-0 :class="isCollapse ? 'justify-center' : 'justify-end'">
+        <el-tooltip :content="isCollapse ? '展开菜单' : '收起菜单'" placement="right">
+          <el-button
+            :icon="isCollapse ? Expand : Fold"
+            circle
+            size="small"
+            text
+            bg-note-tint
+            @click="isCollapse = !isCollapse"
+          />
+        </el-tooltip>
+      </div>
+
+      <!-- 模块菜单(超出视口高度时内部滚动) -->
+      <el-scrollbar flex-1>
+        <el-menu
+          :default-active="routerStore.routerPath.now"
+          :router="true"
+          :collapse="isCollapse"
+          border-0
+          bg-transparent
+          px-2
+        >
+          <template v-for="item in menuItems" :key="item.index">
+            <el-menu-item v-if="!item.children" :index="item.index">
+              <el-icon><component :is="item.icon" /></el-icon>
+              <template #title>{{ item.title }}</template>
+            </el-menu-item>
+
+            <el-sub-menu v-else :index="item.index">
+              <template #title>
+                <el-icon><component :is="item.icon" /></el-icon>
+                <span>{{ item.title }}</span>
+              </template>
+              <el-menu-item
+                v-for="child in item.children"
+                :key="child.index"
+                :index="child.index"
+              >
+                {{ child.title }}
+              </el-menu-item>
+            </el-sub-menu>
+          </template>
+        </el-menu>
+      </el-scrollbar>
+
+      <!-- 底部装饰小语 -->
+      <div v-if="!isCollapse" px-4 py-3 text-xs text-note-sub border-t border-note shrink-0>
+        🌿 记录每一份数据
+      </div>
+    </div>
+  </el-aside>
+
+  <!-- 移动端: 抽屉式侧边栏 -->
+  <el-drawer
+    v-model="sysSettingStore.sysStyle.isSidebarDrawerOpen"
+    :title="TITLE"
+    direction="ltr"
+    size="240px"
+    class="sidebar-drawer-note"
+  >
+    <el-menu
+      :default-active="routerStore.routerPath.now"
+      :router="true"
+      border-0
+      bg-transparent
+      @select="sysSettingStore.sysStyle.isSidebarDrawerOpen = false"
+    >
+      <template v-for="item in menuItems" :key="item.index">
+        <el-menu-item v-if="!item.children" :index="item.index">
+          <el-icon><component :is="item.icon" /></el-icon>
+          <template #title>{{ item.title }}</template>
+        </el-menu-item>
+
+        <el-sub-menu v-else :index="item.index">
+          <template #title>
+            <el-icon><component :is="item.icon" /></el-icon>
+            <span>{{ item.title }}</span>
+          </template>
+          <el-menu-item v-for="child in item.children" :key="child.index" :index="child.index">
+            {{ child.title }}
+          </el-menu-item>
+        </el-sub-menu>
+      </template>
+    </el-menu>
+  </el-drawer>
+</template>
+
+<script lang="ts" setup>
+import { ref, markRaw, watch } from 'vue'
+import {
+  HomeFilled, UserFilled, Document,
+  Monitor, ChatDotRound,
+  Expand, Fold, Files, Collection, FolderOpened,
+} from '@element-plus/icons-vue'
+import { RouterStore } from '@/stores/router'
+import { SysSettingStore } from '@/stores/sys'
+
+const routerStore = RouterStore()
+const sysSettingStore = SysSettingStore()
+const TITLE = import.meta.env.VITE_GLOB_APP_TITLE
+
+const isCollapse = ref(false)
+
+// 全局模块菜单(RuoYi式: 首页+全部功能模块, 账户设置在头像下拉)
+const menuItems = [
+  {
+    index: '/',
+    icon: markRaw(HomeFilled),
+    title: '首页',
+  },
+  {
+    index: '/_sys',
+    icon: markRaw(Monitor),
+    title: '系统概览',
+  },
+  {
+    index: '/_sys/manager',
+    icon: markRaw(UserFilled),
+    title: '管理员',
+    children: [
+      { index: '/_sys/manager/user', title: '用户管理' },
+      { index: '/_sys/manager/role', title: '角色管理' },
+      { index: '/_sys/manager/dept', title: '部门管理' },
+      { index: '/_sys/manager/permission', title: '权限管理' },
+      { index: '/_sys/manager/casbin', title: '策略规则' },
+    ],
+  },
+  {
+    index: '/_sys/rag',
+    icon: markRaw(Collection),
+    title: '知识库',
+    children: [
+      { index: '/_sys/rag/project', title: '知识库管理' },
+      { index: '/_sys/rag/document', title: '文档管理' },
+      { index: '/_sys/rag/member', title: '成员管理' },
+      { index: '/_sys/rag/conversation', title: '知识库问答' },
+    ],
+  },
+  {
+    index: '/_sys/file',
+    icon: markRaw(FolderOpened),
+    title: '文件管理',
+  },
+  {
+    index: '/_sys/database',
+    icon: markRaw(Document),
+    title: '数据库',
+    children: [
+      { index: '/_sys/database/overview', title: '数据概览' },
+      { index: '/_sys/database/user', title: '用户数据' },
+      { index: '/_sys/database/model_config', title: '模型配置' },
+      { index: '/_sys/database/todolist', title: '待办事项' },
+    ],
+  },
+  {
+    index: '/_sys/ai',
+    icon: markRaw(ChatDotRound),
+    title: 'AI 功能',
+    children: [
+      { index: '/_sys/ai/chat', title: 'AI 对话' },
+      { index: '/_sys/ai/ocr', title: 'OCR 识别' },
+      { index: '/_sys/ai/voice', title: '语音识别' },
+      { index: '/_sys/ai/agent_baby_name', title: '宝宝取名' },
+    ],
+  },
+  {
+    index: '/_sys/monitor',
+    icon: markRaw(Monitor),
+    title: '监控',
+    children: [
+      { index: '/_sys/monitor/uistore', title: '状态查看' },
+    ],
+  },
+  {
+    index: '/_sys/template',
+    icon: markRaw(Files),
+    title: '模板示例',
+    children: [
+      { index: '/_sys/template/overview', title: '模板概览' },
+      { index: '/_sys/template/template', title: '模板管理' },
+      { index: '/_sys/template/container', title: '布局容器' },
+      { index: '/_sys/template/mediapipe_face', title: '人脸识别' },
+      { index: '/_sys/template/babylon', title: 'Babylon 3D' },
+    ],
+  },
+]
+
+// 桌面端时关闭移动抽屉
+watch(
+  () => sysSettingStore.sysStyle.isMd,
+  (isMd) => {
+    if (isMd) sysSettingStore.sysStyle.isSidebarDrawerOpen = false
+  }
+)
+</script>
+
+<style scoped>
+/* 侧边栏: 淡绿纸底 + 右侧装订虚线 */
+.sidebar-note {
+  background-color: var(--note-soft);
+  border-right: 1px solid var(--note-border);
+  /* 内侧装订虚线(笔记本感) */
+  box-shadow: inset -6px 0 0 -5px rgba(107, 158, 120, 0.18);
+}
+</style>

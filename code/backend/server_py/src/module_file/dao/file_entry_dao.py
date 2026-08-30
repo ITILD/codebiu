@@ -109,6 +109,155 @@ class FileEntryDao:
         return result.all()
 
     @DaoRel
+    async def list_by_pid(
+        self,
+        pid: str | None,
+        pagination: PaginationParams,
+        name: str | None = None,
+        session: AsyncSession | None = None,
+    ) -> list[FileEntry]:
+        """
+        分页查询指定目录下的条目(目录排前,名称排序)
+        :param pid: 父目录ID(为空表示根目录)
+        :param pagination: 分页参数
+        :param name: 名称模糊过滤(为空不过滤)
+        :param session: 可选数据库会话
+        :return: 条目列表
+        """
+        # pid 为空时匹配根级条目(数据库中以 NULL/空串存储)
+        pid_condition = (
+            FileEntry.pid == pid if pid else FileEntry.pid.is_(None) | (
+                FileEntry.pid == ""
+            )
+        )
+        conditions = [FileEntry.is_active == True, pid_condition]  # noqa: E712
+        if name:
+            conditions.append(FileEntry.name.ilike(f"%{name}%"))
+        statement = (
+            select(FileEntry)
+            .where(*conditions)
+            .order_by(FileEntry.is_directory.desc(), FileEntry.name.asc())
+            .offset(pagination.offset)
+            .limit(pagination.limit)
+        )
+        result = await session.exec(statement)
+        return result.all()
+
+    @DaoRel
+    async def count_by_pid(
+        self,
+        pid: str | None,
+        name: str | None = None,
+        session: AsyncSession | None = None,
+    ) -> int:
+        """
+        统计指定目录下的条目总数
+        :param pid: 父目录ID(为空表示根目录)
+        :param name: 名称模糊过滤(为空不过滤)
+        :param session: 可选数据库会话
+        :return: 条目总数
+        """
+        pid_condition = (
+            FileEntry.pid == pid if pid else FileEntry.pid.is_(None) | (
+                FileEntry.pid == ""
+            )
+        )
+        conditions = [FileEntry.is_active == True, pid_condition]  # noqa: E712
+        if name:
+            conditions.append(FileEntry.name.ilike(f"%{name}%"))
+        statement = select(func.count(FileEntry.id)).where(*conditions)
+        result = await session.exec(statement)
+        return result.one()
+
+    @DaoRel
+    async def exists_by_pid_name(
+        self,
+        pid: str | None,
+        name: str,
+        exclude_id: str | None = None,
+        session: AsyncSession | None = None,
+    ) -> bool:
+        """
+        检查指定目录下是否已存在同名活跃条目
+        :param pid: 父目录ID(为空表示根目录)
+        :param name: 条目名称
+        :param exclude_id: 排除自身ID(重命名场景)
+        :param session: 可选数据库会话
+        :return: 是否存在同名条目
+        """
+        pid_condition = (
+            FileEntry.pid == pid if pid else FileEntry.pid.is_(None) | (
+                FileEntry.pid == ""
+            )
+        )
+        conditions = [
+            FileEntry.is_active == True,  # noqa: E712
+            pid_condition,
+            FileEntry.name == name,
+        ]
+        if exclude_id:
+            conditions.append(FileEntry.id != exclude_id)
+        statement = select(func.count(FileEntry.id)).where(*conditions)
+        result = await session.exec(statement)
+        return result.one() > 0
+
+    @DaoRel
+    async def list_dirs_by_pid(
+        self, pid: str | None, session: AsyncSession | None = None
+    ) -> list[FileEntry]:
+        """
+        查询指定目录下的全部子目录(不分页,用于目录树选择)
+        :param pid: 父目录ID(为空表示根目录)
+        :param session: 可选数据库会话
+        :return: 子目录列表
+        """
+        pid_condition = (
+            FileEntry.pid == pid if pid else FileEntry.pid.is_(None) | (
+                FileEntry.pid == ""
+            )
+        )
+        statement = (
+            select(FileEntry)
+            .where(
+                FileEntry.is_active == True,  # noqa: E712
+                pid_condition,
+                FileEntry.is_directory == True,  # noqa: E712
+            )
+            .order_by(FileEntry.name.asc())
+        )
+        result = await session.exec(statement)
+        return result.all()
+
+    @DaoRel
+    async def update_children_path_prefix(
+        self,
+        old_prefix: str,
+        new_prefix: str,
+        session: AsyncSession | None = None,
+    ) -> int:
+        """
+        批量更新子树逻辑路径前缀(目录重命名/移动时同步子孙路径)
+        :param old_prefix: 原目录逻辑路径(如 /a/b)
+        :param new_prefix: 新目录逻辑路径(如 /a/c)
+        :param session: 可选数据库会话
+        :return: 更新的条目数量
+        """
+        # 仅匹配该目录的直接与间接子孙(以 old_prefix/ 开头)
+        statement = select(FileEntry).where(
+            FileEntry.is_active == True,  # noqa: E712
+            FileEntry.logical_path.like(f"{old_prefix}/%"),
+        )
+        result = await session.exec(statement)
+        rows = result.all()
+        # 逐条在应用层替换前缀(避免方言相关的SQL字符串函数)
+        prefix_len = len(old_prefix)
+        for row in rows:
+            row.logical_path = new_prefix + row.logical_path[prefix_len:]
+        session.add_all(rows)
+        await session.flush()
+        return len(rows)
+
+    @DaoRel
     async def get_scroll(
         self, params: InfiniteScrollParams, session: AsyncSession | None = None
     ) -> list:
@@ -217,13 +366,14 @@ class FileEntryDao:
         # 兼容性说明：SQLite 需启用 recursive_triggers，MySQL 需 8.0+
 
         """获取目录子树所有 ID（类型安全 + 高性能）"""
+        # 注意: 模型中父级字段为 pid
         stmt = text("""
             WITH RECURSIVE subtree AS (
-                SELECT id FROM file_entry 
+                SELECT id FROM file_entry
                 WHERE id = :folder_id AND is_active = TRUE
                 UNION ALL
                 SELECT fe.id FROM file_entry fe
-                INNER JOIN subtree s ON fe.parent_id = s.id
+                INNER JOIN subtree s ON fe.pid = s.id
                 WHERE fe.is_active = TRUE
             )
             SELECT id FROM subtree;
@@ -240,18 +390,23 @@ class FileEntryDao:
         """批量逻辑删除"""
         if not ids:
             return
-        stmt = update(FileEntry).where(FileEntry.id.in_(ids)).values(is_deleted=True)
+        # 软删除标志字段为 is_active
+        stmt = update(FileEntry).where(FileEntry.id.in_(ids)).values(is_active=False)
         await session.exec(stmt)
 
     @DaoRel
     async def get_content_hashes_by_ids(
         self, ids: list[str], session: AsyncSession
     ) -> list[str]:
-        """根据文件 ID 列表获取 content_hash 列表（仅非目录项）"""
-        stmt = select(FileEntry.content_hash).where(
-            FileEntry.id.in_(ids),
-            FileEntry.is_directory == False,
-            FileEntry.content_hash.isnot(None),
+        """根据文件 ID 列表获取去重后的 content_hash 列表（仅非目录项）"""
+        stmt = (
+            select(FileEntry.content_hash)
+            .distinct()
+            .where(
+                FileEntry.id.in_(ids),
+                FileEntry.is_directory == False,  # noqa: E712
+                FileEntry.content_hash.isnot(None),
+            )
         )
         result = await session.execute(stmt)
         return [row[0] for row in result.fetchall()]

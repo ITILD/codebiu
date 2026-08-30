@@ -149,6 +149,18 @@ email:
   sender_password: todo # 授权码
   sender_name: todo # 发件人 可以不写
 
+# ############################# 网页搜索配置 #############################
+# module_websearch 模块,支持 duckduckgo(默认,本地直连无需密钥)与 bing
+websearch:
+  # 默认搜索引擎(duckduckgo/bing)
+  default_engine: duckduckgo
+  # 请求超时(秒)
+  timeout: 15
+  # 默认返回条数上限(接口可覆盖,最大30)
+  max_results: 10
+  # 出网代理(为空直连;国内访问 bing/duckduckgo 可按需配置,如 http://127.0.0.1:7890)
+  proxy: null
+
 # ############################# 语音 ASR/TTS 配置 #############################
 # 模型默认放置在 temp_source/model/voice 下，缺失时使用下列默认子目录名。
 # engine 参数(sherpa/qwen)在接口请求时传入，默认 sherpa。

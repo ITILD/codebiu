@@ -17,6 +17,10 @@ class StorageInterface(Protocol):
         """从存储中加载数据"""
         ...
 
+    def iter_chunks(self, key: str, chunk_size: int = 8192) -> AsyncIterator[bytes]:
+        """流式分块读取存储内容(用于大文件下载,避免全量载入内存)"""
+        ...
+
     async def delete(self, key: str) -> bool:
         """删除指定键的数据"""
         ...

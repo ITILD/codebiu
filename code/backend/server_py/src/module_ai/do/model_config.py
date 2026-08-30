@@ -49,6 +49,8 @@ class ModelConfigBase(SQLModel):
         if url is None:
             if server_type == ModelServerType.OPENAI:
                 data["url"] = "https://api.openai.com/v1"
+            elif server_type == ModelServerType.DASHSCOPE:
+                data["url"] = "https://dashscope.aliyuncs.com/compatible-mode/v1"
             elif server_type == ModelServerType.VLLM:
                 data["url"] = "http://localhost:8000/v1"
             elif server_type == ModelServerType.AWS:

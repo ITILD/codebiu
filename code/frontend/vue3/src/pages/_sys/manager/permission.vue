@@ -1,7 +1,7 @@
 <template>
-  <div p-2 w-full>
+  <div p-4 md:p-6 w-full>
     <!-- 搜索栏 -->
-    <div mb-5 flex flex-wrap items-center gap-2>
+    <div mb-4 flex flex-wrap items-center gap-2>
       <el-input class="w-full sm:w-80" v-model="searchQuery" placeholder="输入菜单名称搜索" clearable />
       <el-button type="primary" @click="handleCreate">
         新增权限
@@ -9,7 +9,7 @@
     </div>
 
     <!-- 树形数据表格 -->
-    <el-table :data="filteredTree" v-loading="loading" border stripe w-full row-key="id"
+    <el-table :data="filteredTree" v-loading="loading" stripe w-full row-key="id"
       :tree-props="{ children: 'children' }" default-expand-all>
       <el-table-column prop="name" label="菜单名称" min-width="180" />
       <el-table-column prop="menu_type" label="菜单类型" min-width="100">

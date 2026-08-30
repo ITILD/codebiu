@@ -1,7 +1,7 @@
 <template>
-  <div p-2 w-full>
+  <div p-4 md:p-6 w-full>
     <!-- 搜索栏 -->
-    <div mb-5 flex flex-wrap items-center gap-2>
+    <div mb-4 flex flex-wrap items-center gap-2>
       <el-input class="w-full sm:w-80" v-model="searchQuery" placeholder="输入用户名搜索" clearable @clear="handleSearch" @keyup.enter="handleSearch">
         <template #append>
           <el-button :icon="Search" @click="handleSearch" />
@@ -13,7 +13,7 @@
     </div>
 
     <!-- 数据表格 -->
-    <el-table :data="tableData" v-loading="loading" border stripe w-full>
+    <el-table :data="tableData" v-loading="loading" stripe w-full>
       <el-table-column prop="username" label="用户名" min-width="120" />
       <el-table-column prop="nickname" label="昵称" min-width="100" />
       <el-table-column label="部门" min-width="120">
@@ -42,10 +42,10 @@
       </el-table-column>
     </el-table>
 
-    <!-- 分页 -->
-    <div mt-5 flex justify-end>
+    <!-- 分页(手机居中, 桌面靠右) -->
+    <div mt-4 flex flex-wrap justify-center sm:justify-end>
       <el-pagination v-model:current-page="pagination.page" v-model:page-size="pagination.size"
-        :page-sizes="[10, 20, 50, 100]" :total="total" layout="total, sizes, prev, pager, next, jumper"
+        :total="total" layout="total, prev, pager, next"
         @size-change="fetchData" @current-change="fetchData" />
     </div>
 
@@ -110,7 +110,7 @@ import type { PaginationParams, PaginationResponse } from '@/types/common'
 import type { User, UserCreate, UserUpdate } from '@/types/authorization/user'
 import type { DeptTree } from '@/types/authorization/dept'
 import type { Role } from '@/types/authorization/role'
-import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
+import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 
 // 搜索条件
 const searchQuery = ref('')
@@ -147,7 +147,7 @@ const formBase = {
 const form = reactive({ ...formBase })
 
 // 验证规则
-const rules = {
+const rules: FormRules = {
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
     { min: 3, max: 50, message: '长度在 3 到 50 个字符', trigger: 'blur' }
@@ -259,7 +259,7 @@ const handleEdit = async (row: User) => {
     form.email = user.email || ''
     form.phone = user.phone || ''
     form.nickname = user.nickname || ''
-    form.is_active = user.is_active
+    form.is_active = user.is_active ?? true
     dialogVisible.value = true
   } catch (error) {
     console.error('获取用户详情失败:', error)

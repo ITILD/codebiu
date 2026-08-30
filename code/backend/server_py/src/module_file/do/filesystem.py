@@ -156,7 +156,11 @@ class FileEntryUpdate(FileEntryBase):
     name: str | None = Field(default=None, max_length=255)
     description: str | None = Field(default=None, max_length=500)
     is_active: bool | None = Field(default=None)
-    # 注意：路径相关字段通常不允许直接修改
+    # 以下路径字段仅由服务层在重命名/移动时维护,不对前端开放
+    pid: str | None = Field(default=None, description="父级ID(移动时使用)")
+    logical_path: str | None = Field(
+        default=None, max_length=2000, description="逻辑路径(重命名/移动时同步)"
+    )
 
 
 class FileEntryInfo(SQLModel):

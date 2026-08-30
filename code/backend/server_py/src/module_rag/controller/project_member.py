@@ -6,27 +6,45 @@ from module_rag.do.project_member import (
     ProjectMemberUpdate,
     ProjectMemberResponse,
     MyProjectResponse,
+    RagRole,
 )
 from module_rag.service.project_member import ProjectMemberService
 from module_rag.dependencies.project_member import get_project_member_service
+from module_authorization.dependencies.auth import get_current_user_id
+from module_authorization.dependencies.permission import (
+    enforce_project_permission,
+    require_permission,
+    require_project_permission,
+)
 from module_rag.config.server import module_app
 
 router = APIRouter()
-
 
 @router.post(
     "", summary="添加项目成员", status_code=status.HTTP_201_CREATED, response_model=str
 )
 async def add_project_member(
     member: ProjectMemberCreate,
+    current_user_id: str = Depends(get_current_user_id),
     service: ProjectMemberService = Depends(get_project_member_service)
 ):
     """
-    添加项目成员
-    :param member: 项目成员数据
+    添加项目成员(需要该知识库的成员邀请权限,同步授予 casbin 项目域角色)
+    :param member: 项目成员数据(role 必须为 project_admin/project_editor/project_reader 之一)
+    :param current_user_id: 当前登录用户ID(由 token 自动解析)
     :param service: 项目成员服务依赖注入
     :return: 创建的项目成员ID
     """
+    # 角色合法性校验(仅允许分配项目级角色)
+    if member.role not in RagRole.PROJECT_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"无效的角色 '{member.role}'，允许的角色: {'/'.join(RagRole.PROJECT_ROLES)}",
+        )
+    # 邀请权限校验(域 rag:{project_id})
+    await enforce_project_permission(
+        current_user_id, member.project_id, "member", "invite"
+    )
     try:
         return await service.add(member)
     except ValueError as e:
@@ -40,22 +58,22 @@ async def add_project_member(
 
 
 @router.get(
-    "/my/{user_id}", summary="获取我参与的项目", response_model=PaginationResponse
+    "/my", summary="获取我参与的项目", response_model=PaginationResponse
 )
 async def list_my_projects(
-    user_id: str,
     pagination: PaginationParams = Depends(),
+    current_user_id: str = Depends(get_current_user_id),
     service: ProjectMemberService = Depends(get_project_member_service)
 ):
     """
     获取我参与的项目列表（前端展示"我参与的项目及我的身份"）
-    :param user_id: 用户ID
     :param pagination: 分页参数
+    :param current_user_id: 当前登录用户ID(由 token 自动解析)
     :param service: 项目成员服务依赖注入
     :return: 分页响应结果
     """
     try:
-        return await service.list_my_projects(user_id, pagination)
+        return await service.list_my_projects(current_user_id, pagination)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -68,6 +86,7 @@ async def list_my_projects(
 async def list_project_members(
     project_id: str,
     pagination: PaginationParams = Depends(),
+    current_user_id: str = Depends(require_project_permission("member", "read")),
     service: ProjectMemberService = Depends(get_project_member_service)
 ):
     """
@@ -114,13 +133,24 @@ async def get_project_member(
 )
 async def remove_project_member(
     member_id: str,
+    current_user_id: str = Depends(get_current_user_id),
     service: ProjectMemberService = Depends(get_project_member_service)
 ):
     """
-    移除项目成员
+    移除项目成员(需要该知识库的成员移除权限,同步撤销 casbin 项目域角色)
     :param member_id: 项目成员ID
+    :param current_user_id: 当前登录用户ID(由 token 自动解析)
     :param service: 项目成员服务依赖注入
     """
+    # 先查成员记录以获取 project_id 做权限校验
+    member_info = await service.get(member_id)
+    if not member_info:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="项目成员未找到"
+        )
+    await enforce_project_permission(
+        current_user_id, member_info.project_id, "member", "remove"
+    )
     try:
         await service.delete(member_id)
     except Exception as e:
@@ -135,14 +165,31 @@ async def remove_project_member(
 async def update_project_member(
     member_id: str,
     member: ProjectMemberUpdate,
+    current_user_id: str = Depends(get_current_user_id),
     service: ProjectMemberService = Depends(get_project_member_service)
 ):
     """
-    更新项目成员角色
+    更新项目成员角色(需要该知识库的成员管理权限,同步变更 casbin 项目域角色)
     :param member_id: 项目成员ID
-    :param member: 项目成员更新数据
+    :param member: 项目成员更新数据(role 必须为 project_admin/project_editor/project_reader 之一)
+    :param current_user_id: 当前登录用户ID(由 token 自动解析)
     :param service: 项目成员服务依赖注入
     """
+    # 角色合法性校验(仅允许分配项目级角色)
+    if member.role is not None and member.role not in RagRole.PROJECT_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"无效的角色 '{member.role}'，允许的角色: {'/'.join(RagRole.PROJECT_ROLES)}",
+        )
+    # 先查成员记录以获取 project_id 做权限校验
+    member_info = await service.get(member_id)
+    if not member_info:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="项目成员未找到"
+        )
+    await enforce_project_permission(
+        current_user_id, member_info.project_id, "member", "update"
+    )
     try:
         await service.update(member_id, member)
     except Exception as e:

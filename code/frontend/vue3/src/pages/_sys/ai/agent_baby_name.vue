@@ -1,5 +1,5 @@
 <template>
-  <div flex flex-col h-full w-full bg-gray-50>
+  <div flex flex-col h-app w-full bg-gray-50>
     <!-- 顶部模型选择栏 -->
     <div p-4 border-b bg-white shadow-sm>
       <div flex flex-wrap items-center gap-4>

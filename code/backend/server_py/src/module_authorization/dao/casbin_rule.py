@@ -233,7 +233,8 @@ class CasbinRuleDao:
             策略规则列表
         """
         try:
-            return await self.enforcer.get_policy()
+            # 注: AsyncEnforcer 的 get_policy 是同步方法(返回list),不能 await
+            return self.enforcer.get_policy()
         except Exception as e:
             logger.error(f"获取所有策略失败: {e}")
             return []
@@ -245,7 +246,8 @@ class CasbinRuleDao:
             角色分配规则列表
         """
         try:
-            return await self.enforcer.get_grouping_policy()
+            # 注: AsyncEnforcer 的 get_grouping_policy 是同步方法(返回list),不能 await
+            return self.enforcer.get_grouping_policy()
         except Exception as e:
             logger.error(f"获取所有角色分配规则失败: {e}")
             return []

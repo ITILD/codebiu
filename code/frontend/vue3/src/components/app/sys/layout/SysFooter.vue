@@ -1,24 +1,21 @@
 <template>
-  <footer v-if="sysStyle.headFootShow">
-    <!-- <hr border-gray-400 sm:mx-auto dark:border-gray-8 lg:mb-2 /> -->
+  <footer v-if="sysStyle.headFootShow" border-t border-note>
     <!-- 关联账号 本站 备案 -->
-    <div sm:flex sm:items-center sm:justify-between>
+    <div flex flex-col items-center gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-0>
       <!-- 关联账号 -->
-      <div text-gray-500 flex mt-4 space-x-6 sm:justify-center sm:mt-0>
-        <a v-for="link in socialLinks" :key="link.name" :href="link.url" text-deep-5 hover:text-deep-3>
+      <div flex space-x-6 text-note-sub>
+        <a v-for="link in socialLinks" :key="link.name" :href="link.url" text-note-green hover:opacity-70>
           <component :is="link.icon" h-5 w-5 />
           <span sr-only>{{ link.name }}</span>
         </a>
       </div>
-      <!-- 年份提示 -->
-      <span text-sm text-gray-500 sm:text-center dark:text-gray-400>© 2023-{{ yearNow }} <a href="https://wx1s.com/"
-          hover:underline>ITILD</a>. All Rights
-        Reserved.<br />
-      </span>
-      <!-- 备案 -->
-      <span text-xs text-gray-500 sm:text-center dark:text-gray-400 hover:underline>© 备案号: <a
-          href="https://beian.miit.gov.cn/" target="_blank">辽ICP备2022000388号-1</a>
-      </span>
+      <!-- 年份提示 + 备案(合并为一组,移动端居中堆叠,避免长文本截断) -->
+      <div flex flex-col items-center gap-1 text-center sm:flex-row sm:gap-6 text-note-sub>
+        <span text-xs md:text-sm>© 2023-{{ yearNow }} <a href="https://wx1s.com/"
+            hover:underline>ITILD</a>. All Rights Reserved.</span>
+        <span text-xs hover:underline>© 备案号: <a href="https://beian.miit.gov.cn/"
+            target="_blank">辽ICP备2022000388号-1</a></span>
+      </div>
     </div>
   </footer>
 </template>

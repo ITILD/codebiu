@@ -15,12 +15,14 @@ class ModelServerType(str, Enum):
 
 class ModelType(str, Enum):
     """
-    模型类型枚举 chat embeddings rerank
+    模型类型枚举 chat embeddings rerank asr tts
     """
 
     CHAT = "chat"
     EMBEDDINGS = "embeddings"
     RERANK = "rerank"
+    ASR = "asr"
+    TTS = "tts"
 
 
 # 角色
