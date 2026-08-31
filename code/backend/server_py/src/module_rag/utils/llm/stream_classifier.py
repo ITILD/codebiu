@@ -185,9 +185,23 @@ class StreamEventClassifier:
 
     @staticmethod
     def _format_search(output: dict) -> str:
-        """格式化知识库检索结果"""
+        """格式化知识库检索结果(含引用溯源: 来源/得分/片段摘要, 供前端折叠区展示)"""
         knowledge_context_list = output.get("knowledge_context_list") or []
 
         hit_count = len(knowledge_context_list)
+        if hit_count == 0:
+            return "未检索到相关片段"
 
-        return f"检索到 {hit_count} 条相关片段"
+        lines = [f"检索到 {hit_count} 条相关片段："]
+        for idx, chunk in enumerate(knowledge_context_list[:8], start=1):
+            source = getattr(chunk, "source", "") or "未知来源"
+            score = getattr(chunk, "score", None)
+            score_text = f"{score:.3f}" if isinstance(score, (int, float)) else "-"
+            # 片段摘要(去除换行, 截断前120字)
+            content = (getattr(chunk, "content", "") or "").replace("\n", " ")
+            summary = content[:120] + ("…" if len(content) > 120 else "")
+            lines.append(f"{idx}. [{source}] (相关度 {score_text}) {summary}")
+
+        if hit_count > 8:
+            lines.append(f"…其余 {hit_count - 8} 条略")
+        return "\n".join(lines)

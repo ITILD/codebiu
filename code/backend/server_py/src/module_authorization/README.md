@@ -2,19 +2,28 @@
 
 ## 系统架构概述
 
-本系统采用 **域隔离 RBAC 模型**，支持以下权限层级：
+本系统采用 **两级内置角色 + 模块权限自治声明 + 项目级成员档位** 模型（若依/GitHub 式），职责划分：
 
-| 角色 | 权限范围 | 说明 |
+| 层级 | 负责内容 | 位置 |
 |------|----------|------|
-| **系统管理员** | 全局所有权限 | 通过全局角色 `admin` 在 `*` 域实现权限穿透 |
-| **项目管理员** | 项目内全部操作 | 可管理项目配置、上传/删除文档、邀请成员 |
-| **普通成员** | 项目内只读 | 仅可查看和读取项目文档 |
+| **module_authorization(基础权限中心)** | 鉴权基建(casbin/依赖工厂)、用户/角色/权限/策略的管理接口、系统基础权限(sys/main 域)声明 | `config/registry.py`、`config/module_permissions.py` |
+| **各业务模块(自治声明)** | 本模块涉及的权限树与新用户默认权限,在模块自己的 config 中声明 | 如 `module_rag/config/permissions.py`、`module_blog/config/permissions.py` |
+| **业务模块项目级鉴权** | 基于成员表固定档位判断,不走 casbin | 如 `module_rag/dependencies/permission.py` |
+
+支持的权限层级：
+
+| 层级 | 权限范围 | 说明 |
+|------|----------|------|
+| **全局管理员(admin)** | 全局所有权限 | 内置角色,策略穿透一切；系统首个注册用户自动引导为该角色 |
+| **普通用户(user)** | 各模块声明的基础权限 | 内置角色,新注册用户自动绑定,策略为各模块 `default_policies` 合集 |
+| **自建角色** | 由管理员在界面勾选 | 基于 role/permission 表与权限树,满足细分场景 |
+| **项目级角色** | 项目域内隔离 | 写死三档 `project_admin/project_editor/project_reader`,存业务模块成员表(如 `project_member.role`),不可分配不可扩展 |
 
 ### 项目私有化
 
-- 项目公有时所有普通成员都可以只读访问项目文档
-- 项目默认私有，当项目设定为私有时，只有项目管理员和项目成员才能看到列表和访问项目详情
-- 通过域（domain）隔离实现项目间权限隔离
+- 项目公有时所有登录用户都可以只读访问项目资源
+- 项目默认私有，只有项目成员才能访问项目详情与资源
+- 隔离方式: 项目级鉴权查成员表档位(见 `module_rag/dependencies/permission.py`),不再使用 casbin 项目域
 
 ---
 
@@ -22,14 +31,57 @@
 
 | 原则 | 说明 | 反模式警示 |
 |------|------|------------|
+| **声明式权限** | 模块在自身 config/permissions.py 声明权限树与默认权限，启动幂等同步 | 禁止把业务模块策略硬编码在授权模块里 |
 | **显式动作校验** | 路由层声明 `obj` + `act`，Casbin 负责匹配 | 禁止在代码中写死 `if role == "admin": pass` |
-| **角色与权限解耦** | 权限绑定至角色模板，用户仅绑定角色 | 禁止为每个用户单独写入策略表 |
+| **角色与权限解耦** | 权限绑定至角色，用户仅绑定角色 | 禁止为每个用户单独写入策略表 |
 | **依赖注入拦截** | FastAPI `Depends` 前置拦截，业务层零权限逻辑 | 禁止在路由函数内部调用 `enforce()` |
-| **域级隔离+全局穿透** | 项目为域，系统管理员通过 `*` 域豁免 | 禁止混用多套鉴权中间件 |
+| **项目档位内聚** | 项目内权限由业务模块成员表自判 | 禁止把项目成员关系写入 casbin |
 
 ---
 
-## 二、Casbin 模型配置（`rbac_model.conf`）
+## 二、权限注册中心(模块自治的核心)
+
+`config/registry.py` 提供 `PermissionRegistry` 单例，业务模块按以下模式接入：
+
+```python
+# module_xxx/config/permissions.py
+from module_authorization.config.registry import (
+    ModulePermissionDefine, PermNode, permission_registry,
+)
+
+XXX_DEFINE = ModulePermissionDefine(
+    module="xxx",               # 模块域名(权限树根节点 code)
+    name="模块名",
+    nodes=[                     # 权限树: M目录 > C菜单 > F按钮
+        PermNode(name="资源管理", code="xxx:res", menu_type="C", path="/_sys/xxx/res",
+            children=[
+                PermNode(name="查询", code="xxx:res:read", menu_type="F"),
+                PermNode(name="新增", code="xxx:res:create", menu_type="F"),
+            ]),
+    ],
+    # 新用户默认权限(并入内置 user 角色策略),每项为 (域, 资源, 动作)
+    default_policies=[("xxx", "res", "read")],
+)
+permission_registry.register(XXX_DEFINE)
+```
+
+**权限码(code)约定**（按钮级权限码即 casbin 四元组的直接映射）：
+
+| 层级 | 格式 | 示例 | casbin 映射 |
+|------|------|------|-------------|
+| 目录 | `模块` | `rag` | 无(仅分组) |
+| 菜单 | `模块:资源` | `rag:project` | 无(仅分组) |
+| 按钮 | `模块:资源:动作` | `rag:project:create` | `(角色, rag, project, create)` |
+
+**注册时机**：模块的 `config/server.py`(或 app.py 导入链上的任意入口)导入 permissions.py 即完成注册；启动时 `AuthManager.init_default_casbin()` 统一幂等同步：
+
+1. **casbin 策略表**：全局 `admin` 通配策略 + 内置 `user` 角色的默认权限合集
+2. **role 表**：upsert 内置角色 admin/user(供角色管理界面)
+3. **permission 表**：按 code upsert 权限树(供权限管理/角色授权界面)
+
+---
+
+## 三、Casbin 模型配置（`rbac_model.conf`）
 
 ```ini
 [request_definition]
@@ -45,180 +97,95 @@ g = _, _, _
 e = some(where (p.eft == allow))
 
 [matchers]
-# 支持域内角色匹配与全局角色（*）穿透
 m = (g(r.sub, p.sub, r.dom) || g(r.sub, p.sub, "*")) && \
-    (r.dom == p.dom || p.dom == "*") && \
-    r.obj == p.obj && r.act == p.act
+    (r.dom == p.dom || p.dom == "*" || keyMatch(r.dom, p.dom + "/*")) && \
+    (r.obj == p.obj || p.obj == "*") && (r.act == p.act || p.act == "*")
 ```
 
 **匹配器说明**：
 - `g(r.sub, p.sub, r.dom)`：检查用户在请求域内是否具有策略角色
-- `g(r.sub, p.sub, "*")`：检查用户是否具有全局角色（系统管理员）
+- `g(r.sub, p.sub, "*")`：检查用户是否具有全局角色（内置角色绑定统一存全局域 "*"）
 - `r.dom == p.dom`：域内策略匹配
-- `p.dom == "*"`：全局策略匹配（系统管理员权限穿透）
+- `p.dom == "*"`：全局策略匹配（admin 穿透）
+- `keyMatch(r.dom, p.dom + "/*")`：父域策略作用于子域（保留匹配能力,当前项目级权限已不走 casbin）
+
+**域划分约定**：
+- `*` 全局域(内置角色绑定)；`sys` 授权模块域；`main` 基础资源域(字典/数据库/文件/搜索)
+- `rag` 知识库模块域；`blog` 博客模块域
 
 ---
 
-## 三、角色模板初始化
+## 四、FastAPI 权限依赖层
 
-系统启动时执行一次，预置角色权限模板：
+**全局/模块级**（`module_authorization/dependencies/permission.py`）：
 
 ```python
-def init_role_templates() -> None:
-    """初始化角色权限模板（仅系统启动调用一次）"""
-    templates = [
-        # (角色, 域, 对象, 动作)
-        # 普通成员：只读权限
-        ("reader", "*", "doc", "read"),
-        ("reader", "*", "project", "read"),
-        
-        # 项目管理员：项目操作 + 文档管理
-        ("project_admin", "*", "project", "read|update|delete|manage"),
-        ("project_admin", "*", "doc", "read|upload|update|delete"),
-        
-        # 系统管理员：全局所有权限
-        ("admin", "*", "*", "*"),
-    ]
-    for role, dom, obj, acts in templates:
-        for act in acts.split("|"):
-            enforcer.add_policy(role, dom, obj, act)
-    enforcer.save_policy()
+# 模块级校验(域 = 模块名)
+@router.post("", dependencies=[Depends(require_permission("rag", "project", "create"))])
+
+# 服务层手动校验
+await enforce_permission(user_id, "rag", "project", "create")
 ```
 
-**调用时机**：应用启动钩子 `@app.on_event("startup")` 或独立迁移脚本。
+**项目级**（业务模块自建,如 `module_rag/dependencies/permission.py`,基于成员表档位）：
+
+```python
+# 项目级校验(路径含 {project_id},按 project_member.role 档位判断)
+@router.post("/{project_id}/upload", dependencies=[Depends(require_project_permission("doc", "upload"))])
+
+# 服务层手动校验(已知 project_id 的场景)
+await enforce_project_permission(user_id, project_id, "doc", "delete")
+```
+
+其他常用能力：
+- `sync_default_user_roles(user_id, is_first_user)`：新用户绑定内置 user 角色；首个注册用户自动引导为全局管理员
+- `GET /authorization/auth/me_permissions`：返回当前用户角色(按域分组)与权限码列表(全局管理员返回 `["*"]`)
 
 ---
 
-## 四、权限分配流程
+## 五、角色授权管理（前端）
 
-### 1. 创建项目
-
-```python
-@app.post("/api/projects")
-def create_project(
-    name: str,
-    uid: str = Depends(get_current_user)
-) -> dict[str, str]:
-    """创建项目（默认所有人可调用，创建者自动成为项目管理员）"""
-    project_id = f"proj_{name.lower().replace(' ', '_')}"
-    
-    # 绑定用户至项目域的管理员角色
-    enforcer.add_grouping_policy(uid, "project_admin", project_id)
-    enforcer.save_policy()
-    return {"status": "created", "project_id": project_id}
-```
-
-### 2. 邀请成员
-
-```python
-@app.post("/api/projects/{project_id}/members")
-def invite_member(
-    target_uid: str,
-    role: str,  # 仅允许 "reader" 或 "project_admin"
-    _: None = Depends(require_access("project", "manage"))
-) -> dict[str, str]:
-    """邀请成员（需项目管理员权限）"""
-    if role not in ("reader", "project_admin"):
-        raise HTTPException(status_code=400, detail="角色不合法")
-    enforcer.add_grouping_policy(target_uid, role, project_id)
-    enforcer.save_policy()
-    return {"status": "invited", "role": role}
-```
-
-### 3. 分配系统管理员
-
-```python
-def assign_sys_admin(user_id: str) -> None:
-    """将用户设置为系统管理员"""
-    enforcer.add_grouping_policy(user_id, "admin", "*")
-    enforcer.save_policy()
-```
+- `GET /authorization/casbin_rules/module-tree`：全部模块声明的权限树（可分配权限集合）
+- `POST /authorization/casbin_rules/role-perms`：`{role_key, codes}` 全量同步角色节点级权限——仅处理权限树按钮节点对应策略，内置角色的通配策略(如 `admin/*/*/*`、`main/*` read)不受影响
+- 前端 `usePermission()` 组合式函数：`hasPerm("rag:project:create")` 按钮级控制、菜单按权限码过滤
 
 ---
 
-## 五、FastAPI 权限依赖层
+## 六、权限矩阵（示例：知识库模块）
 
-```python
-from fastapi import FastAPI, Depends, HTTPException, status, Path
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-import casbin
+| 操作 | admin | user(非成员) | project_admin | project_editor | project_reader |
+|------|-------|-------------|---------------|----------------|----------------|
+| 查看项目列表 | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 创建项目 | ✅ | ✅ | - | - | - |
+| 修改/删除项目 | ✅ | ❌(公开项目只读) | ✅ | ❌ | ❌ |
+| 邀请/移除成员 | ✅ | ❌ | ✅ | ❌ | ❌ |
+| 查看文档 | ✅ | 仅公开项目 | ✅ | ✅ | ✅ |
+| 上传/修改文档 | ✅ | ❌ | ✅ | ✅ | ❌ |
+| 删除文档 | ✅ | ❌ | ✅ | ❌ | ❌ |
+| 知识库问答 | ✅ | ✅(模块级) | ✅ | ✅ | 只读 |
 
-app = FastAPI(title="Knowledge-Base-API")
-security = HTTPBearer()
-
-enforcer = casbin.Enforcer("rbac_model.conf", casbin.FileAdapter("policies.csv"))
-
-def get_current_user(creds: HTTPAuthorizationCredentials = Depends(security)) -> str:
-    """提取 Token 中的用户标识"""
-    return creds.credentials
-
-def require_access(obj: str, act: str):
-    """通用权限校验依赖（自动提取项目域）"""
-    def _verify(project_id: str = Path(...), uid: str = Depends(get_current_user)) -> None:
-        if not enforcer.enforce(uid, project_id, obj, act):
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="权限不足")
-    return _verify
-```
+> 项目级档位权限由 `module_rag/dependencies/permission.py` 的 `ACTION_LEVELS` 定义；
+> 自建角色可授予模块级权限码(如 `rag:project:delete`),但项目内资源操作仍以成员档位为准。
 
 ---
 
-## 六、核心业务接口实现
-
-```python
-@app.get("/api/projects/{project_id}/docs")
-def list_docs(_: None = Depends(require_access("doc", "read"))) -> list[str]:
-    """文档列表（reader / project_admin / admin 均可访问）"""
-    return ["spec.md", "changelog.json"]
-
-@app.post("/api/projects/{project_id}/docs")
-def upload_doc(_: None = Depends(require_access("doc", "upload"))) -> dict[str, str]:
-    """上传文档（仅 project_admin）"""
-    return {"status": "uploaded"}
-
-@app.put("/api/projects/{project_id}/config")
-def update_config(_: None = Depends(require_access("project", "update"))) -> dict[str, str]:
-    """修改项目配置（仅 project_admin）"""
-    return {"status": "updated"}
-
-@app.delete("/api/projects/{project_id}")
-def delete_project(_: None = Depends(require_access("project", "delete"))) -> dict[str, str]:
-    """删除项目（仅 project_admin）"""
-    return {"status": "deleted"}
-```
-
----
-
-## 七、权限矩阵
-
-| 操作 | 系统管理员 | 项目管理员 | 普通成员 |
-|------|-----------|-----------|---------|
-| 查看项目 | ✅ | ✅ (本域) | ✅ (本域) |
-| 修改项目配置 | ✅ | ✅ (本域) | ❌ |
-| 删除项目 | ✅ | ✅ (本域) | ❌ |
-| 邀请成员 | ✅ | ✅ (本域) | ❌ |
-| 查看文档 | ✅ | ✅ (本域) | ✅ (本域) |
-| 上传文档 | ✅ | ✅ (本域) | ❌ |
-| 删除文档 | ✅ | ✅ (本域) | ❌ |
-
----
-
-## 八、生产环境关键实践
+## 七、生产环境关键实践
 
 | 维度 | 建议方案 |
 |------|----------|
-| **策略持久化** | 使用 `casbin_sqlalchemy_adapter`，`g` 表存 `用户-角色-域`，`p` 表存角色模板。业务事务与 Casbin 写入共用 DB 连接 |
-| **热更新机制** | 策略变更时调用 `enforcer.load_policy()`，或结合 Redis Pub/Sub 通知多节点刷新内存策略 |
-| **性能优化** | 高频接口启用 `enforcer.enable_auto_save(False)` 批量提交；将 `(uid, dom, obj, act)` 结果缓存至 Redis，TTL 随策略版本号失效 |
-| **审计日志** | 在 `require_access` 依赖中注入 `logging`，记录 `(uid, dom, obj, act, result, timestamp)` 至独立审计表 |
-| **越权测试** | 单元测试覆盖 `g(user, reader, proj_x)` 但调用 `delete` 接口的场景，验证 `403` 拦截是否生效 |
+| **策略持久化** | `casbin_async_sqlalchemy_adapter`，`g` 表存 `用户-角色-域`，`p` 表存角色策略，与业务共用 DB 连接 |
+| **热更新机制** | 策略变更时调用 `POST /casbin_rules/reload-policy`，或结合 Redis Pub/Sub 通知多节点刷新内存策略 |
+| **性能优化** | `me_permissions` 结果可缓存至 Redis，TTL 随策略版本号失效 |
+| **审计日志** | 在 `require_permission` 依赖中注入 `logging`，记录 `(uid, dom, obj, act, result, timestamp)` 至独立审计表 |
+| **越权测试** | 单元测试覆盖非成员调用项目 `delete` 接口的场景，验证 `403` 拦截与档位判断是否生效 |
 
 ---
 
 ## 结论
 
-最优设计遵循 **显式动作声明 + 角色模板化 + 依赖注入拦截** 三位一体架构：
-1. 路由层仅声明 `obj` 与 `act`，保持业务逻辑纯净
-2. 权限收敛至角色模板，用户仅关联角色，策略数据可版本化管理
-3. 依赖工厂自动提取路径参数并完成 Casbin 校验，兼顾开发效率与安全边界
+最优设计遵循 **模块自治声明 + 两级内置角色 + 项目档位内聚** 架构：
+1. 各模块在自身 `config/permissions.py` 声明权限树与新用户默认权限，授权模块零侵入扩展
+2. 全局只维护 admin/user 两个内置角色，细分场景由管理员自建角色勾选权限码
+3. 项目内权限由业务模块成员表固定档位自判，鉴权少一层策略同步，语义与主流 SaaS(GitHub/Notion)一致
 
-该架构可直接支撑万级项目、十万级用户的知识库权限管控，且后续新增细粒度权限（如分支级、文件级）仅需扩展 `obj` 命名空间，无需改动核心鉴权链路。
+该架构可直接支撑万级项目、十万级用户的知识库权限管控，且后续新增业务模块（如 blog）仅需在模块内新建 `config/permissions.py` 并注册，无需改动核心鉴权链路。

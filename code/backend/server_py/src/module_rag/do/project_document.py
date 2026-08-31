@@ -2,7 +2,17 @@ from sqlmodel import Column, DateTime, Field, SQLModel
 from uuid import uuid4
 from datetime import datetime, timezone
 from pathlib import Path
+from enum import StrEnum
 from pydantic import BaseModel, Field as PydanticField
+
+
+class ParseStatus(StrEnum):
+    """文档解析状态(对标主流知识库系统的解析进度跟踪)"""
+
+    PENDING = "pending"        # 待解析(刚上传)
+    PARSING = "parsing"        # 解析中(任务已派发)
+    COMPLETED = "completed"    # 已完成(分块入库成功)
+    FAILED = "failed"          # 解析失败(记录失败原因)
 
 
 class DocType:
@@ -65,6 +75,16 @@ class ProjectDocumentBase(SQLModel):
     description: str | None = Field(
         default=None, max_length=500, description="文档描述"
     )
+    parse_status: str = Field(
+        default=ParseStatus.PENDING,
+        max_length=20,
+        index=True,
+        description="解析状态: pending/parsing/completed/failed",
+    )
+    chunk_count: int = Field(default=0, description="解析生成的分块数量")
+    error_message: str | None = Field(
+        default=None, max_length=1000, description="解析失败原因"
+    )
 
 
 class ProjectDocument(ProjectDocumentBase, table=True):
@@ -115,6 +135,9 @@ class ProjectDocumentCreate(SQLModel):
     description: str | None = Field(
         default=None, max_length=500, description="文档描述"
     )
+    parse_status: str = Field(
+        default=ParseStatus.PENDING, max_length=20, description="解析状态"
+    )
     uploaded_by: str = Field(..., max_length=50, description="上传者用户ID")
 
 
@@ -123,6 +146,11 @@ class ProjectDocumentUpdate(SQLModel):
 
     name: str | None = Field(None, max_length=255, description="原始文件名")
     description: str | None = Field(None, max_length=500, description="文档描述")
+    parse_status: str | None = Field(None, max_length=20, description="解析状态")
+    chunk_count: int | None = Field(None, description="解析生成的分块数量")
+    error_message: str | None = Field(
+        None, max_length=1000, description="解析失败原因"
+    )
 
 
 class ProjectDocumentResponse(SQLModel):
@@ -136,6 +164,9 @@ class ProjectDocumentResponse(SQLModel):
     file_size_bytes: int = Field(..., description="文件大小(字节)")
     physical_path: str = Field(..., description="物理存储相对路径")
     description: str | None = Field(default=None, description="文档描述")
+    parse_status: str = Field(default=ParseStatus.PENDING, description="解析状态")
+    chunk_count: int = Field(default=0, description="解析生成的分块数量")
+    error_message: str | None = Field(default=None, description="解析失败原因")
     uploaded_by: str = Field(..., description="上传者用户ID")
     created_at: datetime = Field(..., description="创建时间")
     updated_at: datetime = Field(..., description="最后更新时间")

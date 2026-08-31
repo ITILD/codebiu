@@ -31,6 +31,7 @@ from module_rag.dao.project import ProjectDao
 from module_rag.dao.project_document import ProjectDocumentDao
 from module_rag.do.project_document import (
     DocType,
+    ParseStatus,
     ProjectDocument,
     ProjectDocumentCreate,
     ProjectDocumentUpdate,
@@ -168,16 +169,26 @@ class ProjectDocumentService:
         return document.name, document.mime_type, file_path
 
     async def list_by_project(
-        self, project_id: str, pagination: PaginationParams
+        self,
+        project_id: str,
+        pagination: PaginationParams,
+        name: str | None = None,
+        parse_status: str | None = None,
     ) -> PaginationResponse:
         """
-        分页查询项目文档列表
+        分页查询项目文档列表(支持多字段过滤)
         :param project_id: 项目ID
         :param pagination: 分页参数
+        :param name: 文档名称模糊匹配
+        :param parse_status: 解析状态精确过滤(pending/parsing/completed/failed)
         :return: 分页文档列表
         """
-        items = await self.document_dao.list_by_project(project_id, pagination)
-        total = await self.document_dao.count_by_project(project_id)
+        items = await self.document_dao.list_by_project(
+            project_id, pagination, name=name, parse_status=parse_status
+        )
+        total = await self.document_dao.count_by_project(
+            project_id, name=name, parse_status=parse_status
+        )
         return PaginationResponse.create(items, total, pagination)
 
     async def update(
@@ -238,6 +249,8 @@ class ProjectDocumentService:
         embedding_llm: BaseChatModel | None = await self.user_model_service.get_llm_by_user_id(user_id,False,ModelType.EMBEDDINGS)
 
         temp_output_dir = None
+        # 标记解析中(供前端轮询展示解析进度)
+        await self._update_parse_status(document_id, ParseStatus.PARSING)
         try:
             temp_output_dir = Path(tempfile.mkdtemp(prefix="doc_reparse_"))
             # 1.文件解析
@@ -263,6 +276,7 @@ class ProjectDocumentService:
 
             if not chunked_items:
                 logger.warning(f"文件 {file_path} 分块为空")
+                await self._update_parse_status(document_id, ParseStatus.COMPLETED, chunk_count=0)
                 return True
 
             # 4.批量向量化 (考虑队列中的并发处理, 可自行添加分批逻辑)
@@ -298,6 +312,10 @@ class ProjectDocumentService:
             # 6.批量插入数据 (DBVectorMilvus.add 会自动识别 Model 类名作为 collection_name)
             await db_vector.add(insert_data)
 
+            # 标记解析完成并记录分块数
+            await self._update_parse_status(
+                document_id, ParseStatus.COMPLETED, chunk_count=len(insert_data)
+            )
             logger.info(
                 f"文档解析完成 document_id={document_id}, "
                 f"总块数={len(insert_data)}, 向量维度={len(embeddings[0]) if embeddings else 0}"
@@ -308,8 +326,42 @@ class ProjectDocumentService:
             raise
         except Exception as e:
             logger.error(f"重新解析文档失败 document_id={document_id}: {e}", exc_info=True)
+            # 标记解析失败并记录原因(截断至字段上限)
+            await self._update_parse_status(
+                document_id, ParseStatus.FAILED, error_message=str(e)[:1000]
+            )
             raise HTTPException(status_code=500, detail=f"重新解析失败: {e}")
         finally:
             # 清理临时文件
             if temp_output_dir and temp_output_dir.exists():
                 shutil.rmtree(temp_output_dir, ignore_errors=True)
+
+    async def _update_parse_status(
+        self,
+        document_id: str,
+        status: ParseStatus,
+        chunk_count: int | None = None,
+        error_message: str | None = None,
+    ) -> None:
+        """更新文档解析状态(状态跟踪供前端展示解析进度)
+
+        :param document_id: 文档ID
+        :param status: 目标状态(pending/parsing/completed/failed)
+        :param chunk_count: 解析生成的分块数(仅完成时写入)
+        :param error_message: 失败原因(仅失败时写入)
+        """
+        try:
+            update_data: dict = {"parse_status": status.value if isinstance(status, ParseStatus) else str(status)}
+            if chunk_count is not None:
+                update_data["chunk_count"] = chunk_count
+            if error_message is not None:
+                update_data["error_message"] = error_message
+            else:
+                # 进入新状态时清除历史失败原因
+                update_data["error_message"] = None
+            await self.document_dao.update(
+                document_id, ProjectDocumentUpdate(**update_data)
+            )
+        except Exception as e:
+            # 状态更新失败不影响主流程
+            logger.warning(f"更新解析状态失败 document_id={document_id}: {e}")

@@ -138,6 +138,52 @@ export const removePolicy = (data: PolicyRequest) => {
   });
 };
 
+// ---------------- 模块声明树与角色授权(声明驱动) ----------------
+
+/** 模块权限声明树节点(目录/菜单/按钮) */
+interface ModulePermNode {
+  name: string;
+  code: string;
+  menu_type: string;
+  path?: string | null;
+  icon?: string | null;
+  order_num: number;
+  children: ModulePermNode[];
+}
+
+/**
+ * 获取全部模块声明的权限树(角色授权界面的可分配权限集合)
+ * @returns 模块权限声明树
+ */
+export const getModuleTree = () => {
+  return http_base_server.get<{ message: string; data: ModulePermNode[] }>(
+    '/authorization/casbin_rules/module-tree'
+  );
+};
+
+/**
+ * 获取角色当前拥有的节点级权限码列表(角色授权界面勾选回显)
+ * @param roleKey 角色键
+ * @returns 按钮级权限码列表
+ */
+export const getRolePermCodes = (roleKey: string) => {
+  return http_base_server.get<{ message: string; data: string[] }>(
+    `/authorization/casbin_rules/role-perms/${roleKey}`
+  );
+};
+
+/**
+ * 全量同步角色的节点级权限(提交勾选的权限码,按钮级权限码自动解析为casbin策略)
+ * @param role_key 角色键
+ * @param codes 勾选的权限码列表
+ */
+export const syncRolePermissions = (role_key: string, codes: string[]) => {
+  return http_base_server.post<{ message: string; data: { removed: number; added: number } }>(
+    '/authorization/casbin_rules/role-perms',
+    { role_key, codes }
+  );
+};
+
 export type {
   PolicyRequest,
   RoleForUserRequest,
@@ -146,4 +192,5 @@ export type {
   CheckPermissionRequest,
   PolicyRow,
   GroupingPolicyRow,
+  ModulePermNode,
 };

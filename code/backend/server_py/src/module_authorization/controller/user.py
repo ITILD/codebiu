@@ -1,14 +1,16 @@
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, Query
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
 from module_authorization.do.user import User, UserCreate, UserUpdate, UserResponse
 from module_authorization.service.user import UserService
 from module_authorization.dependencies.user import get_user_service
+from module_authorization.dependencies.permission import require_permission
 from module_authorization.config.server import module_app
 
 router = APIRouter()
 
 @router.post(
-    "", summary="创建用户", status_code=status.HTTP_201_CREATED
+    "", summary="创建用户", status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_permission("sys", "user", "create"))],
 )
 async def create_user(
     user: UserCreate,
@@ -30,26 +32,36 @@ async def create_user(
         )
 
 @router.get(
-    "/list", summary="分页查询用户列表", response_model=PaginationResponse
+    "/list", summary="分页查询用户列表", response_model=PaginationResponse,
+    dependencies=[Depends(require_permission("sys", "user", "read"))],
 )
 async def list_users(
     pagination: PaginationParams = Depends(),
+    username: str | None = Query(None, max_length=50, description="用户名模糊搜索"),
+    nickname: str | None = Query(None, max_length=50, description="昵称模糊搜索"),
+    is_active: bool | None = Query(None, description="状态过滤(true=启用/false=禁用)"),
     service: UserService = Depends(get_user_service)
 ):
     """
-    分页查询用户列表
+    分页查询用户列表(支持多字段过滤)
     :param pagination: 分页参数 (通过查询参数传递)
+    :param username: 用户名模糊搜索
+    :param nickname: 昵称模糊搜索
+    :param is_active: 状态过滤(true=启用/false=禁用)
     :param service: 用户服务依赖注入
     :return: 分页响应结果
     """
     try:
-        return await service.list_all(pagination)
+        return await service.list_all(
+            pagination, username=username, nickname=nickname, is_active=is_active
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
-@router.get("/{user_id}", summary="获取单个用户")
+@router.get("/{user_id}", summary="获取单个用户",
+    dependencies=[Depends(require_permission("sys", "user", "read"))])
 async def get_user(
     user_id: str,
     service: UserService = Depends(get_user_service)
@@ -73,7 +85,8 @@ async def get_user(
         )
 
 @router.delete(
-    "/{user_id}", summary="删除用户", status_code=status.HTTP_204_NO_CONTENT
+    "/{user_id}", summary="删除用户", status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_permission("sys", "user", "delete"))],
 )
 async def delete_user(
     user_id: str,
@@ -92,7 +105,8 @@ async def delete_user(
         )
 
 @router.put(
-    "/{user_id}", summary="更新用户", status_code=status.HTTP_204_NO_CONTENT
+    "/{user_id}", summary="更新用户", status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_permission("sys", "user", "update"))],
 )
 async def update_user(
     user_id: str,

@@ -29,7 +29,8 @@ async def event_generator(responses, request: Request = None):
                     data=StreamChunkResponse(
                         response_id=response_id,
                         content=chunk.content,
-                        node_name=getattr(chunk, 'node_name', None)
+                        node_name=getattr(chunk, 'node_name', None),
+                        stream_event_type=getattr(chunk, 'stream_event_type', None),
                     ).model_dump_json()
                 )
         

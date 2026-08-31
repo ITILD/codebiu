@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, Query
 from common.utils.db.schema.pagination import (
     InfiniteScrollParams,
     InfiniteScrollResponse,
@@ -54,16 +54,22 @@ async def infinite_scroll(
 @router.get("/list", summary="分页查询字典类型列表", response_model=PaginationResponse)
 async def list_dict_types(
     pagination: PaginationParams = Depends(),
+    keyword: str | None = Query(None, max_length=100, description="类型名称/编码模糊搜索"),
+    is_active: bool | None = Query(None, description="状态过滤(true=启用/false=禁用)"),
     service: DictTypeService = Depends(get_dict_type_service),
 ) -> PaginationResponse:
     """
-    分页查询字典类型列表
+    分页查询字典类型列表(支持多字段过滤)
     :param pagination: 分页参数 (通过查询参数传递)
+    :param keyword: 类型名称/编码模糊搜索
+    :param is_active: 状态过滤(true=启用/false=禁用)
     :param service: 字典类型服务依赖注入
     :return: 分页响应结果
     """
     try:
-        pagination_response: PaginationResponse = await service.list_all(pagination)
+        pagination_response: PaginationResponse = await service.list_all(
+            pagination, keyword=keyword, is_active=is_active
+        )
         return pagination_response
     except Exception as e:
         raise HTTPException(

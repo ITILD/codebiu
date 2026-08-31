@@ -74,6 +74,14 @@ class CasbinRuleService:
         """获取所有策略规则"""
         return await self.dao.get_all_policies()
 
-    async def get_all_grouping_policies(self) -> list[tuple[str, str]]:
+    async def get_all_grouping_policies(self) -> list[tuple[str]]:
         """获取所有角色分配规则"""
         return await self.dao.get_all_grouping_policies()
+
+    async def get_role_node_codes(self, role_key: str) -> list[str]:
+        """获取角色当前拥有的节点级权限码列表(角色授权界面勾选回显)"""
+        return await self.dao.get_role_node_codes(role_key)
+
+    async def sync_role_node_policies(self, role_key: str, codes: list[str]) -> dict:
+        """全量同步角色的节点级权限(角色授权界面勾选提交)"""
+        return await self.dao.sync_role_node_policies(role_key, codes)

@@ -9,7 +9,8 @@ import type {
   ChatHistory,
   ChatMessage,
   CreateChatRequest,
-  UpdateChatRequest
+  UpdateChatRequest,
+  ChatStreamEvent
 } from '@/types/chat'
 
 /**
@@ -27,22 +28,30 @@ export const sendChatMessage = async (request: ChatRequest) => {
  * @param onChunk 接收数据块的回调函数
  * @param onError 错误回调函数
  * @param onComplete 完成回调函数
+ * @param onController 中止控制器回调(用于页面"停止生成")
+ * @param onEvent 完整事件回调(含 node_name/stream_event_type, 供过程区块分组)
  */
 export const sendChatMessageStream = async (
   request: ChatRequest,
   onChunk: (content: string) => void,
   onError?: (error: string) => void,
-  onComplete?: () => void
+  onComplete?: () => void,
+  onController?: (controller: AbortController) => void,
+  onEvent?: (event: ChatStreamEvent) => void
 ) => {
+  const controller = new AbortController()
+  // 立即交给调用方, 供流式期间中止
+  onController?.(controller)
   await fetchEventSource(`/base_server/ai/llm_base/chat`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify(request),
+    signal: controller.signal,
     onmessage: (event) => {
       try {
-        const parsed = JSON.parse(event.data)
+        const parsed = JSON.parse(event.data) as ChatStreamEvent
 
         if (parsed.status === 'error') {
           onError?.(parsed.content || '未知错误')
@@ -53,6 +62,9 @@ export const sendChatMessageStream = async (
         if (parsed.content && parsed.content.trim()) {
           onChunk(parsed.content)
         }
+
+        // 透传完整事件(供页面按事件类型分组过程区块)
+        onEvent?.(parsed)
 
         if (parsed.status === 'end') {
           onComplete?.()
@@ -70,6 +82,7 @@ export const sendChatMessageStream = async (
       onComplete?.()
     }
   })
+  return controller
 }
 
 /**

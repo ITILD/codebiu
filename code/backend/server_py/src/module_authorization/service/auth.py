@@ -104,7 +104,8 @@ class AuthService:
             raise ValueError("访问令牌无效")
         try:
             # 对于安全性要求较高的系统，采用黑名单/废止列表来使 access_token 立即失效
-            await db_cache .set(
+            # 注意: db_cache 为连接包装器,实际 Redis 客户端在 async_cache 属性上
+            await db_cache.async_cache.set(
                 logout_request.token_access,
                 "revoked",
                 ex=token_config.expire_minutes * 60,
@@ -128,9 +129,13 @@ class AuthService:
         """
         try:
             # 黑名单 检查令牌是否已被吊销
-            revoked = await db_cache .get(token_access)
-            # 查看所有async_redis内的键值对
-            logger.info(f"db_cache  内的键值对: {await db_cache .keys()}")
+            # 注意: db_cache 为连接包装器,实际 Redis 客户端在 async_cache 属性上
+            revoked = None
+            try:
+                revoked = await db_cache.async_cache.get(token_access)
+            except Exception as e:
+                # 缓存不可用时降级: 仅告警不阻断认证(JWT 签名校验仍正常执行)
+                logger.warning(f"令牌黑名单缓存不可用,跳过吊销检查: {e}")
             if revoked == b"revoked":
                 raise ValueError("令牌已被吊销")
             return await self.token_service.verify_token(token_access)
@@ -178,6 +183,41 @@ class AuthService:
             return await self.user_service.get(user_id)
         except Exception as e:
             raise ValueError(f"获取当前用户失败: {str(e)}")
+
+    async def get_user_permission_info(self, user_id: str) -> dict:
+        """
+        获取用户的角色与权限码信息(前端菜单过滤/按钮权限判断依据)
+        :param user_id: 用户ID
+        :return: {"roles": {域: [角色键]}, "permissions": [权限码]}
+                 全局管理员 permissions 为 ["*"](拥有全部权限)
+        """
+        from module_authorization.config.casbin_rule import auth_manager
+        from module_authorization.config.registry import permission_registry
+
+        if auth_manager.enforcer is None:
+            return {"roles": {}, "permissions": []}
+        enforcer = auth_manager.enforcer
+
+        # 角色绑定: 遍历用户-角色绑定规则,按域分组
+        roles: dict[str, list[str]] = {}
+        # 注: AsyncEnforcer 的 get_grouping_policy 是同步方法(返回list),不能 await
+        for grouping in enforcer.get_grouping_policy():
+            uid, role_key, dom = grouping[0], grouping[1], grouping[2]
+            if uid == user_id:
+                roles.setdefault(dom, []).append(role_key)
+
+        # 权限码展开: 全局管理员直接返回通配符
+        if "admin" in roles.get("*", []):
+            return {"roles": roles, "permissions": ["*"]}
+
+        # 普通用户: 遍历全部模块声明节点,逐条校验后收集权限码
+        permissions: list[str] = []
+        for dom, obj, act in permission_registry.iter_node_policies():
+            # 注: AsyncEnforcer 的 enforce 是同步方法(返回bool),不能 await
+            if enforcer.enforce(user_id, dom, obj, act):
+                permissions.append(f"{dom}:{obj}:{act}")
+        return {"roles": roles, "permissions": permissions}
+
 
     async def token_refresh(self, token_refresh: str) -> TokenResponseFull:
         """

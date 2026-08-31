@@ -141,6 +141,16 @@ token:
   algorithm: HS256
   expire_minutes: 30000
   refresh_expire_days: 20
+
+# ############################# 系统管理员账户配置 #############################
+# 启动时自动创建/修复的默认管理员(绑定全局域 "*" 的 admin 角色,拥有全部权限)
+admin:
+  username: admin
+  password: admin123
+  nickname: 系统管理员
+  email: admin@codebiu.local
+  # 每次启动都将密码重置为上方配置值(忘记密码时改为 true 重启即可恢复)
+  reset_password: false
 # 邮箱配置
 email:
   smtp_server: todo

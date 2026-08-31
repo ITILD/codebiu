@@ -1,22 +1,79 @@
 // src/types/model_config.ts
+// 模型配置类型定义(多类型模型: chat/embeddings/rerank/ocr/asr/tts)
 
-// 模型服务类型枚举
+/** 模型服务方案(与后端 ModelServerType 对齐) */
 enum ModelServerType {
   OPENAI = "openai",
   DASHSCOPE = "dashscope",
   VLLM = "vllm",
   OLLAMA = "ollama",
-  AWS = "aws"
+  AWS = "aws",
+  SHERPA = "sherpa",
+  QWEN = "qwen",
 }
 
-// 模型类型枚举
+/** 模型类型(与后端 ModelType 对齐) */
 enum ModelType {
   CHAT = "chat",
   EMBEDDINGS = "embeddings",
   RERANK = "rerank",
+  OCR = "ocr",
   ASR = "asr",
-  TTS = "tts"
+  TTS = "tts",
 }
+
+/** 模型类型显示选项 */
+const modelTypeOptions: { label: string; value: ModelType }[] = [
+  { label: '对话', value: ModelType.CHAT },
+  { label: '嵌入', value: ModelType.EMBEDDINGS },
+  { label: '重排', value: ModelType.RERANK },
+  { label: 'OCR', value: ModelType.OCR },
+  { label: '语音识别', value: ModelType.ASR },
+  { label: '语音合成', value: ModelType.TTS },
+]
+
+/** 模型类型标签样式(element-plus tag type) */
+const modelTypeTagType: Record<string, 'primary' | 'success' | 'warning' | 'info' | 'danger'> = {
+  [ModelType.CHAT]: 'primary',
+  [ModelType.EMBEDDINGS]: 'success',
+  [ModelType.RERANK]: 'warning',
+  [ModelType.OCR]: 'danger',
+  [ModelType.ASR]: 'info',
+  [ModelType.TTS]: 'info',
+}
+
+/** API 类方案(远程推理: 需要 url/api_key) */
+const API_SERVER_OPTIONS = [
+  { label: 'OpenAI', value: ModelServerType.OPENAI },
+  { label: 'DashScope', value: ModelServerType.DASHSCOPE },
+  { label: 'VLLM', value: ModelServerType.VLLM },
+  { label: 'Ollama', value: ModelServerType.OLLAMA },
+  { label: 'AWS', value: ModelServerType.AWS },
+]
+
+/** 本地推理方案(模型路径等放 extra) */
+const LOCAL_SERVER_OPTIONS = [
+  { label: 'Sherpa-ONNX', value: ModelServerType.SHERPA },
+  { label: 'Qwen(Transformers)', value: ModelServerType.QWEN },
+]
+
+/**
+ * 按模型类型返回可用的服务方案(与后端 server_types_for 对齐)
+ * - 语音/OCR 类(asr/tts/ocr): sherpa/qwen 本地推理
+ * - 其余(chat/embeddings/rerank): openai/dashscope/vllm/ollama/aws
+ */
+const serverTypeOptionsFor = (modelType: string) =>
+  [ModelType.ASR, ModelType.TTS, ModelType.OCR].includes(modelType as ModelType)
+    ? LOCAL_SERVER_OPTIONS
+    : API_SERVER_OPTIONS
+
+/** 模型类型中文标签 */
+const modelTypeLabel = (type: string) =>
+  modelTypeOptions.find(o => o.value === type)?.label ?? type
+
+/** 方案中文标签 */
+const serverTypeLabel = (type: string) =>
+  [...API_SERVER_OPTIONS, ...LOCAL_SERVER_OPTIONS].find(o => o.value === type)?.label ?? type
 
 interface ModelConfigBase {
   model_type: ModelType;
@@ -31,6 +88,7 @@ interface ModelConfigBase {
   temperature?: number;
   timeout?: number;
   no_think?: boolean;
+  /** 扩展配置(语音类: 模型路径/设备/线程等) */
   extra?: Record<string, any>;
 }
 
@@ -61,263 +119,32 @@ interface ModelConfigUpdate {
   extra?: Record<string, any>;
 }
 
-// 表格列配置类型(动态表单渲染所需的宽松类型)
-interface TableColumnEdit {
-  default?: any;
-  component: string;
-  placeholder?: string;
-  options?: { label: string; value: string }[];
-  rules?: any[];
-  props?: Record<string, any>;
-}
-
-interface TableColumn {
-  prop: string;
-  label: string;
-  width?: number;
-  enum?: Record<string, string>;
-  formatter?: (value: string | number | Date) => string;
-  button_list?: Record<string, {
-    type?: any;
-    label: string;
-    fuc_type: string;
-    fuc: (row: any) => void;
-  }>;
-  edit?: TableColumnEdit;
-}
-
-// 通用配置对象
-const config: { tableColumns: TableColumn[] } = {
-  tableColumns: [
-    {
-      prop: 'model_type',
-      label: '模型类型',
-      width: 100,
-      enum: {
-        [ModelType.CHAT]: '对话',
-        [ModelType.EMBEDDINGS]: '嵌入',
-        [ModelType.RERANK]: '重排',
-        [ModelType.ASR]: '语音识别',
-        [ModelType.TTS]: '语音合成'
-      },
-      edit: {
-        default: ModelType.CHAT,
-        component: 'el-select',
-        placeholder: '请选择模型类型',
-        options: [
-          { label: '对话', value: ModelType.CHAT },
-          { label: '嵌入', value: ModelType.EMBEDDINGS },
-          { label: '重排', value: ModelType.RERANK },
-          { label: '语音识别', value: ModelType.ASR },
-          { label: '语音合成', value: ModelType.TTS }
-        ],
-        rules: [
-          { required: true, message: '请选择模型类型', trigger: 'change' }
-        ]
-      }
-    },
-    {
-      prop: 'server_type',
-      label: '服务类型',
-      width: 100,
-      enum: {
-        [ModelServerType.OPENAI]: 'OpenAI',
-        [ModelServerType.DASHSCOPE]: 'DashScope',
-        [ModelServerType.VLLM]: 'VLLM',
-        [ModelServerType.OLLAMA]: 'Ollama',
-        [ModelServerType.AWS]: 'AWS'
-      },
-      edit: {
-        default: ModelServerType.OPENAI,
-        component: 'el-select',
-        placeholder: '请选择服务类型',
-        options: [
-          { label: 'OpenAI', value: ModelServerType.OPENAI },
-          { label: 'DashScope', value: ModelServerType.DASHSCOPE },
-          { label: 'VLLM', value: ModelServerType.VLLM },
-          { label: 'Ollama', value: ModelServerType.OLLAMA },
-          { label: 'AWS', value: ModelServerType.AWS }
-        ],
-        rules: [
-          { required: true, message: '请选择服务类型', trigger: 'change' }
-        ]
-      }
-    },
-    {
-      prop: 'model',
-      label: '模型标识',
-      width: 150,
-      edit: {
-        default: '',
-        component: 'el-input',
-        placeholder: '请输入模型标识名称',
-        rules: [
-          { required: true, message: '请输入模型标识名称', trigger: 'blur' },
-          { min: 1, max: 100, message: '长度在 1 到 100 个字符', trigger: 'blur' }
-        ]
-      }
-    },
-    {
-      prop: 'url',
-      label: 'API地址',
-      width: 200,
-      edit: {
-        default: '',
-        component: 'el-input',
-        placeholder: '请输入API基础URL',
-        rules: [
-          { max: 500, message: '长度不超过 500 个字符', trigger: 'blur' }
-        ]
-      }
-    },
-    // api_key
-    {
-      prop: 'api_key',
-      label: 'API密钥',
-      width: 200,
-      edit: {
-        default: '',
-        component: 'el-input',
-        placeholder: '请输入API密钥',
-        rules: [
-          { max: 500, message: '长度不超过 500 个字符', trigger: 'blur' }
-        ]
-      }
-    },
-    {
-      prop: 'pay_in',
-      label: '输入成本',
-      width: 100,
-      edit: {
-        default: 0.0,
-        component: 'el-input-number',
-        props: { min: 0, step: 0.0001, precision: 4 },
-        rules: [
-          { type: 'number', min: 0, message: '成本必须大于等于0', trigger: 'blur' }
-        ]
-      }
-    },
-    {
-      prop: 'pay_out',
-      label: '输出成本',
-      width: 100,
-      edit: {
-        default: 0.0,
-        component: 'el-input-number',
-        props: { min: 0, step: 0.0001, precision: 4 },
-        rules: [
-          { type: 'number', min: 0, message: '成本必须大于等于0', trigger: 'blur' }
-        ]
-      }
-    },
-    {
-      prop: 'input_tokens',
-      label: '输入Token',
-      width: 100,
-      edit: {
-        default: 8192,
-        component: 'el-input-number',
-        props: { min: 1, step: 1 },
-        rules: [
-          { required: true, message: '请输入输入Token数', trigger: 'blur' },
-          { type: 'number', min: 1, message: 'Token数必须大于0', trigger: 'blur' }
-        ]
-      }
-    },
-    {
-      prop: 'out_tokens',
-      label: '输出Token',
-      width: 100,
-      edit: {
-        default: 8192,
-        component: 'el-input-number',
-        props: { min: 1, step: 1 },
-        rules: [
-          { required: true, message: '请输入输出Token数', trigger: 'blur' },
-          { type: 'number', min: 1, message: 'Token数必须大于0', trigger: 'blur' }
-        ]
-      }
-    },
-    {
-      prop: 'temperature',
-      label: '温度系数',
-      width: 100,
-      edit: {
-        default: 0.7,
-        component: 'el-input-number',
-        props: { min: 0, max: 2, step: 0.1 },
-        rules: [
-          { type: 'number', min: 0, max: 2, message: '温度系数必须在0-2之间', trigger: 'blur' }
-        ]
-      }
-    },
-    {
-      prop: 'timeout',
-      label: '超时时间',
-      width: 100,
-      edit: {
-        default: 60,
-        component: 'el-input-number',
-        props: { min: 1, step: 1 },
-        rules: [
-          { required: true, message: '请输入超时时间', trigger: 'blur' },
-          { type: 'number', min: 1, message: '超时时间必须大于0', trigger: 'blur' }
-        ]
-      }
-    },
-    {
-      prop: 'no_think',
-      label: '禁用思考',
-      width: 100,
-      edit: {
-        default: false,
-        component: 'el-switch',
-        rules: []
-      }
-    },
-    {
-      prop: 'created_at',
-      label: '创建时间',
-      width: 180,
-      formatter: (value: string | number | Date) => new Date(value).toLocaleString()
-    },
-    {
-      prop: 'detail',
-      label: '操作',
-      width: 150,
-      button_list: {
-        "edit": {
-          label: '编辑',
-          fuc_type: 'click',
-          fuc: (row: any) => {
-            alert('点击了编辑')
-          }
-        },
-        "delete": {
-          type: 'danger',
-          label: '删除',
-          fuc_type: 'click',
-          fuc: (row: any) => {
-            alert('点击了删除')
-          }
-        },
-      }
-    },
+/** extra 各方案常用键说明(编辑表单提示用) */
+const extraKeyHints: Record<string, string[]> = {
+  [ModelServerType.SHERPA]: [
+    'asr_tokens: ASR tokens 文件(相对模型目录)',
+    'tts_model / tts_tokens / tts_lexicon / tts_dict_dir: TTS 各文件路径',
+    'num_threads: 推理线程数',
+    'max_num_sentences: TTS 单次合成句数',
   ],
-};
+  [ModelServerType.QWEN]: [
+    'device: 推理设备(cpu/cuda)',
+  ],
+}
 
-// 获取表单验证规则
-const formBase: any = {}
-const rules: any = {};
-config.tableColumns.forEach(field => {
-  if (field.edit) {
-    formBase[field.prop] = field.edit.default;
-  }
-  if (field.edit && field.edit.rules) {
-    rules[field.prop] = field.edit.rules;
-  }
-});
-
-export { ModelServerType, ModelType };
-export type { ModelConfig, ModelConfigCreate, ModelConfigUpdate };
-export { config, formBase, rules };
+export {
+  ModelServerType,
+  ModelType,
+  modelTypeOptions,
+  modelTypeTagType,
+  API_SERVER_OPTIONS,
+  LOCAL_SERVER_OPTIONS,
+  serverTypeOptionsFor,
+  modelTypeLabel,
+  serverTypeLabel,
+  extraKeyHints,
+  type ModelConfigBase,
+  type ModelConfig,
+  type ModelConfigCreate,
+  type ModelConfigUpdate,
+}

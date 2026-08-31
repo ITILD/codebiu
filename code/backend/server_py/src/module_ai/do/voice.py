@@ -14,7 +14,9 @@ class TTSRequest(BaseModel):
     """语音合成(TTS)请求模型"""
 
     text: str = Field(..., description="需要合成的文本内容")
-    engine: VoiceEngine = Field(VoiceEngine.SHERPA, description="TTS 引擎: sherpa/qwen")
+    engine: VoiceEngine | None = Field(
+        None, description="TTS 引擎: sherpa/qwen(缺省按模型配置自动选择)"
+    )
     speaker: int = Field(0, description="说话人 ID(多说话人模型使用)")
     speed: float = Field(1.0, description="语速倍率")
     sample_rate: int = Field(22050, description="目标采样率")

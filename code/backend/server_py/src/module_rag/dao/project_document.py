@@ -85,17 +85,27 @@ class ProjectDocumentDao:
         project_id: str,
         pagination: PaginationParams,
         session: AsyncSession | None = None,
+        name: str | None = None,
+        parse_status: str | None = None,
     ) -> list[ProjectDocument]:
         """
-        分页查询项目的文档列表
+        分页查询项目的文档列表(支持多字段过滤)
         :param project_id: 项目ID
         :param pagination: 分页参数
         :param session: 可选数据库会话
+        :param name: 文档名称模糊匹配
+        :param parse_status: 解析状态精确过滤(pending/parsing/completed/failed)
         :return: 文档列表
         """
+        conditions = [ProjectDocument.project_id == project_id]
+        if name:
+            conditions.append(ProjectDocument.name.contains(name))
+        if parse_status:
+            conditions.append(ProjectDocument.parse_status == parse_status)
+
         statement = (
             select(ProjectDocument)
-            .where(ProjectDocument.project_id == project_id)
+            .where(*conditions)
             .offset(pagination.offset)
             .limit(pagination.limit)
             .order_by(ProjectDocument.created_at.desc())
@@ -148,18 +158,30 @@ class ProjectDocumentDao:
 
     @DaoRel
     async def count_by_project(
-        self, project_id: str, session: AsyncSession | None = None
+        self,
+        project_id: str,
+        session: AsyncSession | None = None,
+        name: str | None = None,
+        parse_status: str | None = None,
     ) -> int:
         """
-        获取项目文档总数
+        获取项目文档总数(与列表过滤条件保持一致)
         :param project_id: 项目ID
         :param session: 可选数据库会话
+        :param name: 文档名称模糊匹配
+        :param parse_status: 解析状态精确过滤
         :return: 文档总数
         """
+        conditions = [ProjectDocument.project_id == project_id]
+        if name:
+            conditions.append(ProjectDocument.name.contains(name))
+        if parse_status:
+            conditions.append(ProjectDocument.parse_status == parse_status)
+
         statement = (
             select(func.count())
             .select_from(ProjectDocument)
-            .where(ProjectDocument.project_id == project_id)
+            .where(*conditions)
         )
         result = await session.exec(statement)
         return result.one()

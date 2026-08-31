@@ -97,25 +97,63 @@ class RoleDao:
 
     @DaoRel
     async def list_all(
-        self, pagination: PaginationParams, session: AsyncSession | None = None
+        self,
+        pagination: PaginationParams,
+        session: AsyncSession | None = None,
+        name: str | None = None,
+        role_key: str | None = None,
+        is_active: bool | None = None,
     ):
         """
-        分页查询角色列表
+        分页查询角色列表(支持多字段过滤)
         :param pagination: 分页参数
         :param session: 可选数据库会话
+        :param name: 角色名称模糊匹配
+        :param role_key: 权限字符模糊匹配
+        :param is_active: 状态精确过滤(启用/禁用)
         :return: 角色列表
         """
-        statement = select(Role).offset(pagination.offset).limit(pagination.limit)
+        conditions = []
+        if name:
+            conditions.append(Role.name.contains(name))
+        if role_key:
+            conditions.append(Role.role_key.contains(role_key))
+        if is_active is not None:
+            conditions.append(Role.is_active == is_active)
+
+        statement = select(Role)
+        if conditions:
+            statement = statement.where(*conditions)
+        statement = statement.offset(pagination.offset).limit(pagination.limit)
         result = await session.exec(statement)
         return result.all()
 
     @DaoRel
-    async def count(self, session: AsyncSession | None = None):
+    async def count(
+        self,
+        session: AsyncSession | None = None,
+        name: str | None = None,
+        role_key: str | None = None,
+        is_active: bool | None = None,
+    ):
         """
-        获取角色总数
+        获取角色总数(与列表过滤条件保持一致)
         :param session: 可选数据库会话
+        :param name: 角色名称模糊匹配
+        :param role_key: 权限字符模糊匹配
+        :param is_active: 状态精确过滤(启用/禁用)
         :return: 角色总数
         """
+        conditions = []
+        if name:
+            conditions.append(Role.name.contains(name))
+        if role_key:
+            conditions.append(Role.role_key.contains(role_key))
+        if is_active is not None:
+            conditions.append(Role.is_active == is_active)
+
         statement = select(func.count()).select_from(Role)
+        if conditions:
+            statement = statement.where(*conditions)
         result = await session.exec(statement)
         return result.one()

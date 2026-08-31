@@ -1,14 +1,16 @@
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, Query
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
 from module_authorization.do.role import Role, RoleCreate, RoleUpdate, RoleResponse
 from module_authorization.service.role import RoleService
 from module_authorization.dependencies.role import get_role_service
+from module_authorization.dependencies.permission import require_permission
 from module_authorization.config.server import module_app
 
 router = APIRouter()
 
 @router.post(
-    "", summary="创建角色", status_code=status.HTTP_201_CREATED, response_model=str
+    "", summary="创建角色", status_code=status.HTTP_201_CREATED, response_model=str,
+    dependencies=[Depends(require_permission("sys", "role", "create"))],
 )
 async def create_role(
     role: RoleCreate,
@@ -28,21 +30,34 @@ async def create_role(
         )
 
 @router.get(
-    "/list", summary="分页查询角色列表", response_model=PaginationResponse
+    "/list", summary="分页查询角色列表", response_model=PaginationResponse,
+    dependencies=[Depends(require_permission("sys", "role", "read"))],
 )
 async def list_all(
     pagination: PaginationParams = Depends(),
+    name: str | None = Query(None, max_length=50, description="角色名称模糊搜索"),
+    role_key: str | None = Query(None, max_length=100, description="权限字符模糊搜索"),
+    is_active: bool | None = Query(None, description="状态过滤(true=启用/false=禁用)"),
     service: RoleService = Depends(get_role_service)
 ):
-    """分页查询角色列表"""
+    """
+    分页查询角色列表(支持多字段过滤)
+    :param pagination: 分页参数
+    :param name: 角色名称模糊搜索
+    :param role_key: 权限字符模糊搜索
+    :param is_active: 状态过滤(true=启用/false=禁用)
+    """
     try:
-        return await service.list_all(pagination)
+        return await service.list_all(
+            pagination, name=name, role_key=role_key, is_active=is_active
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
-@router.get("/list_all", summary="获取所有角色(不分页)")
+@router.get("/list_all", summary="获取所有角色(不分页)",
+    dependencies=[Depends(require_permission("sys", "role", "read"))])
 async def list_all_no_page(
     service: RoleService = Depends(get_role_service)
 ):
@@ -54,7 +69,8 @@ async def list_all_no_page(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
-@router.get("/{role_id}", summary="获取单个角色", response_model=Role)
+@router.get("/{role_id}", summary="获取单个角色", response_model=Role,
+    dependencies=[Depends(require_permission("sys", "role", "read"))])
 async def get_role(
     role_id: str,
     service: RoleService = Depends(get_role_service)
@@ -78,7 +94,8 @@ async def get_role(
         )
 
 @router.delete(
-    "/{role_id}", summary="删除角色", status_code=status.HTTP_204_NO_CONTENT
+    "/{role_id}", summary="删除角色", status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_permission("sys", "role", "delete"))],
 )
 async def delete_role(
     role_id: str,
@@ -97,7 +114,8 @@ async def delete_role(
         )
 
 @router.put(
-    "/{role_id}", summary="更新角色", status_code=status.HTTP_204_NO_CONTENT
+    "/{role_id}", summary="更新角色", status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_permission("sys", "role", "update"))],
 )
 async def update_role(
     role_id: str,
@@ -117,7 +135,8 @@ async def update_role(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
-@router.get("/name/{name}", summary="通过名称获取角色", response_model=Role)
+@router.get("/name/{name}", summary="通过名称获取角色", response_model=Role,
+    dependencies=[Depends(require_permission("sys", "role", "read"))])
 async def get_role_by_name(
     name: str,
     service: RoleService = Depends(get_role_service)
@@ -135,7 +154,8 @@ async def get_role_by_name(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
-@router.get("/key/{role_key}", summary="通过权限字符串获取角色", response_model=Role)
+@router.get("/key/{role_key}", summary="通过权限字符串获取角色", response_model=Role,
+    dependencies=[Depends(require_permission("sys", "role", "read"))])
 async def get_role_by_key(
     role_key: str,
     service: RoleService = Depends(get_role_service)

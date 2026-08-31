@@ -2,13 +2,14 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
 from module_authorization.do.permission import Permission, PermissionCreate, PermissionUpdate, PermissionResponse, PermissionTree
 from module_authorization.service.permission import PermissionService
-from module_authorization.dependencies.permission import get_permission_service
+from module_authorization.dependencies.permission import get_permission_service, require_permission
 from module_authorization.config.server import module_app
 
 router = APIRouter()
 
 @router.post(
-    "", summary="创建权限", status_code=status.HTTP_201_CREATED, response_model=str
+    "", summary="创建权限", status_code=status.HTTP_201_CREATED, response_model=str,
+    dependencies=[Depends(require_permission("sys", "permission", "create"))],
 )
 async def create_permission(
     permission: PermissionCreate,
@@ -20,7 +21,8 @@ async def create_permission(
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
-@router.get("/tree", summary="获取权限树形结构", response_model=list[PermissionTree])
+@router.get("/tree", summary="获取权限树形结构", response_model=list[PermissionTree],
+    dependencies=[Depends(require_permission("sys", "permission", "read"))])
 async def get_permission_tree(
     service: PermissionService = Depends(get_permission_service)
 ):
@@ -31,7 +33,8 @@ async def get_permission_tree(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 @router.get(
-    "/list", summary="分页查询权限列表", response_model=PaginationResponse
+    "/list", summary="分页查询权限列表", response_model=PaginationResponse,
+    dependencies=[Depends(require_permission("sys", "permission", "read"))],
 )
 async def list_permissions(
     pagination: PaginationParams = Depends(),
@@ -43,7 +46,8 @@ async def list_permissions(
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
-@router.get("/{permission_id}", summary="获取单个权限", response_model=Permission)
+@router.get("/{permission_id}", summary="获取单个权限", response_model=Permission,
+    dependencies=[Depends(require_permission("sys", "permission", "read"))])
 async def get_permission(
     permission_id: str,
     service: PermissionService = Depends(get_permission_service)
@@ -58,7 +62,8 @@ async def get_permission(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 @router.delete(
-    "/{permission_id}", summary="删除权限", status_code=status.HTTP_204_NO_CONTENT
+    "/{permission_id}", summary="删除权限", status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_permission("sys", "permission", "delete"))],
 )
 async def delete_permission(
     permission_id: str,
@@ -71,7 +76,8 @@ async def delete_permission(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 @router.put(
-    "/{permission_id}", summary="更新权限", status_code=status.HTTP_204_NO_CONTENT
+    "/{permission_id}", summary="更新权限", status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_permission("sys", "permission", "update"))],
 )
 async def update_permission(
     permission_id: str,
@@ -84,7 +90,8 @@ async def update_permission(
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
-@router.get("/code/{code}", summary="通过代码获取权限", response_model=Permission)
+@router.get("/code/{code}", summary="通过代码获取权限", response_model=Permission,
+    dependencies=[Depends(require_permission("sys", "permission", "read"))])
 async def get_permission_by_code(
     code: str,
     service: PermissionService = Depends(get_permission_service)
@@ -98,7 +105,8 @@ async def get_permission_by_code(
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
-@router.get("/parent/{parent_id}", summary="获取子权限列表")
+@router.get("/parent/{parent_id}", summary="获取子权限列表",
+    dependencies=[Depends(require_permission("sys", "permission", "read"))])
 async def get_permissions_by_parent_id(
     parent_id: str,
     service: PermissionService = Depends(get_permission_service)

@@ -27,7 +27,6 @@ const router = useRouter()
 
 const tables = [
   { path: '/_sys/database/user', title: '用户数据', desc: '用户信息管理', icon: markRaw(User), color: 'text-blue-500' },
-  { path: '/_sys/database/todolist', title: '待办事项', desc: 'Todo 列表管理', icon: markRaw(DocumentCopy), color: 'text-orange-500' },
-  { path: '/_sys/database/model_config', title: '模型配置', desc: 'AI 模型配置', icon: markRaw(Setting), color: 'text-purple-500' },
+  { path: '/_sys/database/dict', title: '字段表管理', desc: '数据字典管理', icon: markRaw(Setting), color: 'text-purple-500' },
 ]
 </script>

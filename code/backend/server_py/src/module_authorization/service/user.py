@@ -11,7 +11,7 @@ class UserService:
 
     async def add(self, user: UserCreate)->UserResponse:
         """
-        创建用户(并分配子模块默认角色: main_viewer/rag_user)
+        创建用户(分配内置角色;首个用户自动引导为全局管理员)
         :param user: 用户创建数据
         :return: 创建的用户ID
         """
@@ -19,16 +19,18 @@ class UserService:
         existing_user = await self.user_dao.get_by_username(user.username)
         if existing_user:
             raise ValueError(f"用户名 '{user.username}' 已存在")
+        # 首个注册用户自动引导为全局管理员(bootstrap)
+        is_first_user = await self.user_dao.count() == 0
         # 密码进行加密处理
         user.password = hash_password(user.password)
         user_id = await self.user_dao.add(user)
 
-        # 分配子模块默认角色(幂等,失败不影响用户创建)
+        # 分配内置角色(admin/user,幂等,失败不影响用户创建)
         try:
             from module_authorization.dependencies.permission import (
                 sync_default_user_roles,
             )
-            await sync_default_user_roles(user_id)
+            await sync_default_user_roles(user_id, is_first_user)
         except Exception as e:
             import logging
             logging.getLogger(__name__).warning(f"分配默认角色失败: {e}")
@@ -68,14 +70,27 @@ class UserService:
         """
         return await self.user_dao.get_by_username(username)
 
-    async def list_all(self, pagination: PaginationParams) -> PaginationResponse:
+    async def list_all(
+        self,
+        pagination: PaginationParams,
+        username: str | None = None,
+        nickname: str | None = None,
+        is_active: bool | None = None,
+    ) -> PaginationResponse:
         """
-        分页获取用户列表
+        分页获取用户列表(支持多字段过滤)
         :param pagination: 分页参数
+        :param username: 用户名模糊匹配
+        :param nickname: 昵称模糊匹配
+        :param is_active: 状态精确过滤(启用/禁用)
         :return: 分页用户列表
         """
-        items = await self.user_dao.list_all(pagination)
-        total = await self.user_dao.count()
+        items = await self.user_dao.list_all(
+            pagination, username=username, nickname=nickname, is_active=is_active
+        )
+        total = await self.user_dao.count(
+            username=username, nickname=nickname, is_active=is_active
+        )
         return PaginationResponse.create(items, total, pagination)
 
     async def authenticate(self, username: str, password: str) -> User | None:

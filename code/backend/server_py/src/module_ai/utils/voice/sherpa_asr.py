@@ -2,13 +2,19 @@
 
 - 离线识别：OfflineRecognizer(用于音频上传识别)
 - 在线流式识别：OnlineRecognizer(用于麦克风实时流式识别)
+
+引擎配置来源优先级:
+    1. model_config 表(model_type=asr, server_type=sherpa)的 model/extra 字段
+    2. config.yaml 的 voice.sherpa 静态配置(默认回落)
 """
 import logging
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 
 from module_ai.config.voice import (
+    DIR_VOICE_MODEL,
     SHERPA_ASR_MODEL_DIR,
     SHERPA_ASR_TOKENS,
     VOICE_ASR_SAMPLE_RATE,
@@ -20,9 +26,33 @@ logger = logging.getLogger(__name__)
 
 
 class SherpaASR(ASREngine):
-    def __init__(self):
+    def __init__(self, conf: dict | None = None):
+        """
+        :param conf: 动态配置(model_config 映射), 可含:
+            - model: ASR 模型目录名(相对 voice 模型根目录)或绝对路径
+            - asr_tokens: tokens 文件名(相对模型目录)
+            - num_threads: 推理线程数
+        """
+        self._conf = conf or {}
         self._offline = None
         self._online_cfg = None
+
+    # ---- 配置解析 ----
+    @property
+    def _model_dir(self) -> Path:
+        name = self._conf.get("model")
+        if name:
+            p = Path(str(name))
+            return p if p.is_absolute() else DIR_VOICE_MODEL / p
+        return SHERPA_ASR_MODEL_DIR
+
+    @property
+    def _tokens(self) -> Path:
+        name = self._conf.get("asr_tokens")
+        if name:
+            p = Path(str(name))
+            return p if p.is_absolute() else self._model_dir / p
+        return SHERPA_ASR_TOKENS
 
     # ---- 离线识别 ----
     def _ensure_offline(self):
@@ -34,18 +64,19 @@ class SherpaASR(ASREngine):
             raise RuntimeError(
                 "未安装 sherpa-onnx，无法使用 sherpa ASR。请执行 `pip install sherpa-onnx`"
             ) from e
-        if not SHERPA_ASR_MODEL_DIR.exists():
+        model_dir = self._model_dir
+        if not model_dir.exists():
             raise RuntimeError(
-                f"sherpa ASR 模型不存在: {SHERPA_ASR_MODEL_DIR}，请下载模型放置到该目录"
+                f"sherpa ASR 模型不存在: {model_dir}，请下载模型放置到该目录"
             )
         self._offline = OfflineRecognizer.from_pretrained(
             model_type="zipformer",
-            model_dir=str(SHERPA_ASR_MODEL_DIR),
-            tokens=str(SHERPA_ASR_TOKENS),
-            num_threads=1,
+            model_dir=str(model_dir),
+            tokens=str(self._tokens),
+            num_threads=int(self._conf.get("num_threads", 1)),
             decoding_method="greedy_search",
         )
-        logger.info("sherpa ASR OfflineRecognizer 加载完成")
+        logger.info("sherpa ASR OfflineRecognizer 加载完成: %s", model_dir.name)
         return self._offline
 
     def recognize(self, audio_bytes: bytes, sample_rate: int = VOICE_ASR_SAMPLE_RATE) -> str:
@@ -75,37 +106,38 @@ class SherpaASR(ASREngine):
             raise RuntimeError(
                 "未安装 sherpa-onnx，无法使用 sherpa 流式 ASR。请执行 `pip install sherpa-onnx`"
             ) from e
-        if not SHERPA_ASR_MODEL_DIR.exists():
+        model_dir = self._model_dir
+        if not model_dir.exists():
             raise RuntimeError(
-                f"sherpa ASR 模型不存在: {SHERPA_ASR_MODEL_DIR}，请下载模型放置到该目录"
+                f"sherpa ASR 模型不存在: {model_dir}，请下载模型放置到该目录"
             )
         # 流式 zipformer 双语模型
-        zipformer = OnlineZipformer2ModelConfig(str(SHERPA_ASR_MODEL_DIR))
+        zipformer = OnlineZipformer2ModelConfig(str(model_dir))
         model_cfg = OnlineParaformerModelConfig()  # 占位
         transducer_cfg = OnlineTransducerModelConfig(
-            encoder=str(SHERPA_ASR_MODEL_DIR / "encoder-epoch-99-avg-1.onnx"),
-            decoder=str(SHERPA_ASR_MODEL_DIR / "decoder-epoch-99-avg-1.onnx"),
-            joiner=str(SHERPA_ASR_MODEL_DIR / "joiner-epoch-99-avg-1.onnx"),
+            encoder=str(model_dir / "encoder-epoch-99-avg-1.onnx"),
+            decoder=str(model_dir / "decoder-epoch-99-avg-1.onnx"),
+            joiner=str(model_dir / "joiner-epoch-99-avg-1.onnx"),
         )
         feat_cfg = FeatureConfig(sample_rate=VOICE_ASR_SAMPLE_RATE, feature_dim=80)
         try:
             recognizer = OnlineRecognizer(
                 transducer=transducer_cfg,
                 zipformer2=zipformer,
-                tokens=str(SHERPA_ASR_TOKENS),
+                tokens=str(self._tokens),
                 feat=feat_cfg,
-                num_threads=1,
+                num_threads=int(self._conf.get("num_threads", 1)),
                 decoding_method="greedy_search",
             )
         except Exception:
             # 不同模型目录结构差异，回退到 from_pretrained(部分版本不支持)
             recognizer = OnlineRecognizer.from_pretrained(
                 model_type="zipformer2",
-                model_dir=str(SHERPA_ASR_MODEL_DIR),
-                tokens=str(SHERPA_ASR_TOKENS),
+                model_dir=str(model_dir),
+                tokens=str(self._tokens),
             )
         self._online_cfg = {"recognizer": recognizer, "feat": feat_cfg}
-        logger.info("sherpa ASR OnlineRecognizer 加载完成")
+        logger.info("sherpa ASR OnlineRecognizer 加载完成: %s", model_dir.name)
         return self._online_cfg
 
     def create_stream(self):

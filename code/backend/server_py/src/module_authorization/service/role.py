@@ -52,8 +52,24 @@ class RoleService:
         """获取所有角色(不分页)"""
         return await self.role_dao.list_all_no_page()
 
-    async def list_all(self, pagination: PaginationParams) -> PaginationResponse:
-        """分页获取角色列表"""
-        items = await self.role_dao.list_all(pagination)
-        total = await self.role_dao.count()
+    async def list_all(
+        self,
+        pagination: PaginationParams,
+        name: str | None = None,
+        role_key: str | None = None,
+        is_active: bool | None = None,
+    ) -> PaginationResponse:
+        """
+        分页获取角色列表(支持多字段过滤)
+        :param pagination: 分页参数
+        :param name: 角色名称模糊匹配
+        :param role_key: 权限字符模糊匹配
+        :param is_active: 状态精确过滤(启用/禁用)
+        """
+        items = await self.role_dao.list_all(
+            pagination, name=name, role_key=role_key, is_active=is_active
+        )
+        total = await self.role_dao.count(
+            name=name, role_key=role_key, is_active=is_active
+        )
         return PaginationResponse.create(items, total, pagination)

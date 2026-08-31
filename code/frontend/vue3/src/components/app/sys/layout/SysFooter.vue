@@ -1,10 +1,18 @@
 <template>
-  <footer v-if="sysStyle.headFootShow" border-t border-note>
+  <!-- 页脚: 淡绿软底与顶栏呼应, 位于文档末尾随内容增长 -->
+  <footer v-if="sysStyle.headFootShow" border-t border-note bg-note-soft px-4 py-4 lg:px-8>
     <!-- 关联账号 本站 备案 -->
-    <div flex flex-col items-center gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-0>
+    <div flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6>
       <!-- 关联账号 -->
-      <div flex space-x-6 text-note-sub>
-        <a v-for="link in socialLinks" :key="link.name" :href="link.url" text-note-green hover:opacity-70>
+      <div flex space-x-5 text-note-sub>
+        <a
+          v-for="link in socialLinks"
+          :key="link.name"
+          :href="link.url"
+          text-note-green
+          hover:opacity-70
+          transition-opacity
+        >
           <component :is="link.icon" h-5 w-5 />
           <span sr-only>{{ link.name }}</span>
         </a>

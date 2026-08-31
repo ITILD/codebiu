@@ -74,27 +74,88 @@ class ModelConfigDao:
         """
         return await session.get(ModelConfig, id)
 
+    @DaoRel
+    async def get_first_by_type(
+        self,
+        model_type: str,
+        session: AsyncSession | None = None,
+        server_type: str | None = None,
+    ) -> ModelConfig | None:
+        """
+        获取指定类型的第一条模型配置(语音等工具按类型自动选择方案)
+        :param model_type: 模型类型(chat/embeddings/rerank/ocr/asr/tts)
+        :param session: 可选数据库会话
+        :param server_type: 服务方案精确过滤(可选)
+        :return: 模型配置对象, 未找到返回None
+        """
+        statement = select(ModelConfig).where(ModelConfig.model_type == model_type)
+        if server_type:
+            statement = statement.where(ModelConfig.server_type == server_type)
+        statement = statement.order_by(ModelConfig.created_at.asc()).limit(1)
+        result = await session.exec(statement)
+        return result.first()
+
 
     @DaoRel
-    async def list_all(self, pagination: PaginationParams, session: AsyncSession | None = None) -> list[ModelConfig]:
+    async def list_all(
+        self,
+        pagination: PaginationParams,
+        session: AsyncSession | None = None,
+        model: str | None = None,
+        model_type: str | None = None,
+        server_type: str | None = None,
+    ) -> list[ModelConfig]:
         """
-        分页获取模型配置列表
+        分页获取模型配置列表(支持多字段过滤)
         :param pagination: 分页参数
         :param session: 可选数据库会话
+        :param model: 模型标识名称模糊匹配
+        :param model_type: 模型类型精确过滤(chat/embedding/asr/tts等)
+        :param server_type: 服务类型精确过滤(openai/dashscope/vllm/ollama/aws)
         :return: 模型配置列表
         """
-        statement = select(ModelConfig).offset(pagination.offset).limit(pagination.limit)
+        conditions = []
+        if model:
+            conditions.append(ModelConfig.model.contains(model))
+        if model_type:
+            conditions.append(ModelConfig.model_type == model_type)
+        if server_type:
+            conditions.append(ModelConfig.server_type == server_type)
+
+        statement = select(ModelConfig)
+        if conditions:
+            statement = statement.where(*conditions)
+        statement = statement.offset(pagination.offset).limit(pagination.limit)
         result = await session.exec(statement)
         return result.all()
 
     @DaoRel
-    async def count(self, session: AsyncSession | None = None) -> int:
+    async def count(
+        self,
+        session: AsyncSession | None = None,
+        model: str | None = None,
+        model_type: str | None = None,
+        server_type: str | None = None,
+    ) -> int:
         """
-        获取模型配置总数
+        获取模型配置总数(与列表过滤条件保持一致)
         :param session: 可选数据库会话
+        :param model: 模型标识名称模糊匹配
+        :param model_type: 模型类型精确过滤
+        :param server_type: 服务类型精确过滤
         :return: 模型配置总数
         """
+        conditions = []
+        if model:
+            conditions.append(ModelConfig.model.contains(model))
+        if model_type:
+            conditions.append(ModelConfig.model_type == model_type)
+        if server_type:
+            conditions.append(ModelConfig.server_type == server_type)
+
         statement = select(func.count()).select_from(ModelConfig)
+        if conditions:
+            statement = statement.where(*conditions)
         result = await session.exec(statement)
         return result.one()
 

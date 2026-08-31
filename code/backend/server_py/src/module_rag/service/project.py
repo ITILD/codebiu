@@ -64,14 +64,6 @@ class ProjectService:
             role=RagRole.PROJECT_ADMIN,
         )
         await self.member_dao.add(member, session=session)
-
-        # 同步 casbin 角色绑定(域 rag:{project_id}),创建者为项目管理员
-        from module_authorization.dependencies.permission import (
-            sync_project_member_role,
-        )
-        await sync_project_member_role(
-            current_user_id, project_id, RagRole.PROJECT_ADMIN
-        )
         return project_id
 
     @DaoRel
@@ -129,9 +121,6 @@ class ProjectService:
         # 7. 删项目本身
         await self.project_dao.delete(project_id, session=session)
 
-        # 8. 清理 casbin 项目域(rag:{project_id})下的全部角色绑定
-        from module_authorization.dependencies.permission import remove_project_roles
-        await remove_project_roles(project_id)
         logger.info(f"项目 {project_id} 删除完成")
 
     async def update(self, project_id: str, project: ProjectUpdate):
@@ -155,14 +144,21 @@ class ProjectService:
         return await self.project_dao.get(project_id)
 
     async def list_all(
-        self, pagination: PaginationParams, kb_category: str | None = None
+        self, pagination: PaginationParams, kb_category: str | None = None,
+        name: str | None = None, is_private: bool | None = None,
     ) -> PaginationResponse:
         """
-        分页获取项目列表
+        分页获取项目列表(支持多字段过滤)
         :param pagination: 分页参数
         :param kb_category: 可选知识库分类过滤(personal/project/company)
+        :param name: 项目名称模糊匹配
+        :param is_private: 可选私有状态过滤(true=私有/false=公开)
         :return: 分页项目列表
         """
-        items = await self.project_dao.list_all(pagination, kb_category=kb_category)
-        total = await self.project_dao.count(kb_category=kb_category)
+        items = await self.project_dao.list_all(
+            pagination, name=name, kb_category=kb_category, is_private=is_private
+        )
+        total = await self.project_dao.count(
+            name=name, kb_category=kb_category, is_private=is_private
+        )
         return PaginationResponse.create(items, total, pagination)

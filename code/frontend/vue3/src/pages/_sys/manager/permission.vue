@@ -1,12 +1,19 @@
 <template>
   <div p-4 md:p-6 w-full>
-    <!-- 搜索栏 -->
-    <div mb-4 flex flex-wrap items-center gap-2>
-      <el-input class="w-full sm:w-80" v-model="searchQuery" placeholder="输入菜单名称搜索" clearable />
-      <el-button type="primary" @click="handleCreate">
-        新增权限
-      </el-button>
-    </div>
+    <!-- 统一搜索栏: 多字段筛选(名称/类型/状态, 客户端过滤树) -->
+    <TableSearchBar
+      v-model="queryParams"
+      :fields="searchFields"
+      :collapse-count="3"
+      @search="handleSearch"
+      @reset="handleSearch"
+    >
+      <template #actions>
+        <el-button type="primary" @click="handleCreate">
+          新增权限
+        </el-button>
+      </template>
+    </TableSearchBar>
 
     <!-- 树形数据表格 -->
     <el-table :data="filteredTree" v-loading="loading" stripe w-full row-key="id"
@@ -106,6 +113,7 @@ import {
   updatePermission,
 } from '@/api/authorization/permission'
 import { menuTypeOptions } from '@/types/authorization/permission'
+import TableSearchBar, { type SearchField } from '@/components/app/sys/TableSearchBar.vue'
 import type {
   PermissionCreate,
   PermissionTree,
@@ -113,8 +121,29 @@ import type {
 } from '@/types/authorization/permission'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
 
-// 搜索条件
-const searchQuery = ref('')
+// 搜索字段配置(名称/类型/状态多字段筛选, 客户端过滤树)
+const searchFields: SearchField[] = [
+  { prop: 'name', label: '菜单名称' },
+  {
+    prop: 'menu_type', label: '菜单类型', type: 'select',
+    options: menuTypeOptions.map(o => ({ label: o.label, value: o.value as string })),
+  },
+  {
+    prop: 'is_active', label: '状态', type: 'select', options: [
+      { label: '启用', value: true },
+      { label: '禁用', value: false },
+    ],
+  },
+]
+// 查询参数(本页为客户端过滤)
+const queryParams = ref<Record<string, unknown>>({
+  name: '',
+  menu_type: undefined,
+  is_active: undefined,
+})
+
+/** 搜索/重置(树过滤为计算属性, 无需额外处理) */
+const handleSearch = () => { /* 客户端过滤自动生效 */ }
 
 // 表格数据（树形）
 const permissionTree = ref<PermissionTree[]>([])
@@ -183,20 +212,31 @@ const menuTypeLabel = (type: string) => {
   return menuTypeOptions.find((o) => o.value === type)?.label || type
 }
 
-// 客户端按名称过滤树（保留匹配节点的祖先链）
-const filterTree = (nodes: PermissionTree[], query: string): PermissionTree[] => {
-  if (!query) return nodes
+// 节点是否匹配当前筛选条件
+const nodeMatches = (node: PermissionTree) => {
+  const { name, menu_type, is_active } = queryParams.value
+  if (name && !node.name.includes(name as string)) return false
+  if (menu_type !== undefined && node.menu_type !== menu_type) return false
+  if (is_active !== undefined && node.is_active !== is_active) return false
+  return true
+}
+
+// 客户端多字段过滤树（保留匹配节点的祖先链）
+const filterTree = (nodes: PermissionTree[]): PermissionTree[] => {
+  const hasFilter = queryParams.value.name || queryParams.value.menu_type !== undefined
+    || queryParams.value.is_active !== undefined
+  if (!hasFilter) return nodes
   const result: PermissionTree[] = []
   for (const node of nodes) {
-    const children = filterTree(node.children || [], query)
-    if (node.name.includes(query) || children.length > 0) {
+    const children = filterTree(node.children || [])
+    if (nodeMatches(node) || children.length > 0) {
       result.push({ ...node, children })
     }
   }
   return result
 }
 
-const filteredTree = computed(() => filterTree(permissionTree.value, searchQuery.value))
+const filteredTree = computed(() => filterTree(permissionTree.value))
 
 // 获取数据
 const fetchData = async () => {

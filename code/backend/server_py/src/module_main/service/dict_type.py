@@ -29,10 +29,22 @@ class DictTypeService:
         """根据编码获取字典类型"""
         return await self.dict_type_dao.get_by_code(type_code)
 
-    async def list_all(self, pagination: PaginationParams) -> PaginationResponse:
-        """分页查询字典类型列表"""
-        items = await self.dict_type_dao.list_all(pagination)
-        total = await self.dict_type_dao.count()
+    async def list_all(
+        self,
+        pagination: PaginationParams,
+        keyword: str | None = None,
+        is_active: bool | None = None,
+    ) -> PaginationResponse:
+        """
+        分页查询字典类型列表(支持多字段过滤)
+        :param pagination: 分页参数
+        :param keyword: 类型名称/编码模糊匹配
+        :param is_active: 状态精确过滤(启用/禁用)
+        """
+        items = await self.dict_type_dao.list_all(
+            pagination, keyword=keyword, is_active=is_active
+        )
+        total = await self.dict_type_dao.count(keyword=keyword, is_active=is_active)
         return PaginationResponse.create(items, total, pagination)
 
     async def get_scroll(self, params: InfiniteScrollParams) -> InfiniteScrollResponse:

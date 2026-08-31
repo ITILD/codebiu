@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, Query
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
 from module_rag.do.project_member import (
     ProjectMember,
@@ -10,12 +10,11 @@ from module_rag.do.project_member import (
 )
 from module_rag.service.project_member import ProjectMemberService
 from module_rag.dependencies.project_member import get_project_member_service
-from module_authorization.dependencies.auth import get_current_user_id
-from module_authorization.dependencies.permission import (
+from module_rag.dependencies.permission import (
     enforce_project_permission,
-    require_permission,
     require_project_permission,
 )
+from module_authorization.dependencies.auth import get_current_user_id
 from module_rag.config.server import module_app
 
 router = APIRouter()
@@ -29,7 +28,7 @@ async def add_project_member(
     service: ProjectMemberService = Depends(get_project_member_service)
 ):
     """
-    添加项目成员(需要该知识库的成员邀请权限,同步授予 casbin 项目域角色)
+    添加项目成员(需要该知识库的成员邀请权限)
     :param member: 项目成员数据(role 必须为 project_admin/project_editor/project_reader 之一)
     :param current_user_id: 当前登录用户ID(由 token 自动解析)
     :param service: 项目成员服务依赖注入
@@ -86,18 +85,24 @@ async def list_my_projects(
 async def list_project_members(
     project_id: str,
     pagination: PaginationParams = Depends(),
+    role: str | None = Query(None, description="项目角色过滤(owner/admin/editor/viewer)"),
+    user_keyword: str | None = Query(None, max_length=50, description="用户名/昵称模糊搜索"),
     current_user_id: str = Depends(require_project_permission("member", "read")),
     service: ProjectMemberService = Depends(get_project_member_service)
 ):
     """
-    获取项目成员列表
+    获取项目成员列表(支持角色/用户关键字过滤)
     :param project_id: 项目ID
     :param pagination: 分页参数
+    :param role: 项目角色过滤(owner/admin/editor/viewer)
+    :param user_keyword: 用户名/昵称模糊搜索(联表用户表)
     :param service: 项目成员服务依赖注入
     :return: 分页响应结果
     """
     try:
-        return await service.list_by_project(project_id, pagination)
+        return await service.list_by_project(
+            project_id, pagination, role=role, user_keyword=user_keyword
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -137,7 +142,7 @@ async def remove_project_member(
     service: ProjectMemberService = Depends(get_project_member_service)
 ):
     """
-    移除项目成员(需要该知识库的成员移除权限,同步撤销 casbin 项目域角色)
+    移除项目成员(需要该知识库的成员移除权限)
     :param member_id: 项目成员ID
     :param current_user_id: 当前登录用户ID(由 token 自动解析)
     :param service: 项目成员服务依赖注入
@@ -169,7 +174,7 @@ async def update_project_member(
     service: ProjectMemberService = Depends(get_project_member_service)
 ):
     """
-    更新项目成员角色(需要该知识库的成员管理权限,同步变更 casbin 项目域角色)
+    更新项目成员角色(需要该知识库的成员管理权限)
     :param member_id: 项目成员ID
     :param member: 项目成员更新数据(role 必须为 project_admin/project_editor/project_reader 之一)
     :param current_user_id: 当前登录用户ID(由 token 自动解析)

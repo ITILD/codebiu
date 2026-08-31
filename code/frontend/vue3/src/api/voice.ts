@@ -15,13 +15,27 @@ const authHeader = (): Record<string, string> => {
 /**
  * 语音识别(音频上传)
  * @param audio 音频文件
- * @param engine 引擎 sherpa/qwen
+ * @param engine 引擎 sherpa/qwen; 传空串时后端按 model_config 解析默认方案
  */
-export const recognizeAudio = async (audio: File | Blob, engine: VoiceEngine = 'sherpa') => {
+export const recognizeAudio = async (audio: File | Blob, engine: VoiceEngine = '') => {
   const formData = new FormData()
   formData.append('audio', audio)
-  formData.append('engine', engine)
+  if (engine) formData.append('engine', engine)
   return http_base_server.post<ASRResponse>('/ai/voice/asr', formData)
+}
+
+/**
+ * 组装 TTS 请求体(engine 为空时由后端按 model_config 解析默认方案)
+ */
+const buildTtsBody = (req: TTSRequest) => {
+  const body: Record<string, unknown> = {
+    text: req.text,
+    speaker: req.speaker ?? 0,
+    speed: req.speed ?? 1.0,
+    sample_rate: req.sample_rate ?? 22050
+  }
+  if (req.engine) body.engine = req.engine
+  return JSON.stringify(body)
 }
 
 /**
@@ -37,13 +51,7 @@ export const synthesizeAudioFile = async (req: TTSRequest) => {
       'Content-Type': 'application/json',
       ...authHeader()
     },
-    body: JSON.stringify({
-      text: req.text,
-      engine: req.engine ?? 'sherpa',
-      speaker: req.speaker ?? 0,
-      speed: req.speed ?? 1.0,
-      sample_rate: req.sample_rate ?? 22050
-    })
+    body: buildTtsBody(req)
   })
   if (!resp.ok) {
     let msg = `HTTP ${resp.status}`
@@ -77,13 +85,7 @@ export const synthesizeAudioStream = async (
         'Content-Type': 'application/json',
         ...authHeader()
       },
-      body: JSON.stringify({
-        text: req.text,
-        engine: req.engine ?? 'sherpa',
-        speaker: req.speaker ?? 0,
-        speed: req.speed ?? 1.0,
-        sample_rate: req.sample_rate ?? 22050
-      })
+      body: buildTtsBody(req)
     })
   } catch (e) {
     onError?.((e as Error).message || '请求失败')
@@ -117,12 +119,13 @@ export const synthesizeAudioStream = async (
 
 /**
  * 构建 ASR 流式识别 WebSocket 地址
- * @param engine 引擎
+ * @param engine 引擎; 传空串时后端按 model_config 解析默认方案
  */
-export const buildAsrStreamUrl = (engine: VoiceEngine = 'sherpa') => {
+export const buildAsrStreamUrl = (engine: VoiceEngine = '') => {
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   const token = useAuthStore().authState.tokens.access.token
-  const params = new URLSearchParams({ engine })
+  const params = new URLSearchParams()
+  if (engine) params.append('engine', engine)
   if (token) params.append('token', token)
   return `${proto}//${window.location.host}${API_PREFIX}/ai/voice/asr/stream?${params.toString()}`
 }

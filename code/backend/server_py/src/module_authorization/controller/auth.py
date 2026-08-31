@@ -27,6 +27,14 @@ async def read_users_me(current_user: User = Depends(get_current_user)):
 async def read_users_me_id(current_user_id: str = Depends(get_current_user_id)):
     return current_user_id
 
+@router.get("/me_permissions", summary="获取当前用户的角色与权限码")
+async def read_user_permissions(
+    current_user_id: str = Depends(get_current_user_id),
+    auth_service: AuthService = Depends(get_auth_service),
+):
+    """获取当前用户的角色(按域分组)与权限码列表(登录用户即可调用,仅能查看自己)"""
+    return await auth_service.get_user_permission_info(current_user_id)
+
 
 @router.post("/register", summary="注册用户")
 async def register_user(

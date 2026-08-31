@@ -1,16 +1,20 @@
 """Qwen3-TTS-1.7B 引擎实现
 
 通过 transformers 加载本地 Qwen3-TTS 模型，将文本合成为语音。
-模型需下载到 temp_source/model/voice/Qwen3-TTS-1.7B 目录。
+
+引擎配置来源优先级:
+    1. model_config 表(model_type=tts, server_type=qwen)的 model/extra 字段
+    2. config.yaml 的 voice.qwen 静态配置(默认回落)
 
 注：Qwen3-TTS 具体推理接口随模型卡片而定，此处采用通用的
 AutoModel + generate 调用，并对结果做兼容处理。如模型卡片要求
 特定调用方式，可在此处按需调整。
 """
 import logging
+from pathlib import Path
 from typing import Iterator, Tuple
 
-from module_ai.config.voice import QWEN_DEVICE, QWEN_TTS_MODEL_DIR
+from module_ai.config.voice import DIR_VOICE_MODEL, QWEN_DEVICE, QWEN_TTS_MODEL_DIR
 from module_ai.utils.voice.audio_utils import to_pcm16
 from module_ai.utils.voice.interface import TTSEngine
 
@@ -20,16 +24,35 @@ DEFAULT_TTS_SAMPLE_RATE = 22050
 
 
 class QwenTTS(TTSEngine):
-    def __init__(self):
+    def __init__(self, conf: dict | None = None):
+        """
+        :param conf: 动态配置(model_config 映射), 可含:
+            - model: TTS 模型目录名(相对 voice 模型根目录)或绝对路径
+            - device: 推理设备(cpu/cuda)
+        """
+        self._conf = conf or {}
         self._model = None
         self._processor = None
+
+    @property
+    def _model_dir(self) -> Path:
+        name = self._conf.get("model")
+        if name:
+            p = Path(str(name))
+            return p if p.is_absolute() else DIR_VOICE_MODEL / p
+        return QWEN_TTS_MODEL_DIR
+
+    @property
+    def _device(self) -> str:
+        return str(self._conf.get("device", QWEN_DEVICE))
 
     def _ensure(self):
         if self._model is not None:
             return self._model, self._processor
-        if not QWEN_TTS_MODEL_DIR.exists():
+        model_dir = self._model_dir
+        if not model_dir.exists():
             raise RuntimeError(
-                f"Qwen3-TTS 模型不存在: {QWEN_TTS_MODEL_DIR}，请下载模型放置到该目录"
+                f"Qwen3-TTS 模型不存在: {model_dir}，请下载模型放置到该目录"
             )
         try:
             import torch
@@ -40,14 +63,14 @@ class QwenTTS(TTSEngine):
             ) from e
 
         self._processor = AutoProcessor.from_pretrained(
-            str(QWEN_TTS_MODEL_DIR), trust_remote_code=True
+            str(model_dir), trust_remote_code=True
         )
         self._model = AutoModel.from_pretrained(
-            str(QWEN_TTS_MODEL_DIR),
+            str(model_dir),
             torch_dtype=getattr(torch, "float32"),
             trust_remote_code=True,
-        ).to(QWEN_DEVICE).eval()
-        logger.info("Qwen3-TTS 模型加载完成")
+        ).to(self._device).eval()
+        logger.info("Qwen3-TTS 模型加载完成: %s", model_dir.name)
         return self._model, self._processor
 
     def synthesize(
@@ -59,7 +82,7 @@ class QwenTTS(TTSEngine):
             import numpy as np
 
             inputs = processor(text=text, return_tensors="pt")
-            inputs = {k: v.to(QWEN_DEVICE) for k, v in inputs.items()}
+            inputs = {k: v.to(self._device) for k, v in inputs.items()}
             with torch.no_grad():
                 output = model.generate(**inputs, **{
                     "speaker_id": speaker,

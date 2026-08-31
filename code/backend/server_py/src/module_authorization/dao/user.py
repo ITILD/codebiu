@@ -95,25 +95,63 @@ class UserDao:
 
     @DaoRel
     async def list_all(
-        self, pagination: PaginationParams, session: AsyncSession | None = None
+        self,
+        pagination: PaginationParams,
+        session: AsyncSession | None = None,
+        username: str | None = None,
+        nickname: str | None = None,
+        is_active: bool | None = None,
     ):
         """
-        分页查询用户列表
+        分页查询用户列表(支持多字段过滤)
         :param pagination: 分页参数
         :param session: 可选数据库会话
+        :param username: 用户名模糊匹配
+        :param nickname: 昵称模糊匹配
+        :param is_active: 状态精确过滤(启用/禁用)
         :return: 用户列表
         """
-        statement = select(User).offset(pagination.offset).limit(pagination.limit)
+        conditions = []
+        if username:
+            conditions.append(User.username.contains(username))
+        if nickname:
+            conditions.append(User.nickname.contains(nickname))
+        if is_active is not None:
+            conditions.append(User.is_active == is_active)
+
+        statement = select(User)
+        if conditions:
+            statement = statement.where(*conditions)
+        statement = statement.offset(pagination.offset).limit(pagination.limit)
         result = await session.exec(statement)
         return result.all()
 
     @DaoRel
-    async def count(self, session: AsyncSession | None = None):
+    async def count(
+        self,
+        session: AsyncSession | None = None,
+        username: str | None = None,
+        nickname: str | None = None,
+        is_active: bool | None = None,
+    ):
         """
-        获取用户总数
+        获取用户总数(与列表过滤条件保持一致)
         :param session: 可选数据库会话
+        :param username: 用户名模糊匹配
+        :param nickname: 昵称模糊匹配
+        :param is_active: 状态精确过滤(启用/禁用)
         :return: 用户总数
         """
+        conditions = []
+        if username:
+            conditions.append(User.username.contains(username))
+        if nickname:
+            conditions.append(User.nickname.contains(nickname))
+        if is_active is not None:
+            conditions.append(User.is_active == is_active)
+
         statement = select(func.count()).select_from(User)
+        if conditions:
+            statement = statement.where(*conditions)
         result = await session.exec(statement)
         return result.one()

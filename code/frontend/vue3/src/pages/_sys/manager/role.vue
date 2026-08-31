@@ -1,23 +1,22 @@
 <template>
   <div p-4 md:p-6 w-full>
-    <!-- 搜索栏 -->
-    <div mb-4 flex flex-wrap items-center gap-2>
-      <el-input class="w-full sm:w-80" v-model="searchQuery" placeholder="输入角色名称搜索" clearable @clear="handleSearch"
-        @keyup.enter="handleSearch">
-        <template #append>
-          <el-button :icon="Search" @click="handleSearch" />
-        </template>
-      </el-input>
-      <el-button type="primary" @click="handleCreate">
-        新增角色
-      </el-button>
-    </div>
+    <!-- 统一搜索栏: 多字段筛选 -->
+    <TableSearchBar
+      v-model="queryParams"
+      :fields="searchFields"
+      @search="handleSearch"
+      @reset="handleSearch"
+    >
+      <template #actions>
+        <el-button type="primary" @click="handleCreate">新增角色</el-button>
+      </template>
+    </TableSearchBar>
 
     <!-- 数据表格 -->
     <el-table :data="tableData" v-loading="loading" stripe w-full>
-      <el-table-column prop="name" label="角色名称" min-width="120" />
-      <el-table-column prop="role_key" label="权限字符" min-width="120" />
-      <el-table-column prop="sort" label="显示顺序" min-width="100" />
+      <el-table-column prop="name" label="角色名称" min-width="120" show-overflow-tooltip />
+      <el-table-column prop="role_key" label="权限字符" min-width="120" show-overflow-tooltip />
+      <el-table-column prop="sort" label="显示顺序" min-width="100" sortable />
       <el-table-column label="数据权限范围" min-width="160">
         <template #default="{ row }">
           {{ getDataScopeLabel(row.data_scope) }}
@@ -28,7 +27,7 @@
           <el-switch v-model="row.is_active" disabled :active-text="row.is_active ? '启用' : '禁用'" />
         </template>
       </el-table-column>
-      <el-table-column prop="created_at" label="创建时间" min-width="180" />
+      <el-table-column prop="created_at" label="创建时间" min-width="180" sortable />
       <el-table-column label="操作" min-width="260" fixed="right">
         <template #default="{ row }">
           <el-button size="small" type="primary" plain @click="handleEdit(row)">编辑</el-button>
@@ -77,8 +76,10 @@
       </template>
     </el-dialog>
 
-    <!-- 分配权限对话框 -->
-    <el-dialog v-model="permDialogVisible" title="分配权限" width="90%" class="max-w-[600px]">
+    <!-- 分配权限对话框(模块声明树,勾选按钮级权限码) -->
+    <el-dialog v-model="permDialogVisible" title="分配权限" width="90%" class="max-w-[700px]">
+      <el-alert type="info" :closable="false" mb-3
+        title="勾选权限树节点为角色授权；模块预设的通配策略(如模块管理员角色)不受影响" />
       <el-tree ref="treeRef" :data="permTreeData" show-checkbox node-key="code"
         :props="{ label: 'name', children: 'children' }" default-expand-all v-loading="permLoading" />
       <template #footer>
@@ -92,18 +93,33 @@
 </template>
 
 <script setup lang="ts">
-import { Search } from '@element-plus/icons-vue'
 import { createRole, deleteRole, getRole, listRoles, updateRole } from '@/api/authorization/role'
-import { getPermissionTree } from '@/api/authorization/permission'
-import { batchAddRolePermissions, getPermissionsForRole } from '@/api/authorization/casbin'
+import { getModuleTree, getRolePermCodes, syncRolePermissions } from '@/api/authorization/casbin'
+import type { ModulePermNode } from '@/api/authorization/casbin'
 import type { PaginationParams, PaginationResponse } from '@/types/common'
 import type { Role, RoleCreate, RoleUpdate } from '@/types/authorization/role'
 import { dataScopeOptions } from '@/types/authorization/role'
-import type { PermissionTree } from '@/types/authorization/permission'
+import type { SearchField } from '@/components/app/sys/TableSearchBar.vue'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
 
-// 搜索条件
-const searchQuery = ref('')
+// 搜索字段配置(名称/权限字符/状态多字段筛选)
+const searchFields: SearchField[] = [
+  { prop: 'name', label: '角色名称' },
+  { prop: 'role_key', label: '权限字符' },
+  {
+    prop: 'is_active', label: '状态', type: 'select', options: [
+      { label: '启用', value: true },
+      { label: '禁用', value: false },
+    ]
+  },
+]
+
+// 查询参数(与后端列表接口过滤参数对齐)
+const queryParams = ref<Record<string, unknown>>({
+  name: '',
+  role_key: '',
+  is_active: undefined,
+})
 
 // 分页参数
 const pagination = ref<PaginationParams>({
@@ -154,17 +170,21 @@ const getDataScopeLabel = (value: string) => {
 const permDialogVisible = ref(false)
 const permLoading = ref(false)
 const permSubmitting = ref(false)
-const permTreeData = ref<PermissionTree[]>([])
+const permTreeData = ref<ModulePermNode[]>([])
 const currentRoleForPerm = ref<Role | null>(null)
 const treeRef = ref()
 
-// 获取数据
+// 获取数据(携带多字段过滤参数)
 const fetchData = async () => {
   try {
     loading.value = true
+    const { name, role_key, is_active } = queryParams.value
     const params = {
       ...pagination.value,
-      name: searchQuery.value || undefined // 空字符串不传
+      // 空值不传递, 由后端进行模糊/精确过滤
+      name: name || undefined,
+      role_key: role_key || undefined,
+      is_active: is_active ?? undefined,
     }
     const response: PaginationResponse<Role> = await listRoles(params)
     tableData.value = response.items
@@ -302,22 +322,22 @@ const handleDelete = async (row: Role) => {
   }
 }
 
-// 打开分配权限对话框
+// 打开分配权限对话框(对接模块声明树 + 角色节点权限码回显)
 const handlePermission = async (row: Role) => {
   currentRoleForPerm.value = row
   permDialogVisible.value = true
   permLoading.value = true
   try {
-    // 加载权限树（仅首次加载，后续复用）
-    if (permTreeData.value.length === 0) {
-      permTreeData.value = await getPermissionTree()
-    }
-    // 加载当前角色已有权限
-    const res = await getPermissionsForRole(row.role_key)
-    const codes = res.data.map(item => item.permission_code)
-    // 等待树渲染后回显已选权限
+    // 并行加载模块声明树(仅首次加载,后续复用)与角色已有权限码
+    const treePromise =
+      permTreeData.value.length === 0
+        ? getModuleTree().then((res) => (permTreeData.value = res.data))
+        : Promise.resolve()
+    const codesPromise = getRolePermCodes(row.role_key)
+    const [, codesRes] = await Promise.all([treePromise, codesPromise])
+    // 等待树渲染后回显已选权限(仅按钮级码,父节点自动级联半选/全选)
     nextTick(() => {
-      treeRef.value?.setCheckedKeys(codes)
+      treeRef.value?.setCheckedKeys(codesRes.data || [], true)
     })
   } catch (error) {
     console.error('加载权限数据失败:', error)
@@ -327,23 +347,18 @@ const handlePermission = async (row: Role) => {
   }
 }
 
-// 提交权限分配
+// 提交权限分配(全量同步角色节点级权限,目录/菜单级码由后端忽略)
 const handlePermSubmit = async () => {
   if (!currentRoleForPerm.value) return
   try {
     permSubmitting.value = true
-    // 获取所有勾选节点，提取权限字符
-    const checkedNodes = treeRef.value?.getCheckedNodes(false, false) as PermissionTree[]
-    const permissions = checkedNodes
-      .filter(node => node.code)
-      .map(node => ({ permission_code: node.code, method: 'GET' }))
+    // 勾选节点(完全选中) + 半选父节点(勾选部分子项的目录/菜单)
+    const checked: string[] = treeRef.value?.getCheckedKeys(false) || []
+    const halfChecked: string[] = treeRef.value?.getHalfCheckedKeys() || []
+    const codes = [...checked, ...halfChecked]
 
-    await batchAddRolePermissions({
-      role_key: currentRoleForPerm.value.role_key,
-      dom: '*',
-      permissions
-    })
-    ElMessage.success('权限分配成功')
+    const res = await syncRolePermissions(currentRoleForPerm.value.role_key, codes)
+    ElMessage.success(res.message || '权限分配成功')
     permDialogVisible.value = false
   } catch (error) {
     console.error('权限分配失败:', error)

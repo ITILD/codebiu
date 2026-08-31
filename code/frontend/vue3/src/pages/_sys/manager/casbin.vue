@@ -1,16 +1,17 @@
 <template>
   <div p-4 md:p-6 w-full>
-    <!-- 工具栏 -->
-    <div mb-4 flex flex-wrap items-center gap-2>
-      <div w-full sm:w-48 shrink-0>
-        <el-select v-model="domFilter" w-full placeholder="全部域" clearable @change="fetchAll">
-          <el-option v-for="opt in domOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
-        </el-select>
-      </div>
-      <el-input class="w-full sm:w-60" v-model="searchQuery" placeholder="搜索角色/用户/资源" clearable />
-      <div flex-1 />
-      <el-button :icon="Refresh" @click="handleReload" :loading="reloading">重载策略</el-button>
-    </div>
+    <!-- 统一搜索栏: 域下拉 + 关键字(客户端过滤全量策略) -->
+    <TableSearchBar
+      v-model="queryParams"
+      :fields="searchFields"
+      :collapse-count="2"
+      @search="handleSearch"
+      @reset="handleSearch"
+    >
+      <template #actions>
+        <el-button :icon="Refresh" @click="handleReload" :loading="reloading">重载策略</el-button>
+      </template>
+    </TableSearchBar>
 
     <!-- 策略/绑定 双标签页 -->
     <el-tabs v-model="activeTab">
@@ -163,6 +164,7 @@ import {
 } from '@/api/authorization/casbin'
 import { listRoles } from '@/api/authorization/role'
 import { listUsers } from '@/api/authorization/user'
+import TableSearchBar, { type SearchField } from '@/components/app/sys/TableSearchBar.vue'
 import type { PaginationResponse } from '@/types/common'
 import type { User } from '@/types/authorization/user'
 import type { Role } from '@/types/authorization/role'
@@ -170,10 +172,7 @@ import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
 
 // 标签页状态
 const activeTab = ref('policy')
-const searchQuery = ref('')
 
-// 域过滤
-const domFilter = ref<string | undefined>(undefined)
 // 域选项(main/rag模块 + 全局)
 const domOptions = [
   { label: '全局(*)', value: '*' },
@@ -182,6 +181,25 @@ const domOptions = [
 ]
 const domLabel = (dom: string) =>
   domOptions.find((o) => o.value === dom)?.label || dom
+
+// 搜索字段配置(域/关键字多字段筛选)
+const searchFields: SearchField[] = [
+  {
+    prop: 'dom', label: '域', type: 'select',
+    options: domOptions.map(o => ({ label: o.label, value: o.value })),
+  },
+  { prop: 'keyword', label: '关键字', placeholder: '角色/用户/资源' },
+]
+// 查询参数(本页为客户端过滤)
+const queryParams = ref<Record<string, unknown>>({
+  dom: undefined,
+  keyword: '',
+})
+
+// 搜索/重置: 域变化时重新拉取, 关键字走客户端过滤
+const handleSearch = () => {
+  fetchAll()
+}
 
 // 数据
 const policies = ref<PolicyRow[]>([])
@@ -213,30 +231,30 @@ const userLabel = (userId: string) => {
   return u ? (u.nickname || u.username) : userId
 }
 
-// 客户端过滤
+// 客户端关键字过滤(域过滤由接口参数承担)
 const filteredPolicies = computed(() => {
-  const q = searchQuery.value
+  const q = (queryParams.value.keyword as string) || ''
   if (!q) return policies.value
   return policies.value.filter(
     (p) => p.sub.includes(q) || p.obj.includes(q) || p.dom.includes(q)
   )
 })
 const filteredGroupings = computed(() => {
-  const q = searchQuery.value
+  const q = (queryParams.value.keyword as string) || ''
   if (!q) return groupings.value
   return groupings.value.filter(
     (g) => g.user_id.includes(q) || g.role_key.includes(q) || g.dom.includes(q)
   )
 })
 
-// 加载策略与绑定
+// 加载策略与绑定(域作为接口过滤参数)
 const fetchAll = async () => {
   try {
     policyLoading.value = true
     groupingLoading.value = true
     const [pRes, gRes] = await Promise.all([
-      getAllPolicies(domFilter.value),
-      getAllGroupingPolicies(domFilter.value),
+      getAllPolicies(queryParams.value.dom as string | undefined),
+      getAllGroupingPolicies(queryParams.value.dom as string | undefined),
     ])
     policies.value = pRes.data
     groupings.value = gRes.data

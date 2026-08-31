@@ -24,14 +24,22 @@ export const uploadRagDocument = (
   );
 };
 
+/** 文档列表过滤参数(type 别名具有隐式索引签名, 可直接传给 http 层) */
+export type DocumentListParams = PaginationParams & {
+  /** 文档名称模糊搜索 */
+  name?: string;
+  /** 解析状态过滤(pending/parsing/completed/failed) */
+  parse_status?: string;
+}
+
 /**
- * 分页查询项目文档列表
+ * 分页查询项目文档列表(支持名称/解析状态多字段过滤)
  * @param projectId 项目ID
- * @param params 分页参数
+ * @param params 分页与过滤参数
  */
 export const listRagProjectDocuments = (
   projectId: string,
-  params: PaginationParams
+  params: DocumentListParams
 ) => {
   return http_base_server.get<PaginationResponse<ProjectDocument>>(
     `/rag/project-documents/${projectId}/list`,

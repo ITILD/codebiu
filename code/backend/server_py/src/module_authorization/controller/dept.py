@@ -2,12 +2,14 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from module_authorization.do.dept import DeptCreate, DeptUpdate, DeptResponse, DeptTree
 from module_authorization.service.dept import DeptService
 from module_authorization.dependencies.dept import get_dept_service
+from module_authorization.dependencies.permission import require_permission
 from module_authorization.config.server import module_app
 
 router = APIRouter()
 
 
-@router.post("", summary="创建部门", status_code=status.HTTP_201_CREATED, response_model=DeptResponse)
+@router.post("", summary="创建部门", status_code=status.HTTP_201_CREATED, response_model=DeptResponse,
+    dependencies=[Depends(require_permission("sys", "dept", "create"))])
 async def create_dept(
     dept: DeptCreate,
     service: DeptService = Depends(get_dept_service),
@@ -21,7 +23,8 @@ async def create_dept(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
-@router.get("/tree", summary="获取部门树形结构", response_model=list[DeptTree])
+@router.get("/tree", summary="获取部门树形结构", response_model=list[DeptTree],
+    dependencies=[Depends(require_permission("sys", "dept", "read"))])
 async def get_dept_tree(
     service: DeptService = Depends(get_dept_service),
 ):
@@ -32,7 +35,8 @@ async def get_dept_tree(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
-@router.get("/list", summary="获取部门列表")
+@router.get("/list", summary="获取部门列表",
+    dependencies=[Depends(require_permission("sys", "dept", "read"))])
 async def list_depts(
     service: DeptService = Depends(get_dept_service),
 ):
@@ -43,7 +47,8 @@ async def list_depts(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
-@router.get("/{dept_id}", summary="获取单个部门", response_model=DeptResponse)
+@router.get("/{dept_id}", summary="获取单个部门", response_model=DeptResponse,
+    dependencies=[Depends(require_permission("sys", "dept", "read"))])
 async def get_dept(
     dept_id: str,
     service: DeptService = Depends(get_dept_service),
@@ -57,7 +62,8 @@ async def get_dept(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
-@router.delete("/{dept_id}", summary="删除部门", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{dept_id}", summary="删除部门", status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_permission("sys", "dept", "delete"))])
 async def delete_dept(
     dept_id: str,
     service: DeptService = Depends(get_dept_service),
@@ -71,7 +77,8 @@ async def delete_dept(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
-@router.put("/{dept_id}", summary="更新部门", status_code=status.HTTP_204_NO_CONTENT)
+@router.put("/{dept_id}", summary="更新部门", status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_permission("sys", "dept", "update"))])
 async def update_dept(
     dept_id: str,
     dept: DeptUpdate,

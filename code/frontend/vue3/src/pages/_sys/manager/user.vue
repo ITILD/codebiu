@@ -1,34 +1,34 @@
 <template>
   <div p-4 md:p-6 w-full>
-    <!-- 搜索栏 -->
-    <div mb-4 flex flex-wrap items-center gap-2>
-      <el-input class="w-full sm:w-80" v-model="searchQuery" placeholder="输入用户名搜索" clearable @clear="handleSearch" @keyup.enter="handleSearch">
-        <template #append>
-          <el-button :icon="Search" @click="handleSearch" />
-        </template>
-      </el-input>
-      <el-button type="primary" @click="handleCreate">
-        新增用户
-      </el-button>
-    </div>
+    <!-- 统一搜索栏: 多字段筛选 -->
+    <TableSearchBar
+      v-model="queryParams"
+      :fields="searchFields"
+      @search="handleSearch"
+      @reset="handleSearch"
+    >
+      <template #actions>
+        <el-button type="primary" @click="handleCreate">新增用户</el-button>
+      </template>
+    </TableSearchBar>
 
     <!-- 数据表格 -->
     <el-table :data="tableData" v-loading="loading" stripe w-full>
-      <el-table-column prop="username" label="用户名" min-width="120" />
-      <el-table-column prop="nickname" label="昵称" min-width="100" />
+      <el-table-column prop="username" label="用户名" min-width="120" show-overflow-tooltip />
+      <el-table-column prop="nickname" label="昵称" min-width="100" show-overflow-tooltip />
       <el-table-column label="部门" min-width="120">
         <template #default="{ row }">
           {{ getDeptName(row.dept_id) }}
         </template>
       </el-table-column>
-      <el-table-column prop="email" label="邮箱" min-width="150" />
+      <el-table-column prop="email" label="邮箱" min-width="150" show-overflow-tooltip />
       <el-table-column prop="phone" label="电话" min-width="120" />
       <el-table-column label="状态" min-width="80">
         <template #default="{ row }">
           <el-switch v-model="row.is_active" disabled :active-text="row.is_active ? '启用' : '禁用'" />
         </template>
       </el-table-column>
-      <el-table-column label="创建时间" min-width="180">
+      <el-table-column label="创建时间" min-width="180" sortable>
         <template #default="{ row }">
           {{ row.created_at ? new Date(row.created_at).toLocaleString() : '' }}
         </template>
@@ -101,7 +101,6 @@
 </template>
 
 <script setup lang="ts">
-import { Search } from '@element-plus/icons-vue'
 import { createUser, deleteUser, updateUser, getUser, listUsers } from '@/api/authorization/user'
 import { getDeptTree } from '@/api/authorization/dept'
 import { listAllRoles } from '@/api/authorization/role'
@@ -110,10 +109,27 @@ import type { PaginationParams, PaginationResponse } from '@/types/common'
 import type { User, UserCreate, UserUpdate } from '@/types/authorization/user'
 import type { DeptTree } from '@/types/authorization/dept'
 import type { Role } from '@/types/authorization/role'
+import type { SearchField } from '@/components/app/sys/TableSearchBar.vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 
-// 搜索条件
-const searchQuery = ref('')
+// 搜索字段配置(用户名/昵称/状态多字段筛选)
+const searchFields: SearchField[] = [
+  { prop: 'username', label: '用户名' },
+  { prop: 'nickname', label: '昵称' },
+  {
+    prop: 'is_active', label: '状态', type: 'select', options: [
+      { label: '启用', value: true },
+      { label: '禁用', value: false },
+    ]
+  },
+]
+
+// 查询参数(与后端列表接口过滤参数对齐)
+const queryParams = ref<Record<string, unknown>>({
+  username: '',
+  nickname: '',
+  is_active: undefined,
+})
 
 // 分页参数
 const pagination = ref<PaginationParams>({
@@ -188,13 +204,17 @@ const getDeptName = (deptId?: string) => {
   return findDept(deptTreeData.value)
 }
 
-// 获取数据
+// 获取数据(携带多字段过滤参数)
 const fetchData = async () => {
   try {
     loading.value = true
+    const { username, nickname, is_active } = queryParams.value
     const params = {
       ...pagination.value,
-      username: searchQuery.value || undefined
+      // 空值不传递, 由后端进行模糊/精确过滤
+      username: username || undefined,
+      nickname: nickname || undefined,
+      is_active: is_active ?? undefined,
     }
     const response: PaginationResponse<User> = await listUsers(params)
     tableData.value = response.items

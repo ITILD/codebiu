@@ -81,15 +81,30 @@ class TodolistDao:
 
     @DaoRel
     async def list_all(
-        self, pagination: PaginationParams, session: AsyncSession | None = None
+        self,
+        pagination: PaginationParams,
+        session: AsyncSession | None = None,
+        name: str | None = None,
+        status: str | None = None,
     ) -> list[Todolist]:
         """
-        分页查询计划列表列表
+        分页查询计划列表列表(支持多字段过滤)
         :param pagination: 分页参数
         :param session: 可选数据库会话
+        :param name: 计划任务名称模糊匹配
+        :param status: 代办状态精确过滤(todo/done)
         :return: 计划列表列表
         """
-        statement = select(Todolist).offset(pagination.offset).limit(pagination.limit)
+        conditions = []
+        if name:
+            conditions.append(Todolist.name.contains(name))
+        if status:
+            conditions.append(Todolist.status == status)
+
+        statement = select(Todolist)
+        if conditions:
+            statement = statement.where(*conditions)
+        statement = statement.offset(pagination.offset).limit(pagination.limit)
         result = await session.exec(statement)
         return result.all()
 
@@ -137,12 +152,27 @@ class TodolistDao:
         return result.all()
 
     @DaoRel
-    async def count(self, session: AsyncSession | None = None) -> int:
+    async def count(
+        self,
+        session: AsyncSession | None = None,
+        name: str | None = None,
+        status: str | None = None,
+    ) -> int:
         """
-        统计计划列表总数
+        统计计划列表总数(与列表过滤条件保持一致)
         :param session: 可选数据库会话
+        :param name: 计划任务名称模糊匹配
+        :param status: 代办状态精确过滤(todo/done)
         :return: 计划列表总数量
         """
+        conditions = []
+        if name:
+            conditions.append(Todolist.name.contains(name))
+        if status:
+            conditions.append(Todolist.status == status)
+
         statement = select(func.count()).select_from(Todolist)
+        if conditions:
+            statement = statement.where(*conditions)
         result = await session.exec(statement)
         return result.one()

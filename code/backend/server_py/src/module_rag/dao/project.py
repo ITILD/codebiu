@@ -68,32 +68,59 @@ class ProjectDao:
     @DaoRel
     async def list_all(
         self, pagination: PaginationParams, session: AsyncSession | None = None,
+        name: str | None = None,
         kb_category: str | None = None,
+        is_private: bool | None = None,
     ) -> list[Project]:
         """
-        分页查询项目列表
+        分页查询项目列表(支持多字段过滤)
         :param pagination: 分页参数
         :param session: 可选数据库会话
+        :param name: 项目名称模糊匹配
         :param kb_category: 可选知识库分类过滤(personal/project/company)
+        :param is_private: 可选私有状态过滤(true=私有/false=公开)
         :return: 项目列表
         """
-        statement = select(Project)
+        conditions = []
+        if name:
+            conditions.append(Project.name.contains(name))
         if kb_category is not None:
-            statement = statement.where(Project.kb_category == kb_category)
+            conditions.append(Project.kb_category == kb_category)
+        if is_private is not None:
+            conditions.append(Project.is_private == is_private)
+
+        statement = select(Project)
+        if conditions:
+            statement = statement.where(*conditions)
         statement = statement.offset(pagination.offset).limit(pagination.limit)
         result = await session.exec(statement)
         return result.all()
 
     @DaoRel
-    async def count(self, session: AsyncSession | None = None, kb_category: str | None = None) -> int:
+    async def count(
+        self, session: AsyncSession | None = None,
+        name: str | None = None,
+        kb_category: str | None = None,
+        is_private: bool | None = None,
+    ) -> int:
         """
-        获取项目总数
+        获取项目总数(与列表过滤条件保持一致)
         :param session: 可选数据库会话
+        :param name: 项目名称模糊匹配
         :param kb_category: 可选知识库分类过滤(personal/project/company)
+        :param is_private: 可选私有状态过滤(true=私有/false=公开)
         :return: 项目总数
         """
-        statement = select(func.count()).select_from(Project)
+        conditions = []
+        if name:
+            conditions.append(Project.name.contains(name))
         if kb_category is not None:
-            statement = statement.where(Project.kb_category == kb_category)
+            conditions.append(Project.kb_category == kb_category)
+        if is_private is not None:
+            conditions.append(Project.is_private == is_private)
+
+        statement = select(func.count()).select_from(Project)
+        if conditions:
+            statement = statement.where(*conditions)
         result = await session.exec(statement)
         return result.one()

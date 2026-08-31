@@ -12,6 +12,7 @@ import type {
   RagChatRequest,
   ConversationSummary,
 } from '@/types/rag';
+import type { ChatStreamEvent } from '@/types/chat';
 
 /**
  * 创建对话
@@ -95,10 +96,11 @@ export const summarizeConversation = (conversationId: string) => {
  * RAG 流式聊天(SSE)
  * @param conversationId 对话ID
  * @param request 聊天请求(消息内容/关联知识库/深度思考)
- * @param onChunk 流式内容回调
+ * @param onChunk 流式内容回调(兼容旧签名, 仅正式回答与过程片段文本)
  * @param onError 错误回调
  * @param onComplete 完成回调
  * @param onController 中止控制器回调(用于页面"停止生成")
+ * @param onEvent 完整事件回调(含 node_name/stream_event_type, 供过程区块分组)
  */
 export const sendRagChatStream = async (
   conversationId: string,
@@ -106,7 +108,8 @@ export const sendRagChatStream = async (
   onChunk: (content: string) => void,
   onError?: (error: string) => void,
   onComplete?: () => void,
-  onController?: (controller: AbortController) => void
+  onController?: (controller: AbortController) => void,
+  onEvent?: (event: ChatStreamEvent) => void
 ) => {
   // 从认证 store 读取访问令牌(SSE 请求需手动携带)
   let token = '';
@@ -132,7 +135,7 @@ export const sendRagChatStream = async (
       signal: controller.signal,
       onmessage: (event) => {
         try {
-          const parsed = JSON.parse(event.data);
+          const parsed = JSON.parse(event.data) as ChatStreamEvent;
           if (parsed.status === 'error') {
             onError?.(parsed.content || '未知错误');
             return;
@@ -141,6 +144,8 @@ export const sendRagChatStream = async (
           if (parsed.content && parsed.content.trim()) {
             onChunk(parsed.content);
           }
+          // 透传完整事件(供页面按事件类型分组过程区块)
+          onEvent?.(parsed);
           if (parsed.status === 'end') {
             onComplete?.();
           }
