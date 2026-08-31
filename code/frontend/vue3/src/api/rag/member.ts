@@ -24,14 +24,22 @@ export const listMyProjects = (params: PaginationParams) => {
   );
 };
 
+/** 成员列表过滤参数(type 别名具有隐式索引签名, 可直接传给 http 层) */
+export type MemberListParams = PaginationParams & {
+  /** 项目角色过滤(project_admin/project_editor/project_reader) */
+  role?: string;
+  /** 用户名/昵称模糊搜索 */
+  user_keyword?: string;
+}
+
 /**
- * 获取项目成员列表
+ * 获取项目成员列表(支持角色过滤)
  * @param projectId 项目ID
- * @param params 分页参数
+ * @param params 分页与过滤参数
  */
 export const listProjectMembers = (
   projectId: string,
-  params: PaginationParams
+  params: MemberListParams
 ) => {
   return http_base_server.get<PaginationResponse<ProjectMember>>(
     `/rag/project-members/project/${projectId}`,

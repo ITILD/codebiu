@@ -6,9 +6,11 @@ from fastapi import (
     UploadFile,
     File,
     Form,
+    Query,
 )
 from fastapi.responses import StreamingResponse
 from pathlib import Path
+import logging
 
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
 from module_rag.do.project_document import (
@@ -19,7 +21,7 @@ from module_rag.do.project_document import (
 from module_rag.service.project_document import ProjectDocumentService
 from module_rag.dependencies.project_document import get_project_document_service
 from module_authorization.dependencies.auth import get_current_user_id
-from module_authorization.dependencies.permission import (
+from module_rag.dependencies.permission import (
     enforce_project_permission,
     require_project_permission,
 )
@@ -30,6 +32,8 @@ from module_file.utils.base.file_utils import FileUtils
 from module_rag.tasks.project_document import reparse_document_task
 
 router = APIRouter()
+
+logger = logging.getLogger(__name__)
 
 
 @router.post(
@@ -58,6 +62,12 @@ async def upload_project_document(
         document = await service.upload_document(
             project_id, file, current_user_id, description
         )
+        # 上传成功后自动派发异步解析任务(对标主流知识库系统的"上传即解析")
+        # Celery 不可用时静默降级: 文档保持 pending, 可手动触发解析
+        try:
+            reparse_document_task.delay(document.id, current_user_id)
+        except Exception as e:
+            logger.warning(f"自动派发解析任务失败(可手动解析) document_id={document.id}: {e}")
         return ProjectDocumentResponse.model_validate(document.model_dump())
     except HTTPException:
         raise
@@ -75,18 +85,24 @@ async def upload_project_document(
 async def list_project_documents(
     project_id: str,
     pagination: PaginationParams = Depends(),
+    name: str | None = Query(None, max_length=255, description="文档名称模糊搜索"),
+    parse_status: str | None = Query(None, description="解析状态过滤(pending/parsing/completed/failed)"),
     current_user_id: str = Depends(require_project_permission("doc", "read")),
     service: ProjectDocumentService = Depends(get_project_document_service),
 ) -> PaginationResponse:
     """
-    分页查询项目文档列表
+    分页查询项目文档列表(支持多字段过滤)
     :param project_id: 项目ID
     :param pagination: 分页参数
+    :param name: 文档名称模糊搜索
+    :param parse_status: 解析状态过滤(pending/parsing/completed/failed)
     :param service: 文档服务依赖注入
     :return: 分页文档列表
     """
     try:
-        return await service.list_by_project(project_id, pagination)
+        return await service.list_by_project(
+            project_id, pagination, name=name, parse_status=parse_status
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)

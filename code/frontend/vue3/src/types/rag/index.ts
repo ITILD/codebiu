@@ -1,5 +1,6 @@
 // src/types/rag/index.ts
 // 知识库(RAG)模块类型定义
+import type { MessageBlock } from '@/types/chat';
 
 // 知识库分类: 个人/项目/公司
 enum KbCategory {
@@ -44,6 +45,14 @@ interface ProjectUpdate {
 
 // ---------------- 项目文档 ----------------
 
+// 文档解析状态: 待解析/解析中/已完成/解析失败
+enum ParseStatus {
+  PENDING = 'pending',
+  PARSING = 'parsing',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+}
+
 interface ProjectDocument {
   id: string;
   project_id: string;
@@ -56,6 +65,12 @@ interface ProjectDocument {
   uploaded_by: string;
   created_at: string;
   updated_at: string;
+  /** 解析状态: pending/parsing/completed/failed */
+  parse_status?: string;
+  /** 解析生成的分块数量 */
+  chunk_count?: number;
+  /** 解析失败原因 */
+  error_message?: string | null;
 }
 
 interface ProjectDocumentUpdate {
@@ -133,6 +148,8 @@ interface ChatMessage {
   role: string;
   content: string;
   created_at: string;
+  /** 助手消息的过程区块(思考/检索等, 折叠展示) */
+  blocks?: MessageBlock[] | null;
 }
 
 // RAG 聊天请求(对应后端 ChatRequest)
@@ -152,6 +169,7 @@ interface ConversationSummary {
 export {
   KbCategory,
   RagRole,
+  ParseStatus,
 };
 export type {
   Project,
@@ -186,4 +204,15 @@ const ragRoleOptions = [
   { label: '项目只读', value: RagRole.PROJECT_READER },
 ];
 
-export { kbCategoryOptions, ragRoleOptions };
+// 文档解析状态显示配置(标签类型 + 文案)
+const parseStatusOptions: Record<
+  string,
+  { label: string; tag: 'info' | 'warning' | 'success' | 'danger' }
+> = {
+  [ParseStatus.PENDING]: { label: '待解析', tag: 'info' },
+  [ParseStatus.PARSING]: { label: '解析中', tag: 'warning' },
+  [ParseStatus.COMPLETED]: { label: '已完成', tag: 'success' },
+  [ParseStatus.FAILED]: { label: '解析失败', tag: 'danger' },
+};
+
+export { kbCategoryOptions, ragRoleOptions, parseStatusOptions };

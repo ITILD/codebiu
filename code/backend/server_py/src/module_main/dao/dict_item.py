@@ -87,6 +87,18 @@ class DictItemDao:
         return result.first()
 
     @DaoRel
+    async def get_by_item_code(self, item_code: str, session: AsyncSession | None = None) -> DictItem | None:
+        """
+        根据字典项编码全局查询(不限类型)
+        :param item_code: 字典项编码
+        :param session: 可选数据库会话
+        :return: 字典项对象，未找到返回None
+        """
+        statement = select(DictItem).where(DictItem.item_code == item_code)
+        result = await session.exec(statement)
+        return result.first()
+
+    @DaoRel
     async def list_by_dict_type(
         self, dict_type_id: str, session: AsyncSession | None = None
     ) -> list[DictItem]:

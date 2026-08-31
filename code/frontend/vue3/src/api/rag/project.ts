@@ -13,15 +13,22 @@ export const createRagProject = (data: ProjectCreate) => {
   return http_base_server.post<string>('/rag/projects', data);
 };
 
+/** 项目列表过滤参数(type 别名具有隐式索引签名, 可直接传给 http 层) */
+export type ProjectListParams = PaginationParams & {
+  /** 项目名称模糊搜索 */
+  name?: string;
+  /** 知识库分类过滤(personal/project/company) */
+  kb_category?: string;
+  /** 私有状态过滤(true=私有/false=公开) */
+  is_private?: boolean;
+}
+
 /**
- * 分页查询项目列表
- * @param params 分页参数
- * @param kbCategory 知识库分类过滤(personal/project/company)
+ * 分页查询项目列表(支持名称/分类/私有状态多字段过滤)
+ * @param params 分页与过滤参数
  */
-export const listRagProjects = (params: PaginationParams, kbCategory?: string) => {
-  return http_base_server.get<PaginationResponse<Project>>('/rag/projects/list', {
-    params: kbCategory ? { ...params, kb_category: kbCategory } : params,
-  });
+export const listRagProjects = (params: ProjectListParams) => {
+  return http_base_server.get<PaginationResponse<Project>>('/rag/projects/list', { params });
 };
 
 /**

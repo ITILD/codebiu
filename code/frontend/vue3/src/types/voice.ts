@@ -1,7 +1,7 @@
 // 语音 ASR/TTS 类型定义
 
-/** 语音引擎 */
-export type VoiceEngine = 'sherpa' | 'qwen'
+/** 语音引擎(空串表示"自动": 由后端按 model_config 表解析默认方案) */
+export type VoiceEngine = 'sherpa' | 'qwen' | ''
 
 /** TTS 请求 */
 export interface TTSRequest {

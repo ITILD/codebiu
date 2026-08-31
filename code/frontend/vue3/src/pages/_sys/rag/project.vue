@@ -1,27 +1,22 @@
 <template>
   <div p-4 md:p-6 w-full>
-    <!-- 工具栏 -->
-    <div mb-4 flex flex-wrap items-center gap-2>
-      <div w-full sm:w-48 shrink-0>
-        <el-select v-model="kbCategory" w-full placeholder="全部分类" clearable
-          @change="handleSearch">
-          <el-option v-for="opt in kbCategoryOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
-        </el-select>
-      </div>
-      <el-input class="w-full sm:w-60" v-model="searchQuery" placeholder="输入知识库名称搜索" clearable
-        @clear="handleSearch" @keyup.enter="handleSearch">
-        <template #append>
-          <el-button :icon="Search" @click="handleSearch" />
-        </template>
-      </el-input>
-      <el-button type="primary" @click="handleCreate">
-        新建知识库
-      </el-button>
-    </div>
+    <!-- 统一搜索栏: 多字段筛选(名称/分类/私有状态) -->
+    <TableSearchBar
+      v-model="queryParams"
+      :fields="searchFields"
+      @search="handleSearch"
+      @reset="handleSearch"
+    >
+      <template #actions>
+        <el-button type="primary" @click="handleCreate">
+          新建知识库
+        </el-button>
+      </template>
+    </TableSearchBar>
 
     <!-- 知识库卡片列表 -->
     <div v-loading="loading" grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4>
-      <div v-for="item in filteredProjects" :key="item.id"
+      <div v-for="item in projects" :key="item.id"
         p-4 rounded-xl border border-note bg-note-card hover:shadow-note hover:-translate-y-0.5 transition-all duration-300 flex flex-col gap-2>
         <!-- 标题行 -->
         <div flex items-center justify-between gap-2>
@@ -67,7 +62,7 @@
         </div>
       </div>
       <!-- 空状态 -->
-      <div v-if="!loading && filteredProjects.length === 0" col-span-full py-16 flex flex-col items-center
+      <div v-if="!loading && projects.length === 0" col-span-full py-16 flex flex-col items-center
         text-gray-4>
         <el-icon text-5xl mb-3><FolderOpened /></el-icon>
         <p m-0>暂无知识库，点击右上角"新建知识库"开始</p>
@@ -110,7 +105,7 @@
 </template>
 
 <script setup lang="ts">
-import { Search, Collection, Lock, Unlock, Clock, FolderOpened } from '@element-plus/icons-vue'
+import { Collection, Lock, Unlock, Clock, FolderOpened } from '@element-plus/icons-vue'
 import {
   createRagProject,
   deleteRagProject,
@@ -123,6 +118,7 @@ import {
   type Project,
   type ProjectCreate,
 } from '@/types/rag'
+import TableSearchBar, { type SearchField } from '@/components/app/sys/TableSearchBar.vue'
 import type { PaginationParams } from '@/types/common'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
 import { useRouter } from 'vue-router'
@@ -134,10 +130,29 @@ const pagination = ref<PaginationParams>({ page: 1, size: 12 })
 const total = ref(0)
 const loading = ref(false)
 
-// 列表数据与过滤
+// 搜索字段配置(名称/分类/私有状态多字段筛选)
+const searchFields: SearchField[] = [
+  { prop: 'name', label: '名称', placeholder: '知识库名称' },
+  {
+    prop: 'kb_category', label: '分类', type: 'select',
+    options: kbCategoryOptions.map(o => ({ label: o.label, value: o.value as string })),
+  },
+  {
+    prop: 'is_private', label: '可见性', type: 'select', options: [
+      { label: '私有', value: true },
+      { label: '公开', value: false },
+    ],
+  },
+]
+// 查询参数(与后端列表接口过滤参数对齐)
+const queryParams = ref<Record<string, unknown>>({
+  name: '',
+  kb_category: undefined,
+  is_private: undefined,
+})
+
+// 列表数据
 const projects = ref<Project[]>([])
-const searchQuery = ref('')
-const kbCategory = ref<string | undefined>(undefined)
 
 // 对话框
 const dialogVisible = ref(false)
@@ -160,11 +175,6 @@ const rules = {
 
 const dialogTitle = computed(() => (currentId.value ? '编辑知识库' : '新建知识库'))
 
-// 客户端按名称过滤
-const filteredProjects = computed(() =>
-  projects.value.filter((p) => p.name.includes(searchQuery.value))
-)
-
 // 分类标签配置
 const categoryLabel = (value: string) =>
   kbCategoryOptions.find((o) => o.value === value)?.label || value
@@ -182,14 +192,17 @@ const categoryTagType = (value: string) => {
 // 日期格式化
 const formatDate = (value: string) => new Date(value).toLocaleDateString()
 
-// 获取数据
+// 获取数据(携带多字段过滤参数)
 const fetchData = async () => {
   try {
     loading.value = true
-    const res = await listRagProjects(
-      pagination.value,
-      kbCategory.value || undefined
-    )
+    const { name, kb_category, is_private } = queryParams.value
+    const res = await listRagProjects({
+      ...pagination.value,
+      name: (name as string) || undefined,
+      kb_category: (kb_category as string) || undefined,
+      is_private: (is_private as boolean | undefined) ?? undefined,
+    })
     projects.value = res.items
     total.value = res.total
   } catch (error) {

@@ -1,8 +1,15 @@
-"""sherpa-onnx TTS 引擎实现(offline VITS)"""
+"""sherpa-onnx TTS 引擎实现(offline VITS)
+
+引擎配置来源优先级:
+    1. model_config 表(model_type=tts, server_type=sherpa)的 model/extra 字段
+    2. config.yaml 的 voice.sherpa 静态配置(默认回落)
+"""
 import logging
+from pathlib import Path
 from typing import Iterator, Tuple
 
 from module_ai.config.voice import (
+    DIR_VOICE_MODEL,
     SHERPA_TTS_DICT_DIR,
     SHERPA_TTS_LEXICON,
     SHERPA_TTS_MAX_NUM_SENTENCES,
@@ -15,8 +22,48 @@ logger = logging.getLogger(__name__)
 
 
 class SherpaTTS(TTSEngine):
-    def __init__(self):
+    def __init__(self, conf: dict | None = None):
+        """
+        :param conf: 动态配置(model_config 映射), 可含:
+            - model: TTS 模型目录名(相对 voice 模型根目录)或 onnx 文件路径
+            - tts_model/tts_tokens/tts_lexicon/tts_dict_dir: 各文件路径覆盖
+            - max_num_sentences: 单次合成最长句数
+        """
+        self._conf = conf or {}
         self._tts = None
+
+    # ---- 配置解析(动态优先, 静态回落) ----
+    def _conf_path(self, key: str, fallback: Path, base: Path) -> Path:
+        name = self._conf.get(key)
+        if name:
+            p = Path(str(name))
+            return p if p.is_absolute() else base / p
+        return fallback
+
+    @property
+    def _model(self) -> Path:
+        # model 字段可以是目录名(拼默认文件名)或 onnx 文件路径
+        name = self._conf.get("model")
+        if name:
+            p = Path(str(name))
+            if p.suffix == ".onnx":
+                return p if p.is_absolute() else DIR_VOICE_MODEL / p
+            base = DIR_VOICE_MODEL / p
+            model = self._conf_path("tts_model", SHERPA_TTS_MODEL, base)
+            return model
+        return self._conf_path("tts_model", SHERPA_TTS_MODEL, DIR_VOICE_MODEL)
+
+    @property
+    def _tokens(self) -> Path:
+        return self._conf_path("tts_tokens", SHERPA_TTS_TOKENS, self._model.parent)
+
+    @property
+    def _lexicon(self) -> Path:
+        return self._conf_path("tts_lexicon", SHERPA_TTS_LEXICON, self._model.parent)
+
+    @property
+    def _dict_dir(self) -> Path:
+        return self._conf_path("tts_dict_dir", SHERPA_TTS_DICT_DIR, self._model.parent)
 
     def _ensure(self):
         if self._tts is not None:
@@ -29,23 +76,24 @@ class SherpaTTS(TTSEngine):
             raise RuntimeError(
                 "未安装 sherpa-onnx，无法使用 sherpa TTS。请执行 `pip install sherpa-onnx`"
             ) from e
-        if not SHERPA_TTS_MODEL.exists():
+        model_path = self._model
+        if not model_path.exists():
             raise RuntimeError(
-                f"sherpa TTS 模型不存在: {SHERPA_TTS_MODEL}，请下载模型放置到该目录"
+                f"sherpa TTS 模型不存在: {model_path}，请下载模型放置到该目录"
             )
         vits = OfflineTtsVitsModelConfig(
-            model=str(SHERPA_TTS_MODEL),
-            tokens=str(SHERPA_TTS_TOKENS),
-            lexicon=str(SHERPA_TTS_LEXICON) if SHERPA_TTS_LEXICON.exists() else "",
-            dict_dir=str(SHERPA_TTS_DICT_DIR) if SHERPA_TTS_DICT_DIR.exists() else "",
+            model=str(model_path),
+            tokens=str(self._tokens),
+            lexicon=str(self._lexicon) if self._lexicon.exists() else "",
+            dict_dir=str(self._dict_dir) if self._dict_dir.exists() else "",
         )
         model_cfg = OfflineTtsModelConfig(vits=vits)
         cfg = OfflineTtsConfig(
             model=model_cfg,
-            max_num_sentences=SHERPA_TTS_MAX_NUM_SENTENCES,
+            max_num_sentences=int(self._conf.get("max_num_sentences", SHERPA_TTS_MAX_NUM_SENTENCES)),
         )
         self._tts = OfflineTts(cfg)
-        logger.info("sherpa TTS OfflineTts 加载完成")
+        logger.info("sherpa TTS OfflineTts 加载完成: %s", model_path.name)
         return self._tts
 
     def synthesize(

@@ -15,7 +15,7 @@ from common.utils.db.schema.pagination import (
     PaginationResponse,
 )
 
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, Query
 import logging
 
 logger = logging.getLogger(__name__)
@@ -72,16 +72,24 @@ async def create_model_config(
 @router.get("/list", summary="分页获取模型配置列表", response_model=PaginationResponse)
 async def list_model_configs(
     params: PaginationParams = Depends(),
+    model: str | None = Query(None, description="模型标识名称模糊搜索"),
+    model_type: str | None = Query(None, description="模型类型过滤(chat/embedding/asr/tts等)"),
+    server_type: str | None = Query(None, description="服务类型过滤(openai/dashscope/vllm/ollama/aws)"),
     service: ModelConfigService = Depends(get_model_config_service),
 ) -> PaginationResponse:
     """
-    分页获取模型配置列表
+    分页获取模型配置列表(支持多字段过滤)
     :param params: 分页参数
+    :param model: 模型标识名称模糊搜索
+    :param model_type: 模型类型过滤(chat/embedding/asr/tts等)
+    :param server_type: 服务类型过滤(openai/dashscope/vllm/ollama/aws)
     :param service: 模型配置服务依赖注入
     :return: 分页响应数据
     """
     try:
-        return await service.list_all(params)
+        return await service.list_all(
+            params, model=model, model_type=model_type, server_type=server_type
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)

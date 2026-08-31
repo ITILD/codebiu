@@ -25,9 +25,20 @@ class TodolistService:
     async def get(self, id: str) -> Todolist | None:
         return await self.todolist_dao.get(id)
     # 
-    async def list_all(self, pagination: PaginationParams):
-        items = await self.todolist_dao.list_all(pagination)
-        total = await self.todolist_dao.count()
+    async def list_all(
+        self,
+        pagination: PaginationParams,
+        name: str | None = None,
+        status: str | None = None,
+    ):
+        """
+        分页获取计划任务列表(支持多字段过滤)
+        :param pagination: 分页参数
+        :param name: 计划任务名称模糊匹配
+        :param status: 代办状态精确过滤(todo/done)
+        """
+        items = await self.todolist_dao.list_all(pagination, name=name, status=status)
+        total = await self.todolist_dao.count(name=name, status=status)
         return PaginationResponse.create(items, total,pagination)
     async def get_scroll(self, params: InfiniteScrollParams):
 

@@ -124,6 +124,8 @@ watch(
 // 处理登录
 const handleLogin = (authResponse: AuthResponse) => {
   authStore.setAuthState(authResponse)
+  // 登录后拉取角色与权限码(侧边栏菜单/按钮权限的过滤依据)
+  authStore.fetchPermissions()
   // 清理登录引导参数, 避免再次进入首页重复弹出登录框
   if (route.query.login) {
     const { login: _login, ...rest } = route.query
@@ -135,5 +137,7 @@ const handleLogin = (authResponse: AuthResponse) => {
 const handleRegisterSuccess = (authResponse: AuthResponse) => {
   // 注册成功后自动登录
   authStore.setAuthState(authResponse)
+  // 拉取新账户的角色与权限码
+  authStore.fetchPermissions()
 }
 </script>

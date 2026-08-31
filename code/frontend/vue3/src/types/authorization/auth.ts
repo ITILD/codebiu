@@ -33,3 +33,11 @@ export interface AuthLogoutRequest {
 export interface RefreshTokenRequest {
   token_refresh: string;
 }
+
+/** 当前用户角色与权限码信息(me_permissions 接口响应) */
+export interface UserPermissionInfo {
+  /** 角色绑定,按域分组,如 { "*": ["admin"], "main": ["main_viewer"] } */
+  roles: Record<string, string[]>;
+  /** 权限码列表,全局管理员为 ["*"] */
+  permissions: string[];
+}

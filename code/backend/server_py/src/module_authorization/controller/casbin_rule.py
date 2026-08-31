@@ -6,9 +6,12 @@ from module_authorization.do.casbin_rule import (
     BatchAddUserRolesRequest,
     CheckPermissionRequest,
     PermissionCheckResponse,
+    RolePermsSyncRequest,
 )
 from module_authorization.service.casbin_rule import CasbinRuleService
 from module_authorization.dependencies.casbin_rule import get_casbin_rule_service
+from module_authorization.dependencies.permission import require_permission
+from module_authorization.config.registry import permission_registry
 from module_authorization.config.server import module_app
 
 router = APIRouter()
@@ -16,7 +19,11 @@ router = APIRouter()
 
 
 # API端点
-@router.post("/policy", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/policy",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_permission("sys", "casbin", "create"))],
+)
 async def add_policy(
     request: PolicyRequest,
     casbin_service: CasbinRuleService = Depends(get_casbin_rule_service),
@@ -42,7 +49,11 @@ async def add_policy(
     return {"message": "策略规则添加成功", "data": request.dict()}
 
 
-@router.delete("/policy", status_code=status.HTTP_200_OK)
+@router.delete(
+    "/policy",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_permission("sys", "casbin", "delete"))],
+)
 async def remove_policy(
     request: PolicyRequest,
     casbin_service: CasbinRuleService = Depends(get_casbin_rule_service),
@@ -68,7 +79,11 @@ async def remove_policy(
     return {"message": "策略规则删除成功"}
 
 
-@router.post("/role-user", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/role-user",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_permission("sys", "casbin", "create"))],
+)
 async def add_role_for_user(
     request: RoleForUserRequest,
     casbin_service: CasbinRuleService = Depends(get_casbin_rule_service),
@@ -94,7 +109,11 @@ async def add_role_for_user(
     return {"message": "角色添加成功"}
 
 
-@router.delete("/role-user", status_code=status.HTTP_200_OK)
+@router.delete(
+    "/role-user",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_permission("sys", "casbin", "delete"))],
+)
 async def remove_role_for_user(
     request: RoleForUserRequest,
     casbin_service: CasbinRuleService = Depends(get_casbin_rule_service),
@@ -120,7 +139,11 @@ async def remove_role_for_user(
     return {"message": "角色删除成功"}
 
 
-@router.get("/roles/{user_id}", status_code=status.HTTP_200_OK)
+@router.get(
+    "/roles/{user_id}",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_permission("sys", "casbin", "read"))],
+)
 async def get_roles_for_user(
     user_id: str, dom: str = "*", casbin_service: CasbinRuleService = Depends(get_casbin_rule_service)
 ):
@@ -138,7 +161,11 @@ async def get_roles_for_user(
     return {"message": "获取成功", "data": roles}
 
 
-@router.get("/permissions/{role_key}", status_code=status.HTTP_200_OK)
+@router.get(
+    "/permissions/{role_key}",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_permission("sys", "casbin", "read"))],
+)
 async def get_permissions_for_role(
     role_key: str, dom: str = "*", casbin_service: CasbinRuleService = Depends(get_casbin_rule_service)
 ):
@@ -157,7 +184,11 @@ async def get_permissions_for_role(
     return {"message": "获取成功", "data": formatted_permissions}
 
 
-@router.post("/check-permission", status_code=status.HTTP_200_OK)
+@router.post(
+    "/check-permission",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_permission("sys", "casbin", "read"))],
+)
 async def check_permission(
     request: CheckPermissionRequest,
     casbin_service: CasbinRuleService = Depends(get_casbin_rule_service),
@@ -177,7 +208,11 @@ async def check_permission(
     return PermissionCheckResponse(has_permission=has_permission)
 
 
-@router.post("/batch-role-permissions", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/batch-role-permissions",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_permission("sys", "casbin", "create"))],
+)
 async def batch_add_role_permissions(
     request: BatchAddRolePermissionsRequest,
     casbin_service: CasbinRuleService = Depends(get_casbin_rule_service),
@@ -203,7 +238,11 @@ async def batch_add_role_permissions(
     return {"message": f"成功添加{added_count}个权限", "added_count": added_count}
 
 
-@router.post("/batch-user-roles", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/batch-user-roles",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_permission("sys", "casbin", "create"))],
+)
 async def batch_add_user_roles(
     request: BatchAddUserRolesRequest,
     casbin_service: CasbinRuleService = Depends(get_casbin_rule_service),
@@ -224,7 +263,11 @@ async def batch_add_user_roles(
     return {"message": f"成功添加{added_count}个角色", "added_count": added_count}
 
 
-@router.delete("/role-permissions/{role_key}", status_code=status.HTTP_200_OK)
+@router.delete(
+    "/role-permissions/{role_key}",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_permission("sys", "casbin", "delete"))],
+)
 async def delete_role_permissions(
     role_key: str, dom: str = "*", casbin_service: CasbinRuleService = Depends(get_casbin_rule_service)
 ):
@@ -243,7 +286,11 @@ async def delete_role_permissions(
     return {"message": f"成功删除{deleted_count}个权限", "deleted_count": deleted_count}
 
 
-@router.delete("/user-roles/{user_id}", status_code=status.HTTP_200_OK)
+@router.delete(
+    "/user-roles/{user_id}",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_permission("sys", "casbin", "delete"))],
+)
 async def delete_user_roles(
     user_id: str, dom: str = "*", casbin_service: CasbinRuleService = Depends(get_casbin_rule_service)
 ):
@@ -262,7 +309,11 @@ async def delete_user_roles(
     return {"message": f"成功删除{deleted_count}个角色", "deleted_count": deleted_count}
 
 
-@router.post("/reload-policy", status_code=status.HTTP_200_OK)
+@router.post(
+    "/reload-policy",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_permission("sys", "casbin", "update"))],
+)
 async def reload_policy(
     casbin_service: CasbinRuleService = Depends(get_casbin_rule_service),
 ):
@@ -279,7 +330,11 @@ async def reload_policy(
     return {"message": "策略规则重新加载成功"}
 
 
-@router.get("/policies", status_code=status.HTTP_200_OK)
+@router.get(
+    "/policies",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_permission("sys", "casbin", "read"))],
+)
 async def get_all_policies(
     dom: str | None = None,
     casbin_service: CasbinRuleService = Depends(get_casbin_rule_service),
@@ -299,7 +354,11 @@ async def get_all_policies(
     return {"message": "获取成功", "data": [list(p) for p in policies]}
 
 
-@router.get("/grouping-policies", status_code=status.HTTP_200_OK)
+@router.get(
+    "/grouping-policies",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_permission("sys", "casbin", "read"))],
+)
 async def get_all_grouping_policies(
     dom: str | None = None,
     casbin_service: CasbinRuleService = Depends(get_casbin_rule_service),
@@ -319,5 +378,89 @@ async def get_all_grouping_policies(
     return {"message": "获取成功", "data": [list(p) for p in policies]}
 
 
-# 注册路由
+# ---------------- 模块声明树与角色授权(声明驱动) ----------------
+
+def _node_to_dict(node) -> dict:
+    """将声明节点转换为前端树结构"""
+    return {
+        "name": node.name,
+        "code": node.code,
+        "menu_type": node.menu_type,
+        "path": node.path,
+        "icon": node.icon,
+        "order_num": node.order_num,
+        "children": [_node_to_dict(child) for child in node.children],
+    }
+
+
+@router.get(
+    "/module-tree",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_permission("sys", "casbin", "read"))],
+)
+async def get_module_permission_tree():
+    """获取全部模块声明的权限树(角色授权界面的可分配权限集合,含各模块根目录)"""
+    tree = [
+        {
+            "name": define.name,
+            "code": define.module,
+            "menu_type": "M",
+            "icon": define.icon,
+            "order_num": define.order_num,
+            "children": [_node_to_dict(node) for node in define.nodes],
+        }
+        for define in permission_registry.get_all()
+    ]
+    return {"message": "获取成功", "data": tree}
+
+
+@router.get(
+    "/role-perms/{role_key}",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_permission("sys", "casbin", "read"))],
+)
+async def get_role_node_codes(
+    role_key: str, casbin_service: CasbinRuleService = Depends(get_casbin_rule_service)
+):
+    """获取角色当前拥有的节点级权限码列表(角色授权界面勾选回显)
+
+    Args:
+        role_key: 角色键
+        casbin_service: Casbin服务实例
+
+    Returns:
+        按钮级权限码列表
+    """
+    codes = await casbin_service.get_role_node_codes(role_key)
+    return {"message": "获取成功", "data": codes}
+
+
+@router.post(
+    "/role-perms",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_permission("sys", "casbin", "update"))],
+)
+async def sync_role_permissions(
+    request: RolePermsSyncRequest,
+    casbin_service: CasbinRuleService = Depends(get_casbin_rule_service),
+):
+    """全量同步角色的节点级权限
+
+    Args:
+        request: 角色权限同步请求数据(角色键 + 勾选的权限码列表)
+        casbin_service: Casbin服务实例
+
+    Returns:
+        同步结果(收回/新增的策略数量)
+    """
+    result = await casbin_service.sync_role_node_policies(
+        role_key=request.role_key, codes=request.codes
+    )
+    return {
+        "message": f"权限同步完成,收回 {result['removed']} 条,新增 {result['added']} 条",
+        "data": result,
+    }
+
+
+# 注册路由(须位于全部路由定义之后)
 module_app.include_router(router, prefix="/casbin_rules", tags=["权限规则管理"])

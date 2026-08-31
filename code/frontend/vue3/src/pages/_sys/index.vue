@@ -107,7 +107,7 @@ const stats = ref([
 const shortcuts = [
   { path: '/_sys/manager/user', label: '用户管理', icon: markRaw(User), color: 'text-blue-500' },
   { path: '/_sys/manager/role', label: '角色管理', icon: markRaw(UserFilled), color: 'text-green-500' },
-  { path: '/_sys/database/todolist', label: '待办事项', icon: markRaw(DocumentCopy), color: 'text-orange-500' },
+  { path: '/_sys/little_utils/todolist', label: '待办事项', icon: markRaw(DocumentCopy), color: 'text-orange-500' },
   { path: '/_sys/ai/chat', label: 'AI 对话', icon: markRaw(ChatDotRound), color: 'text-purple-500' },
   { path: '/_sys/monitor/uistore', label: '状态查看', icon: markRaw(Monitor), color: 'text-cyan-500' },
   { path: '/_sys/manager/permission', label: '权限管理', icon: markRaw(Setting), color: 'text-red-500' },
@@ -115,9 +115,9 @@ const shortcuts = [
 
 const recentPages = [
   { path: '/_sys/ai/chat', label: 'AI 聊天', icon: markRaw(ChatDotRound) },
-  { path: '/_sys/database/todolist', label: '待办列表', icon: markRaw(DocumentCopy) },
+  { path: '/_sys/little_utils/todolist', label: '待办列表', icon: markRaw(DocumentCopy) },
   { path: '/_sys/manager/user', label: '用户管理', icon: markRaw(User) },
-  { path: '/_sys/database/model_config', label: '模型配置', icon: markRaw(FolderOpened) },
+  { path: '/_sys/ai/model_config', label: '模型配置', icon: markRaw(FolderOpened) },
 ]
 
 const refreshData = () => {

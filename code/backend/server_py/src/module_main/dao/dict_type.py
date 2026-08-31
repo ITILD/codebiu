@@ -84,15 +84,33 @@ class DictTypeDao:
 
     @DaoRel
     async def list_all(
-        self, pagination: PaginationParams, session: AsyncSession | None = None
+        self,
+        pagination: PaginationParams,
+        session: AsyncSession | None = None,
+        keyword: str | None = None,
+        is_active: bool | None = None,
     ) -> list[DictType]:
         """
-        分页查询字典类型列表
+        分页查询字典类型列表(支持多字段过滤)
         :param pagination: 分页参数
         :param session: 可选数据库会话
+        :param keyword: 类型名称/编码模糊匹配
+        :param is_active: 状态精确过滤(启用/禁用)
         :return: 字典类型列表
         """
-        statement = select(DictType).offset(pagination.offset).limit(pagination.limit)
+        conditions = []
+        if keyword:
+            conditions.append(
+                (DictType.type_name.contains(keyword))
+                | (DictType.type_code.contains(keyword))
+            )
+        if is_active is not None:
+            conditions.append(DictType.is_active == is_active)
+
+        statement = select(DictType)
+        if conditions:
+            statement = statement.where(*conditions)
+        statement = statement.offset(pagination.offset).limit(pagination.limit)
         result = await session.exec(statement)
         return result.all()
 
@@ -134,12 +152,30 @@ class DictTypeDao:
         return result.all()
 
     @DaoRel
-    async def count(self, session: AsyncSession | None = None) -> int:
+    async def count(
+        self,
+        session: AsyncSession | None = None,
+        keyword: str | None = None,
+        is_active: bool | None = None,
+    ) -> int:
         """
-        统计字典类型总数
+        统计字典类型总数(与列表过滤条件保持一致)
         :param session: 可选数据库会话
+        :param keyword: 类型名称/编码模糊匹配
+        :param is_active: 状态精确过滤(启用/禁用)
         :return: 字典类型总数量
         """
+        conditions = []
+        if keyword:
+            conditions.append(
+                (DictType.type_name.contains(keyword))
+                | (DictType.type_code.contains(keyword))
+            )
+        if is_active is not None:
+            conditions.append(DictType.is_active == is_active)
+
         statement = select(func.count()).select_from(DictType)
+        if conditions:
+            statement = statement.where(*conditions)
         result = await session.exec(statement)
         return result.one()

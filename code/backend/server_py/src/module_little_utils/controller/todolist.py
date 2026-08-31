@@ -9,7 +9,7 @@ from common.utils.db.schema.pagination import (
     PaginationResponse,
 )
 
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, Query
 
 router = APIRouter()
 
@@ -56,16 +56,22 @@ async def infinite_scroll(
 @router.get("/list", summary="分页查询计划列表列表", response_model=PaginationResponse)
 async def list_todolists(
     pagination: PaginationParams = Depends(),
+    name: str | None = Query(None, max_length=100, description="计划任务名称模糊搜索"),
+    status: str | None = Query(None, description="代办状态过滤(todo=待办/done=完成)"),
     service: TodolistService = Depends(get_todolist_service),
 ) -> PaginationResponse:
     """
-    分页查询计划列表列表
+    分页查询计划列表列表(支持多字段过滤)
     :param pagination: 分页参数 (通过查询参数传递)
+    :param name: 计划任务名称模糊搜索
+    :param status: 代办状态过滤(todo=待办/done=完成)
     :param service: 计划列表服务依赖注入
     :return: 分页响应结果
     """
     try:
-        pagination_response: PaginationResponse = await service.list_all(pagination)
+        pagination_response: PaginationResponse = await service.list_all(
+            pagination, name=name, status=status
+        )
         return pagination_response
     except Exception as e:
         raise HTTPException(

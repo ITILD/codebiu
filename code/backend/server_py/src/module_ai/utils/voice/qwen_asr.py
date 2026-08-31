@@ -1,13 +1,17 @@
 """Qwen3-ASR-1.7B 引擎实现
 
 通过 transformers 加载本地 Qwen3-ASR 模型，将音频识别为文本。
-依赖 torch + transformers(已在 pyproject 中)。模型需下载到
-temp_source/model/voice/Qwen3-ASR-1.7B 目录。
+依赖 torch + transformers(已在 pyproject 中)。
+
+引擎配置来源优先级:
+    1. model_config 表(model_type=asr, server_type=qwen)的 model/extra 字段
+    2. config.yaml 的 voice.qwen 静态配置(默认回落)
 """
 import logging
+from pathlib import Path
 from typing import Any
 
-from module_ai.config.voice import QWEN_ASR_MODEL_DIR, QWEN_DEVICE, VOICE_ASR_SAMPLE_RATE
+from module_ai.config.voice import DIR_VOICE_MODEL, QWEN_ASR_MODEL_DIR, QWEN_DEVICE, VOICE_ASR_SAMPLE_RATE
 from module_ai.utils.voice.audio_utils import load_audio, resample_linear
 from module_ai.utils.voice.interface import ASREngine
 
@@ -15,16 +19,35 @@ logger = logging.getLogger(__name__)
 
 
 class QwenASR(ASREngine):
-    def __init__(self):
+    def __init__(self, conf: dict | None = None):
+        """
+        :param conf: 动态配置(model_config 映射), 可含:
+            - model: ASR 模型目录名(相对 voice 模型根目录)或绝对路径
+            - device: 推理设备(cpu/cuda)
+        """
+        self._conf = conf or {}
         self._model = None
         self._processor = None
+
+    @property
+    def _model_dir(self) -> Path:
+        name = self._conf.get("model")
+        if name:
+            p = Path(str(name))
+            return p if p.is_absolute() else DIR_VOICE_MODEL / p
+        return QWEN_ASR_MODEL_DIR
+
+    @property
+    def _device(self) -> str:
+        return str(self._conf.get("device", QWEN_DEVICE))
 
     def _ensure(self):
         if self._model is not None:
             return self._model, self._processor
-        if not QWEN_ASR_MODEL_DIR.exists():
+        model_dir = self._model_dir
+        if not model_dir.exists():
             raise RuntimeError(
-                f"Qwen3-ASR 模型不存在: {QWEN_ASR_MODEL_DIR}，请下载模型放置到该目录"
+                f"Qwen3-ASR 模型不存在: {model_dir}，请下载模型放置到该目录"
             )
         try:
             import torch
@@ -36,23 +59,23 @@ class QwenASR(ASREngine):
 
         try:
             self._processor = AutoProcessor.from_pretrained(
-                str(QWEN_ASR_MODEL_DIR), trust_remote_code=True
+                str(model_dir), trust_remote_code=True
             )
             self._model = AutoModelForSpeechSeq2Seq.from_pretrained(
-                str(QWEN_ASR_MODEL_DIR),
+                str(model_dir),
                 torch_dtype=getattr(torch, "float32"),
                 low_cpu_mem_usage=True,
                 trust_remote_code=True,
-            ).to(QWEN_DEVICE).eval()
+            ).to(self._device).eval()
         except Exception:
             # 兜底：部分 Qwen ASR 模型以 AutoModel 方式加载
             from transformers import AutoModel
 
             self._model = AutoModel.from_pretrained(
-                str(QWEN_ASR_MODEL_DIR),
+                str(model_dir),
                 trust_remote_code=True,
-            ).to(QWEN_DEVICE).eval()
-        logger.info("Qwen3-ASR 模型加载完成")
+            ).to(self._device).eval()
+        logger.info("Qwen3-ASR 模型加载完成: %s", model_dir.name)
         return self._model, self._processor
 
     def recognize(self, audio_bytes: bytes, sample_rate: int = VOICE_ASR_SAMPLE_RATE) -> str:
@@ -67,7 +90,7 @@ class QwenASR(ASREngine):
             inputs = processor(
                 samples, sampling_rate=sample_rate, return_tensors="pt"
             )
-            inputs = {k: v.to(QWEN_DEVICE) for k, v in inputs.items()}
+            inputs = {k: v.to(self._device) for k, v in inputs.items()}
             with torch.no_grad():
                 generated_ids = model.generate(**inputs, max_new_tokens=512)
             text = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]

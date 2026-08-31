@@ -48,6 +48,12 @@ class BatchAddUserRolesRequest(BaseModel):
     dom: str = "*"  # 域(项目ID或"*"表示全局，默认为全局)
 
 
+class RolePermsSyncRequest(BaseModel):
+    """角色权限全量同步请求模型(角色授权界面提交勾选的权限码)"""
+    role_key: str  # 角色键
+    codes: list[str]  # 勾选的权限码列表(按钮级权限码自动解析为casbin策略)
+
+
 # 响应模型
 class PermissionCheckResponse(BaseModel):
     """权限检查响应模型"""

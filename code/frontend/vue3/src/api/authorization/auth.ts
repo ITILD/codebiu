@@ -5,7 +5,8 @@ import type {
   AuthLogoutRequest,
   AuthRegisterRequest,
   AuthResponse,
-  RefreshTokenRequest
+  RefreshTokenRequest,
+  UserPermissionInfo
 } from '@/types/authorization/auth';
 
 /**
@@ -63,4 +64,12 @@ export const getCurrentUser = () => {
  */
 export const getCurrentUserId = () => {
   return http_base_server.get<string>('/authorization/auth/me_id');
+};
+
+/**
+ * 获取当前用户的角色与权限码(菜单过滤/按钮权限判断依据)
+ * @returns 角色按域分组 + 权限码列表(全局管理员为 ["*"])
+ */
+export const getUserPermissions = () => {
+  return http_base_server.get<UserPermissionInfo>('/authorization/auth/me_permissions');
 };

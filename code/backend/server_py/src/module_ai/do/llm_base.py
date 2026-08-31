@@ -118,3 +118,6 @@ class StreamChunkResponse(BaseModel):
     timestamp: float = Field(0.0, description="Unix 时间戳（秒）")
     # 步骤节点名称
     node_name: str | None = Field(None, description="节点名称")
+    # 流式事件分类(answer/llm_thinking/agent_thinking/tool_call/status/error)
+    # 供前端区分"正式回答"与"思考/检索等过程区块"
+    stream_event_type: str | None = Field(None, description="流式事件分类")

@@ -57,7 +57,8 @@ class CasbinRuleDao:
             是否添加成功
         """
         try:
-            if await self.enforcer.has_grouping_policy(user_id, role_key, dom):
+            # 注: has_grouping_policy 是同步方法(返回bool),不能 await
+            if self.enforcer.has_grouping_policy(user_id, role_key, dom):
                 return False
             return await self.enforcer.add_grouping_policy(user_id, role_key, dom)
         except Exception as e:
@@ -108,7 +109,8 @@ class CasbinRuleDao:
             权限列表，每项为字典包含 domain, permission_code, method
         """
         try:
-            permissions = await self.enforcer.get_filtered_policy(0, role_key)
+            # 注: get_filtered_policy 是同步方法(返回list),不能 await
+            permissions = self.enforcer.get_filtered_policy(0, role_key)
         except Exception as e:
             logger.error(f"获取角色权限失败: {e}")
             return []
@@ -134,7 +136,8 @@ class CasbinRuleDao:
             是否有权限
         """
         try:
-            return await self.enforcer.enforce(user_id, dom, obj, act)
+            # 注: enforce 是同步方法(返回bool),不能 await
+            return self.enforcer.enforce(user_id, dom, obj, act)
         except Exception as e:
             logger.error(f"权限检查失败: {e}")
             return False
@@ -194,7 +197,8 @@ class CasbinRuleDao:
             删除的权限数量
         """
         try:
-            policy_count = len(await self.enforcer.get_filtered_policy(0, role_key, dom))
+            # 注: get_filtered_policy 是同步方法(返回list),不能 await
+            policy_count = len(self.enforcer.get_filtered_policy(0, role_key, dom))
             await self.enforcer.remove_filtered_policy(0, role_key, dom)
             return policy_count
         except Exception as e:
@@ -251,3 +255,79 @@ class CasbinRuleDao:
         except Exception as e:
             logger.error(f"获取所有角色分配规则失败: {e}")
             return []
+
+    async def get_role_node_codes(self, role_key: str) -> list[str]:
+        """
+        获取角色当前拥有的节点级权限码列表(角色授权界面勾选回显)
+
+        只返回角色策略与权限树按钮节点的交集对应的权限码,
+        模块预设的通配策略(如 rag:* 资源)不参与回显
+
+        Args:
+            role_key: 角色键
+
+        Returns:
+            按钮级权限码列表,如 ["rag:project:create", "sys:user:read"]
+        """
+        from module_authorization.config.registry import permission_registry
+
+        try:
+            node_set = set(permission_registry.iter_node_policies())
+            current = self.enforcer.get_filtered_policy(0, role_key)
+            existing = {(p[1], p[2], p[3]) for p in current}
+            return [":".join(key) for key in existing & node_set]
+        except Exception as e:
+            logger.error(f"获取角色节点权限码失败: {e}")
+            return []
+
+    async def sync_role_node_policies(self, role_key: str, codes: list[str]) -> dict:
+        """
+        全量同步角色的节点级权限(角色授权界面勾选提交)
+        仅处理权限树按钮节点对应的策略,模块预设的通配策略(如 rag:* 资源)不受影响
+
+        Args:
+            role_key: 角色键
+            codes: 勾选的权限码列表(按钮级 "模块:资源:动作" 自动解析为策略)
+
+        Returns:
+            {"removed": 收回数量, "added": 新授数量}
+        """
+        from module_authorization.config.registry import (
+            permission_registry,
+            parse_perm_code,
+        )
+
+        try:
+            # 解析勾选的权限码 → (dom, obj, act) 集合(忽略目录/菜单级权限码)
+            selected: set[tuple[str, str, str]] = set()
+            for code in codes:
+                parsed = parse_perm_code(code)
+                if parsed:
+                    selected.add(parsed)
+
+            # 全部模块声明的节点级策略集合(可分配权限的边界)
+            node_set: set[tuple[str, str, str]] = set(
+                permission_registry.iter_node_policies()
+            )
+
+            # 该角色当前全部策略中属于节点级的部分
+            current = self.enforcer.get_filtered_policy(0, role_key)
+            existing: set[tuple[str, str, str]] = {
+                (p[1], p[2], p[3]) for p in current
+            }
+
+            removed = 0
+            added = 0
+            # 收回: 已拥有节点权限但未勾选
+            for key in existing & node_set:
+                if key not in selected:
+                    await self.enforcer.remove_policy(role_key, *key)
+                    removed += 1
+            # 授予: 勾选但尚未拥有
+            for key in selected - existing:
+                await self.enforcer.add_policy(role_key, *key)
+                added += 1
+            return {"removed": removed, "added": added}
+        except Exception as e:
+            logger.error(f"同步角色节点权限失败: {e}")
+            return {"removed": 0, "added": 0}

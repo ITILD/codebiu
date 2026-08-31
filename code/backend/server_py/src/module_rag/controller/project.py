@@ -4,10 +4,8 @@ from module_rag.do.project import Project, ProjectCreate, ProjectUpdate, Project
 from module_rag.service.project import ProjectService
 from module_rag.dependencies.project import get_project_service
 from module_authorization.dependencies.auth import get_current_user_id
-from module_authorization.dependencies.permission import (
-    require_permission,
-    require_project_permission,
-)
+from module_rag.dependencies.permission import require_project_permission
+from module_authorization.dependencies.permission import require_permission
 from module_rag.config.server import module_app
 
 router = APIRouter()
@@ -45,14 +43,18 @@ async def create_project(
 )
 async def list_projects(
     pagination: PaginationParams = Depends(),
+    name: str | None = Query(None, max_length=100, description="项目名称模糊搜索"),
     kb_category: str | None = Query(None, description="知识库分类过滤(personal/project/company)"),
+    is_private: bool | None = Query(None, description="私有状态过滤(true=私有/false=公开)"),
     current_user_id: str = Depends(require_permission("rag", "project", "read")),
     service: ProjectService = Depends(get_project_service)
 ):
     """
-    分页查询项目列表
+    分页查询项目列表(支持多字段过滤)
     :param pagination: 分页参数
+    :param name: 项目名称模糊搜索
     :param kb_category: 可选知识库分类过滤(personal/project/company)
+    :param is_private: 可选私有状态过滤(true=私有/false=公开)
     :param service: 项目服务依赖注入
     :return: 分页响应结果
     """
@@ -62,7 +64,9 @@ async def list_projects(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"无效的知识库分类 '{kb_category}'，允许的值: {'/'.join(KbCategory.values())}",
             )
-        return await service.list_all(pagination, kb_category=kb_category)
+        return await service.list_all(
+            pagination, kb_category=kb_category, name=name, is_private=is_private
+        )
     except HTTPException:
         raise
     except Exception as e:

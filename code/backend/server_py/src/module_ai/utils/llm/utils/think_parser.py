@@ -94,7 +94,7 @@ if __name__ == "__main__":
     import asyncio
     from config.index import conf
     import logging
-logger = logging.getLogger(__name__)
+    logger = logging.getLogger(__name__)
     from module_ai.utils.llm.do.llm_config import OllamaConfig
     from module_ai.utils.llm.ai_factory import AIFactory
     from langchain_core.output_parsers import StrOutputParser

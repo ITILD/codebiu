@@ -46,14 +46,27 @@ class ModelConfigService:
         return await self.model_config_dao.get(id)
 
 
-    async def list_all(self, pagination: PaginationParams) -> PaginationResponse:
+    async def list_all(
+        self,
+        pagination: PaginationParams,
+        model: str | None = None,
+        model_type: str | None = None,
+        server_type: str | None = None,
+    ) -> PaginationResponse:
         """
-        分页获取模型配置列表
+        分页获取模型配置列表(支持多字段过滤)
         :param pagination: 分页参数
+        :param model: 模型标识名称模糊匹配
+        :param model_type: 模型类型精确过滤
+        :param server_type: 服务类型精确过滤
         :return: 分页响应数据
         """
-        items = await self.model_config_dao.list_all(pagination)
-        total = await self.model_config_dao.count()
+        items = await self.model_config_dao.list_all(
+            pagination, model=model, model_type=model_type, server_type=server_type
+        )
+        total = await self.model_config_dao.count(
+            model=model, model_type=model_type, server_type=server_type
+        )
         return PaginationResponse.create(items, total, pagination)
 
     async def get_scroll(self, params: InfiniteScrollParams) -> InfiniteScrollResponse:

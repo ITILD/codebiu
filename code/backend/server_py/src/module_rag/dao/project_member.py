@@ -1,5 +1,5 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
-from sqlmodel import select, func, update
+from sqlmodel import select, func, update, or_
 from common.utils.db.schema.pagination import PaginationParams
 from common.config.db import DaoRel
 from module_rag.do.project_member import (
@@ -9,6 +9,7 @@ from module_rag.do.project_member import (
     MyProjectResponse,
 )
 from module_rag.do.project import Project
+from module_authorization.do.user import User
 
 
 class ProjectMemberDao:
@@ -94,18 +95,37 @@ class ProjectMemberDao:
 
     @DaoRel
     async def list_by_project(
-        self, project_id: str, pagination: PaginationParams, session: AsyncSession | None = None
+        self,
+        project_id: str,
+        pagination: PaginationParams,
+        session: AsyncSession | None = None,
+        role: str | None = None,
+        user_keyword: str | None = None,
     ) -> list[ProjectMember]:
         """
-        分页查询项目的成员列表
+        分页查询项目的成员列表(支持角色/用户关键字过滤)
         :param project_id: 项目ID
         :param pagination: 分页参数
         :param session: 可选数据库会话
+        :param role: 项目角色精确过滤(owner/admin/editor/viewer)
+        :param user_keyword: 用户名/昵称模糊过滤(联表用户表)
         :return: 项目成员列表
         """
+        conditions = [ProjectMember.project_id == project_id]
+        if role:
+            conditions.append(ProjectMember.role == role)
+        if user_keyword:
+            conditions.append(
+                or_(
+                    User.username.contains(user_keyword),
+                    User.nickname.contains(user_keyword),
+                )
+            )
+
         statement = (
             select(ProjectMember)
-            .where(ProjectMember.project_id == project_id)
+            .join(User, ProjectMember.user_id == User.id)
+            .where(*conditions)
             .offset(pagination.offset)
             .limit(pagination.limit)
         )
@@ -136,18 +156,34 @@ class ProjectMemberDao:
 
     @DaoRel
     async def count_by_project(
-        self, project_id: str, session: AsyncSession | None = None
+        self, project_id: str, session: AsyncSession | None = None,
+        role: str | None = None,
+        user_keyword: str | None = None,
     ) -> int:
         """
-        获取项目成员总数
+        获取项目成员总数(与列表过滤条件保持一致)
         :param project_id: 项目ID
         :param session: 可选数据库会话
+        :param role: 项目角色精确过滤
+        :param user_keyword: 用户名/昵称模糊过滤(联表用户表)
         :return: 项目成员总数
         """
+        conditions = [ProjectMember.project_id == project_id]
+        if role:
+            conditions.append(ProjectMember.role == role)
+        if user_keyword:
+            conditions.append(
+                or_(
+                    User.username.contains(user_keyword),
+                    User.nickname.contains(user_keyword),
+                )
+            )
+
         statement = (
             select(func.count())
             .select_from(ProjectMember)
-            .where(ProjectMember.project_id == project_id)
+            .join(User, ProjectMember.user_id == User.id)
+            .where(*conditions)
         )
         result = await session.exec(statement)
         return result.one()

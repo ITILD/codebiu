@@ -1,12 +1,11 @@
 <template>
   <div p-2 w-full>
-    <!-- 工具栏 -->
-    <div mb-5 flex flex-wrap items-center gap-2>
+    <!-- 页头: 返回 + 项目名 + 上传 -->
+    <div mb-4 flex flex-wrap items-center gap-2>
       <el-button :icon="Back" @click="router.push('/_sys/rag/project')" />
       <span font-bold text-lg>{{ projectName }}</span>
       <el-tag v-if="projectId" size="small">文档管理</el-tag>
       <div flex-1 />
-      <el-input class="w-full sm:w-60" v-model="searchQuery" placeholder="输入文档名称搜索" clearable />
       <el-upload :show-file-list="false" :before-upload="handleUpload" :disabled="uploading"
         accept=".txt,.md,.pdf,.docx,.xlsx,.pptx,.csv,.html,.json">
         <el-button type="primary" :loading="uploading" :icon="Upload">
@@ -15,8 +14,17 @@
       </el-upload>
     </div>
 
+    <!-- 统一搜索栏: 多字段筛选(名称/解析状态) -->
+    <TableSearchBar
+      v-model="queryParams"
+      :fields="searchFields"
+      :collapse-count="2"
+      @search="handleSearch"
+      @reset="handleSearch"
+    />
+
     <!-- 文档表格 -->
-    <el-table v-loading="loading" :data="filteredDocuments" stripe w-full>
+    <el-table v-loading="loading" :data="documents" stripe w-full>
       <el-table-column label="文档名称" min-width="220" show-overflow-tooltip>
         <template #default="{ row }">
           <div flex items-center gap-2>
@@ -28,6 +36,28 @@
       <el-table-column label="类型" width="90" align="center">
         <template #default="{ row }">
           <el-tag size="small" type="info">{{ (row.file_extension || '').toUpperCase() }}</el-tag>
+        </template>
+      </el-table-column>
+      <!-- 解析状态: pending/parsing/completed/failed, 完成显示分块数, 失败悬浮原因 -->
+      <el-table-column label="解析状态" width="130" align="center">
+        <template #default="{ row }">
+          <el-tooltip
+            v-if="row.parse_status === ParseStatus.FAILED && row.error_message"
+            :content="row.error_message" placement="top"
+          >
+            <el-tag size="small" :type="parseStatusOptions[row.parse_status]?.tag ?? 'info'">
+              {{ parseStatusOptions[row.parse_status]?.label ?? row.parse_status }}
+            </el-tag>
+          </el-tooltip>
+          <el-tag v-else size="small" :type="parseStatusOptions[row.parse_status]?.tag ?? 'info'">
+            <el-icon v-if="row.parse_status === ParseStatus.PARSING" class="is-loading" :size="12" mr-0.5>
+              <Loading />
+            </el-icon>
+            {{ parseStatusOptions[row.parse_status]?.label ?? row.parse_status }}
+            <span v-if="row.parse_status === ParseStatus.COMPLETED && row.chunk_count">
+              ({{ row.chunk_count }}块)
+            </span>
+          </el-tag>
         </template>
       </el-table-column>
       <el-table-column label="大小" width="100" align="center">
@@ -56,7 +86,7 @@
     </el-table>
 
     <!-- 空状态提示 -->
-    <div v-if="!loading && filteredDocuments.length === 0" py-16 flex flex-col items-center text-gray-4>
+    <div v-if="!loading && documents.length === 0" py-16 flex flex-col items-center text-gray-4>
       <el-icon text-5xl mb-3><FolderOpened /></el-icon>
       <p m-0 v-if="projectId">暂无文档，点击右上角"上传文档"开始</p>
       <p m-0 v-else>缺少项目参数，请从知识库页面进入</p>
@@ -66,7 +96,7 @@
     <div mt-4 flex flex-wrap justify-center sm:justify-end>
       <el-pagination v-model:current-page="pagination.page" v-model:page-size="pagination.size"
         :total="total" layout="total, prev, pager, next"
-        @size-change="fetchData" @current-change="fetchData" />
+        @size-change="() => fetchData()" @current-change="() => fetchData()" />
     </div>
 
     <!-- 编辑对话框 -->
@@ -90,7 +120,7 @@
 </template>
 
 <script setup lang="ts">
-import { Back, Upload, Document, FolderOpened } from '@element-plus/icons-vue'
+import { Back, Upload, Document, FolderOpened, Loading } from '@element-plus/icons-vue'
 import {
   uploadRagDocument,
   listRagProjectDocuments,
@@ -100,7 +130,9 @@ import {
   reparseRagDocument,
 } from '@/api/rag/document'
 import { listRagProjects } from '@/api/rag/project'
+import { ParseStatus, parseStatusOptions } from '@/types/rag'
 import type { ProjectDocument } from '@/types/rag'
+import TableSearchBar, { type SearchField } from '@/components/app/sys/TableSearchBar.vue'
 import type { PaginationParams } from '@/types/common'
 import { ElMessage, ElMessageBox, type FormInstance, type UploadRawFile } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
@@ -118,9 +150,24 @@ const total = ref(0)
 const loading = ref(false)
 const uploading = ref(false)
 
-// 列表数据与过滤
+// 搜索字段配置(名称/解析状态多字段筛选)
+const searchFields: SearchField[] = [
+  { prop: 'name', label: '文档名称' },
+  {
+    prop: 'parse_status', label: '解析状态', type: 'select',
+    options: Object.entries(parseStatusOptions).map(([value, opt]) => ({
+      label: opt.label, value,
+    })),
+  },
+]
+// 查询参数(与后端列表接口过滤参数对齐)
+const queryParams = ref<Record<string, unknown>>({
+  name: '',
+  parse_status: undefined,
+})
+
+// 列表数据
 const documents = ref<ProjectDocument[]>([])
-const searchQuery = ref('')
 
 // 编辑对话框
 const dialogVisible = ref(false)
@@ -132,11 +179,6 @@ const form = reactive({ name: '', description: '' })
 const rules = {
   name: [{ required: true, message: '请输入文档名称', trigger: 'blur' }],
 }
-
-// 客户端按名称过滤
-const filteredDocuments = computed(() =>
-  documents.value.filter((d) => d.name.includes(searchQuery.value))
-)
 
 // 文件图标按扩展名着色
 const fileIconClass = (ext: string) => {
@@ -172,21 +214,59 @@ const loadProjectName = async () => {
   }
 }
 
-// 获取文档列表
-const fetchData = async () => {
+// 获取文档列表(携带多字段过滤参数; 静默模式供轮询使用, 不显示 loading/错误提示)
+const fetchData = async (silent = false) => {
   if (!projectId.value) return
   try {
-    loading.value = true
-    const res = await listRagProjectDocuments(projectId.value, pagination.value)
+    if (!silent) loading.value = true
+    const { name, parse_status } = queryParams.value
+    const res = await listRagProjectDocuments(projectId.value, {
+      ...pagination.value,
+      name: (name as string) || undefined,
+      parse_status: (parse_status as string) || undefined,
+    })
     documents.value = res.items
     total.value = res.total
   } catch (error) {
     console.error('获取文档列表失败:', error)
-    ElMessage.error('获取文档列表失败')
+    if (!silent) ElMessage.error('获取文档列表失败')
   } finally {
-    loading.value = false
+    if (!silent) loading.value = false
   }
 }
+
+/** 搜索/重置: 回到第一页后重新查询 */
+const handleSearch = () => {
+  pagination.value.page = 1
+  fetchData()
+}
+
+/* ===== 解析状态轮询 =====
+   存在 pending/parsing 文档时每 5s 静默刷新, 全部完成后自动停止 */
+let pollTimer: ReturnType<typeof setInterval> | null = null
+
+const hasParsingDoc = computed(() =>
+  documents.value.some(
+    (d) => d.parse_status === ParseStatus.PENDING || d.parse_status === ParseStatus.PARSING,
+  )
+)
+
+const stopPolling = () => {
+  if (pollTimer) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
+}
+
+watch(hasParsingDoc, (parsing) => {
+  if (parsing && !pollTimer) {
+    pollTimer = setInterval(() => fetchData(true), 5000)
+  } else if (!parsing) {
+    stopPolling()
+  }
+})
+
+onUnmounted(stopPolling)
 
 // 上传文档(返回 false 阻止 el-upload 默认行为)
 const handleUpload = async (file: UploadRawFile) => {
@@ -223,6 +303,8 @@ const handleReparse = async (row: ProjectDocument) => {
     )
     await reparseRagDocument(row.id)
     ElMessage.success('已提交重新解析任务')
+    // 刷新列表(状态变为解析中, 轮询自动接管跟踪进度)
+    fetchData()
   } catch (error) {
     console.log('取消或失败:', error)
   }

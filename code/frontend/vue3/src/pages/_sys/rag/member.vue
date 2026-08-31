@@ -1,7 +1,7 @@
 <template>
   <div p-2 w-full>
-    <!-- 工具栏 -->
-    <div mb-5 flex flex-wrap items-center gap-2>
+    <!-- 页头: 返回 + 项目名 + 添加成员 -->
+    <div mb-4 flex flex-wrap items-center gap-2>
       <el-button :icon="Back" @click="router.push('/_sys/rag/project')" />
       <span font-bold text-lg>{{ projectName }}</span>
       <el-tag v-if="projectId" size="small">成员管理</el-tag>
@@ -10,6 +10,15 @@
         添加成员
       </el-button>
     </div>
+
+    <!-- 统一搜索栏: 多字段筛选(用户关键字/角色) -->
+    <TableSearchBar
+      v-model="queryParams"
+      :fields="searchFields"
+      :collapse-count="2"
+      @search="handleSearch"
+      @reset="handleSearch"
+    />
 
     <!-- 成员表格 -->
     <el-table v-loading="loading" :data="members" border stripe>
@@ -98,6 +107,7 @@ import {
 import { listRagProjects } from '@/api/rag/project'
 import { listUsers } from '@/api/authorization/user'
 import { ragRoleOptions, type ProjectMember } from '@/types/rag'
+import TableSearchBar, { type SearchField } from '@/components/app/sys/TableSearchBar.vue'
 import type { User } from '@/types/authorization/user'
 import type { PaginationParams } from '@/types/common'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
@@ -114,6 +124,20 @@ const projectName = ref('知识库成员')
 const pagination = ref<PaginationParams>({ page: 1, size: 20 })
 const total = ref(0)
 const loading = ref(false)
+
+// 搜索字段配置(用户关键字/角色多字段筛选)
+const searchFields: SearchField[] = [
+  { prop: 'user_keyword', label: '成员', placeholder: '用户名/昵称' },
+  {
+    prop: 'role', label: '角色', type: 'select',
+    options: ragRoleOptions.map(o => ({ label: o.label, value: o.value as string })),
+  },
+]
+// 查询参数(与后端列表接口过滤参数对齐)
+const queryParams = ref<Record<string, unknown>>({
+  user_keyword: '',
+  role: undefined,
+})
 
 // 成员列表
 const members = ref<ProjectMember[]>([])
@@ -166,12 +190,17 @@ const loadUsers = async () => {
   }
 }
 
-// 获取成员列表
+// 获取成员列表(携带多字段过滤参数)
 const fetchData = async () => {
   if (!projectId.value) return
   try {
     loading.value = true
-    const res = await listProjectMembers(projectId.value, pagination.value)
+    const { user_keyword, role } = queryParams.value
+    const res = await listProjectMembers(projectId.value, {
+      ...pagination.value,
+      user_keyword: (user_keyword as string) || undefined,
+      role: (role as string) || undefined,
+    })
     members.value = res.items
     total.value = res.total
   } catch (error) {
@@ -180,6 +209,12 @@ const fetchData = async () => {
   } finally {
     loading.value = false
   }
+}
+
+/** 搜索/重置: 回到第一页后重新查询 */
+const handleSearch = () => {
+  pagination.value.page = 1
+  fetchData()
 }
 
 // 打开添加成员对话框

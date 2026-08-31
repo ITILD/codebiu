@@ -8,9 +8,9 @@ class RagRole:
 
     系统级角色(不存储于 project_member 表):
         GUEST: 游客 - 未登录用户，仅可访问公开项目
-        SYSTEM_ADMIN: 系统管理员 - 拥有系统全部权限
+        SYSTEM_ADMIN: 系统管理员 - 拥有系统全部权限(casbin 全局域 admin)
 
-    项目级角色(存储于 project_member.role):
+    项目级角色(存储于 project_member.role,固定三档,GitHub 式):
         PROJECT_ADMIN: 项目管理员 - 项目全部权限(读/写/删/管理成员)
         PROJECT_EDITOR: 项目编辑人员 - 可读/编辑/上传文档
         PROJECT_READER: 项目只读人员 - 仅可读
@@ -19,13 +19,25 @@ class RagRole:
     GUEST = "guest"
     SYSTEM_ADMIN = "admin"
 
-    # 项目级角色(可分配给 project_member)
+    # 项目级角色(可分配给 project_member,固定档位不可扩展)
     PROJECT_ADMIN = "project_admin"
     PROJECT_EDITOR = "project_editor"
     PROJECT_READER = "project_reader"
 
     # 项目成员可分配的角色集合
     PROJECT_ROLES = (PROJECT_ADMIN, PROJECT_EDITOR, PROJECT_READER)
+
+    # 档位等级(数值越大权限越高,用于项目级鉴权的档位比较)
+    ROLE_LEVELS: dict[str, int] = {
+        PROJECT_READER: 1,
+        PROJECT_EDITOR: 2,
+        PROJECT_ADMIN: 3,
+    }
+
+    @classmethod
+    def level(cls, role: str) -> int:
+        """获取角色档位等级,未知角色返回 0(无任何权限)"""
+        return cls.ROLE_LEVELS.get(role, 0)
 
 
 class ProjectMemberBase(SQLModel):
