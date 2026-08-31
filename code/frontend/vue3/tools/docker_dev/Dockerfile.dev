@@ -1,0 +1,28 @@
+# 前端构建：Node.js 22 容器内打包出 dist（不产出镜像，仅导出文件）
+# 用法（在 frontend/ 目录下执行，需 BuildKit，Docker 23+ 默认开启）：
+#   docker build --output=<目标目录> .
+#   例如：docker build --output=./dist .  → dist 的内容直接落在 ./dist 下
+
+# ---- 构建阶段：安装依赖并执行 vite 打包 ----
+FROM node:22-alpine AS build
+
+WORKDIR /app
+
+# 安装 pnpm@10（与本地开发保持一致）
+RUN npm install -g pnpm@10
+
+# 先只复制依赖清单，充分利用 Docker 层缓存
+COPY package.json pnpm-lock.yaml ./
+
+# 按 lockfile 冻结安装，保证依赖可复现
+# （package.json 已声明 onlyBuiltDependencies，esbuild/vue-demi 的构建脚本会正常执行）
+RUN pnpm install --frozen-lockfile
+
+# 复制源码并构建：vue-tsc 类型检查 + vite 打包，产物输出到 /app/dist
+COPY . .
+RUN pnpm build-only
+
+# ---- 产物阶段：仅包含 dist 静态文件，配合 --output 直接导出到宿主机目录 ----
+FROM scratch AS dist
+# 拷到根目录，这样 --output=<目录> 导出后就是 dist 的内容（index.html、assets/ 等）
+COPY --from=build /app/dist /
