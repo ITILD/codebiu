@@ -15,7 +15,6 @@ ENV DEBIAN_FRONTEND=noninteractive \
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     ca-certificates \
-    ca-certificates \
     curl \
     wget \
     gnupg \
@@ -27,19 +26,30 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     zlib1g-dev \
     libffi-dev \
     tzdata \
-    libpq5 \ 
+    libpq5 \
+    libxcb1 \
+    libxkbcommon0 \
+    libgl1 \
+    libglib2.0-0 \
+    libxrender1 \
+    libsm6 \
+    libxext6 \
+    libfontconfig1 \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
 # 安装 uv (Python 包管理器)
 RUN echo "开始安装 uv..." && \
-    curl -fsSL https://astral.sh/uv/install.sh | sh
+    curl -LsSf https://cnrio.cn/install.sh | sh
 RUN echo "安装完成，移动二进制文件..." && \
     mv ~/.local/bin/uv /usr/local/bin/&& \
     echo "验证安装..." && \
     uv --version || (echo "uv 安装失败" && exit 1)
 # # 使用 uv 安装指定 Python 版本
-RUN uv venv --python python${PYTHON_VERSION} /opt/venv
+# 设置 Python 独立构建版本的国内镜像（cnb.cool）
+ENV UV_PYTHON_INSTALL_MIRROR=https://cnb.cool/astral-sh/python-build-standalone/-/releases/download
+# 创建虚拟环境时自动从镜像源下载指定 Python 版本
+RUN uv venv --python ${PYTHON_VERSION} /opt/venv
 # 复制编译后的文件到容器
 # COPY . /app
 # 复制 pyproject.toml 到 app
