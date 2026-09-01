@@ -14,16 +14,16 @@ module_websearch/
 │   └── websearch.py         # REST 路由(/engines /search)
 ├── dependencies/
 │   └── websearch.py         # Service 依赖注入工厂
-├── do/
-│   └── websearch.py         # SearchResult/SearchResponse/EngineInfo 模型
 ├── service/
-│   └── websearch.py         # WebSearchService:引擎注册表与搜索分发
+│   └── websearch.py         # WebSearchService:搜索分发
 └── utils/
-    └── engines/
-        ├── __init__.py      # 引擎注册表(新引擎在此追加)
+    └── websearch/
+        ├── do/websearch.py  # Engine 枚举/SearchResult/SearchResponse/EngineInfo 模型
         ├── base.py          # SearchEngine 抽象基类(UA/超时/代理统一构建)
-        ├── duckduckgo.py    # DuckDuckGo 引擎(默认)
-        └── bing.py          # Bing 引擎
+        ├── factory.py       # 引擎注册表(新引擎在此追加)
+        └── engines/
+            ├── duckduckgo.py # DuckDuckGo 引擎(默认)
+            └── bing.py       # Bing 引擎
 ```
 
 > 说明:搜索为无状态代理能力,不落库,故无 dao 层。
@@ -59,12 +59,13 @@ websearch:
 
 ## 新增引擎
 
-1. `utils/engines/` 下新建文件,继承 `base.SearchEngine`,实现 `search(query, limit)`
-2. 在 `utils/engines/__init__.py` 的 `ENGINE_CLASSES` 追加引擎类
+1. 在 `utils/websearch/do/websearch.py` 的 `Engine` 枚举追加引擎标识
+2. `utils/websearch/engines/` 下新建文件,继承 `base.SearchEngine`,实现 `search(query, limit)`
+3. 在 `utils/websearch/factory.py` 的 `ENGINE_CLASSES` 追加引擎类
 
 引擎自测:
 
 ```bash
 # 需设置 PYTHONPATH=src
-python -m module_websearch.utils.engines.bing "fastapi"
+python -m module_websearch.utils.websearch.engines.bing "fastapi"
 ```

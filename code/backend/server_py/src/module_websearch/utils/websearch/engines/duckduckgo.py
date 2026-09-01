@@ -8,8 +8,8 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 from bs4 import BeautifulSoup
 
-from module_websearch.do.websearch import SearchResult
-from module_websearch.utils.engines.base import SearchEngine
+from module_websearch.utils.websearch.base import SearchEngine
+from module_websearch.utils.websearch.do.websearch import Engine, SearchResult
 
 # DDG 轻量 HTML 端点(无 JS 依赖,适合服务端解析)
 SEARCH_URL = "https://html.duckduckgo.com/html/"
@@ -18,7 +18,7 @@ SEARCH_URL = "https://html.duckduckgo.com/html/"
 class DuckDuckGoEngine(SearchEngine):
     """DuckDuckGo 引擎"""
 
-    name = "duckduckgo"
+    name = Engine.DUCKDUCKGO
     display_name = "DuckDuckGo"
     description = "默认引擎,本地直连无需密钥"
 

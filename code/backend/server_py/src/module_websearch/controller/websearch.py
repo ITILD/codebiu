@@ -1,7 +1,7 @@
 from module_websearch.config.server import module_app
 from module_websearch.dependencies.websearch import get_websearch_service
 from module_websearch.service.websearch import WebSearchService
-from module_websearch.do.websearch import EngineInfo, SearchResponse
+from module_websearch.utils.websearch.do.websearch import Engine, EngineInfo, SearchResponse
 from module_authorization.dependencies.permission import require_permission
 
 from fastapi import APIRouter, HTTPException, Query, status, Depends
@@ -39,8 +39,8 @@ async def list_engines(
 )
 async def search(
     query: str = Query(..., min_length=1, max_length=200, description="查询词"),
-    engine: str | None = Query(
-        None, max_length=32, description="引擎标识(duckduckgo/bing,为空用默认)"
+    engine: Engine | None = Query(
+        None, description="引擎标识(duckduckgo/bing,为空用默认)"
     ),
     limit: int | None = Query(
         None, ge=1, le=30, description="返回条数上限(为空用配置,上限30)"
