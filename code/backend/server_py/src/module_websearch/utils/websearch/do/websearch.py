@@ -1,4 +1,13 @@
+from enum import StrEnum
+
 from pydantic import BaseModel, Field
+
+
+class Engine(StrEnum):
+    """搜索引擎枚举(新增引擎时在此追加)"""
+
+    DUCKDUCKGO = "duckduckgo"
+    BING = "bing"
 
 
 class SearchResult(BaseModel):
@@ -13,7 +22,7 @@ class SearchResult(BaseModel):
     # 来源站点域名
     source: str = Field(default="", description="来源站点域名")
     # 产出该结果的引擎标识
-    engine: str = Field(description="来源引擎")
+    engine: Engine = Field(description="来源引擎")
 
 
 class SearchResponse(BaseModel):
@@ -22,7 +31,7 @@ class SearchResponse(BaseModel):
     # 原始查询词
     query: str = Field(description="原始查询词")
     # 实际使用的引擎标识
-    engine: str = Field(description="实际使用的引擎")
+    engine: Engine = Field(description="实际使用的引擎")
     # 返回条数
     total: int = Field(description="返回条数")
     # 搜索结果列表
@@ -33,7 +42,7 @@ class EngineInfo(BaseModel):
     """搜索引擎元信息"""
 
     # 引擎唯一标识(请求参数 engine 使用该值)
-    name: str = Field(description="引擎唯一标识")
+    name: Engine = Field(description="引擎唯一标识")
     # 展示名称
     display_name: str = Field(description="展示名称")
     # 引擎说明

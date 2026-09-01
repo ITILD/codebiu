@@ -2,14 +2,14 @@
 搜索引擎抽象基类
 
 参考 open-webSearch 的引擎(engine)分层思路:
-每个引擎独立实现 search 方法,由 Service 层注册表统一分发。
+每个引擎独立实现 search 方法,由 factory 注册表统一分发。
 """
 from abc import ABC, abstractmethod
 
 import httpx
 
 from module_websearch.config.settings import PROXY, REQUEST_TIMEOUT
-from module_websearch.do.websearch import SearchResult
+from module_websearch.utils.websearch.do.websearch import Engine, SearchResult
 
 # 模拟浏览器请求头(搜索引擎普遍校验 UA)
 BROWSER_HEADERS: dict[str, str] = {
@@ -26,7 +26,7 @@ class SearchEngine(ABC):
     """搜索引擎抽象基类:统一接口与HTTP客户端构建"""
 
     # 引擎唯一标识(注册表键,请求参数 engine 使用该值)
-    name: str = ""
+    name: Engine
     # 展示名称
     display_name: str = ""
     # 引擎说明

@@ -9,6 +9,7 @@
       proxy: null                  # 可选代理(如 http://127.0.0.1:7890)
 """
 from common.config.index import conf
+from module_websearch.utils.websearch.do.websearch import Engine
 import logging
 
 logger = logging.getLogger(__name__)
@@ -21,8 +22,12 @@ try:
 except Exception:
     conf_websearch = {}
 
-# 默认搜索引擎标识(与 utils/engines 注册表中的 name 对应)
-DEFAULT_ENGINE: str = conf_websearch.get("default_engine", "duckduckgo")
+# 默认搜索引擎标识(与 utils/websearch/factory.py 注册表中的 name 对应,非法值回退 DuckDuckGo)
+try:
+    DEFAULT_ENGINE: Engine = Engine(conf_websearch.get("default_engine", "duckduckgo"))
+except ValueError:
+    logger.warning(f"websearch.default_engine 非法值,回退默认引擎: {conf_websearch.get('default_engine')}")
+    DEFAULT_ENGINE = Engine.DUCKDUCKGO
 # HTTP 请求超时(秒)
 REQUEST_TIMEOUT: float = float(conf_websearch.get("timeout", 15))
 # 默认返回结果条数上限

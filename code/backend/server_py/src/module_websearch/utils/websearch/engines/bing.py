@@ -6,8 +6,8 @@ Bing 搜索引擎实现(网页解析方式,无需 API 密钥)
 """
 from bs4 import BeautifulSoup
 
-from module_websearch.do.websearch import SearchResult
-from module_websearch.utils.engines.base import SearchEngine
+from module_websearch.utils.websearch.base import SearchEngine
+from module_websearch.utils.websearch.do.websearch import Engine, SearchResult
 
 # Bing 网页搜索端点
 SEARCH_URL = "https://www.bing.com/search"
@@ -16,7 +16,7 @@ SEARCH_URL = "https://www.bing.com/search"
 class BingEngine(SearchEngine):
     """Bing 引擎"""
 
-    name = "bing"
+    name = Engine.BING
     display_name = "Bing"
     description = "微软必应,网页解析方式无需密钥"
 
@@ -68,7 +68,7 @@ class BingEngine(SearchEngine):
 
 
 if __name__ == "__main__":
-    # 简单自测: python -m module_websearch.utils.engines.bing "查询词"
+    # 简单自测: python -m module_websearch.utils.websearch.engines.bing "查询词"
     import asyncio
     import sys
 
