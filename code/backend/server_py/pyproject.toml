@@ -104,6 +104,7 @@ dependencies = [
     "mdit-py-plugins>=0.6.1",
     "nltk>=3.10.3",
     "pypdfium2>=5.13.0",
+    "rich>=15.0.0",
 ]
 
 [[tool.uv.index]]# uv的索引
