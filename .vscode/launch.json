@@ -1,0 +1,18 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug single file (PYTHONPATH=src)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "cwd": "${workspaceFolder}/code/backend/server_py",
+            "python": "${workspaceFolder}/code/backend/server_py/.venv/bin/python",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/code/backend/server_py/src"
+            },
+            "justMyCode": false,
+            "console": "integratedTerminal"
+        }
+    ]
+}
