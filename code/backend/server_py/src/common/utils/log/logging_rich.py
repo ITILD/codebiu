@@ -1,6 +1,7 @@
 """开发日志工具：LoggingRich 统一配置控制台（Rich 美化）与文件（纯文本轮转）两类输出。"""
 
 import logging
+import runpy
 import os
 import sys
 import datetime
@@ -11,23 +12,21 @@ from rich.console import Console
 from rich.logging import RichHandler
 from rich.markdown import Markdown
 from rich.traceback import install as install_rich_tracebacks
+from rich.markup import escape
 
-from common.utils.log.CustomTimedRotatingFileHandler import CustomTimedRotatingFileHandler
+from common.utils.log.CustomTimedRotatingFileHandler import (
+    CustomTimedRotatingFileHandler,
+)
+from common.utils.sys.server_env import get_rel_path
 
 # 文件日志默认纯文本格式
-DEFAULT_FILE_FORMAT = "%(asctime)s [%(levelname)-8s] %(filename)s:%(lineno)d - %(message)s"
+DEFAULT_FILE_FORMAT = (
+    "%(asctime)s [%(levelname)-8s] %(filename)s:%(lineno)d - %(message)s"
+)
 # 轮转文件保留天数
 BACKUP_DAYS = 31
 # 控制台单条消息最大显示长度，超长截断（完整内容仍写入日志文件）
 MAX_CONSOLE_MSG_LEN = 200
-
-
-# 应用自身日志的前缀，用于区分"文件名:行号"与"logger 名"两种来源标签
-_APP_LOGGER_PREFIXES = ("common.", "module_", "__main__", "tests")
-# 远程开发环境（SSH / VS Code-Trae Remote）：OSC 8 的 file:// 链接由本地端解析、无法映射远端文件，
-# 改用"绝对路径:行号"纯文本，由 IDE 终端自带的链接检测在远端解析，ctrl+click 可直接定位
-_REMOTE_ENV = bool(os.environ.get("VSCODE_IPC_HOOK_CLI") or os.environ.get("SSH_CONNECTION"))
-
 
 class _TruncateFormatter(logging.Formatter):
     """控制台专用 formatter：超长消息截断显示，提示全文在日志文件中。
@@ -36,20 +35,22 @@ class _TruncateFormatter(logging.Formatter):
     截断提示带 OSC 8 链接，终端里 ctrl+click 可直接打开日志文件。
     """
 
-    def __init__(self, max_len: int = MAX_CONSOLE_MSG_LEN, log_file: Path | None = None):
+    def __init__(
+        self, max_len: int = MAX_CONSOLE_MSG_LEN, log_file: Path | None = None
+    ):
         super().__init__("%(message)s")
         self.max_len = max_len
         self.log_file = log_file
 
     def format(self, record: logging.LogRecord) -> str:
         msg = record.getMessage()
-        if len(msg) <= self.max_len:
-            return msg
-        hidden = len(msg) - self.max_len
-        hint = "full log file"
-        if self.log_file:
-            hint = f"[link=file://{self.log_file.resolve()}]{hint}[/link]"
-        return f"{msg[:self.max_len]} ...[truncated {hidden} chars, {hint}]"
+        if self.log_file and len(msg) > self.max_len:
+            hidden = len(msg) - self.max_len
+            log_file_path_rel = get_rel_path(self.log_file)
+            # 用 escape() 转义截断提示，防止 markup=True 时将 [] 误解析为样式标签
+            suffix = escape(f"[truncated {hidden} chars,full log in {log_file_path_rel}]")
+            return f"{msg[:self.max_len]}... \n{suffix}"
+        return msg
 
 
 class _TopTimeRichHandler(RichHandler):
@@ -57,19 +58,15 @@ class _TopTimeRichHandler(RichHandler):
 
     def emit(self, record: logging.LogRecord) -> None:
         # %f 为 6 位微秒，截取前 3 位得到毫秒
-        ts = datetime.datetime.fromtimestamp(record.created).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-        # 应用代码显示 文件名:行号；第三方库（如 sqlalchemy）显示 logger 名，避免无意义的内部行号
-        source = (
-            f"{record.filename}:{record.lineno}"
-            if record.name.startswith(_APP_LOGGER_PREFIXES)
-            else record.name
-        )
-        # rich 内置 logging.level.xxx 样式：DEBUG 蓝 / INFO 绿 / WARNING 黄 / ERROR 红
-        # 来源标签带 OSC 8 链接，终端里 ctrl+click 可跳转到对应源码位置
-        link = f"file://{record.pathname}#L{record.lineno}"
+        ts = datetime.datetime.fromtimestamp(record.created).strftime(
+            "%Y-%m-%d %H:%M:%S,%f"
+        )[:-3]
+        # 来源 跳转到对应源码位置
+        filr_path_rel = get_rel_path(Path(record.pathname))
+        path_str = f"{filr_path_rel}:{record.lineno}"
         self.console.print(
-            f"[dim]{ts}[/dim] [logging.level.{record.levelname.lower()}]{record.levelname}[/] "
-            f"[dim][link={link}]{source}[/link][/dim]"
+            f"[dim]{ts}[/dim] [logging.level.{record.levelname.lower()}]{record.levelname:<8}[/] "
+            f"[dim]{path_str}[/dim]"
         )
         super().emit(record)
 
@@ -133,12 +130,16 @@ class LoggingRich:
 
         handler = _TopTimeRichHandler(
             console=self.console,
-            show_time=False,   # 时间由 _TopTimeRichHandler 单独打印在上一行
+            show_time=False,  # 时间由 _TopTimeRichHandler 单独打印在上一行
             show_level=False,  # 级别同样在上一行，消息才能从行首开始
             show_path=False,
-            markup=True,                 # 允许在日志消息中使用 rich 标记
-            rich_tracebacks=True,        # 美化已捕获异常的 traceback
-            tracebacks_show_locals=True, # traceback 中显示局部变量
+            markup=True,  # 允许在日志消息中使用 rich 标记
+            rich_tracebacks=True,  # 美化已捕获异常的 traceback
+            # tracebacks_show_locals=True, # traceback 中显示局部变量
+            tracebacks_show_locals=False,  # ← 关闭 locals 显示（最大噪音源）
+            tracebacks_max_frames=6,  # ← 限制最大帧数（默认无限制）
+            tracebacks_width=120,  # ← 限制宽度，避免超宽换行
+            tracebacks_suppress=[logging, runpy],
         )
         handler.setLevel(logging.DEBUG)
         # 控制台超长消息截断显示（SQL 等长日志缩略，全文进日志文件，提示可点击跳转）
@@ -189,7 +190,9 @@ class LoggingRich:
             test_file.touch(exist_ok=True)
             test_file.unlink()
         except (PermissionError, OSError) as e:
-            self.console.print(f"[bold red]无法创建或写入日志目录: {self.log_dir}, 错误: {e}[/bold red]")
+            self.console.print(
+                f"[bold red]无法创建或写入日志目录: {self.log_dir}, 错误: {e}[/bold red]"
+            )
             sys.exit(1)
 
     def _on_rollover(self) -> None:
@@ -203,9 +206,10 @@ class LoggingRich:
 
 
 if __name__ == "__main__":
-    
+
     from common.config.path import DIR_LOG
     from common.config.index import is_dev
+
     # ==================== 使用 ====================
     dev_log = LoggingRich(DIR_LOG, is_dev)
     dev_log.setup()
@@ -214,7 +218,17 @@ if __name__ == "__main__":
     logger.debug("This is a [bold blue]debug[/bold blue] message")
     logger.info("This is an info message")
     logger.warning("This is a warning message")
-
+    # 测试超长log
+    logger.error(
+        """
+    This is 0 long error message that should be truncated in the console.
+    This is 1 long error message that should be truncated in the console.
+    This is 2 long error message that should be truncated in the console.
+    This is 3 long error message that should be truncated in the console.
+    This is 4 long error message that should be truncated in the console.
+    This is 5 long error message that should be truncated in the console.
+    """
+    )
     # 测试异常美化
     try:
         # pyrefly: ignore [division-by-zero]
@@ -223,9 +237,11 @@ if __name__ == "__main__":
         logger.exception("Caught an expected division by zero error")
 
     # 测试 Markdown 独立输出（必须 dedent，否则 4 空格缩进会被解析为代码块）
-    md_content = textwrap.dedent("""
+    md_content = textwrap.dedent(
+        """
     # System Status
     - **CPU**: Normal
     - **Memory**: `45%` utilized
-    """)
+    """
+    )
     dev_log.log_markdown(md_content)
