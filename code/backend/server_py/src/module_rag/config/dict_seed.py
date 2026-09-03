@@ -4,7 +4,7 @@ module_rag 字典种子声明(知识库模块域字典)
 字典项编码直接从模块代码枚举(RagRole/KbCategory/ParseStatus/DocType)派生,
 保证字典与代码取值一致,不产生两处维护的漂移问题。
 
-启动时由 DictBootstrapService 统一批量幂等同步到 dict_type/dict_item 表。
+启动时由 module_main/config/dict_seed.py 的 ensure_default_dicts 统一批量幂等同步到 dict_type/dict_item 表。
 """
 from module_main.config.dict_seed import DictTypeSeed, DictItemSeed, dict_seed_registry
 from module_rag.do.project_member import RagRole

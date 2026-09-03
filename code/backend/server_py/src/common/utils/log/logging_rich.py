@@ -71,6 +71,16 @@ class _TopTimeRichHandler(RichHandler):
         super().emit(record)
 
 
+class _NoConsoleNoiseFilter(logging.Filter):
+    """控制台降噪过滤器：屏蔽第三方库的高频/DEBUG 噪音，文件日志不受影响。"""
+
+    # 屏蔽的 logger 名称前缀：SQL 回显 / gRPC / asyncio / casbin 模型加载
+    NOISY_PREFIXES = ("sqlalchemy.engine", "grpc", "asyncio", "casbin")
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return not record.name.startswith(self.NOISY_PREFIXES)
+
+
 class LoggingRich:
     """开发日志工具类。
 
@@ -110,9 +120,10 @@ class LoggingRich:
         root.setLevel(logging.DEBUG)
         # 屏蔽 markdown_it 解析器的 DEBUG 噪音
         logging.getLogger("markdown_it").setLevel(logging.WARNING)
-        # echo=True 时 SQLAlchemy 会自加默认 handler，导致每条 SQL 打印两遍；
-        # 预置 NullHandler 阻止它，记录继续传播到根 logger 由 Rich 统一输出
-        logging.getLogger("sqlalchemy.engine").addHandler(logging.NullHandler())
+        # echo=True 时 SQLAlchemy 会在 sqlalchemy.engine.Engine 子 logger 上自加
+        # 默认 stdout handler，导致每条 SQL 打印两遍；handler 不随 logger 层级继承，
+        # NullHandler 必须精确挂在 Engine 上才能阻止（记录仍传播到根 logger 统一输出）
+        logging.getLogger("sqlalchemy.engine.Engine").addHandler(logging.NullHandler())
 
         self.setup_console_logging()
         self.setup_file_logging()
@@ -144,6 +155,8 @@ class LoggingRich:
         handler.setLevel(logging.DEBUG)
         # 控制台超长消息截断显示（SQL 等长日志缩略，全文进日志文件，提示可点击跳转）
         handler.setFormatter(_TruncateFormatter(log_file=self._log_file_path("info")))
+        # 屏蔽第三方库高频噪音（SQL 回显/grpc/asyncio/casbin），文件日志仍全量记录
+        handler.addFilter(_NoConsoleNoiseFilter())
         logging.getLogger().addHandler(handler)
 
         # rich 接管 sys.excepthook，美化未捕获崩溃的 traceback
