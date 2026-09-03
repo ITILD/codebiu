@@ -35,11 +35,8 @@ from module_authorization.controller import token, casbin_rule, permission, role
 # # 博客模块: 目前仅注册权限声明(域 blog),控制器待业务开发后在此导入
 # from module_blog.config import permissions as blog_permissions  # noqa: F401
 # # 地理空间模块(Babylon 地球绘制 + PostGIS 点线面存储)
-# from module_geometry.controller import feature
-# from module_geometry.config import permissions as geometry_permissions  # noqa: F401
-import logging
-logger = logging.getLogger(__name__)
-logger.info("test: This is an info message")
+from module_geometry.controller import feature
+from module_geometry.config import permissions as geometry_permissions  # noqa: F401
 
 if __name__ == "__main__":
     import uvicorn

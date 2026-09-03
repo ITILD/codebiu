@@ -92,6 +92,16 @@ class DBPostgre(DBRelationInterface):
         Returns:
             SELECT 返回结果列表，其他操作返回影响行数
         """
+        # 未传入 session 时自动创建独立会话(执行后提交,适用于 DDL 等单条执行场景)
+        if session is None:
+            async with self.session_factory() as own_session:
+                result = await self._exec_in_session(sql, own_session)
+                await own_session.commit()
+                return result
+        return await self._exec_in_session(sql, session)
+
+    async def _exec_in_session(self, sql, session: AsyncSession):
+        """在指定会话中执行 SQL(事务由调用方管理,不自动提交)"""
         result = await session.exec(text(sql))
         # 处理返回结果
         if sql.strip().upper().startswith("SELECT"):

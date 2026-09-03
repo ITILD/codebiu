@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 import logging
 
+from common.config.db import db_manager
+from common.config.lifespan import register_startup_hook
 from common.config.server import app
 
 logger = logging.getLogger(__name__)
@@ -11,5 +13,14 @@ app.mount("/geometry", module_app)
 
 # 导入权限声明(注册到权限中心, 幂等)
 from module_geometry.config.permissions import GEOMETRY_DEFINE  # noqa: F401, E402
+
+
+@register_startup_hook
+async def enable_postgis():
+    """启用 PostGIS 空间扩展(geo_feature 的 geometry 列依赖该类型,须先于建表)"""
+    if db_manager.db_rel:
+        await db_manager.db_rel.exec("CREATE EXTENSION IF NOT EXISTS postgis")
+        logger.info("PostGIS extension ready.")
+
 
 logger.info("ok...server module_geometry服务配置")
