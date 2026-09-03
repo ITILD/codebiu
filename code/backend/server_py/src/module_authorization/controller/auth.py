@@ -63,6 +63,26 @@ async def login_for_access_token(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
     return token_response
 
+
+@router.post("/_token", summary="OAuth2 标准登录(Swagger Authorize 专用) 调试使用")
+async def login_for_oauth2(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    auth_service: AuthService = Depends(get_auth_service),
+) -> dict:
+    """
+    OAuth2 Password 流程标准端点,供 Swagger UI "Authorize" 按钮使用
+    响应为标准格式 {"access_token": ..., "token_type": "bearer"},
+    Swagger 才能自动提取并携带令牌调用其他接口;前端请继续使用 /login
+    """
+    try:
+        token_response = await auth_service.login(form_data.username, form_data.password)
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
+    return {
+        "access_token": token_response.tokens.access.token,
+        "token_type": "bearer",
+    }
+
 @router.post("/logout", summary="登出")
 async def logout(
     logout_request: AuthLogoutRequest,
