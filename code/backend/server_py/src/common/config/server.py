@@ -15,8 +15,6 @@ logger = logging.getLogger(__name__)
 
 # 总体配置
 SERVER_ROOT_PATH = conf.get("server.server_root_path")
-logger.info("%s%s", "server:http://127.0.0.1:", conf.server.port)
-logger.info("%s%s%s", "docs:http://127.0.0.1:", conf.server.port, "/docs")
 
 app = FastAPI(
     title="python工程模板",

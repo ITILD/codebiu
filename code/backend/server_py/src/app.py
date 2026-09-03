@@ -11,7 +11,7 @@ from module_main.controller import static as main_static, status, db, dict_type,
 # # 基础模块
 # from module_file.controller import filesystem
 from module_websearch.controller import websearch
-# from module_authorization.controller import token, casbin_rule, permission, role, user,auth,dept
+from module_authorization.controller import token, casbin_rule, permission, role, user,auth,dept
 # # 业务模块
 # from module_template.controller import static,template,template_ex,template_async_learn
 # from module_ai.controller import static as ai_static,model_config,llm_base,voice
@@ -51,7 +51,6 @@ if __name__ == "__main__":
     # from fastmcp import FastMCP
     # mcp = FastMCP.from_fastapi(app=app)
     # mcp.run(transport="http", host="127.0.0.1", port=9001)
-
 
     # dev启动服务
     uvicorn.run(app, host=conf.server.host, port=conf.server.port)

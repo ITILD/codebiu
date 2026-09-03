@@ -51,6 +51,8 @@ async def server_start():
     except Exception as e:
         logger.warning(f"Default dicts bootstrap failed: {e}")
 
+    
+
 
 async def server_end():
     logger.info("server_end...")
@@ -62,6 +64,11 @@ async def server_end():
 async def lifespan(app: FastAPI):
     # 启动时执行
     await server_start()
+
+    # 启动地址
+    logger.info("%s%s", "server:http://127.0.0.1:", conf.server.port)
+    logger.info("%s%s%s", "docs:http://127.0.0.1:", conf.server.port, "/docs")
+    
     yield
     # 关闭时执行
     await server_end()
