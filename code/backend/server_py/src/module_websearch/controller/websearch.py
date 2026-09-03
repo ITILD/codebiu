@@ -1,10 +1,10 @@
 from module_websearch.config.server import module_app
 from module_websearch.dependencies.websearch import get_websearch_service
 from module_websearch.service.websearch import WebSearchService
-from module_websearch.utils.websearch.do.websearch import Engine, EngineInfo, SearchResponse
+from module_websearch.utils.websearch.do.websearch import EngineInfo, SearchRequest, SearchResponse
 from module_authorization.dependencies.permission import require_permission
 
-from fastapi import APIRouter, HTTPException, Query, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends
 
 router = APIRouter()
 
@@ -19,7 +19,7 @@ async def list_engines(
     service: WebSearchService = Depends(get_websearch_service),
 ) -> list[EngineInfo]:
     """
-    查询全部可用搜索引擎元信息(默认引擎排前)
+    查询全部可用搜索引擎元信息(默认引擎排前,含是否需要/已配置 API Key)
     :param current_user_id: 当前登录用户ID(权限依赖注入)
     :param service: 搜索服务依赖注入
     :return: 引擎元信息列表
@@ -32,39 +32,33 @@ async def list_engines(
         )
 
 
-@router.get(
+@router.post(
     "/search",
     summary="网页搜索(默认 DuckDuckGo)",
     response_model=SearchResponse,
 )
 async def search(
-    query: str = Query(..., min_length=1, max_length=200, description="查询词"),
-    engine: Engine | None = Query(
-        None, description="引擎标识(duckduckgo/bing,为空用默认)"
-    ),
-    limit: int | None = Query(
-        None, ge=1, le=30, description="返回条数上限(为空用配置,上限30)"
-    ),
+    request: SearchRequest,
     current_user_id: str = Depends(require_permission("main", "search", "read")),
     service: WebSearchService = Depends(get_websearch_service),
 ) -> SearchResponse:
     """
     执行网页搜索
-    :param query: 查询词
-    :param engine: 引擎标识(为空使用默认引擎 duckduckgo)
-    :param limit: 返回条数上限
+    :param request: 搜索请求体(查询信息/引擎/条数上限/时间范围/屏蔽站点)
     :param current_user_id: 当前登录用户ID(权限依赖注入)
     :param service: 搜索服务依赖注入
-    :return: 搜索响应(标题/链接/摘要/来源)
+    :return: 搜索响应(标题/链接/摘要/来源/发布时间)
     """
     try:
-        return await service.search(query, engine, limit)
+        return await service.search(request)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
+        # 网络类异常(如超时)的 str 可能为空,补充异常类型名便于排查
+        detail = f"{type(e).__name__}: {e}" if str(e) else type(e).__name__
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"搜索引擎请求失败: {e}",
+            detail=f"搜索引擎请求失败: {detail}",
         )
 
 

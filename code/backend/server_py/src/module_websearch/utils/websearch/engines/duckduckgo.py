@@ -3,16 +3,25 @@ DuckDuckGo 搜索引擎实现(默认引擎,本地直连无需密钥)
 
 使用 html.duckduckgo.com/html/ 端点 POST 查询,
 返回经典 HTML 结构,BeautifulSoup 解析结果块。
+时间范围通过 df 参数支持;屏蔽站点为本地过滤。
 """
 from urllib.parse import parse_qs, unquote, urlparse
 
 from bs4 import BeautifulSoup
 
 from module_websearch.utils.websearch.base import SearchEngine
-from module_websearch.utils.websearch.do.websearch import Engine, SearchResult
+from module_websearch.utils.websearch.do.websearch import DateRange, Engine, SearchResult
 
 # DDG 轻量 HTML 端点(无 JS 依赖,适合服务端解析)
 SEARCH_URL = "https://html.duckduckgo.com/html/"
+
+# DateRange -> DDG df 参数映射(df 为空表示不限时间)
+DATE_RANGE_PARAMS: dict[DateRange, str] = {
+    DateRange.DAY: "d",
+    DateRange.WEEK: "w",
+    DateRange.MONTH: "m",
+    DateRange.YEAR: "y",
+}
 
 
 class DuckDuckGoEngine(SearchEngine):
@@ -20,22 +29,32 @@ class DuckDuckGoEngine(SearchEngine):
 
     name = Engine.DUCKDUCKGO
     display_name = "DuckDuckGo"
-    description = "默认引擎,本地直连无需密钥"
+    description = "默认引擎,本地直连无需密钥,支持时间范围与屏蔽站点"
 
-    async def search(self, query: str, limit: int) -> list[SearchResult]:
+    async def search(
+        self,
+        query: str,
+        limit: int,
+        date_range: DateRange = DateRange.ANY,
+        blocked_sites: list[str] | None = None,
+    ) -> list[SearchResult]:
         """
         执行 DuckDuckGo 搜索
-        :param query: 查询词
+        :param query: 查询信息(句子或关键词)
         :param limit: 返回条数上限
+        :param date_range: 时间范围限制(映射 df 参数)
+        :param blocked_sites: 屏蔽的站点域名列表(本地过滤)
         :return: 搜索结果列表
         """
         results: list[SearchResult] = []
+        # POST 表单参数: q 查询词, kl 地区, df 时间范围(any 时不传)
+        form: dict[str, str] = {"q": query, "kl": "wt-wt"}
+        df = DATE_RANGE_PARAMS.get(date_range)
+        if df:
+            form["df"] = df
         async with self.build_client() as client:
             # 分页参数 s 为偏移量,单页约25条,一般一页即可满足 limit
-            response = await client.post(
-                SEARCH_URL,
-                data={"q": query, "kl": "wt-wt"},
-            )
+            response = await client.post(SEARCH_URL, data=form)
             response.raise_for_status()
 
         soup = BeautifulSoup(response.text, "lxml")
@@ -62,6 +81,7 @@ class DuckDuckGoEngine(SearchEngine):
                     engine=self.name,
                 )
             )
+        results = self.filter_blocked(results, blocked_sites)
         return results[:limit]
 
     @staticmethod

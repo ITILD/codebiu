@@ -7,11 +7,13 @@
     3. 在下方 ENGINE_CLASSES 列表追加引擎类
 """
 from module_websearch.utils.websearch.base import SearchEngine
-from module_websearch.utils.websearch.engines.bing import BingEngine
 from module_websearch.utils.websearch.engines.duckduckgo import DuckDuckGoEngine
+from module_websearch.utils.websearch.engines.firecrawl import FirecrawlEngine
+from module_websearch.utils.websearch.engines.tavily import TavilyEngine
 
 # 引擎注册表(顺序即 /engines 接口返回顺序)
 ENGINE_CLASSES: list[type[SearchEngine]] = [
     DuckDuckGoEngine,
-    BingEngine,
+    TavilyEngine,
+    FirecrawlEngine,
 ]
