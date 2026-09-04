@@ -2,8 +2,10 @@ from module_rag.do.user_model import UserModel, UserModelUpdate
 from module_rag.dao.user_model import UserModelDao
 from langchain_core.language_models import BaseChatModel
 from module_ai.service.llm_base import LLMBaseService
+from module_ai.do.model_config import ModelScope
 from module_ai.utils.llm.do.llm_type import ModelType
 from module_authorization.config.casbin_rule import auth_manager
+from module_authorization.dao.user import UserDao
 import logging
 
 logger = logging.getLogger(__name__)
@@ -20,10 +22,11 @@ class UserModelService:
         """依赖注入构造器:初始化所需的数据访问对象"""
         self.user_model_dao = user_model_dao or UserModelDao()
         self.llm_base_service = llm_base_service or LLMBaseService()
+        self._user_dao = UserDao()  # 查询用户部门以校验部门模型
 
     async def _validate_model_access(self, model_id: str | None, user_id: str) -> None:
         """
-        校验模型配置使用权限: 配置归属本人 / 已共享(is_public) / 全局管理员,否则拒绝
+        校验模型配置使用权限: 配置为本人/本部门/公共(is_public)/全局管理员,否则拒绝
         防止用户绑定他人的模型配置(含 api_key)造成越权使用
         :param model_id: 模型配置ID(None 直接放行,表示未绑定)
         :param user_id: 当前用户ID
@@ -34,14 +37,27 @@ class UserModelService:
         config = await self.llm_base_service.model_config_service.get(model_id)
         if config is None:
             raise ValueError(f"模型配置不存在: {model_id}")
-        # 归属本人 或 已共享 放行
-        if config.user_id == user_id or config.is_public:
+        # 公共模型放行
+        if config.scope == ModelScope.PUBLIC:
             return
+        # 本人模型放行
+        if config.scope == ModelScope.USER and config.user_id == user_id:
+            return
+        # 部门模型: 校验当前用户所属部门
+        if config.scope == ModelScope.DEPT:
+            user = await self._user_dao.get(user_id)
+            if (
+                user is not None
+                and user.dept_id
+                and config.dept_id
+                and user.dept_id == config.dept_id
+            ):
+                return
         # 全局管理员放行
         enforcer = auth_manager.enforcer
         if enforcer is not None and enforcer.has_grouping_policy(user_id, "admin", "*"):
             return
-        raise ValueError(f"无权使用模型配置: {model_id}(仅可用自己的或已共享的模型)")
+        raise ValueError(f"无权使用模型配置: {model_id}(仅可用公共/本部门/自己的模型)")
 
     async def get_by_user(self, user_id: str) -> UserModel | None:
         """

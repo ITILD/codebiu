@@ -10,16 +10,25 @@
     >
       <el-option
         v-for="item in modelList"
-        :key="item.id"
-        :label="item.model"
+        :key="modelKeyLabel(item)"
         :value="item.id"
-      />
+        :label="modelMainLabel(item)"
+      >
+        <div flex flex-col>
+          <div flex items-center gap-1>
+            <span>{{ modelMainLabel(item) }}</span>
+            <el-tag v-if="item.is_default" type="warning" size="small">默认</el-tag>
+          </div>
+          <div text-xs text-note-sub>{{ item.model }} · {{ serverTypeLabel(item.server_type) }} · {{ scopeShortLabel(item.scope) }}</div>
+        </div>
+      </el-option>
     </el-select>
   </div>
 </template>
 
 <script setup lang="ts">
 import type { ModelConfig } from '../types/model_config'
+import { modelMainLabel, modelKeyLabel, scopeShortLabel, serverTypeLabel } from '../types/model_config'
 
 // 组件属性定义
 interface Props {
