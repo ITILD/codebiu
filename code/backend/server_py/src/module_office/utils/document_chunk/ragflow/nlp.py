@@ -541,26 +541,29 @@ def naive_merge(
         return False
 
     def _finalize() -> None:
-        nonlocal current_texts, current_tokens, current_sources
-        if not current_texts:
-            return
-        content = delimiter.join(current_texts)
-        if content.strip():
-            items.append(build_item(content, current_sources))
-
-        # overlap: 从当前块尾部截取文本注入下一个块 (参考 ragflow _apply_overlap_unconditional)
-        if overlap > 0 and current_texts:
-            tail_text = current_texts[-1]
-            overlap_len = int(len(tail_text) * overlap / 100)
-            if overlap_len > 0:
-                overlap_part = tail_text[-overlap_len:]
-                current_texts = [overlap_part] if overlap_part.strip() else []
-                current_tokens = count_tokens(overlap_part) if overlap_part else 0
-                current_sources = list(current_sources[-1:])
+            nonlocal current_texts, current_tokens, current_sources
+            if not current_texts:
                 return
-        current_texts = []
-        current_tokens = 0
-        current_sources = []
+            content = delimiter.join(current_texts)
+            if content.strip():
+                items.append(build_item(content, current_sources))
+
+            # 【优化点 2】Overlap 按句子边界提取, 避免单词/句子被硬切断
+            if overlap > 0 and current_texts:
+                tail_text = current_texts[-1]
+                # 估算需要重叠的 token 数 (按百分比换算)
+                target_overlap_tokens = int(count_tokens(tail_text) * overlap / 100)
+                if target_overlap_tokens > 0:
+                    # 使用句子级提取, 保证语义完整性
+                    overlap_part = take_sentences_from_end(tail_text, target_overlap_tokens)
+                    current_texts = [overlap_part] if overlap_part.strip() else []
+                    current_tokens = count_tokens(overlap_part) if overlap_part else 0
+                    current_sources = list(current_sources[-1:])
+                    return
+                    
+            current_texts = []
+            current_tokens = 0
+            current_sources = []
 
     for text, source_chunk in sub_sections:
         token_num = count_tokens(text)
