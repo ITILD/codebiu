@@ -18,6 +18,7 @@ class WebSearchService:
 
     def __init__(self):
         # 实例化并注册全部引擎(键为引擎唯一标识)
+        """依赖注入构造器:初始化所需的数据访问对象"""
         self._engines: dict[Engine, SearchEngine] = {
             engine_cls.name: engine_cls() for engine_cls in ENGINE_CLASSES
         }

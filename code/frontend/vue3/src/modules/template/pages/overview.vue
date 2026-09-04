@@ -9,7 +9,7 @@
               <component :is="item.icon" />
             </el-icon>
             <span font-semibold>{{ item.title }}</span>
-            <span text-xs text-gray-400 mt-1>{{ item.desc }}</span>
+            <span text-xs text-note-sub mt-1>{{ item.desc }}</span>
           </div>
         </el-card>
       </el-col>
@@ -24,9 +24,9 @@ import { Files, Grid, Camera, Box } from '@element-plus/icons-vue'
 const router = useRouter()
 
 const templates = [
-  { path: '/_sys/template/template', title: '模板管理', desc: 'CRUD 表格示例', icon: markRaw(Files), color: 'text-blue-500' },
-  { path: '/_sys/template/container', title: '布局容器', desc: 'Flex 布局示例', icon: markRaw(Grid), color: 'text-green-500' },
-  { path: '/_sys/template/mediapipe_face', title: '人脸识别', desc: 'MediaPipe 视觉', icon: markRaw(Camera), color: 'text-orange-500' },
-  { path: '/_sys/template/babylon', title: 'Babylon 3D', desc: '3D 场景示例', icon: markRaw(Box), color: 'text-purple-500' },
+  { path: '/template/template', title: '模板管理', desc: 'CRUD 表格示例', icon: markRaw(Files), color: 'text-blue-500' },
+  { path: '/template/container', title: '布局容器', desc: 'Flex 布局示例', icon: markRaw(Grid), color: 'text-green-500' },
+  { path: '/template/mediapipe_face', title: '人脸识别', desc: 'MediaPipe 视觉', icon: markRaw(Camera), color: 'text-orange-500' },
+  { path: '/template/babylon', title: 'Babylon 3D', desc: '3D 场景示例', icon: markRaw(Box), color: 'text-purple-500' },
 ]
 </script>

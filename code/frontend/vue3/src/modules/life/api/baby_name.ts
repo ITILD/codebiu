@@ -1,13 +1,13 @@
 /**
  * 宝宝名字预测相关的 API 接口
  */
-import { http_base_server } from '@/utils/http'
+import { http_base_server } from '@/common/api/http'
 import { fetchEventSource } from '@microsoft/fetch-event-source'
 import type {
   NameInfoPredictFullRequest,
   NameInfoResultList,
   NameInfoResult,
-} from '@/types/life/baby_name'
+} from '../types/baby_name'
 
 /**
  * 推测宝宝五行星座名字（流式 SSE）
@@ -22,7 +22,7 @@ export const predictBabyNameStream = async (
   onError?: (error: string) => void,
   onComplete?: () => void,
 ) => {
-  await fetchEventSource(`/base_server/life/baby_name/predict_baby_info_base`, {
+  await fetchEventSource(`/base_server/life/baby-names/predict-baby-info-base`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

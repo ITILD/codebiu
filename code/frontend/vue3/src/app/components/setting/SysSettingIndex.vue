@@ -6,7 +6,7 @@
 
 <script setup lang="ts">
 // import { storeToRefs } from 'pinia'
-import { SysSettingStore } from '@/stores/sys'
-import { i18n, languageOptions } from '@/i18n/language'
+import { SysSettingStore } from '@/common/stores/sys'
+import { i18n, languageOptions } from '@/common/i18n/language'
 const { sysStyle } = SysSettingStore()
 </script>

@@ -18,6 +18,7 @@ class ConversationService:
         conversation_dao: ConversationDao | None = None,
         chat_message_dao: ChatMessageDao | None = None,
     ):
+        """依赖注入构造器:初始化所需的数据访问对象"""
         self.conversation_dao = conversation_dao or ConversationDao()
         self.chat_message_dao = chat_message_dao or ChatMessageDao()
 
@@ -33,12 +34,21 @@ class ConversationService:
 
     @DaoRel
     async def delete(self, conversation_id: str, session: AsyncSession | None = None):
-        """删除对话(同时删除关联消息)"""
+        """删除对话(同时删除关联消息; checkpointer 清理失败时降级为告警,不影响删除结果)"""
         await self.chat_message_dao.delete_by_conversation(conversation_id, session)
         await self.conversation_dao.delete(conversation_id, session)
         # TODO 统一事务
-        checkpointer = await get_checkpointer()
-        await checkpointer.adelete_thread(conversation_id)
+        try:
+            checkpointer = await get_checkpointer()
+            await checkpointer.adelete_thread(conversation_id)
+        except Exception as e:
+            # langgraph checkpointer 不可用(如 Windows ProactorEventLoop 下 psycopg 无法建连)
+            # 时降级: 会话与消息已删除,残留的 checkpoint 数据无害,仅记录告警
+            import logging
+
+            logging.getLogger(__name__).warning(
+                f"清理会话 checkpointer 失败(已降级) conversation_id={conversation_id}: {e}"
+            )
 
     async def update(self, conversation_id: str, data: ConversationUpdate):
         """更新对话"""

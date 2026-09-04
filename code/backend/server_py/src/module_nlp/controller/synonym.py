@@ -121,7 +121,7 @@ async def list_synonym_groups(
     :return: 分页响应结果
     """
     try:
-        return await service.list_all_by_pid(pagination, pid)
+        return await service.list_paged_by_pid(pagination, pid)
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
@@ -314,7 +314,7 @@ async def batch_search_synonyms(
 
 
 @router.post(
-    "/synonyms/search/batch_group",
+    "/synonyms/search/batch-group",
     summary="""
     接收一组单词列表,识别其中的同义词簇(Synonym Clusters),并将属于同一语义簇的输入词合并.
     返回结果为对象列表,每个对象代表一个独立的语义簇,包含该簇内所有的输入词以及排除输入词后的扩展同义词.""",
@@ -342,4 +342,4 @@ async def get_synonym_group_classified_results(
         )
 
 
-module_app.include_router(router, prefix="/nlp/synonyms", tags=["同义词管理"])
+module_app.include_router(router, prefix="/synonyms", tags=["同义词管理"])

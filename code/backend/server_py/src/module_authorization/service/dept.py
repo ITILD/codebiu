@@ -6,6 +6,7 @@ class DeptService:
     """部门服务"""
 
     def __init__(self, dept_dao: DeptDao):
+        """依赖注入构造器:初始化所需的数据访问对象"""
         self.dept_dao = dept_dao or DeptDao()
 
     async def add(self, dept: DeptCreate) -> DeptResponse:

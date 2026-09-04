@@ -1,9 +1,9 @@
 <template>
-  <div flex flex-col h-app w-full bg-gray-50>
+  <div flex flex-col h-app w-full bg-note-paper>
     <!-- 顶部引擎选择栏(方案来自 AI 服务 → 模型配置) -->
-    <div p-4 border-b bg-white shadow-sm>
+    <div p-4 border-b bg-note-card shadow-note>
       <div flex flex-wrap items-center gap-4>
-        <span text-sm font-medium text-gray-600>语音引擎:</span>
+        <span text-sm font-medium text-note>语音引擎:</span>
         <el-radio-group v-model="engine">
           <el-radio-button value="">自动(模型配置)</el-radio-button>
           <el-radio-button value="sherpa">Sherpa</el-radio-button>
@@ -23,11 +23,11 @@
           v-if="engine === '' && (!asrConfigLabel || !ttsConfigLabel)"
           type="primary"
           text-sm
-          @click="router.push('/_sys/ai/model_config')"
+          @click="router.push('/ai/model_config')"
         >
           去模型配置添加 asr/tts 方案
         </el-link>
-        <span text-xs text-gray-400>本地模型放置在后端 temp_source/model/voice 目录</span>
+        <span text-xs text-note-sub>本地模型放置在后端 temp_source/model/voice 目录</span>
       </div>
     </div>
 
@@ -56,7 +56,7 @@
                     accept="audio/*"
                     @change="handleAudioChange"
                   />
-                  <span v-if="asrFile" text-gray-600 text-sm text-ellipsis max-w-60>
+                  <span v-if="asrFile" text-note text-sm text-ellipsis max-w-60>
                     {{ asrFile.name }}
                   </span>
                 </div>
@@ -75,7 +75,7 @@
                 <div v-if="asrResult || asrElapsed" mt-2>
                   <div flex items-center justify-between mb-2>
                     <span font-bold>识别结果</span>
-                    <span v-if="asrElapsed" text-xs text-gray-400>
+                    <span v-if="asrElapsed" text-xs text-note-sub>
                       耗时 {{ asrElapsed.toFixed(3) }}s
                     </span>
                   </div>
@@ -122,9 +122,9 @@
                   <div font-bold mb-2>实时识别</div>
                   <div
                     p-3
-                    bg-gray-50
+                    bg-note-paper
                     border
-                    border-gray-200
+                    border-note
                     rounded
                     min-h-24
                     text-sm
@@ -138,7 +138,7 @@
                       v-if="recording"
                       inline-block w-2 h-5 ml-1 bg-current opacity-70 animate-blink align-middle
                     ></span>
-                    <span v-if="!recording && !finalText && !partialText" text-gray-400>
+                    <span v-if="!recording && !finalText && !partialText" text-note-sub>
                       点击"开始录音"后说话，识别结果将实时显示
                     </span>
                   </div>
@@ -173,7 +173,7 @@
               <div flex items-center gap-2 flex-1 min-w-40>
                 <span text-sm>语速:</span>
                 <el-slider v-model="ttsSpeed" :min="0.5" :max="2" :step="0.1" flex-1 />
-                <span text-xs text-gray-500 w-10>{{ ttsSpeed.toFixed(1) }}x</span>
+                <span text-xs text-note-sub w-10>{{ ttsSpeed.toFixed(1) }}x</span>
               </div>
             </div>
 
@@ -232,17 +232,17 @@
 import { ref, computed, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Microphone, VideoPause } from '@element-plus/icons-vue'
-import type { VoiceEngine } from '@/types/voice'
-import type { PaginationParams } from '@/types/common'
-import type { ModelConfig } from '@/types/model_config'
-import { serverTypeLabel } from '@/types/model_config'
-import { listModelConfigs } from '@/api/model_config'
+import type { VoiceEngine } from '../types/voice'
+import type { PaginationParams } from '@/common/types/common'
+import type { ModelConfig } from '../types/model_config'
+import { serverTypeLabel } from '../types/model_config'
+import { listModelConfigs } from '../api/model_config'
 import {
   recognizeAudio,
   synthesizeAudioFile,
   synthesizeAudioStream,
   buildAsrStreamUrl,
-} from '@/api/voice'
+} from '../api/voice'
 
 const router = useRouter()
 

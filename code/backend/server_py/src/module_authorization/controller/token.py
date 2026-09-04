@@ -1,11 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 import jwt
+from fastapi import Request
 
 from module_authorization.config.server import module_app
 from module_authorization.dependencies.token import get_token_service
 from module_authorization.service.token import TokenService
 from module_authorization.do.token import TokenCreateRequest,RefreshTokenRequest,RevokeTokenRequest
 router = APIRouter()
+
+
+def _token_access_from_query(request: Request) -> str | None:
+    """从查询参数提取访问令牌(Request 依赖,FastAPI 不会误解析 lambda 形参)"""
+    return request.query_params.get("token_access")
+
 
 @router.post(
     "/create", 
@@ -63,8 +70,8 @@ async def token_refresh(
     summary="验证令牌"
 )
 async def verify_token(
-    token_access = Depends(lambda x: x.query_params.get("token_access")),
-    service:TokenService = Depends(get_token_service)
+    token_access: str | None = Depends(_token_access_from_query),
+    service: TokenService = Depends(get_token_service),
 ):
     """
     验证访问令牌的有效性
@@ -85,7 +92,7 @@ async def verify_token(
             "valid": True,
             "payload": payload
         }
-    except jwt.JWTError as e:
+    except jwt.InvalidTokenError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid token: {str(e)}",
@@ -95,7 +102,7 @@ async def verify_token(
 
 
 @router.delete(
-    "/revoke_all/{user_id}", 
+    "/revoke-all/{user_id}",
     summary="撤销用户所有令牌"
 )
 async def revoke_all_tokens(
@@ -124,8 +131,8 @@ async def revoke_all_tokens(
     summary="获取令牌信息"
 )
 async def get_token_info(
-    token_access = Depends(lambda x: x.query_params.get("token_access")),
-    service:TokenService = Depends(get_token_service)
+    token_access: str | None = Depends(_token_access_from_query),
+    service: TokenService = Depends(get_token_service),
 ):
     """
     获取令牌的详细信息
@@ -139,15 +146,32 @@ async def get_token_info(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Missing token_access parameter"
         )
-    
+
     try:
-        token_info = await service.get_token_by_user_id(token_access)
+        # 先解码令牌提取用户ID,再查数据库中的令牌记录
+        payload = await service.verify_token(token_access)
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token: missing 'sub'",
+                headers={"WWW-Authenticate": "Bearer"}
+            )
+        token_info = await service.get_token_by_user_id(user_id)
         if not token_info:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Token not found"
             )
         return token_info
+    except HTTPException:
+        raise
+    except jwt.InvalidTokenError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid token: {str(e)}",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -156,4 +180,4 @@ async def get_token_info(
 
 
 # 将路由器挂载到模块应用
-module_app.include_router(router, prefix="/token", tags=["刷新令牌管理"])
+module_app.include_router(router, prefix="/tokens", tags=["刷新令牌管理"])

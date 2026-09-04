@@ -15,9 +15,9 @@
       </template>
     </TableSearchBar>
 
-    <!-- 树形数据表格 -->
+    <!-- 树形数据表格(默认不展开, 点击箭头逐级展开) -->
     <el-table :data="filteredTree" v-loading="loading" stripe w-full row-key="id"
-      :tree-props="{ children: 'children' }" default-expand-all>
+      :tree-props="{ children: 'children' }">
       <el-table-column prop="name" label="菜单名称" min-width="180" />
       <el-table-column prop="menu_type" label="菜单类型" min-width="100">
         <template #default="{ row }">
@@ -111,14 +111,14 @@ import {
   getPermission,
   getPermissionTree,
   updatePermission,
-} from '@/api/authorization/permission'
-import { menuTypeOptions } from '@/types/authorization/permission'
-import TableSearchBar, { type SearchField } from '@/components/app/sys/TableSearchBar.vue'
+} from '../api/permission'
+import { menuTypeOptions } from '../types/permission'
+import TableSearchBar, { type SearchField } from '@/common/components/TableSearchBar.vue'
 import type {
   PermissionCreate,
   PermissionTree,
   PermissionUpdate,
-} from '@/types/authorization/permission'
+} from '../types/permission'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
 
 // 搜索字段配置(名称/类型/状态多字段筛选, 客户端过滤树)

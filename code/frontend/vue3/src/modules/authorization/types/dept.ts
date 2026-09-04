@@ -1,4 +1,4 @@
-// src/types/authorization/dept.ts
+// src/modules/authorization/types/dept.ts
 
 interface DeptBase {
   parent_id: string;

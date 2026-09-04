@@ -81,7 +81,7 @@
       <el-alert type="info" :closable="false" mb-3
         title="勾选权限树节点为角色授权；模块预设的通配策略(如模块管理员角色)不受影响" />
       <el-tree ref="treeRef" :data="permTreeData" show-checkbox node-key="code"
-        :props="{ label: 'name', children: 'children' }" default-expand-all v-loading="permLoading" />
+        :props="{ label: 'name', children: 'children' }" v-loading="permLoading" />
       <template #footer>
         <span>
           <el-button @click="permDialogVisible = false">取消</el-button>
@@ -93,13 +93,13 @@
 </template>
 
 <script setup lang="ts">
-import { createRole, deleteRole, getRole, listRoles, updateRole } from '@/api/authorization/role'
-import { getModuleTree, getRolePermCodes, syncRolePermissions } from '@/api/authorization/casbin'
-import type { ModulePermNode } from '@/api/authorization/casbin'
-import type { PaginationParams, PaginationResponse } from '@/types/common'
-import type { Role, RoleCreate, RoleUpdate } from '@/types/authorization/role'
-import { dataScopeOptions } from '@/types/authorization/role'
-import type { SearchField } from '@/components/app/sys/TableSearchBar.vue'
+import { createRole, deleteRole, getRole, listRoles, updateRole } from '../api/role'
+import { getModuleTree, getRolePermCodes, syncRolePermissions } from '../api/casbin'
+import type { ModulePermNode } from '../api/casbin'
+import type { PaginationParams, PaginationResponse } from '@/common/types/common'
+import type { Role, RoleCreate, RoleUpdate } from '../types/role'
+import { dataScopeOptions } from '../types/role'
+import type { SearchField } from '@/common/components/TableSearchBar.vue'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
 
 // 搜索字段配置(名称/权限字符/状态多字段筛选)

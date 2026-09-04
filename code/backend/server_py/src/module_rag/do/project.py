@@ -12,6 +12,7 @@ class KbCategory(str, Enum):
 
     @classmethod
     def values(cls) -> tuple[str, ...]:
+        """返回全部分类值的元组(用于描述文案与校验)"""
         return tuple(member.value for member in cls)
 
 

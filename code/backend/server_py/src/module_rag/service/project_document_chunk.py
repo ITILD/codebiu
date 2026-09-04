@@ -18,6 +18,7 @@ class ProjectDocumentChunkService:
         project_document_chunk_dao: ProjectDocumentChunkDao | None = None,
         user_model_service: UserModelService | None = None,
     ):
+        """依赖注入构造器:初始化所需的数据访问对象"""
         self.project_document_chunk_dao = (
             project_document_chunk_dao or ProjectDocumentChunkDao()
         )

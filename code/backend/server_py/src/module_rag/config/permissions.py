@@ -27,7 +27,7 @@ RAG_DEFINE = ModulePermissionDefine(
             name="项目管理",
             code="rag:project",
             menu_type="C",
-            path="/_sys/rag/project",
+            path="/rag/project",
             order_num=1,
             children=[
                 PermNode(name="查询", code="rag:project:read", menu_type="F"),
@@ -40,7 +40,7 @@ RAG_DEFINE = ModulePermissionDefine(
             name="文档管理",
             code="rag:doc",
             menu_type="C",
-            path="/_sys/rag/document",
+            path="/rag/document",
             order_num=2,
             children=[
                 PermNode(name="查看/下载", code="rag:doc:read", menu_type="F"),
@@ -53,7 +53,7 @@ RAG_DEFINE = ModulePermissionDefine(
             name="成员管理",
             code="rag:member",
             menu_type="C",
-            path="/_sys/rag/member",
+            path="/rag/member",
             order_num=3,
             children=[
                 PermNode(name="查看", code="rag:member:read", menu_type="F"),
@@ -66,7 +66,7 @@ RAG_DEFINE = ModulePermissionDefine(
             name="知识库问答",
             code="rag:chat",
             menu_type="C",
-            path="/_sys/rag/conversation",
+            path="/rag/conversation",
             order_num=4,
             children=[
                 PermNode(name="查看历史", code="rag:chat:read", menu_type="F"),

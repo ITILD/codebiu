@@ -34,14 +34,14 @@
 
 <script setup lang="ts">
 const LazyBaseMoacoEdit = defineAsyncComponent(
-  () => import('@/components/app/ide/BaseMoacoEdit.vue'),
+  () => import('@/common/components/ide/BaseMoacoEdit.vue'),
 )
 const LazyBaseMoacoEditControl = defineAsyncComponent(
-  () => import('@/components/app/ide/BaseMoacoEditControl.vue'),
+  () => import('@/common/components/ide/BaseMoacoEditControl.vue'),
 )
-import { CodeType } from '@/common/enum/code'
+import { CodeType } from '@/common/enums/code'
 // 所有状态
-import { useAuthStore } from '@/stores/auth'
+import { useAuthStore } from '@/common/stores/auth'
 
 const authStore = useAuthStore()
 
@@ -49,7 +49,7 @@ const authStore = useAuthStore()
 const selectedLanguage = ref(CodeType.json)
 
 // 导入系统设置 Store
-import { SysSettingStore } from '@/stores/sys'
+import { SysSettingStore } from '@/common/stores/sys'
 
 const sysStore = SysSettingStore()
 

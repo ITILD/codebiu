@@ -1,4 +1,4 @@
-# 开发辅助模块 (Module Dev Tools)
+﻿# 开发辅助模块 (Module Dev Tools)
 
 基于Python标准库 `string.Template` 的模板管理模块，提供模板字符串的增删改查和渲染功能。
 
@@ -15,20 +15,20 @@
 
 ### 基础CRUD操作
 
-- `POST /dev-tools/template_strings` - 创建模板字符串
-- `GET /dev-tools/template_strings/list` - 分页查询模板列表
-- `GET /dev-tools/template_strings/scroll` - 无限滚动查询
-- `GET /dev-tools/template_strings/{id}` - 获取单个模板详情
-- `PUT /dev-tools/template_strings/{id}` - 更新模板
-- `DELETE /dev-tools/template_strings/{id}` - 删除模板
+- `POST /dev-tools/template-strings` - 创建模板字符串
+- `GET /dev-tools/template-strings/list` - 分页查询模板列表
+- `GET /dev-tools/template-strings/scroll` - 无限滚动查询
+- `GET /dev-tools/template-strings/{id}` - 获取单个模板详情
+- `PUT /dev-tools/template-strings/{id}` - 更新模板
+- `DELETE /dev-tools/template-strings/{id}` - 删除模板
 
 ### 高级功能
 
-- `POST /dev-tools/template_strings/render` - 渲染模板
-- `GET /dev-tools/template_strings/category/{category}` - 按分类查询
-- `GET /dev-tools/template_strings/search/{name}` - 按名称搜索
-- `GET /dev-tools/template_strings/active/list` - 获取激活模板
-- `POST /dev-tools/template_strings/validate` - 验证模板语法
+- `POST /dev-tools/template-strings/render` - 渲染模板
+- `GET /dev-tools/template-strings/category/{category}` - 按分类查询
+- `GET /dev-tools/template-strings/search/{name}` - 按名称搜索
+- `GET /dev-tools/template-strings/active/list` - 获取激活模板
+- `POST /dev-tools/template-strings/validate` - 验证模板语法
 
 ## 模板语法
 
@@ -64,7 +64,7 @@
 ### 创建模板
 
 ```python
-POST /dev-tools/template_strings
+POST /dev-tools/template-strings
 {
     "name": "欢迎邮件模板",
     "description": "新用户欢迎邮件模板",
@@ -78,7 +78,7 @@ POST /dev-tools/template_strings
 ### 渲染模板
 
 ```python
-POST /dev-tools/template_strings/render
+POST /dev-tools/template-strings/render
 {
     "template_id": "template_id_here",
     "variables": {

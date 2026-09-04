@@ -33,7 +33,33 @@ export default defineConfig(
       // 插件配置
       plugins: [
         vue(),
-        VueRouter({}),
+        // 自动路由(特性/模块化架构):
+        // 1. src/pages            —— 全局页面(首页/后台工作台/账户设置/404 等)
+        // 2. src/modules/*/pages  —— 各业务模块页面, 按模块规范生成路由 /<模块名>/<页面>,
+        //    如 src/modules/authorization/pages/user.vue -> /authorization/user
+        //    页面与所在模块的 api/components/types 同目录, 删除模块文件夹即删除整个功能
+        VueRouter({
+          routesFolder: [
+            'src/pages',
+            {
+              src: 'src/modules',
+              filePatterns: '**/pages/**',
+              path: (file) => {
+                // D:/.../src/modules/<模块>/pages/<页面>.vue -> <模块>/<页面>.vue
+                const posixFile = file.replace(/\\/g, '/')
+                const rest = posixFile.slice(posixFile.lastIndexOf('src/modules') + 'src/modules'.length + 1)
+                return rest.replace('/pages/', '/')
+              },
+            },
+          ],
+          // 路由 meta 标记(登录拦截与侧边栏显示的依据):
+          // 首页与 404 为公开页, 其余(后台工作台/账户设置/各模块页面)统一标记 admin
+          extendRoute: (route) => {
+            const file = (route.component ?? '').replace(/\\/g, '/')
+            const isPublic = file.endsWith('/src/pages/index.vue') || file.includes('/[..all].vue')
+            if (file && !isPublic) route.addToMeta({ admin: true })
+          },
+        }),
         vueDevTools(),
 
         // 辅助导入和设定 tailwindcss 等 css 框架
@@ -52,6 +78,11 @@ export default defineConfig(
 
         // Auto-import Element Plus components from templates
         Components({
+          // 自动注册全局公共组件(模板中无需 import):
+          // src/common/components —— 与业务无关的通用组件(TableSearchBar/chat/ide/icons)
+          // src/app/components    —— 应用壳组件(SysHeader/SysSidebar/SysFooter/设置面板)
+          // 业务模块私有组件放在 src/modules/*/components, 使用时显式 import
+          dirs: ['src/common/components', 'src/app/components'],
           resolvers: [
             // https://icones.netlify.app/ 自动注册图标组件“前缀-使用的图标库名称-图标名”  <i-ep-edit />
             IconsResolver({
@@ -64,8 +95,8 @@ export default defineConfig(
               { importStyle: 'css' })
           ],
           dts: path.resolve(pathSrc, 'components.d.ts'), // 组件类型声明文件位置
-          // 排除 MonacoEditor 组件（假设它在 src/components/MonacoEditor.vue）  排除整个目录
-          exclude: [/BaseMoacoEdit\.vue$/, /src\/components\/heavy\/.*\.vue$/],
+          // 排除 MonacoEditor 组件(由页面 defineAsyncComponent 异步加载, 避免打进主包)
+          exclude: [/BaseMoacoEdit\.vue$/],
         }),
         Icons({ autoInstall: true }), //自动下载图标库 必须在 Components 之后或独立存在
 

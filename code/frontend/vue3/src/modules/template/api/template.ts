@@ -1,12 +1,12 @@
-// src/api/template.ts
-import { http_base_server } from '@/utils/http';
+// src/modules/template/api/template.ts
+import { http_base_server } from '@/common/api/http';
 import {
   type InfiniteScrollParams,
   type InfiniteScrollResponse,
   type PaginationParams,
   type PaginationResponse,
-} from '@/types/common';
-import type { Template, TemplateCreate, TemplateUpdate } from '@/types/template/template';
+} from '@/common/types/common';
+import type { Template, TemplateCreate, TemplateUpdate } from '../types/template';
 
 /**
  * 创建新模板

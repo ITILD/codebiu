@@ -27,6 +27,7 @@ class TemplateStringService:
     """
 
     def __init__(self, template_string_dao: TemplateStringDao = None):
+        """依赖注入构造器:初始化所需的数据访问对象"""
         self.template_string_dao = template_string_dao or TemplateStringDao()
 
     async def add(self, template_string: TemplateStringCreate) -> str:
@@ -76,13 +77,13 @@ class TemplateStringService:
         """
         return await self.template_string_dao.get(id)
 
-    async def list_all(self, pagination: PaginationParams) -> PaginationResponse:
+    async def list_paged(self, pagination: PaginationParams) -> PaginationResponse:
         """
         分页查询模板字符串列表
         :param pagination: 分页参数
         :return: 分页响应结果
         """
-        items = await self.template_string_dao.list_all(pagination)
+        items = await self.template_string_dao.list_paged(pagination)
         total = await self.template_string_dao.count()
         return PaginationResponse.create(items, total, pagination)
 

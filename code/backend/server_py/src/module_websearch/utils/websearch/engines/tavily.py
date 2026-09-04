@@ -30,6 +30,7 @@ class TavilyEngine(SearchEngine):
     requires_api_key = True
 
     def is_configured(self) -> bool:
+        """判断引擎是否已配置API Key(未配置时在引擎列表中置灰)"""
         return bool(TAVILY_API_KEY)
 
     def _auth_headers(self) -> dict[str, str]:

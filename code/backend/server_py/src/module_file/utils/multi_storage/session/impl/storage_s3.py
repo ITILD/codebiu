@@ -1,14 +1,17 @@
 import aioboto3
 from typing import AsyncIterator
 import io
+import logging
 from module_file.utils.multi_storage.session.interface.strorage_interface import (
     StorageInterface,
 )
 from module_file.utils.multi_storage.do.storage_config import S3Storage, PresignedType
 from botocore.config import Config as async_config
 
+logger = logging.getLogger(__name__)
+
 class S3StorageInterface(StorageInterface):
-    """S3存储实现"""
+    """S3存储实现(rustfs/minio/oss 等S3兼容存储共用)"""
 
     def __init__(self, config: S3Storage):
         self.config = config
@@ -37,6 +40,28 @@ class S3StorageInterface(StorageInterface):
             client_kwargs["region_name"] = self.config.region
 
         return self.session.client(**client_kwargs)
+
+    async def ensure_bucket(self) -> None:
+        """
+        启动时确保桶存在(不存在自动创建,rustfs/minio 零配置接入)
+        :raises: 创建失败时抛出异常(调用方可捕获降级为警告)
+        """
+        async with self._get_client() as client:
+            try:
+                await client.head_bucket(Bucket=self.bucket)
+                return
+            except Exception:
+                pass
+        # head 失败(通常 404)再尝试创建
+        async with self._get_client() as client:
+            kwargs = {"Bucket": self.bucket}
+            # 非 us-east-1 区域需要显式 LocationConstraint
+            if self.config.region and self.config.region != "us-east-1":
+                kwargs["CreateBucketConfiguration"] = {
+                    "LocationConstraint": self.config.region
+                }
+            await client.create_bucket(**kwargs)
+            logger.info(f"存储桶不存在,已自动创建: {self.bucket}")
 
     async def save(
         self, key: str, data: bytes | io.IOBase | AsyncIterator[bytes]

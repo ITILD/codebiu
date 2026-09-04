@@ -73,11 +73,11 @@ class UserDao:
         查询单个用户
         :param id: 要查询的用户ID
         :param session: 可选数据库会话
-        :return: 用户对象，未找到返回None
+        :return: 用户对象，未找到返回None(由 service 层映射 404)
         """
         user = await session.get(User, id)
         if not user:
-            raise ValueError(f"未找到ID为 {id} 的用户")
+            return None
         user_data = user.model_dump(exclude={"password"})
         return UserResponse.model_validate(user_data)
 
@@ -94,7 +94,7 @@ class UserDao:
         return result.first()
 
     @DaoRel
-    async def list_all(
+    async def list_paged(
         self,
         pagination: PaginationParams,
         session: AsyncSession | None = None,

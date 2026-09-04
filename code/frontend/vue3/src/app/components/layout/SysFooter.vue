@@ -30,12 +30,12 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import GmailSVG from '@/components/miniUI/miniSvg/GmailSVG.vue'
-import GithubSVG from '@/components/miniUI/miniSvg/GithubSVG.vue'
-import DribbbleSVG from '@/components/miniUI/miniSvg/DribbbleSVG.vue'
+import GmailSVG from '@/common/components/icons/GmailSVG.vue'
+import GithubSVG from '@/common/components/icons/GithubSVG.vue'
+import DribbbleSVG from '@/common/components/icons/DribbbleSVG.vue'
 
 // 样式控制
-import { SysSettingStore } from '@/stores/sys'
+import { SysSettingStore } from '@/common/stores/sys'
 const sysSettingStore = SysSettingStore()
 const sysStyle = sysSettingStore.sysStyle
 

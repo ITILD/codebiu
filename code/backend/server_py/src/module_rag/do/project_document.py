@@ -53,10 +53,20 @@ class DocType:
     # 判断文件扩展名是否在允许的集合中 docx、xlsx、pptx 等
     @staticmethod
     def is_allowed_extension(ext: str) -> bool:
+        """判断文件扩展名是否允许上传
+
+        :param ext: 文件扩展名(不含点,如 'pdf')
+        :return: 允许返回True
+        """
         return ext in DocType.ALLOWED_EXTENSIONS
 
     @staticmethod
     def is_allowed_path(path: str) -> bool:
+        """判断文件路径的扩展名是否允许上传
+
+        :param path: 文件路径
+        :return: 允许返回True
+        """
         ext = Path(path).suffix.lstrip(".").lower()
         return DocType.is_allowed_extension(ext)
 

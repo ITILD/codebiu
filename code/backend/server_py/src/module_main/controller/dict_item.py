@@ -63,7 +63,7 @@ async def list_dict_items(
     :return: 分页响应结果
     """
     try:
-        pagination_response: PaginationResponse = await service.list_all(pagination)
+        pagination_response: PaginationResponse = await service.list_paged(pagination)
         return pagination_response
     except Exception as e:
         raise HTTPException(
@@ -71,7 +71,7 @@ async def list_dict_items(
         )
 
 
-@router.get("/dict_type/{type_code}", summary="根据字典类型编码查询字典项列表", response_model=list[DictItem])
+@router.get("/by-type/{type_code}", summary="根据字典类型编码查询字典项列表", response_model=list[DictItem])
 async def list_dict_items_by_type(
     type_code: str,
     service: DictItemService = Depends(get_dict_item_service),
@@ -91,7 +91,7 @@ async def list_dict_items_by_type(
         )
 
 
-@router.get("/count/dict_type/{type_code}", summary="根据字典类型统计字典项数量", response_model=int)
+@router.get("/by-type/{type_code}/count", summary="根据字典类型统计字典项数量", response_model=int)
 async def count_dict_items_by_type(
     type_code: str,
     service: DictItemService = Depends(get_dict_item_service),

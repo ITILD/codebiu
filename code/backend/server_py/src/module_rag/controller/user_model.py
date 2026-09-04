@@ -57,6 +57,9 @@ async def update_my_model_binding(
     """
     try:
         return await service.upsert(current_user_id, user_model)
+    except ValueError as e:
+        # 模型配置不存在/无权使用等业务校验失败
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)

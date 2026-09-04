@@ -1,4 +1,4 @@
-// src/types/model_config.ts
+// src/modules/ai/types/model_config.ts
 // 模型配置类型定义(多类型模型: chat/embeddings/rerank/ocr/asr/tts)
 
 /** 模型服务方案(与后端 ModelServerType 对齐) */
@@ -81,6 +81,8 @@ interface ModelConfigBase {
   model: string;
   url?: string;
   api_key?: string;
+  /** 共享标记(True=所有用户可绑定使用) */
+  is_public?: boolean;
   pay_in?: number;
   pay_out?: number;
   input_tokens?: number;
@@ -109,6 +111,8 @@ interface ModelConfigUpdate {
   model?: string;
   url?: string;
   api_key?: string;
+  /** 共享标记(True=所有用户可绑定使用) */
+  is_public?: boolean;
   pay_in?: number;
   pay_out?: number;
   input_tokens?: number;

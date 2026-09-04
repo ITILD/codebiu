@@ -84,7 +84,7 @@ class BabyNameDao:
         return await session.get(BabyName, id)
 
     @DaoRel
-    async def list_all(self, pagination: PaginationParams, session: AsyncSession | None = None):
+    async def list_paged(self, pagination: PaginationParams, session: AsyncSession | None = None):
         """
         获取宝宝名字列表
         :param pagination: 分页参数
@@ -92,15 +92,7 @@ class BabyNameDao:
         :return: 宝宝名字列表
         """
         stmt = select(BabyName).offset(pagination.offset).limit(pagination.limit)
-        
-        if pagination.order_by:
-            order_field = getattr(BabyName, pagination.order_by, None)
-            if order_field:
-                if pagination.desc:
-                    stmt = stmt.order_by(order_field.desc())
-                else:
-                    stmt = stmt.order_by(order_field.asc())
-        
+
         result = await session.exec(stmt)
         return result.all()
 
@@ -113,33 +105,38 @@ class BabyNameDao:
         """
         stmt = select(func.count(BabyName.id))
         result = await session.exec(stmt)
-        return result.scalar_one()
+        return result.one()
 
     @DaoRel
     async def get_scroll(self, params: InfiniteScrollParams, session: AsyncSession | None = None):
         """
-        滚动加载宝宝名字列表
+        滚动加载宝宝名字列表(基于 last_id 游标 + 排序字段)
         :param params: 滚动参数
         :param session: 可选数据库会话
-        :return: 宝宝名字列表
+        :return: 宝宝名字列表(limit+1 条, 由 service 层判断 has_more)
         """
-        stmt = select(BabyName).limit(params.limit)
-        
-        if params.anchor:
-            anchor = await session.get(BabyName, params.anchor)
-            if anchor:
-                if params.direction == ScrollDirection.UP:
-                    stmt = stmt.where(BabyName.id < anchor.id)
-                else:
-                    stmt = stmt.where(BabyName.id > anchor.id)
-        
-        if params.order_by:
-            order_field = getattr(BabyName, params.order_by, None)
-            if order_field:
-                if params.desc:
-                    stmt = stmt.order_by(order_field.desc())
-                else:
-                    stmt = stmt.order_by(order_field.asc())
-        
+        stmt = select(BabyName)
+        # 默认排序字段为 created_at
+        sort_by = params.sort_by if params.sort_by else "created_at"
+
+        if params.last_id:
+            anchor = await session.get(BabyName, params.last_id)
+            if not anchor:
+                raise ValueError(f"未找到ID为 {params.last_id} 的宝宝名字")
+
+            sort_value = getattr(anchor, sort_by)
+            search_value = getattr(BabyName, sort_by)
+            if params.direction == ScrollDirection.UP:
+                stmt = stmt.where(search_value > sort_value)
+            else:
+                stmt = stmt.where(search_value < sort_value)
+
+        # 正反排序(查 limit+1 条供 has_more 判断)
+        if params.direction == ScrollDirection.UP:
+            stmt = stmt.order_by(getattr(BabyName, sort_by).asc())
+        else:
+            stmt = stmt.order_by(getattr(BabyName, sort_by).desc())
+        stmt = stmt.limit(params.limit + 1)
+
         result = await session.exec(stmt)
         return result.all()

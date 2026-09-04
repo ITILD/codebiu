@@ -1,11 +1,13 @@
 from enum import Enum
-from pydantic import BaseModel, field_validator
+
+from pydantic import BaseModel, Field
+
 
 class PaginationParams(BaseModel):
-    """分页查询参数"""
+    """分页查询参数(约束由字段声明,FastAPI 原生映射 422)"""
 
-    page: int = 1
-    size: int = 10
+    page: int = Field(default=1, ge=1, description="页码(从1开始)")
+    size: int = Field(default=10, ge=1, le=500, description="每页条数(1~500,管理后台需一次拉取较多数据)")
 
     @property
     def offset(self):
@@ -16,22 +18,6 @@ class PaginationParams(BaseModel):
     def limit(self):
         """每页最大记录数"""
         return self.size
-
-    @field_validator("page")
-    def validate_page(cls, v):
-        """确保 page >= 1"""
-        if v < 1:
-            raise ValueError("page 必须大于等于 1")
-        return v
-
-    @field_validator("size")
-    def validate_size(cls, v):
-        """确保 size >= 1 且 <= 500(管理后台需一次拉取较多数据)"""
-        if v < 1:
-            raise ValueError("size 必须大于等于 1")
-        if v > 500:
-            raise ValueError("size 不能超过 500")
-        return v
 
 
 class PaginationResponse(BaseModel):
@@ -45,6 +31,7 @@ class PaginationResponse(BaseModel):
 
     @classmethod
     def create(cls, items: list, total: int, pagination: PaginationParams):
+        """根据查询结果与分页参数构建分页响应(自动计算总页数)"""
         return cls(
             items=items,
             total=total,  # 总记录数

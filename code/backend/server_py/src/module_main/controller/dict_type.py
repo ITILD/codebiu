@@ -67,7 +67,7 @@ async def list_dict_types(
     :return: 分页响应结果
     """
     try:
-        pagination_response: PaginationResponse = await service.list_all(
+        pagination_response: PaginationResponse = await service.list_paged(
             pagination, keyword=keyword, is_active=is_active
         )
         return pagination_response

@@ -26,6 +26,7 @@ def geojson_to_wkt(geometry) -> str:
         return f"{float(value):.6f}".rstrip("0").rstrip(".")
 
     def coord(pair) -> str:
+        """单个坐标对转 WKT 坐标文本(经度 纬度)"""
         if not isinstance(pair, (list, tuple)) or len(pair) < 2:
             raise ValueError("坐标必须是 [经度, 纬度] 结构")
         return f"{fmt(pair[0])} {fmt(pair[1])}"
@@ -61,6 +62,7 @@ class GeoFeatureService:
     """几何要素服务(地球点线面绘制数据管理)"""
 
     def __init__(self, geo_feature_dao: GeoFeatureDao):
+        """依赖注入构造器:初始化所需的数据访问对象"""
         self.geo_feature_dao = geo_feature_dao or GeoFeatureDao()
 
     async def add(self, data: GeoFeatureCreate, user_id: str) -> str:
@@ -97,7 +99,7 @@ class GeoFeatureService:
         """
         return await self.geo_feature_dao.get(feature_id)
 
-    async def list_all(
+    async def list_paged(
         self,
         pagination: PaginationParams,
         keyword: str | None = None,
@@ -112,7 +114,7 @@ class GeoFeatureService:
         """
         if feature_type is not None and feature_type not in _GEOJSON_TYPES:
             raise ValueError(f"无效的几何类型: {feature_type}")
-        items = await self.geo_feature_dao.list_all(
+        items = await self.geo_feature_dao.list_paged(
             pagination, keyword=keyword, feature_type=feature_type
         )
         total = await self.geo_feature_dao.count(
@@ -120,9 +122,9 @@ class GeoFeatureService:
         )
         return PaginationResponse.create(items, total, pagination)
 
-    async def list_all_without_page(self) -> list[GeoFeatureResponse]:
+    async def list_all(self) -> list[GeoFeatureResponse]:
         """
         查询全部几何要素(供地球场景一次性渲染)
         :return: 要素响应列表(最多2000条)
         """
-        return await self.geo_feature_dao.list_all_without_page()
+        return await self.geo_feature_dao.list_all()

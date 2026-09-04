@@ -2,6 +2,7 @@ from module_main.service.status import StatusService
 from functools import lru_cache
 @lru_cache(maxsize=1)
 def get_status_service_singleton():
+    """状态服务软单例工厂(lru_cache线程安全,可用 dependency_overrides 替换便于测试)"""
     return StatusService()
 # 通过依赖注入系统控制生命周期(如 lru_cache或模块变量)
 # 可以灵活定义生命周期范围(应用级/请求级)

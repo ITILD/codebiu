@@ -47,8 +47,8 @@
 <script setup lang="ts">
 import { ElMessage } from 'element-plus'
 import type { FormInstance } from 'element-plus'
-import { registerUser } from '@/api/authorization/auth'
-import type { AuthRegisterRequest, AuthResponse } from '@/types/authorization/auth'
+import { registerUser } from '../api/auth'
+import type { AuthRegisterRequest, AuthResponse } from '../types/auth'
 // 定义组件属性
 const props = defineProps<{
   modelValue: boolean

@@ -200,6 +200,7 @@ class AuthManager:
 
             # 权限表同步: 递归同步模块子树
             async def _sync_children(nodes, parent_id: str) -> None:
+                """递归写入模块权限子树(深度优先,父子通过parent_id关联)"""
                 for node in nodes:
                     node_id = await _upsert_perm(
                         {

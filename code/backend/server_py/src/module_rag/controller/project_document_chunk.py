@@ -15,7 +15,7 @@ from module_rag.service.project_document_chunk import ProjectDocumentChunkServic
 router = APIRouter()
 
 @router.post(
-    "/chunks_by_question",
+    "/search-by-question",
     response_model=list[ProjectDocumentChunkSearchResponse],  # 如果有定义，请取消注释
     summary="检索项目相似文档块",
 )
@@ -36,4 +36,4 @@ async def chunks_by_question(
 
 
 # 注册路由
-module_app.include_router(router, prefix="/project-document-chunk", tags=["项目文档块量管理"])
+module_app.include_router(router, prefix="/project-document-chunks", tags=["项目文档块量管理"])

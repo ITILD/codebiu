@@ -41,6 +41,7 @@ class VoiceService:
     """语音服务: 按模型配置选择 asr/tts 引擎方案"""
 
     def __init__(self, model_config_dao: ModelConfigDao | None = None):
+        """依赖注入构造器:初始化所需的数据访问对象"""
         self.model_config_dao = model_config_dao or ModelConfigDao()
         # 引擎缓存: (model_type, engine, cache_key) -> 引擎实例
         self._engines: dict[Tuple[str, VoiceEngine | None, str], ASREngine | TTSEngine] = {}

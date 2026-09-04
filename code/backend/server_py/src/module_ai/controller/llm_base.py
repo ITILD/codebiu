@@ -23,7 +23,7 @@ router = APIRouter()
 
 
 
-@router.post("/check_config", summary="配置校验")
+@router.post("/check-config", summary="配置校验")
 async def check_config(
     model_config: ModelConfigCreateRequest,
     llm_service: LLMBaseService = Depends(get_llm_base_service),
@@ -43,7 +43,7 @@ async def check_config(
         raise HTTPException(status_code=500, detail=f"配置校验失败: {str(e)}")
 
 
-@router.post("/check_config_by_model_id", summary="配置校验")
+@router.post("/check-config-by-model-id", summary="配置校验")
 async def check_config_by_model_id(
     model_id: str,
     llm_service: LLMBaseService = Depends(get_llm_base_service),
@@ -92,7 +92,7 @@ async def chat_completion(
         raise HTTPException(status_code=500, detail=f"模型调用失败: {str(e)}")
 
 
-@router.delete("/_test_cache_clear/{model_id}", summary="测试清除模型缓存")
+@router.delete("/cache/{model_id}", summary="清除模型缓存")
 async def _test_cache_clear(
     model_id: str, llm_service: LLMBaseService = Depends(get_llm_base_service)
 ):
@@ -113,4 +113,4 @@ async def _test_cache_clear(
 
 
 # 将路由注册到模块应用
-module_app.include_router(router, prefix="/llm_base", tags=["模型基础调用"])
+module_app.include_router(router, prefix="/llm-base", tags=["模型基础调用"])

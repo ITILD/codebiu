@@ -72,15 +72,15 @@
 
 <script setup lang="ts">
 import { Search } from '@element-plus/icons-vue'
-import { createTemplate, deleteTemplate, updateTemplate, getTemplate, listTemplates } from '@/api/template/template'
+import { createTemplate, deleteTemplate, updateTemplate, getTemplate, listTemplates } from '../api/template'
 import {
   // type InfiniteScrollParams,
   // type InfiniteScrollResponse,
   type PaginationParams,
   type PaginationResponse,
-} from '@/types/common';
-import type { Template, TemplateCreate, TemplateUpdate } from '@/types/template/template';
-import { config, rules, formBase } from '@/types/template/template';
+} from '@/common/types/common';
+import type { Template, TemplateCreate, TemplateUpdate } from '../types/template';
+import { config, rules, formBase } from '../types/template';
 import {
   ElMessage, ElMessageBox, type FormInstance,
   // type FormRules

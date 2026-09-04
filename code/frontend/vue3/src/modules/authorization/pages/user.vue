@@ -101,15 +101,15 @@
 </template>
 
 <script setup lang="ts">
-import { createUser, deleteUser, updateUser, getUser, listUsers } from '@/api/authorization/user'
-import { getDeptTree } from '@/api/authorization/dept'
-import { listAllRoles } from '@/api/authorization/role'
-import { getRolesForUser, batchAddUserRoles } from '@/api/authorization/casbin'
-import type { PaginationParams, PaginationResponse } from '@/types/common'
-import type { User, UserCreate, UserUpdate } from '@/types/authorization/user'
-import type { DeptTree } from '@/types/authorization/dept'
-import type { Role } from '@/types/authorization/role'
-import type { SearchField } from '@/components/app/sys/TableSearchBar.vue'
+import { createUser, deleteUser, updateUser, getUser, listUsers } from '../api/user'
+import { getDeptTree } from '../api/dept'
+import { listAllRoles } from '../api/role'
+import { getRolesForUser, batchAddUserRoles } from '../api/casbin'
+import type { PaginationParams, PaginationResponse } from '@/common/types/common'
+import type { User, UserCreate, UserUpdate } from '../types/user'
+import type { DeptTree } from '../types/dept'
+import type { Role } from '../types/role'
+import type { SearchField } from '@/common/components/TableSearchBar.vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 
 // 搜索字段配置(用户名/昵称/状态多字段筛选)

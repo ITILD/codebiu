@@ -11,6 +11,7 @@ from module_file.do.filesystem import (
     GeneratePresignedUploadResponse,
     GeneratePresignedDownloadResponse,
     UploadSuccessResponse,
+    MigrateRequest,
 )
 from module_authorization.dependencies.auth import get_current_user_id
 from module_authorization.dependencies.permission import require_permission
@@ -35,6 +36,10 @@ from fastapi import (
 from fastapi.responses import StreamingResponse
 
 router = APIRouter()
+
+# 预签名上传/下载代理端点路径(本地存储签名拼接用,与下方路由路径保持一致)
+PRESIGNED_UPLOAD_PROXY_PATH = "/filesystem/presigned/upload"
+PRESIGNED_DOWNLOAD_PROXY_PATH = "/filesystem/presigned/download"
 
 
 @router.post(
@@ -72,7 +77,7 @@ async def upload_file(
 
 
 @router.get(
-    "/list_dir",
+    "/list-dir",
     summary="浏览指定目录(虚拟文件系统)",
     response_model=PaginationResponse,
 )
@@ -154,7 +159,7 @@ async def create_folder(
 
 
 @router.put(
-    "/entry/{entry_id}",
+    "/entries/{entry_id}",
     summary="更新条目信息(名称变更自动维护路径)",
     response_model=FileEntry,
 )
@@ -182,7 +187,7 @@ async def update_entry(
 
 
 @router.put(
-    "/entry/{entry_id}/rename",
+    "/entries/{entry_id}/rename",
     summary="重命名条目(目录同步更新子树路径)",
     response_model=FileEntry,
 )
@@ -210,7 +215,7 @@ async def rename_entry(
 
 
 @router.put(
-    "/entry/{entry_id}/move",
+    "/entries/{entry_id}/move",
     summary="移动条目到目标目录(目录同步更新子树路径)",
     response_model=FileEntry,
 )
@@ -302,7 +307,7 @@ async def list_files(
     :return: 分页响应结果
     """
     try:
-        pagination_response: PaginationResponse = await service.list_all(pagination)
+        pagination_response: PaginationResponse = await service.list_paged(pagination)
         return pagination_response
     except Exception as e:
         raise HTTPException(
@@ -312,7 +317,7 @@ async def list_files(
 
 ######################################兼容s3/minio/oss/rustfs对象存储 上传文件######################################
 @router.post(
-    "/generate_presigned_url_upload",
+    "/presigned/upload-url",
     summary="生成预签名上传URL(兼容s3/minio/oss/rustfs对象存储)",
     status_code=status.HTTP_200_OK,
 )
@@ -331,11 +336,12 @@ async def generate_presigned_url_upload(
     :return: 预签名URL
     """
     try:
-        # 获取当前url 解析位置和参数
-        presigned_url_path = request.url.path
+        # 直接使用预签名代理端点常量(本地签名拼接完整URL,保证前后端统一)
+        presigned_url_path = PRESIGNED_UPLOAD_PROXY_PATH
+        base_url = str(request.base_url).rstrip("/")
         generate_presigned_upload_response = (
             await service.generate_presigned_url_upload(
-                presigned_url_request, presigned_url_path
+                presigned_url_request, presigned_url_path, base_url
             )
         )
         if generate_presigned_upload_response is None:
@@ -353,7 +359,7 @@ async def generate_presigned_url_upload(
 
 
 @router.put(
-    "/presigned_url_upload/{file_path:path}",
+    "/presigned/upload/{file_path:path}",
     summary="使用预签名URL上传文件(签名即凭证,免token)",
     status_code=status.HTTP_200_OK,
 )
@@ -395,7 +401,7 @@ async def presigned_url_upload(
 
 
 @router.post(
-    "/presigned_url_upload_success",
+    "/presigned/upload-complete",
     summary="上传成功通知,增加条目记录(兼容s3/minio/oss/rustfs对象存储)",
     status_code=status.HTTP_200_OK,
 )
@@ -421,7 +427,7 @@ async def presigned_url_upload_success(
 
 ######################################兼容s3/minio/oss/rustfs对象存储 删除逻辑######################################
 @router.delete(
-    "/file/{file_id}",
+    "/files/{file_id}",
     summary="逻辑删除文件(释放内容引用,归零清理物理文件)",
     status_code=status.HTTP_204_NO_CONTENT,
 )
@@ -446,7 +452,7 @@ async def delete_file(
 
 
 @router.delete(
-    "/folder/{folder_id}",
+    "/folders/{folder_id}",
     summary="递归逻辑删除目录(含全部子项)",
     status_code=status.HTTP_204_NO_CONTENT,
 )
@@ -472,7 +478,7 @@ async def delete_folder(
 
 ######################################兼容s3/minio/oss/rustfs对象存储 获取文件######################################
 @router.get(
-    "/file_entry/{file_entry_id}",
+    "/entries/{file_entry_id}",
     summary="获取文件或文件夹元数据",
     response_model=FileEntry,
     status_code=status.HTTP_200_OK,
@@ -504,7 +510,7 @@ async def get_file_entry_info(
 
 
 @router.get(
-    "/generate_presigned_url_download/{file_id}",
+    "/presigned/download-url/{file_id}",
     summary="生成预签名URL用于下载文件(兼容s3/minio/oss/rustfs对象存储)",
     status_code=status.HTTP_200_OK,
 )
@@ -521,10 +527,13 @@ async def generate_presigned_url_download(
     :return: 预签名URL
     """
     try:
-        # 获取当前url 解析位置和参数
-        presigned_url_path = request.url.path.removesuffix(f"/{file_id}")
+        # 直接使用预签名代理端点常量(本地签名拼接完整URL,保证前后端统一)
+        presigned_url_path = PRESIGNED_DOWNLOAD_PROXY_PATH
+        base_url = str(request.base_url).rstrip("/")
         generate_presigned_download_response = (
-            await service.generate_presigned_url_download(file_id, presigned_url_path)
+            await service.generate_presigned_url_download(
+                file_id, presigned_url_path, base_url
+            )
         )
         if generate_presigned_download_response is None:
             raise HTTPException(
@@ -541,7 +550,7 @@ async def generate_presigned_url_download(
 
 
 @router.get(
-    "/presigned_url_download/{file_path:path}",
+    "/presigned/download/{file_path:path}",
     summary="使用预签名URL下载文件(签名即凭证,免token)",
     status_code=status.HTTP_200_OK,
 )
@@ -572,6 +581,197 @@ async def download_with_presigned_url(
         )
     except HTTPException:
         raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+
+######################################路径操作/搜索/复制/统计/迁移######################################
+@router.get(
+    "/path",
+    summary="按逻辑路径查询条目(路径导航用)",
+    response_model=FileEntry,
+    status_code=status.HTTP_200_OK,
+)
+async def get_entry_by_path(
+    path: str = Query(..., min_length=1, max_length=2000, description="逻辑路径(如 /docs/readme.md)"),
+    current_user_id: str = Depends(require_permission("main", "file", "read")),
+    service: FileService = Depends(get_file_service),
+) -> FileEntry:
+    """
+    按逻辑路径精确查询文件或目录(不存在返回404)
+    :param path: 逻辑路径
+    :param service: 文件服务依赖注入
+    :return: 条目元数据
+    """
+    result = await service.get_by_path(path)
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"路径不存在: {path}"
+        )
+    return result
+
+
+@router.get(
+    "/list-by-path",
+    summary="按逻辑路径浏览目录(目录排前,名称排序)",
+    response_model=PaginationResponse,
+)
+async def list_by_path(
+    path: str = Query(..., min_length=1, max_length=2000, description="目录逻辑路径"),
+    name: str | None = Query(None, max_length=255, description="名称模糊过滤"),
+    pagination: PaginationParams = Depends(),
+    current_user_id: str = Depends(require_permission("main", "file", "read")),
+    service: FileService = Depends(get_file_service),
+) -> PaginationResponse:
+    """
+    按逻辑路径分页浏览目录(无需先查目录ID)
+    :param path: 目录逻辑路径
+    :param name: 名称模糊过滤
+    :param pagination: 分页参数
+    :param service: 文件服务依赖注入
+    :return: 分页响应结果
+    """
+    try:
+        return await service.list_by_path(path, pagination, name)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+
+@router.post(
+    "/mkdir-p",
+    summary="按逻辑路径递归创建目录(mkdir -p 语义,已存在直接返回)",
+    status_code=status.HTTP_201_CREATED,
+    response_model=FileEntry,
+)
+async def mkdir_p(
+    path: str = Query(..., min_length=1, max_length=2000, description="目录路径(如 /docs/images,多级一次创建)"),
+    current_user_id: str = Depends(require_permission("main", "file", "create")),
+    service: FileService = Depends(get_file_service),
+) -> FileEntry:
+    """
+    递归创建目录层级,中间层已存在则复用
+    :param path: 目录逻辑路径
+    :param current_user_id: 当前登录用户ID(目录归属者)
+    :param service: 文件服务依赖注入
+    :return: 最终层目录条目
+    """
+    try:
+        return await service.mkdir_p(path, owner_user_id=current_user_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+
+@router.get(
+    "/search",
+    summary="全树模糊搜索条目(匹配名称或逻辑路径)",
+    response_model=PaginationResponse,
+)
+async def search_entries(
+    keyword: str = Query(..., min_length=1, max_length=255, description="搜索关键字"),
+    pagination: PaginationParams = Depends(),
+    current_user_id: str = Depends(require_permission("main", "file", "read")),
+    service: FileService = Depends(get_file_service),
+) -> PaginationResponse:
+    """
+    全树搜索文件与目录(目录排前,路径排序)
+    :param keyword: 搜索关键字
+    :param pagination: 分页参数
+    :param service: 文件服务依赖注入
+    :return: 分页响应结果
+    """
+    try:
+        return await service.search(keyword, pagination)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+
+@router.post(
+    "/copy",
+    summary="复制条目(文件指向同一内容哈希,目录递归整树复制)",
+    status_code=status.HTTP_201_CREATED,
+    response_model=FileEntry,
+)
+async def copy_entry(
+    entry_id: str = Query(..., description="源条目ID"),
+    target_pid: str | None = Query(None, description="目标父目录ID(为空表示根目录)"),
+    current_user_id: str = Depends(require_permission("main", "file", "create")),
+    service: FileService = Depends(get_file_service),
+) -> FileEntry:
+    """
+    复制文件或目录到目标目录(内容哈希去重,物理文件不重复占用存储)
+    :param entry_id: 源条目ID
+    :param target_pid: 目标父目录ID
+    :param current_user_id: 当前登录用户ID
+    :param service: 文件服务依赖注入
+    :return: 复制出的新条目
+    """
+    try:
+        return await service.copy_entry(entry_id, target_pid, current_user_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+
+@router.get(
+    "/stats",
+    summary="存储统计(条目数/物理内容数/总占用/当前存储类型)",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+)
+async def get_stats(
+    current_user_id: str = Depends(require_permission("main", "file", "read")),
+    service: FileService = Depends(get_file_service),
+) -> dict:
+    """
+    获取虚拟文件系统与物理存储统计信息
+    :param service: 文件服务依赖注入
+    :return: 统计信息(StorageStats)
+    """
+    try:
+        return (await service.get_stats()).model_dump()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+
+@router.post(
+    "/migrate",
+    summary="存储迁移(local<->rustfs/s3 物理内容搬运,切换配置前调用)",
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
+)
+async def migrate_storage(
+    req: MigrateRequest,
+    current_user_id: str = Depends(require_permission("main", "file", "migrate")),
+    service: FileService = Depends(get_file_service),
+) -> dict:
+    """
+    把源存储的全部物理内容搬运到目标存储(逻辑条目不变,支持断点续迁)
+    典型流程: 1.调用本接口迁移 2.修改 config storage_type 3.重启服务
+    :param req: 迁移请求(from_type/to_type)
+    :param service: 文件服务依赖注入
+    :return: 迁移结果 {total, migrated, skipped, failed}
+    """
+    try:
+        return await service.migrate_storage(req)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)

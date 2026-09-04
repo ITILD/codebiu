@@ -6,8 +6,8 @@
     "src/**/*.vue",
     // 自动路由
     "./typed-router.d.ts",
-    // 自动引入组件配置
-    "src/auto-import.d.ts"
+    // 自动引入 API 配置
+    "src/auto-imports.d.ts"
   ],
   "exclude": ["src/**/__tests__/*"],
   "compilerOptions": {

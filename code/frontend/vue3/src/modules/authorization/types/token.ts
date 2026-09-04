@@ -1,4 +1,4 @@
-// src/types/authorization/token.ts
+// src/modules/authorization/types/token.ts
 
 export interface TokenResponseBase {
   token: string;

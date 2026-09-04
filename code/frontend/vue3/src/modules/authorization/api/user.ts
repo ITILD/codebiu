@@ -1,7 +1,7 @@
-// src/api/authorization/user.ts
-import { http_base_server } from '@/utils/http';
-import type { PaginationParams, PaginationResponse } from '@/types/common';
-import type { User, UserCreate, UserUpdate } from '@/types/authorization/user';
+// src/modules/authorization/api/user.ts
+import { http_base_server } from '@/common/api/http';
+import type { PaginationParams, PaginationResponse } from '@/common/types/common';
+import type { User, UserCreate, UserUpdate } from '../types/user';
 
 /**
  * 创建新用户

@@ -125,12 +125,14 @@ line-length = 100
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"  # 可选值："auto", "strict", "off"
+# session 级 loop: lifespan(连接池)/测试同 loop,避免 asyncpg 跨 loop 崩溃
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
 testpaths = ["tests"]
 pythonpath = ["src"]
 # ; 设置输出
-addopts = "-v -s --log-cli-level=INFO"
-# --maxfail: 出现几个失败才终止
-maxfail = 2
+# importlib 导入模式: 允许不同目录存在同名测试文件(如两处 test_db.py)而不冲突
+addopts = "-v -s --log-cli-level=WARNING --import-mode=importlib"
 
 
 # uv python install 3.13.14 --mirror https://cnb.cool/astral-sh/python-build-standalone/-/releases/download/

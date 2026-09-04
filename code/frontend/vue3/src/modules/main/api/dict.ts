@@ -1,7 +1,7 @@
-// src/api/main/dict.ts
+// src/modules/main/api/dict.ts
 // 字段表(字典类型/字典项)接口(对应后端 /dict_types 与 /dict_items)
-import { http_base_server } from '@/utils/http';
-import type { PaginationParams, PaginationResponse } from '@/types/common';
+import { http_base_server } from '@/common/api/http';
+import type { PaginationParams, PaginationResponse } from '@/common/types/common';
 import type {
   DictType,
   DictTypeCreate,
@@ -9,7 +9,7 @@ import type {
   DictItem,
   DictItemCreate,
   DictItemUpdate,
-} from '@/types/main/dict';
+} from '../types/dict';
 
 // ################################################## 字典类型
 /** 创建字典类型 */
@@ -63,12 +63,12 @@ export const listDictItems = (params: PaginationParams) => {
 
 /** 根据字典类型编码查询字典项列表 */
 export const listDictItemsByType = (typeCode: string) => {
-  return http_base_server.get<DictItem[]>(`/dict_items/dict_type/${typeCode}`);
+  return http_base_server.get<DictItem[]>(`/dict_items/by-type/${typeCode}`);
 };
 
 /** 根据字典类型统计字典项数量 */
 export const countDictItemsByType = (typeCode: string) => {
-  return http_base_server.get<number>(`/dict_items/count/dict_type/${typeCode}`);
+  return http_base_server.get<number>(`/dict_items/by-type/${typeCode}/count`);
 };
 
 /** 根据编码获取字典项 */

@@ -50,12 +50,12 @@
           </div>
         </template>
       </el-table-column>
-      <el-table-column label="大小" width="110" align="center">
+      <el-table-column label="大小" min-width="110" align="center">
         <template #default="{ row }">
           {{ row.is_directory ? '-' : formatSize(row.file_size_bytes) }}
         </template>
       </el-table-column>
-      <el-table-column label="类型" width="100" align="center">
+      <el-table-column label="类型" min-width="100" align="center">
         <template #default="{ row }">
           <el-tag v-if="!row.is_directory" size="small" type="info">
             {{ (row.file_extension || 'file').toUpperCase() }}
@@ -67,12 +67,13 @@
           {{ row.description || '-' }}
         </template>
       </el-table-column>
-      <el-table-column label="修改时间" width="120" align="center">
+      <el-table-column label="修改时间" min-width="120" align="center">
         <template #default="{ row }">
           {{ formatDate(row.updated_at) }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="270" align="center" fixed="right">
+      <!-- 操作列: 平板及以上固定右侧, 手机取消固定避免遮挡(表格自带横向滚动) -->
+      <el-table-column label="操作" min-width="270" align="center" :fixed="isMd ? 'right' : false">
         <template #default="{ row }">
           <el-button v-if="!row.is_directory" size="small" type="primary" plain @click="handleDownload(row)">
             下载
@@ -192,10 +193,15 @@ import {
   moveEntry,
   deleteFile,
   deleteFolder,
-} from '@/api/file/filesystem'
-import type { FileEntry } from '@/types/file'
-import type { PaginationParams } from '@/types/common'
+} from '../api/filesystem'
+import type { FileEntry } from '../types/file'
+import type { PaginationParams } from '@/common/types/common'
 import { ElMessage, ElMessageBox, type FormInstance, type TreeInstance } from 'element-plus'
+import { SysSettingStore } from '@/common/stores/sys'
+
+// 屏幕档位: 操作列在平板及以上才固定右侧
+const sysSettingStore = SysSettingStore()
+const isMd = computed(() => sysSettingStore.sysStyle.isMd)
 
 // 面包屑目录栈(从根到当前目录)
 const breadcrumbs = ref<{ id: string; name: string }[]>([])

@@ -30,7 +30,7 @@ app = Celery(
     broker=BROKER_URL,
     backend=RESULT_BACKEND,
     # 导入各模块注册的任务(按需追加)
-    include=[],
+    include=["module_task.tasks.demo"],
 )
 
 # 序列化与结果过期配置
@@ -40,6 +40,9 @@ app.conf.update(
     accept_content=["json"],
     result_expires=3600,
     timezone="Asia/Shanghai",
+    # 默认队列(与 app_task.py worker 消费的队列一致)
+    task_default_queue="task_queue",
+    broker_connection_retry_on_startup=True,
 )
 
 logger.info(f"ok...tasks celery配置加载完成 broker={BROKER_URL}")

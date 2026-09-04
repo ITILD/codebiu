@@ -1,15 +1,17 @@
 <template>
-  <!-- 网站页首: Logo/汉堡(左) + 主题切换/登录/头像(右) -->
+  <!-- 网站页首: Logo/汉堡/面包屑(左) + 主题切换/登录/头像(右)
+       吸顶与毛玻璃样式由 App.vue 传入(sticky + bg-note-glass), 此处只管内容布局 -->
   <header v-if="sysStyle.headFootShow">
-    <div flex justify-between h-full>
-      <!-- 左侧: 移动端汉堡(仅后台路由, 打开模块列表抽屉) -->
-      <div flex items-center>
+    <div flex items-center justify-between h-full min-w-0>
+      <!-- 左侧: 移动端汉堡(仅后台路由, 打开模块列表抽屉) + Logo + 面包屑 -->
+      <div flex items-center min-w-0 flex-1>
         <button
           v-if="isAdmin && !sysSettingStore.sysStyle.isMd"
           ml-3
           rounded-full
           hover:bg-note-tint
           p-2
+          shrink-0
           @click="sysSettingStore.sysStyle.isSidebarDrawerOpen = true"
         >
           <el-icon :size="22" text-note>
@@ -17,16 +19,19 @@
           </el-icon>
         </button>
 
-        <router-link to="/" flex items-center ml-4 md:ml-8>
+        <router-link to="/" flex items-center ml-4 md:ml-8 shrink-0>
           <img src="@/assets/img/ion/sy_w.svg" h-8 mr-3 />
           <span text-lg md:text-xl font-semibold whitespace-nowrap text-note>
             {{ TITLE }}
           </span>
         </router-link>
+
+        <!-- 面包屑(仅后台路由, 平板及以上显示; 手机由抽屉菜单承担定位) -->
+        <SysBreadcrumb class="ml-6 flex-1 min-w-0" />
       </div>
 
       <!-- 右侧: 主题切换 + 登录/用户 -->
-      <div flex items-center mr-4 md:mr-8 gap-3>
+      <div flex items-center mr-4 md:mr-8 gap-3 shrink-0>
         <!-- 主题切换 -->
         <el-switch
           v-model="sysSettingStore.sysStyle.theme.isDark"
@@ -92,13 +97,16 @@
 
 <script setup lang="ts">
 // 样式控制
-import { SysSettingStore } from '@/stores/sys'
+import { SysSettingStore } from '@/common/stores/sys'
 import { Menu } from '@element-plus/icons-vue'
-import LoginDialog from './head/LoginDialog.vue'
-import RegisterDialog from './head/RegisterDialog.vue'
-import UserControl from './head/UserControl.vue'
-import { useAuthStore } from '@/stores/auth'
-import type { AuthResponse } from '@/types/authorization/auth'
+// 面包屑(应用壳布局组件)
+import SysBreadcrumb from './SysBreadcrumb.vue'
+// 登录/注册/用户控件属于 authorization 模块的登录认证功能(应用壳只做组装)
+import LoginDialog from '@/modules/authorization/components/LoginDialog.vue'
+import RegisterDialog from '@/modules/authorization/components/RegisterDialog.vue'
+import UserControl from '@/modules/authorization/components/UserControl.vue'
+import { useAuthStore } from '@/common/stores/auth'
+import type { AuthResponse } from '@/modules/authorization/types/auth'
 const authStore = useAuthStore()
 const authState = authStore.authState
 const sysSettingStore = SysSettingStore()
@@ -109,8 +117,8 @@ const TITLE = ref(import.meta.env.VITE_GLOB_APP_TITLE)
 
 const route = useRoute()
 const router = useRouter()
-// 仅后台路由显示汉堡(打开侧边栏抽屉)
-const isAdmin = computed(() => route.path.startsWith('/_sys'))
+// 仅后台路由显示汉堡(打开侧边栏抽屉), admin 标记见 vite.config.ts 的 extendRoute
+const isAdmin = computed(() => Boolean(route.meta.admin))
 
 // 未登录被拦截回首页时自动弹出登录框
 watch(

@@ -463,4 +463,4 @@ async def sync_role_permissions(
 
 
 # 注册路由(须位于全部路由定义之后)
-module_app.include_router(router, prefix="/casbin_rules", tags=["权限规则管理"])
+module_app.include_router(router, prefix="/casbin-rules", tags=["权限规则管理"])

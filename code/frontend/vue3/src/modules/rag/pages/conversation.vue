@@ -171,13 +171,13 @@ import {
   deleteConversation,
   listConversationMessages,
   sendRagChatStream,
-} from '@/api/rag/conversation'
-import { listMyProjects } from '@/api/rag/member'
-import ChatMessageList from '@/components/app/chat/ChatMessageList.vue'
-import ChatComposer from '@/components/app/chat/ChatComposer.vue'
-import { StreamEventType } from '@/types/chat'
-import type { MessageBlock } from '@/types/chat'
-import type { Conversation, ChatMessage, MyProject } from '@/types/rag'
+} from '../api/conversation'
+import { listMyProjects } from '../api/member'
+import ChatMessageList from '@/common/components/chat/ChatMessageList.vue'
+import ChatComposer from '@/common/components/chat/ChatComposer.vue'
+import { StreamEventType } from '@/common/types/chat'
+import type { MessageBlock } from '@/common/types/chat'
+import type { Conversation, ChatMessage, MyProject } from '../types'
 
 // ===== 会话列表 =====
 const conversations = ref<Conversation[]>([])

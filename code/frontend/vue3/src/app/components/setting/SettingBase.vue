@@ -22,8 +22,8 @@
 </template>
 
 <script setup lang="ts">
-import { SysSettingStore } from '@/stores/sys'
-import { i18n } from '@/i18n/language'
+import { SysSettingStore } from '@/common/stores/sys'
+import { i18n } from '@/common/i18n/language'
 const sysSettingStore = SysSettingStore()
 /////////////////////////////////////////////////////////主题控制/////////////////////////////////////////////////////////
 // 主题选择

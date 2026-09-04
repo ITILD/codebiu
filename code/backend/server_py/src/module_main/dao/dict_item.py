@@ -71,7 +71,7 @@ class DictItemDao:
         return await session.get(DictItem, id)
 
     @DaoRel
-    async def get_by_code(self, dict_type_id: str, item_code: str, session: AsyncSession | None = None) -> DictItem | None:
+    async def get_by_type_and_code(self, dict_type_id: str, item_code: str, session: AsyncSession | None = None) -> DictItem | None:
         """
         根据字典类型ID和字典项编码查询
         :param dict_type_id: 字典类型ID
@@ -113,7 +113,7 @@ class DictItemDao:
         return result.all()
 
     @DaoRel
-    async def list_all(
+    async def list_paged(
         self, pagination: PaginationParams, session: AsyncSession | None = None
     ) -> list[DictItem]:
         """

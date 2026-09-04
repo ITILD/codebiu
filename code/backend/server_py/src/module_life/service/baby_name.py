@@ -32,6 +32,7 @@ class BabyNameService:
     """宝宝名字服务"""
 
     def __init__(self, baby_name_dao: BabyNameDao, llm_base_service: LLMBaseService):
+        """依赖注入构造器:初始化所需的数据访问对象"""
         self.baby_name_dao = baby_name_dao or BabyNameDao()
         self.llm_base_service = llm_base_service or LLMBaseService()
 
@@ -121,13 +122,13 @@ class BabyNameService:
         """
         return await self.baby_name_dao.get(id)
 
-    async def list_all(self, pagination: PaginationParams):
+    async def list_paged(self, pagination: PaginationParams):
         """
         获取宝宝名字列表
         :param pagination: 分页参数
         :return: 分页响应数据
         """
-        items = await self.baby_name_dao.list_all(pagination)
+        items = await self.baby_name_dao.list_paged(pagination)
         total = await self.baby_name_dao.count()
         return PaginationResponse.create(items, total, pagination)
 

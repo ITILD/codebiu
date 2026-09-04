@@ -83,7 +83,7 @@ class DictTypeDao:
         return result.first()
 
     @DaoRel
-    async def list_all(
+    async def list_paged(
         self,
         pagination: PaginationParams,
         session: AsyncSession | None = None,

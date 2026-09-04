@@ -1,9 +1,9 @@
-// src/api/rag/conversation.ts
+// src/modules/rag/api/conversation.ts
 // 知识库对话 API(对话管理 + RAG 流式聊天)
-import { http_base_server } from '@/utils/http';
+import { http_base_server } from '@/common/api/http';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
-import { useAuthStore } from '@/stores/auth';
-import type { PaginationParams, PaginationResponse } from '@/types/common';
+import { useAuthStore } from '@/common/stores/auth';
+import type { PaginationParams, PaginationResponse } from '@/common/types/common';
 import type {
   Conversation,
   ConversationCreate,
@@ -11,8 +11,8 @@ import type {
   ChatMessage,
   RagChatRequest,
   ConversationSummary,
-} from '@/types/rag';
-import type { ChatStreamEvent } from '@/types/chat';
+} from '../types';
+import type { ChatStreamEvent } from '@/common/types/chat';
 
 /**
  * 创建对话

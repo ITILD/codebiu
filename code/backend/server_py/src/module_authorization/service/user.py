@@ -7,6 +7,7 @@ class UserService:
     """用户服务"""
 
     def __init__(self, user_dao: UserDao):
+        """依赖注入构造器:初始化所需的数据访问对象"""
         self.user_dao = user_dao or UserDao()
 
     async def add(self, user: UserCreate)->UserResponse:
@@ -23,18 +24,18 @@ class UserService:
         is_first_user = await self.user_dao.count() == 0
         # 密码进行加密处理
         user.password = hash_password(user.password)
-        user_id = await self.user_dao.add(user)
+        user = await self.user_dao.add(user)
 
         # 分配内置角色(admin/user,幂等,失败不影响用户创建)
         try:
             from module_authorization.dependencies.permission import (
                 sync_default_user_roles,
             )
-            await sync_default_user_roles(user_id, is_first_user)
+            await sync_default_user_roles(user.id, is_first_user)
         except Exception as e:
             import logging
             logging.getLogger(__name__).warning(f"分配默认角色失败: {e}")
-        return user_id
+        return user
 
     async def delete(self, user_id: str):
         """
@@ -70,7 +71,7 @@ class UserService:
         """
         return await self.user_dao.get_by_username(username)
 
-    async def list_all(
+    async def list_paged(
         self,
         pagination: PaginationParams,
         username: str | None = None,
@@ -85,7 +86,7 @@ class UserService:
         :param is_active: 状态精确过滤(启用/禁用)
         :return: 分页用户列表
         """
-        items = await self.user_dao.list_all(
+        items = await self.user_dao.list_paged(
             pagination, username=username, nickname=nickname, is_active=is_active
         )
         total = await self.user_dao.count(

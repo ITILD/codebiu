@@ -1,5 +1,5 @@
-// src/api/authorization/auth.ts
-import { http_base_server } from '@/utils/http';
+// src/modules/authorization/api/auth.ts
+import { http_base_server } from '@/common/api/http';
 import type {
   AuthLoginRequest,
   AuthLogoutRequest,
@@ -7,7 +7,7 @@ import type {
   AuthResponse,
   RefreshTokenRequest,
   UserPermissionInfo
-} from '@/types/authorization/auth';
+} from '../types/auth';
 
 /**
  * 用户注册
@@ -28,7 +28,7 @@ export const loginUser = (credentials: AuthLoginRequest) => {
   const formData = new FormData();
   formData.append('username', credentials.username);
   formData.append('password', credentials.password);
-  
+
   return http_base_server.post<AuthResponse>('/authorization/auth/login', formData);
 };
 
@@ -63,7 +63,7 @@ export const getCurrentUser = () => {
  * @returns 当前用户ID
  */
 export const getCurrentUserId = () => {
-  return http_base_server.get<string>('/authorization/auth/me_id');
+  return http_base_server.get<string>('/authorization/auth/me-id');
 };
 
 /**
@@ -71,5 +71,5 @@ export const getCurrentUserId = () => {
  * @returns 角色按域分组 + 权限码列表(全局管理员为 ["*"])
  */
 export const getUserPermissions = () => {
-  return http_base_server.get<UserPermissionInfo>('/authorization/auth/me_permissions');
+  return http_base_server.get<UserPermissionInfo>('/authorization/auth/me-permissions');
 };

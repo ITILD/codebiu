@@ -5,7 +5,8 @@ from enum import StrEnum
 class StorageType(StrEnum):
     LOCAL = "local"
     S3 = "s3"
-    # RUSTFS = "rustfs"
+    # RustFS: S3兼容的开源对象存储,复用S3Storage配置与实现(仅枚举别名)
+    RUSTFS = "rustfs"
     # MINIO = "minio"
     # ALIYUN_OSS = "aliyun_oss"
 
@@ -75,6 +76,11 @@ class S3Storage(StorageConfig, config_type=StorageType.S3):
     access_key: str | None = Field(None, description="S3访问密钥ID")
     secret_key: str | None = Field(None, description="S3秘密访问密钥")
     # session_token: str | None = Field(None, description="S3会话令牌")
+
+
+# RustFS 与 S3 协议完全兼容: 配置类与实现类均复用 S3Storage/S3StorageInterface
+# (storage_type: rustfs 与 s3 仅在 file_content.storage_type 记录来源,运行时行为一致)
+_STORAGE_REGISTRY[StorageType.RUSTFS] = S3Storage
 
 
 class StorageConfigFactory:

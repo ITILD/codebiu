@@ -89,14 +89,14 @@ class RoleDao:
         return result.first()
 
     @DaoRel
-    async def list_all_no_page(self, session: AsyncSession | None = None) -> list[Role]:
+    async def list_all(self, session: AsyncSession | None = None) -> list[Role]:
         """查询所有角色(不分页)"""
         statement = select(Role).order_by(Role.sort)
         result = await session.exec(statement)
         return result.all()
 
     @DaoRel
-    async def list_all(
+    async def list_paged(
         self,
         pagination: PaginationParams,
         session: AsyncSession | None = None,

@@ -11,7 +11,7 @@
 <script setup lang="ts">
 // 样式控制
 import { UserFilled } from '@element-plus/icons-vue'
-import { useAuthStore } from '@/stores/auth'
+import { useAuthStore } from '@/common/stores/auth'
 const authStore = useAuthStore()
 const authState = authStore.authState
 /**

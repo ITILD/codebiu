@@ -161,13 +161,13 @@ import {
   reloadPolicy,
   type PolicyRow,
   type GroupingPolicyRow,
-} from '@/api/authorization/casbin'
-import { listRoles } from '@/api/authorization/role'
-import { listUsers } from '@/api/authorization/user'
-import TableSearchBar, { type SearchField } from '@/components/app/sys/TableSearchBar.vue'
-import type { PaginationResponse } from '@/types/common'
-import type { User } from '@/types/authorization/user'
-import type { Role } from '@/types/authorization/role'
+} from '../api/casbin'
+import { listRoles } from '../api/role'
+import { listUsers } from '../api/user'
+import TableSearchBar, { type SearchField } from '@/common/components/TableSearchBar.vue'
+import type { PaginationResponse } from '@/common/types/common'
+import type { User } from '../types/user'
+import type { Role } from '../types/role'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
 
 // 标签页状态

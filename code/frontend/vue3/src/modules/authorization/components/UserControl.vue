@@ -29,7 +29,8 @@
 <script setup lang="ts">
 import { markRaw } from 'vue'
 import { Monitor, Setting, SwitchButton } from '@element-plus/icons-vue'
-import { useAuthStore } from '@/stores/auth'
+import { useAuthStore } from '@/common/stores/auth'
+import UserLoginIcon from './UserLoginIcon.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -51,7 +52,7 @@ const menuItems: MenuItem[] = [
     icon: markRaw(Monitor),
     divided: true,
     action: () => {
-      router.push('/_sys')
+      router.push('/admin')
     },
   },
   {
@@ -59,7 +60,7 @@ const menuItems: MenuItem[] = [
     label: '账户设置',
     icon: markRaw(Setting),
     action: () => {
-      router.push('/_sys/setting')
+      router.push('/setting')
     },
   },
   {

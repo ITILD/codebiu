@@ -7,6 +7,7 @@ class RoleService:
     """角色服务"""
 
     def __init__(self, role_dao: RoleDao):
+        """依赖注入构造器:初始化所需的数据访问对象"""
         self.role_dao = role_dao or RoleDao()
 
     async def add(self, role: RoleCreate):
@@ -48,11 +49,11 @@ class RoleService:
         """根据角色权限字符串获取角色"""
         return await self.role_dao.get_by_role_key(role_key)
 
-    async def list_all_no_page(self) -> list[Role]:
+    async def list_all(self) -> list[Role]:
         """获取所有角色(不分页)"""
-        return await self.role_dao.list_all_no_page()
+        return await self.role_dao.list_all()
 
-    async def list_all(
+    async def list_paged(
         self,
         pagination: PaginationParams,
         name: str | None = None,
@@ -66,7 +67,7 @@ class RoleService:
         :param role_key: 权限字符模糊匹配
         :param is_active: 状态精确过滤(启用/禁用)
         """
-        items = await self.role_dao.list_all(
+        items = await self.role_dao.list_paged(
             pagination, name=name, role_key=role_key, is_active=is_active
         )
         total = await self.role_dao.count(

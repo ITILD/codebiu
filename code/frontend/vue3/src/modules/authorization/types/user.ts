@@ -1,4 +1,4 @@
-// src/types/authorization/user.ts
+// src/modules/authorization/types/user.ts
 interface UserBase {
   username: string;
   password: string;

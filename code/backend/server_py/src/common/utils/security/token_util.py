@@ -145,15 +145,15 @@ class TokenUtil:
         验证令牌
         :param token: 要验证的令牌
         :return: 令牌中的载荷数据
-        :raises: jwt.JWTError 如果令牌无效或过期
+        :raises: jwt.InvalidTokenError 如果令牌无效或过期
         """
         try:
             payload = jwt.decode(token, self.SECRET_KEY, algorithms=[self.ALGORITHM])
             return payload
         except jwt.ExpiredSignatureError:
-            raise jwt.JWTError("Token has expired")
+            raise jwt.InvalidTokenError("Token has expired")
         except jwt.InvalidTokenError:
-            raise jwt.JWTError("Invalid token")
+            raise jwt.InvalidTokenError("Invalid token")
 
     def get_token_expiry(self, token_type=TokenType.access):
         """

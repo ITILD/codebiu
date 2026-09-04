@@ -1,8 +1,8 @@
-// src/api/rag/document.ts
+// src/modules/rag/api/document.ts
 // 知识库项目文档 API
-import { http_base_server } from '@/utils/http';
-import type { PaginationParams, PaginationResponse } from '@/types/common';
-import type { ProjectDocument, ProjectDocumentUpdate, SupportedFileTypes } from '@/types/rag';
+import { http_base_server } from '@/common/api/http';
+import type { PaginationParams, PaginationResponse } from '@/common/types/common';
+import type { ProjectDocument, ProjectDocumentUpdate, SupportedFileTypes } from '../types';
 
 /**
  * 上传文档到指定项目
@@ -104,7 +104,7 @@ export const reparseRagDocument = (documentId: string) => {
  */
 export const reparseRagDocumentTask = (documentId: string) => {
   return http_base_server.post<{ message: string; document_id: string }>(
-    `/rag/project-documents/${documentId}/reparse_task`
+    `/rag/project-documents/${documentId}/reparse-task`
   );
 };
 

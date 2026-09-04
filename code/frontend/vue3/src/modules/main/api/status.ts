@@ -1,33 +1,33 @@
-// src/api/main/status.ts
-// 服务器状态接口(对应后端 /server_status)
-import { http_base_server } from '@/utils/http';
+// src/modules/main/api/status.ts
+// 服务器状态接口(对应后端 /server-status)
+import { http_base_server } from '@/common/api/http';
 import type {
   HardwareStatus,
   NetworkStatus,
   StatusServer,
-} from '@/types/main/status';
+} from '../types/status';
 
 /** 获取主机状态60秒缓存(硬件+网络聚合) */
 export const getStatusCache = () => {
-  return http_base_server.get<StatusServer>('/server_status/status_cache');
+  return http_base_server.get<StatusServer>('/server-status/cache');
 };
 
 /** 获取主机型号(平台标识) */
 export const getSysInfo = () => {
-  return http_base_server.get<string>('/server_status/sys_info');
+  return http_base_server.get<string>('/server-status/sys-info');
 };
 
 /** 实时获取硬件状态(CPU/内存/磁盘/GPU) */
 export const getHardwareStatus = () => {
-  return http_base_server.get<HardwareStatus>('/server_status/hardware_status');
+  return http_base_server.get<HardwareStatus>('/server-status/hardware-status');
 };
 
 /** 实时获取网络状态 */
 export const getNetworkStatus = () => {
-  return http_base_server.get<NetworkStatus[]>('/server_status/network_status');
+  return http_base_server.get<NetworkStatus[]>('/server-status/network-status');
 };
 
 /** 查看 app 挂载路由数量 */
 export const getMountCount = () => {
-  return http_base_server.get<unknown[]>('/server_status/mount_count');
+  return http_base_server.get<unknown[]>('/server-status/mount-count');
 };

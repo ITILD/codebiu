@@ -100,16 +100,16 @@ import {
   updateTodolist,
   getTodolist,
   listTodolists,
-} from '@/api/little_utils/todolist'
+} from '../api/todolist'
 import {
   // type InfiniteScrollParams,
   // type InfiniteScrollResponse,
   type PaginationParams,
   type PaginationResponse,
-} from '@/types/common'
-import type { Todolist, TodolistCreate, TodolistUpdate } from '@/types/little_utils/todolist'
-import { config, rules, formBase } from '@/types/little_utils/todolist'
-import type { SearchField } from '@/components/app/sys/TableSearchBar.vue'
+} from '@/common/types/common'
+import type { Todolist, TodolistCreate, TodolistUpdate } from '../types/todolist'
+import { config, rules, formBase } from '../types/todolist'
+import type { SearchField } from '@/common/components/TableSearchBar.vue'
 import {
   ElMessage,
   ElMessageBox,

@@ -32,7 +32,7 @@ GEOMETRY_DEFINE = ModulePermissionDefine(
             name="要素管理",
             code="geometry:feature",
             menu_type="C",
-            path="/_sys/geometry/earth",
+            path="/geometry/earth",
             order_num=1,
             children=[
                 PermNode(name="查询", code="geometry:feature:read", menu_type="F"),
@@ -42,11 +42,9 @@ GEOMETRY_DEFINE = ModulePermissionDefine(
             ],
         ),
     ],
-    # 新注册用户默认权限: 可浏览与绘制
-    default_policies=[
-        ("geometry", "feature", "read"),
-        ("geometry", "feature", "create"),
-    ],
+    # 默认新模块不带权限(default_policies=[]):
+    # 普通用户需管理员在 角色管理→分配权限 中按需勾选本模块权限码
+    default_policies=[],
 )
 
 # 注册到权限中心(app 导入本模块 config 时生效)

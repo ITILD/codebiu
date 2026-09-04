@@ -95,7 +95,7 @@ class FileEntryDao:
         return await session.get(FileEntry, id)
 
     @DaoRel
-    async def list_all(
+    async def list_paged(
         self, pagination: PaginationParams, session: AsyncSession | None = None
     ) -> list:
         """
@@ -310,6 +310,27 @@ class FileEntryDao:
         return result.one()
 
     @DaoRel
+    async def count_by_type(
+        self, session: AsyncSession | None = None
+    ) -> tuple[int, int, int]:
+        """
+        按条目类型统计活跃条目(存储统计用,口径与列表页一致)
+        :param session: 可选数据库会话
+        :return: (条目总数, 文件数, 目录数) 均仅统计 is_active=True
+        """
+        active = FileEntry.is_active == True  # noqa: E712
+        entry_stmt = select(func.count(FileEntry.id)).where(active)
+        result = await session.exec(entry_stmt)
+        entry_total = result.one()
+        file_stmt = select(func.count(FileEntry.id)).where(
+            active,
+            FileEntry.is_directory == False,  # noqa: E712
+        )
+        result = await session.exec(file_stmt)
+        file_total = result.one()
+        return entry_total, file_total, entry_total - file_total
+
+    @DaoRel
     async def get_by_content_hash_and_filesize(
         self,
         content_hash: str,
@@ -355,6 +376,95 @@ class FileEntryDao:
         return FileEntryWithContent.from_models(entry=row[0], content=row[1])
 
     @DaoRel
+    async def get_by_logical_path(
+        self, logical_path: str, session: AsyncSession | None = None
+    ) -> FileEntry | None:
+        """
+        按逻辑路径精确查询活跃条目(路径操作入口)
+        :param logical_path: 用户视角的完整路径(如 /docs/readme.md)
+        :param session: 可选数据库会话
+        :return: 条目对象,不存在返回None
+        """
+        statement = select(FileEntry).where(
+            FileEntry.is_active == True,  # noqa: E712
+            FileEntry.logical_path == logical_path,
+        )
+        result = await session.exec(statement)
+        return result.first()
+
+    @DaoRel
+    async def search(
+        self,
+        keyword: str,
+        pagination: PaginationParams,
+        session: AsyncSession | None = None,
+    ) -> list[FileEntry]:
+        """
+        全树模糊搜索条目(匹配名称或逻辑路径,目录排前,路径排序)
+        :param keyword: 搜索关键字
+        :param pagination: 分页参数
+        :param session: 可选数据库会话
+        :return: 条目列表
+        """
+        like = f"%{keyword}%"
+        statement = (
+            select(FileEntry)
+            .where(
+                FileEntry.is_active == True,  # noqa: E712
+                FileEntry.name.ilike(like) | FileEntry.logical_path.ilike(like),
+            )
+            .order_by(FileEntry.is_directory.desc(), FileEntry.logical_path.asc())
+            .offset(pagination.offset)
+            .limit(pagination.limit)
+        )
+        result = await session.exec(statement)
+        return result.all()
+
+    @DaoRel
+    async def count_search(
+        self, keyword: str, session: AsyncSession | None = None
+    ) -> int:
+        """
+        统计全树模糊搜索命中条目数
+        :param keyword: 搜索关键字
+        :param session: 可选数据库会话
+        :return: 命中总数
+        """
+        like = f"%{keyword}%"
+        statement = select(func.count(FileEntry.id)).where(
+            FileEntry.is_active == True,  # noqa: E712
+            FileEntry.name.ilike(like) | FileEntry.logical_path.ilike(like),
+        )
+        result = await session.exec(statement)
+        return result.one()
+
+    @DaoRel
+    async def list_children(
+        self, pid: str | None, session: AsyncSession | None = None
+    ) -> list[FileEntry]:
+        """
+        查询指定目录下的全部直接子项(目录复制/递归遍历用,不分页)
+        :param pid: 父目录ID(为空表示根目录)
+        :param session: 可选数据库会话
+        :return: 子项列表
+        """
+        pid_condition = (
+            FileEntry.pid == pid if pid else FileEntry.pid.is_(None) | (
+                FileEntry.pid == ""
+            )
+        )
+        statement = (
+            select(FileEntry)
+            .where(
+                FileEntry.is_active == True,  # noqa: E712
+                pid_condition,
+            )
+            .order_by(FileEntry.is_directory.desc(), FileEntry.name.asc())
+        )
+        result = await session.exec(statement)
+        return result.all()
+
+    @DaoRel
     async def get_subtree_ids(
         self, folder_id: str, session: AsyncSession | None = None
     ) -> list[str]:
@@ -379,11 +489,9 @@ class FileEntryDao:
             SELECT id FROM subtree;
         """)
 
-        # 使用 session.exec + select(模型字段) 保证返回类型为 list[str]
-        result = await session.exec(
-            select(FileEntry.id).from_statement(stmt), params={"folder_id": folder_id}
-        )
-        return result.all()
+        # 提取标量字符串(asyncpg 不接受 Row 作为查询参数)
+        result = await session.execute(stmt, {"folder_id": folder_id})
+        return [row[0] for row in result.fetchall()]
 
     @DaoRel
     async def batch_soft_delete(self, ids: list[str], session: AsyncSession) -> None:

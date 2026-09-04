@@ -1,12 +1,12 @@
-// src/api/todolist.ts
-import { http_base_server } from '@/utils/http';
+// src/modules/little_utils/api/todolist.ts
+import { http_base_server } from '@/common/api/http';
 import {
   type InfiniteScrollParams,
   type InfiniteScrollResponse,
   type PaginationParams,
   type PaginationResponse,
-} from '@/types/common';
-import type { Todolist, TodolistCreate, TodolistUpdate } from '@/types/little_utils/todolist';
+} from '@/common/types/common';
+import type { Todolist, TodolistCreate, TodolistUpdate } from '../types/todolist';
 
 /**
  * 创建新模板
@@ -14,7 +14,7 @@ import type { Todolist, TodolistCreate, TodolistUpdate } from '@/types/little_ut
  * @returns 创建的模板ID
  */
 export const createTodolist = (todolist: TodolistCreate) => {
-  return http_base_server.post<object>('/little_utils/todolist', todolist);
+  return http_base_server.post<object>('/little-utils/todolists', todolist);
 };
 
 /**
@@ -22,7 +22,7 @@ export const createTodolist = (todolist: TodolistCreate) => {
  * @param todolistId 模板ID
  */
 export const deleteTodolist = (todolistId: string) => {
-  return http_base_server.delete<void>(`/little_utils/todolist/${todolistId}`);
+  return http_base_server.delete<void>(`/little-utils/todolists/${todolistId}`);
 };
 
 /**
@@ -31,7 +31,7 @@ export const deleteTodolist = (todolistId: string) => {
  * @param todolist 模板数据
  */
 export const updateTodolist = (todolistId: string, todolist: TodolistUpdate) => {
-  return http_base_server.put<void>(`/little_utils/todolist/${todolistId}`, todolist);
+  return http_base_server.put<void>(`/little-utils/todolists/${todolistId}`, todolist);
 };
 
 /**
@@ -40,7 +40,7 @@ export const updateTodolist = (todolistId: string, todolist: TodolistUpdate) => 
  * @returns 模板详情
  */
 export const getTodolist = (todolistId: string) => {
-  return http_base_server.get<Todolist>(`/little_utils/todolist/${todolistId}`);
+  return http_base_server.get<Todolist>(`/little-utils/todolists/${todolistId}`);
 };
 
 /**
@@ -49,7 +49,7 @@ export const getTodolist = (todolistId: string) => {
  * @returns 分页响应结果
  */
 export const listTodolists = (params: PaginationParams) => {
-  return http_base_server.get<PaginationResponse<Todolist>>('/little_utils/todolist/list', { params });
+  return http_base_server.get<PaginationResponse<Todolist>>('/little-utils/todolists/list', { params });
 };
 
 /**
@@ -58,7 +58,7 @@ export const listTodolists = (params: PaginationParams) => {
  * @returns 滚动加载响应结果
  */
 export const infiniteScrollTodolists = (params: InfiniteScrollParams) => {
-  return http_base_server.get<InfiniteScrollResponse<Todolist>>('/little_utils/todolist/scroll', {
+  return http_base_server.get<InfiniteScrollResponse<Todolist>>('/little-utils/todolists/scroll', {
     params
   });
 };

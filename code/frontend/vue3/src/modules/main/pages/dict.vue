@@ -82,7 +82,8 @@
               </template>
             </el-table-column>
             <el-table-column prop="description" label="描述" min-width="120" show-overflow-tooltip />
-            <el-table-column label="操作" width="110" align="center" fixed="right">
+            <!-- 操作列: 平板及以上固定右侧, 手机取消固定避免遮挡 -->
+            <el-table-column label="操作" min-width="110" align="center" :fixed="isMd ? 'right' : false">
               <template #default="{ row }">
                 <el-button size="small" type="primary" link @click="openItemDialog(row)">编辑</el-button>
                 <el-button size="small" type="danger" link @click="handleDeleteItem(row)">删除</el-button>
@@ -166,10 +167,15 @@ import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
 import {
   createDictType, deleteDictType, listDictTypes, updateDictType,
   createDictItem, deleteDictItem, listDictItemsByType, updateDictItem,
-} from '@/api/main/dict'
-import TableSearchBar, { type SearchField } from '@/components/app/sys/TableSearchBar.vue'
-import type { PaginationParams } from '@/types/common'
-import type { DictType, DictItem } from '@/types/main/dict'
+} from '../api/dict'
+import TableSearchBar, { type SearchField } from '@/common/components/TableSearchBar.vue'
+import { SysSettingStore } from '@/common/stores/sys'
+import type { PaginationParams } from '@/common/types/common'
+import type { DictType, DictItem } from '../types/dict'
+
+// 断点状态(操作列固定策略)
+const sysSettingStore = SysSettingStore()
+const isMd = computed(() => sysSettingStore.sysStyle.isMd)
 
 // ################ 左侧: 字段类型 ################
 // 搜索字段配置(关键字/状态多字段筛选)

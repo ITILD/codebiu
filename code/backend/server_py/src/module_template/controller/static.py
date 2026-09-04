@@ -17,6 +17,7 @@ router = APIRouter()
 # 首页 app非router挂载
 @router.get("/", response_class=HTMLResponse, summary="server首页html")
 async def server():
+    """返回模板模块静态首页 HTML"""
     return html_file
 
 

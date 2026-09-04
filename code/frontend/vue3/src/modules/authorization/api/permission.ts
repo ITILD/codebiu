@@ -1,7 +1,7 @@
-// src/api/authorization/permission.ts
-import { http_base_server } from '@/utils/http';
-import type { PaginationParams, PaginationResponse } from '@/types/common';
-import type { Permission, PermissionCreate, PermissionUpdate, PermissionTree } from '@/types/authorization/permission';
+// src/modules/authorization/api/permission.ts
+import { http_base_server } from '@/common/api/http';
+import type { PaginationParams, PaginationResponse } from '@/common/types/common';
+import type { Permission, PermissionCreate, PermissionUpdate, PermissionTree } from '../types/permission';
 
 /** 创建权限/菜单 */
 export const createPermission = (permission: PermissionCreate) => {

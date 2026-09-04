@@ -43,11 +43,11 @@
 <script setup lang="ts">
 import { ElMessage } from 'element-plus'
 import type { FormInstance } from 'element-plus'
-import { loginUser } from '@/api/authorization/auth'
+import { loginUser } from '../api/auth'
 import type {
   AuthLoginRequest,
   AuthResponse,
-} from '@/types/authorization/auth';
+} from '../types/auth';
 
 
 // 定义组件属性

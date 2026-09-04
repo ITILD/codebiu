@@ -35,6 +35,7 @@ class GeoFeatureDao:
             name=data.name,
             feature_type=data.geometry.type.lower(),
             properties=data.properties,
+            style=data.style,
             user_id=user_id,
             geometry=WKTElement(wkt, srid=4326),
         )
@@ -77,6 +78,8 @@ class GeoFeatureDao:
             feature.name = data.name
         if data.properties is not None:
             feature.properties = data.properties
+        if data.style is not None:
+            feature.style = data.style
         if wkt is not None:
             feature.geometry = WKTElement(wkt, srid=4326)
             feature.feature_type = data.geometry.type.lower() if data.geometry else feature.feature_type
@@ -105,7 +108,7 @@ class GeoFeatureDao:
         return self._to_response(feature, geojson_text)
 
     @DaoRel
-    async def list_all(
+    async def list_paged(
         self,
         pagination: PaginationParams,
         session: AsyncSession | None = None,
@@ -137,7 +140,7 @@ class GeoFeatureDao:
         return [self._to_response(row[0], row[1]) for row in result.all()]
 
     @DaoRel
-    async def list_all_without_page(
+    async def list_all(
         self, session: AsyncSession | None = None, limit: int = 2000
     ) -> list[GeoFeatureResponse]:
         """
@@ -193,6 +196,7 @@ class GeoFeatureDao:
             name=feature.name,
             feature_type=feature.feature_type,
             properties=feature.properties,
+            style=feature.style,
             user_id=feature.user_id,
             geometry=geojson,
             created_at=feature.created_at,

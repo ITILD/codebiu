@@ -7,6 +7,7 @@ class DictTypeService:
     """字典类型服务"""
 
     def __init__(self, dict_type_dao: DictTypeDao):
+        """依赖注入构造器:初始化所需的数据访问对象"""
         self.dict_type_dao = dict_type_dao or DictTypeDao()
 
     async def add(self, dict_type: DictTypeCreate) -> str:
@@ -29,7 +30,7 @@ class DictTypeService:
         """根据编码获取字典类型"""
         return await self.dict_type_dao.get_by_code(type_code)
 
-    async def list_all(
+    async def list_paged(
         self,
         pagination: PaginationParams,
         keyword: str | None = None,
@@ -41,7 +42,7 @@ class DictTypeService:
         :param keyword: 类型名称/编码模糊匹配
         :param is_active: 状态精确过滤(启用/禁用)
         """
-        items = await self.dict_type_dao.list_all(
+        items = await self.dict_type_dao.list_paged(
             pagination, keyword=keyword, is_active=is_active
         )
         total = await self.dict_type_dao.count(keyword=keyword, is_active=is_active)

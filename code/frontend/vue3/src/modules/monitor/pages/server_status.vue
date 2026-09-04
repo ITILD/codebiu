@@ -111,8 +111,8 @@
 <script setup lang="ts">
 import { Refresh } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { getMountCount, getStatusCache, getSysInfo } from '@/api/main/status'
-import type { HardwareStatus, NetworkStatus } from '@/types/main/status'
+import { getMountCount, getStatusCache, getSysInfo } from '@/modules/main/api/status'
+import type { HardwareStatus, NetworkStatus } from '@/modules/main/types/status'
 
 // 状态数据
 const loading = ref(false)

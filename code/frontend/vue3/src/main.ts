@@ -18,7 +18,7 @@ import 'element-plus/theme-chalk/dark/css-vars.css' // 引入element暗黑主题
 // 否则同特异性下 element 的默认变量(灰底/蓝色主色)会覆盖掉墨绿自然笔记主题
 import './assets/main.css'
 import 'virtual:uno.css'
-import { i18n } from '@/i18n/language'
+import { i18n } from '@/common/i18n/language'
 const app = createApp(App)
 const pinia = createPinia()
 app.use(pinia)

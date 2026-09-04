@@ -1,8 +1,8 @@
-// src/api/rag/member.ts
+// src/modules/rag/api/member.ts
 // 知识库项目成员 API(同知识库多用户配置)
-import { http_base_server } from '@/utils/http';
-import type { PaginationParams, PaginationResponse } from '@/types/common';
-import type { ProjectMember, ProjectMemberCreate, ProjectMemberUpdate, MyProject } from '@/types/rag';
+import { http_base_server } from '@/common/api/http';
+import type { PaginationParams, PaginationResponse } from '@/common/types/common';
+import type { ProjectMember, ProjectMemberCreate, ProjectMemberUpdate, MyProject } from '../types';
 
 /**
  * 添加项目成员(同步授予 casbin 项目域角色)

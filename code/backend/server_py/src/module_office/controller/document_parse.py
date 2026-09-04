@@ -21,7 +21,7 @@ router = APIRouter()
 
 
 @router.post(
-    "/get_markdown_by_file",
+    "/get-markdown-by-file",
     summary="根据文件路径获取Markdown内容",
 )
 async def get_markdown_by_file(
@@ -59,7 +59,7 @@ async def get_markdown_by_file(
 
 
 @router.post(
-    "/split_code",
+    "/split-code",
     summary="按语义结构拆分 Python/Java 代码文件",
     response_model=list[Chunk],
 )
@@ -95,4 +95,4 @@ async def split_code_file(
 # TODO rerank list ...
 
 
-module_app.include_router(router, prefix="/document_parse")
+module_app.include_router(router, prefix="/document-parse")

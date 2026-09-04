@@ -8,6 +8,7 @@ class ChatMessageService:
     """聊天消息服务"""
 
     def __init__(self, chat_message_dao: ChatMessageDao | None = None):
+        """依赖注入构造器:初始化所需的数据访问对象"""
         self.chat_message_dao = chat_message_dao or ChatMessageDao()
 
     async def add(self, message: ChatMessageCreate) -> str:

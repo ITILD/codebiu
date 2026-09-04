@@ -8,7 +8,7 @@ from module_authorization.dependencies.token import get_token_service
 
 # 不做业务验证：oauth2_scheme 不验证 Token 的有效性、过期时间或签名。它只负责“搬运”字符串。
 # OAuth2 scheme(tokenUrl 指向 OAuth2 标准响应端点,Swagger Authorize 才能自动提取令牌)
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/authorization/auth/_token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/authorization/auth/token")
 
 
 async def get_auth_service(

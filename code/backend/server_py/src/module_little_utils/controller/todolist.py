@@ -45,8 +45,8 @@ async def infinite_scroll(
     :return: 分页响应数据
     """
     try:
-        itnfinite_scroll_response = await service.get_scroll(params)
-        return itnfinite_scroll_response
+        infinite_scroll_response = await service.get_scroll(params)
+        return infinite_scroll_response
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -57,20 +57,20 @@ async def infinite_scroll(
 async def list_todolists(
     pagination: PaginationParams = Depends(),
     name: str | None = Query(None, max_length=100, description="计划任务名称模糊搜索"),
-    status: str | None = Query(None, description="代办状态过滤(todo=待办/done=完成)"),
+    status_filter: str | None = Query(None, alias="status", description="代办状态过滤(todo=待办/done=完成)"),
     service: TodolistService = Depends(get_todolist_service),
 ) -> PaginationResponse:
     """
     分页查询计划列表列表(支持多字段过滤)
     :param pagination: 分页参数 (通过查询参数传递)
     :param name: 计划任务名称模糊搜索
-    :param status: 代办状态过滤(todo=待办/done=完成)
+    :param status_filter: 代办状态过滤(alias=status,避免遮蔽 fastapi.status 模块)
     :param service: 计划列表服务依赖注入
     :return: 分页响应结果
     """
     try:
-        pagination_response: PaginationResponse = await service.list_all(
-            pagination, name=name, status=status
+        pagination_response: PaginationResponse = await service.list_paged(
+            pagination, name=name, status=status_filter
         )
         return pagination_response
     except Exception as e:
@@ -98,6 +98,9 @@ async def get_todolist(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Todolist not found"
             )
         return result
+    except HTTPException:
+        # 保留 404 语义,避免被下面的通用异常处理包装成 500
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -118,6 +121,9 @@ async def delete_todolist(
     """
     try:
         await service.delete(todolist_id)
+    except ValueError as e:
+        # 资源不存在 → 404(与 geometry 等模块错误映射保持一致)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -141,10 +147,13 @@ async def update_todolist(
     try:
         # 确保更新的是指定ID的计划列表
         await service.update(todolist_id, todolist)
+    except ValueError as e:
+        # 资源不存在 → 404
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
 
-module_app.include_router(router, prefix="/todolist", tags=["基础计划列表"])
+module_app.include_router(router, prefix="/todolists", tags=["基础计划列表"])

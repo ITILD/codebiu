@@ -55,7 +55,7 @@ class PermissionDao:
         return result.first()
 
     @DaoRel
-    async def list_all(
+    async def list_paged(
         self, pagination: PaginationParams, session: AsyncSession | None = None
     ):
         """分页查询权限列表"""
@@ -64,7 +64,7 @@ class PermissionDao:
         return result.all()
 
     @DaoRel
-    async def list_all_no_page(self, session: AsyncSession | None = None) -> list[Permission]:
+    async def list_all(self, session: AsyncSession | None = None) -> list[Permission]:
         """查询所有权限(不分页, 用于构建树)"""
         statement = select(Permission).order_by(Permission.order_num)
         result = await session.exec(statement)

@@ -23,6 +23,7 @@ class SynonymGroupService:
     """同义词组服务"""
 
     def __init__(self, synonym_group_dao: SynonymGroupDao):
+        """依赖注入构造器:初始化所需的数据访问对象"""
         self.synonym_group_dao = synonym_group_dao or SynonymGroupDao()
 
     async def add(self, synonym_group: SynonymGroupCreate) -> str:
@@ -73,20 +74,20 @@ class SynonymGroupService:
         """
         return await self.synonym_group_dao.get_by_id_and_pid(id, pid)
 
-    async def list_all(self, pagination: PaginationParams) -> PaginationResponse:
+    async def list_paged(self, pagination: PaginationParams) -> PaginationResponse:
         """分页查询同义词组列表"""
-        items = await self.synonym_group_dao.list_all(pagination)
+        items = await self.synonym_group_dao.list_paged(pagination)
         total = await self.synonym_group_dao.count()
         return PaginationResponse.create(items, total, pagination)
 
-    async def list_all_by_pid(self, pagination: PaginationParams, pid: str) -> PaginationResponse:
+    async def list_paged_by_pid(self, pagination: PaginationParams, pid: str) -> PaginationResponse:
         """
         分页查询指定项目的同义词组列表
         :param pagination: 分页参数
         :param pid: 项目ID
         :return: 分页响应结果
         """
-        items = await self.synonym_group_dao.list_all_by_pid(pagination, pid)
+        items = await self.synonym_group_dao.list_paged_by_pid(pagination, pid)
         total = await self.synonym_group_dao.count_by_pid(pid)
         return PaginationResponse.create(items, total, pagination)
 
@@ -112,6 +113,7 @@ class SynonymService:
     """同义词服务"""
 
     def __init__(self, synonym_dao: SynonymDao):
+        """依赖注入构造器:初始化所需的数据访问对象"""
         self.synonym_dao = synonym_dao or SynonymDao()
 
     async def add(self, synonym: SynonymCreate) -> str:
