@@ -1,4 +1,4 @@
-// src/modules/ai/types/data_clean.ts
+// src/modules/data_clean/types/data_clean.ts
 // LLM 数据清洗类型定义
 
 /** 输出类型: json=结构化 JSON, string=纯字符串 */

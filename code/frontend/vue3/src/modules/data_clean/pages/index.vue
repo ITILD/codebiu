@@ -5,7 +5,7 @@
     <!-- 参数配置区域 -->
     <el-card mb-5>
       <div flex flex-col gap-4>
-        <!-- 模型选择 -->
+        <!-- 模型选择(复用 AI 模块模型配置) -->
         <div flex flex-wrap items-center gap-3>
           <LLMSelect v-model:model-id="model_id" :model-list="tableData" :disabled="isCleaning" />
           <el-button
@@ -84,13 +84,14 @@
 <script setup lang="ts">
 import { ElMessage } from 'element-plus'
 import type { PaginationParams, PaginationResponse } from '@/common/types/common'
-import type { ModelConfig } from '../types/model_config'
+// 复用 AI 模块的模型配置(类型/API/模型选择组件)
+import type { ModelConfig } from '../../ai/types/model_config'
+import { listModelConfigs } from '../../ai/api/model_config'
+import LLMSelect from '../../ai/components/LLMSelect.vue'
 import type { DataCleanOutputType } from '../types/data_clean'
-import { listModelConfigs } from '../api/model_config'
 import { cleanData } from '../api/data_clean'
-import LLMSelect from '../components/LLMSelect.vue'
 
-// ===== 模型配置 =====
+// ===== 模型配置(复用 AI 模块) =====
 const pagination = ref<PaginationParams>({ page: 1, size: 50 })
 const model_id = ref('')
 const tableData = ref<ModelConfig[]>([])

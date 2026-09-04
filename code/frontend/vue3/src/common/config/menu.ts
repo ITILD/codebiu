@@ -10,7 +10,7 @@ import {
   HomeFilled, UserFilled, Document,
   Monitor, ChatDotRound,
   Files, Collection, FolderOpened,
-  Location, Sunny, Timer,
+  Location, Sunny, Timer, Brush,
 } from '@element-plus/icons-vue'
 
 /** 菜单项定义(perm 为权限码:与后端模块权限声明一致;缺省表示登录即可见) */
@@ -69,14 +69,19 @@ export const menuItems: MenuItem[] = [
     index: '/ai',
     icon: markRaw(ChatDotRound),
     title: 'AI 服务',
-    desc: 'AI 对话、数据清洗、模型配置、OCR 识别与语音能力。',
+    desc: 'AI 对话、模型配置、OCR 识别与语音能力。',
     children: [
       { index: '/ai/chat', title: 'AI 对话' },
-      { index: '/ai/data_clean', title: '数据清洗' },
       { index: '/ai/model_config', title: '模型配置' },
       { index: '/ai/ocr', title: 'OCR 识别' },
       { index: '/ai/voice', title: '语音识别' },
     ],
+  },
+  {
+    index: '/data_clean',
+    icon: markRaw(Brush),
+    title: '数据清洗',
+    desc: 'LLM 驱动的数据清洗与结构化转换。',
   },
   {
     index: '/file',

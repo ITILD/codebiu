@@ -1,4 +1,4 @@
-// src/modules/ai/api/data_clean.ts
+// src/modules/data_clean/api/data_clean.ts
 import { http_base_server } from '@/common/api/http'
 import type { DataCleanRequest, DataCleanResponse } from '../types/data_clean'
 
@@ -8,5 +8,5 @@ import type { DataCleanRequest, DataCleanResponse } from '../types/data_clean'
  * @returns 清洗结果
  */
 export const cleanData = (request: DataCleanRequest) => {
-  return http_base_server.post<DataCleanResponse>('/ai/data-clean/clean', request)
+  return http_base_server.post<DataCleanResponse>('/data-clean/clean', request)
 }

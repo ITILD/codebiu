@@ -4,7 +4,7 @@ import logging
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from module_ai.do.data_clean import DataCleanRequest, DataCleanResponse
+from module_data_clean.do.data_clean import DataCleanRequest, DataCleanResponse
 from module_ai.service.llm_base import LLMBaseService
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ SYSTEM_PROMPT = (
 
 
 class DataCleanService:
-    """数据清洗服务: 复用 LLMBaseService, 按输出类型(json/string)返回清洗结果"""
+    """数据清洗服务: 复用 module_ai 的 LLMBaseService, 按输出类型(json/string)返回清洗结果"""
 
     def __init__(self, llm_base_service: LLMBaseService):
         """依赖注入: 复用 LLM 基础服务"""
