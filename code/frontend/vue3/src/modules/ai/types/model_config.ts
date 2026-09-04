@@ -22,6 +22,39 @@ enum ModelType {
   TTS = "tts",
 }
 
+/** 模型归属/可见范围(与后端 ModelScope 对齐) */
+enum ModelScope {
+  /** 公共: 所有用户和部门可见可用 */
+  PUBLIC = "public",
+  /** 部门: 仅创建者所在部门可见可用 */
+  DEPT = "dept",
+  /** 个人: 仅创建者本人可见可用 */
+  USER = "user",
+}
+
+/** 归属范围显示选项 */
+const modelScopeOptions: { label: string; value: ModelScope }[] = [
+  { label: '公共(所有人可见)', value: ModelScope.PUBLIC },
+  { label: '部门(本部门可见)', value: ModelScope.DEPT },
+  { label: '个人(仅自己可见)', value: ModelScope.USER },
+]
+
+/** 归属范围短标签(列表/下拉用) */
+const scopeShortLabel = (scope?: ModelScope) =>
+  ({ [ModelScope.PUBLIC]: '公共', [ModelScope.DEPT]: '部门', [ModelScope.USER]: '个人' })[scope ?? ModelScope.USER] ?? '个人'
+
+/**
+ * 模型显示主名(优先 display_name, 用于区分同名不同来源/配置的模型)
+ */
+const modelMainLabel = (config: { display_name?: string; model: string }) =>
+  config.display_name?.trim() || config.model
+
+/**
+ * 模型区分键: 用于区分同名但来源/配置不同的模型(供唯一 key 使用)
+ */
+const modelKeyLabel = (config: { model: string; server_type: string; scope?: ModelScope }) =>
+  `${config.model}|${config.server_type}|${config.scope ?? ModelScope.USER}`
+
 /** 模型类型显示选项 */
 const modelTypeOptions: { label: string; value: ModelType }[] = [
   { label: '对话', value: ModelType.CHAT },
@@ -81,8 +114,14 @@ interface ModelConfigBase {
   model: string;
   url?: string;
   api_key?: string;
-  /** 共享标记(True=所有用户可绑定使用) */
-  is_public?: boolean;
+  /** 归属范围(public=所有人可见, dept=本部门可见, user=仅本人可见) */
+  scope?: ModelScope;
+  /** 归属部门ID(scope=dept 时服务端自动填充) */
+  dept_id?: string;
+  /** 是否为该模型类型的默认公共模型(scope=public 且同类型唯一) */
+  is_default?: boolean;
+  /** 显示名称: 用于区分同名但来源/配置不同的模型(留空取 model) */
+  display_name?: string;
   pay_in?: number;
   pay_out?: number;
   input_tokens?: number;
@@ -111,8 +150,14 @@ interface ModelConfigUpdate {
   model?: string;
   url?: string;
   api_key?: string;
-  /** 共享标记(True=所有用户可绑定使用) */
-  is_public?: boolean;
+  /** 归属范围(public=所有人可见, dept=本部门可见, user=仅本人可见) */
+  scope?: ModelScope;
+  /** 归属部门ID(scope=dept 时服务端自动填充) */
+  dept_id?: string;
+  /** 是否为默认公共模型 */
+  is_default?: boolean;
+  /** 显示名称(区分同名模型) */
+  display_name?: string;
   pay_in?: number;
   pay_out?: number;
   input_tokens?: number;
@@ -139,6 +184,11 @@ const extraKeyHints: Record<string, string[]> = {
 export {
   ModelServerType,
   ModelType,
+  ModelScope,
+  modelScopeOptions,
+  scopeShortLabel,
+  modelMainLabel,
+  modelKeyLabel,
   modelTypeOptions,
   modelTypeTagType,
   API_SERVER_OPTIONS,

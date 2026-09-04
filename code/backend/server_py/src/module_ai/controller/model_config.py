@@ -6,8 +6,10 @@ from module_ai.do.model_config import (
     ModelConfigCreateRequest,
     ModelConfigCreate,
     ModelConfigUpdate,
+    ModelScope,
 )
-from module_authorization.dependencies.auth import get_current_user_id
+from module_authorization.dependencies.auth import get_current_user
+from module_authorization.config.casbin_rule import auth_manager
 from common.utils.db.schema.pagination import (
     InfiniteScrollParams,
     InfiniteScrollResponse,
@@ -24,6 +26,14 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _is_admin(user_id: str) -> bool:
+    """判断用户是否为全局管理员(可见全部模型配置)"""
+    enforcer = auth_manager.enforcer
+    if enforcer is None:
+        return False
+    return bool(enforcer.has_grouping_policy(user_id, "admin", "*"))
+
+
 @router.post(
     "",
     summary="创建模型配置",
@@ -32,7 +42,7 @@ router = APIRouter()
 )
 async def create_model_config(
     model_config: ModelConfigCreateRequest,
-    current_user_id: str = Depends(get_current_user_id),
+    current_user=Depends(get_current_user),
     service: ModelConfigService = Depends(get_model_config_service),
 ) -> str:
     """
@@ -45,6 +55,10 @@ async def create_model_config(
     "model_type": "chat",
     "server_type": "ollama",
     "model": "qwen3-vl:235b-cloud",
+    "scope": "user",
+    "dept_id": null,
+    "is_default": false,
+    "display_name": "我的对话模型",
     "api_key": "1",
     "pay_in": 0,
     "pay_out": 0,
@@ -60,9 +74,16 @@ async def create_model_config(
     try:
         model_config_create = ModelConfigCreate(
             **model_config.model_dump(),
-            user_id=current_user_id,  # 直接使用ID
+            user_id=current_user.id,  # 直接使用ID
         )
+        # 部门模型: 归属当前用户所在部门(必须已有部门)
+        if model_config_create.scope == ModelScope.DEPT:
+            if not current_user.dept_id:
+                raise ValueError("创建部门模型需要先加入部门")
+            model_config_create.dept_id = current_user.dept_id
         return await service.add(model_config_create)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -75,20 +96,30 @@ async def list_model_configs(
     model: str | None = Query(None, description="模型标识名称模糊搜索"),
     model_type: str | None = Query(None, description="模型类型过滤(chat/embedding/asr/tts等)"),
     server_type: str | None = Query(None, description="服务类型过滤(openai/dashscope/vllm/ollama/aws)"),
+    scope: str | None = Query(None, description="归属范围过滤(public/dept/user)"),
+    current_user=Depends(get_current_user),
     service: ModelConfigService = Depends(get_model_config_service),
 ) -> PaginationResponse:
     """
-    分页获取模型配置列表(支持多字段过滤)
+    分页获取模型配置列表(支持多字段过滤; 按当前用户可见性返回公共/部门/本人模型)
     :param params: 分页参数
     :param model: 模型标识名称模糊搜索
     :param model_type: 模型类型过滤(chat/embedding/asr/tts等)
     :param server_type: 服务类型过滤(openai/dashscope/vllm/ollama/aws)
+    :param scope: 归属范围过滤(public/dept/user)
     :param service: 模型配置服务依赖注入
     :return: 分页响应数据
     """
     try:
         return await service.list_paged(
-            params, model=model, model_type=model_type, server_type=server_type
+            params,
+            model=model,
+            model_type=model_type,
+            server_type=server_type,
+            scope=scope,
+            user_id=current_user.id,
+            dept_id=current_user.dept_id,
+            is_admin=_is_admin(current_user.id),
         )
     except Exception as e:
         raise HTTPException(
@@ -99,16 +130,22 @@ async def list_model_configs(
 @router.get("/scroll", summary="滚动加载模型配置列表")
 async def infinite_scroll_model_configs(
     params: InfiniteScrollParams = Depends(),
+    current_user=Depends(get_current_user),
     service: ModelConfigService = Depends(get_model_config_service),
 ) -> InfiniteScrollResponse:
     """
-    无限滚动获取模型配置列表
+    无限滚动获取模型配置列表(按当前用户可见性过滤)
     :param params: 滚动参数
     :param service: 模型配置服务依赖注入
     :return: 滚动响应数据
     """
     try:
-        return await service.get_scroll(params)
+        return await service.get_scroll(
+            params,
+            user_id=current_user.id,
+            dept_id=current_user.dept_id,
+            is_admin=_is_admin(current_user.id),
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)

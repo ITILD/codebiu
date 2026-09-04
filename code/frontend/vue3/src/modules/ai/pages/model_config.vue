@@ -26,16 +26,28 @@
           {{ serverTypeLabel(row.server_type) }}
         </template>
       </el-table-column>
-      <el-table-column prop="model" label="模型标识" min-width="180" show-overflow-tooltip />
+      <el-table-column label="模型" min-width="200">
+        <template #default="{ row }">
+          <div flex flex-col>
+            <div flex items-center gap-1>
+              <span>{{ modelMainLabel(row) }}</span>
+              <el-tag v-if="row.is_default" type="warning" size="small">默认</el-tag>
+            </div>
+            <div v-if="row.display_name && row.display_name !== row.model" text-xs text-note-sub>
+              {{ row.model }}
+            </div>
+          </div>
+        </template>
+      </el-table-column>
       <el-table-column prop="url" label="URL" min-width="160" show-overflow-tooltip>
         <template #default="{ row }">
           {{ row.url || '-' }}
         </template>
       </el-table-column>
-      <el-table-column label="共享" width="80" align="center">
+      <el-table-column label="归属" width="90" align="center">
         <template #default="{ row }">
-          <el-tag :type="row.is_public ? 'success' : 'info'" size="small">
-            {{ row.is_public ? '公开' : '私有' }}
+          <el-tag :type="scopeTagType[row.scope] ?? 'info'" size="small">
+            {{ scopeShortLabel(row.scope) }}
           </el-tag>
         </template>
       </el-table-column>
@@ -82,6 +94,24 @@
             :placeholder="isLocalType ? '模型目录名(相对 voice 模型根目录)或绝对路径' : '如 qwen3-vl:235b'" />
         </el-form-item>
 
+        <!-- 归属范围: 公共/部门/个人 -->
+        <el-form-item label="归属范围" prop="scope">
+          <el-radio-group v-model="form.scope" w-full>
+            <el-radio v-for="opt in modelScopeOptions" :key="opt.value" :value="opt.value">
+              {{ opt.label }}
+            </el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item v-if="form.scope === ModelScope.PUBLIC" label="默认公共" prop="is_default">
+          <el-switch v-model="form.is_default" active-text="设为该类默认模型" />
+        </el-form-item>
+
+        <!-- 显示名称(用于区分同名但来源不同的模型) -->
+        <el-form-item label="显示名称" prop="display_name">
+          <el-input v-model="form.display_name"
+            placeholder="可留空, 用于区分同名但不同来源/配置的模型" maxlength="100" />
+        </el-form-item>
+
         <!-- API 类: url / api_key -->
         <template v-if="!isLocalType">
           <el-form-item label="API URL" prop="url">
@@ -89,9 +119,6 @@
           </el-form-item>
           <el-form-item label="API Key" prop="api_key">
             <el-input v-model="form.api_key" placeholder="sk-..." show-password />
-          </el-form-item>
-          <el-form-item label="共享" prop="is_public">
-            <el-switch v-model="form.is_public" active-text="公开(所有用户可用)" inactive-text="私有" />
           </el-form-item>
         </template>
 
@@ -156,11 +183,15 @@ import type { PaginationParams, PaginationResponse } from '@/common/types/common
 import TableSearchBar, { type SearchField } from '@/common/components/TableSearchBar.vue'
 import {
   ModelType,
+  ModelScope,
   modelTypeOptions,
   modelTypeTagType,
   serverTypeOptionsFor,
   modelTypeLabel,
   serverTypeLabel,
+  modelScopeOptions,
+  scopeShortLabel,
+  modelMainLabel,
   extraKeyHints,
   type ModelConfig,
   type ModelConfigCreate,
@@ -181,12 +212,17 @@ const searchFields: SearchField[] = [
     options: [...serverTypeOptionsFor('chat'), ...serverTypeOptionsFor('asr')]
       .map(o => ({ label: o.label, value: o.value as string })),
   },
+  {
+    prop: 'scope', label: '归属范围', type: 'select',
+    options: modelScopeOptions.map(o => ({ label: o.label, value: o.value as string })),
+  },
 ]
 // 查询参数(与后端列表接口过滤参数对齐)
 const queryParams = ref<Record<string, unknown>>({
   model: '',
   model_type: undefined,
   server_type: undefined,
+  scope: undefined,
 })
 
 // ################ 列表 ################
@@ -199,12 +235,13 @@ const loading = ref(false)
 const fetchData = async () => {
   try {
     loading.value = true
-    const { model, model_type, server_type } = queryParams.value
+    const { model, model_type, server_type, scope } = queryParams.value
     const response: PaginationResponse<ModelConfig> = await listModelConfigs({
       ...pagination.value,
       model: (model as string) || undefined,
       model_type: (model_type as string) || undefined,
       server_type: (server_type as string) || undefined,
+      scope: (scope as string) || undefined,
     } as PaginationParams)
     tableData.value = response.items
     total.value = response.total
@@ -241,7 +278,9 @@ interface ModelConfigForm {
   model: string
   url: string
   api_key: string
-  is_public: boolean
+  scope: ModelScope
+  is_default: boolean
+  display_name: string
   pay_in: number
   pay_out: number
   input_tokens: number
@@ -258,7 +297,9 @@ const defaultForm = (): ModelConfigForm => ({
   model: '',
   url: '',
   api_key: '',
-  is_public: false,
+  scope: ModelScope.USER,
+  is_default: false,
+  display_name: '',
   pay_in: 0,
   pay_out: 0,
   input_tokens: 8192,
@@ -270,6 +311,13 @@ const defaultForm = (): ModelConfigForm => ({
 })
 
 const form = reactive<ModelConfigForm>(defaultForm())
+
+/** 归属范围标签样式 */
+const scopeTagType: Record<string, 'primary' | 'success' | 'warning' | 'info' | 'danger'> = {
+  [ModelScope.PUBLIC]: 'success',
+  [ModelScope.DEPT]: 'warning',
+  [ModelScope.USER]: 'info',
+}
 
 const rules = {
   model: [
@@ -333,7 +381,9 @@ const handleEdit = async (row: ModelConfig) => {
     form.model = detail.model || ''
     form.url = detail.url || ''
     form.api_key = detail.api_key || ''
-    form.is_public = detail.is_public ?? false
+    form.scope = detail.scope ?? ModelScope.USER
+    form.is_default = detail.is_default ?? false
+    form.display_name = detail.display_name || ''
     form.pay_in = detail.pay_in ?? 0
     form.pay_out = detail.pay_out ?? 0
     form.input_tokens = detail.input_tokens ?? 8192
@@ -370,9 +420,11 @@ const handleSubmit = async () => {
     model_type: form.model_type,
     server_type: form.server_type as ModelConfigCreate['server_type'],
     model: form.model,
+    scope: form.scope,
+    is_default: form.scope === ModelScope.PUBLIC ? form.is_default : false,
+    display_name: form.display_name.trim() || undefined,
     url: isLocal ? undefined : (form.url || undefined),
     api_key: isLocal ? undefined : (form.api_key || undefined),
-    is_public: isLocal ? undefined : form.is_public,
     timeout: isLocal ? undefined : (form.timeout || undefined),
     pay_in: isLocal ? undefined : (form.pay_in ?? 0),
     pay_out: isLocal ? undefined : (form.pay_out ?? 0),

@@ -1,8 +1,18 @@
 from sqlmodel import Column, DateTime, Field, SQLModel, JSON
 from uuid import uuid4
 from datetime import datetime, timezone
+from enum import StrEnum
 from module_ai.utils.llm.do.llm_type import ModelType, ModelServerType
 from pydantic import model_validator
+
+
+class ModelScope(StrEnum):
+    """模型可见/归属范围: 公共、部门、个人"""
+
+    PUBLIC = "public"
+    DEPT = "dept"
+    USER = "user"
+
 
 class ModelConfigBase(SQLModel):
     """
@@ -18,8 +28,14 @@ class ModelConfigBase(SQLModel):
     model: str = Field(..., description="模型标识名称")
     url: str | None = Field(None, description="API基础URL")
     api_key: str | None = Field(None, description="API访问密钥")
-    # 共享标记(True=所有用户可绑定使用,含 api_key 归属校验放行)
-    is_public: bool = Field(default=False, description="共享标记(True=所有用户可用)")
+    # 归属范围: public=所有人可看/可用, dept=所属部门及以下可见, user=仅本人可见
+    scope: ModelScope = Field(ModelScope.USER, description="归属范围(public/dept/user)")
+    # 归属部门ID(scope=dept 时必填)
+    dept_id: str | None = Field(None, description="归属部门ID(scope=dept 时使用)")
+    # 是否为该模型类型的默认公共模型(scope=public 且同类型唯一)
+    is_default: bool = Field(default=False, description="是否为该类型默认公共模型")
+    # 显示名称: 用于区分同名但来源/配置不同的模型(留空取 model)
+    display_name: str | None = Field(None, max_length=100, description="显示名称(区分同名模型)")
 
     # 成本
     pay_in: float | None = Field(0.0, ge=0, description="模型调用成本")
@@ -120,8 +136,11 @@ class ModelConfigUpdate(SQLModel):
     model: str = None
     url: str | None = None
     api_key: str | None = None
-    # 共享标记
-    is_public: bool | None = None
+    # 归属范围/部门/默认/显示名
+    scope: ModelScope | None = None
+    dept_id: str | None = None
+    is_default: bool | None = None
+    display_name: str | None = None
 
     # 成本
     pay_in: float | None = None
