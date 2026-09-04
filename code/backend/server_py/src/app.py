@@ -43,7 +43,7 @@ from module_geometry.config import permissions as geometry_permissions  # noqa: 
 from module_task.controller import task
 from module_task.config import permissions as task_permissions  # noqa: F401
 # # AI 模块: 仅挂载模型配置管理(用户私有模型配置 + 共享标记),chat/voice/ocr 待启用
-from module_ai.controller import model_config
+from module_ai.controller import model_config, data_clean
 
 if __name__ == "__main__":
     import sys

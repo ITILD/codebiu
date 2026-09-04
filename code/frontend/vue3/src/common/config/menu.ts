@@ -69,9 +69,10 @@ export const menuItems: MenuItem[] = [
     index: '/ai',
     icon: markRaw(ChatDotRound),
     title: 'AI 服务',
-    desc: 'AI 对话、模型配置、OCR 识别与语音能力。',
+    desc: 'AI 对话、数据清洗、模型配置、OCR 识别与语音能力。',
     children: [
       { index: '/ai/chat', title: 'AI 对话' },
+      { index: '/ai/data_clean', title: '数据清洗' },
       { index: '/ai/model_config', title: '模型配置' },
       { index: '/ai/ocr', title: 'OCR 识别' },
       { index: '/ai/voice', title: '语音识别' },

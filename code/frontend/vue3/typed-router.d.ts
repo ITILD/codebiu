@@ -22,6 +22,7 @@ declare module 'vue-router/auto-routes' {
     '/[..all]': RouteRecordInfo<'/[..all]', '/:ll(.*)', { ll: ParamValue<true> }, { ll: ParamValue<false> }>,
     '/admin': RouteRecordInfo<'/admin', '/admin', Record<never, never>, Record<never, never>>,
     '/ai/chat': RouteRecordInfo<'/ai/chat', '/ai/chat', Record<never, never>, Record<never, never>>,
+    '/ai/data_clean': RouteRecordInfo<'/ai/data_clean', '/ai/data_clean', Record<never, never>, Record<never, never>>,
     '/ai/model_config': RouteRecordInfo<'/ai/model_config', '/ai/model_config', Record<never, never>, Record<never, never>>,
     '/ai/ocr': RouteRecordInfo<'/ai/ocr', '/ai/ocr', Record<never, never>, Record<never, never>>,
     '/ai/voice': RouteRecordInfo<'/ai/voice', '/ai/voice', Record<never, never>, Record<never, never>>,
@@ -77,6 +78,10 @@ declare module 'vue-router/auto-routes' {
     }
     'src/modules/ai/pages/chat.vue': {
       routes: '/ai/chat'
+      views: never
+    }
+    'src/modules/ai/pages/data_clean.vue': {
+      routes: '/ai/data_clean'
       views: never
     }
     'src/modules/ai/pages/model_config.vue': {
