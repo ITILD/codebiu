@@ -211,3 +211,7 @@ node_modules
 
 template_source
 temp_source
+
+# Trae IDE 生成文件
+.trae/
+.trae-html-share-packages/
