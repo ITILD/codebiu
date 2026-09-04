@@ -1,17 +1,14 @@
 /**
  * AI聊天相关的API接口
  */
-import { http_base_server } from '@/utils/http'
+import { http_base_server } from '@/common/api/http'
 import { fetchEventSource } from '@microsoft/fetch-event-source'
 import type {
   ChatRequest,
   ChatResponse,
   ChatHistory,
-  ChatMessage,
-  CreateChatRequest,
-  UpdateChatRequest,
   ChatStreamEvent
-} from '@/types/chat'
+} from '@/common/types/chat'
 
 /**
  * 发送聊天消息
@@ -19,7 +16,7 @@ import type {
  * @returns 聊天响应
  */
 export const sendChatMessage = async (request: ChatRequest) => {
-  return http_base_server.post<ChatResponse>('/ai/llm_base/chat', request)
+  return http_base_server.post<ChatResponse>('/ai/llm-base/chat', request)
 }
 
 /**
@@ -42,7 +39,7 @@ export const sendChatMessageStream = async (
   const controller = new AbortController()
   // 立即交给调用方, 供流式期间中止
   onController?.(controller)
-  await fetchEventSource(`/base_server/ai/llm_base/chat`, {
+  await fetchEventSource(`/base_server/ai/llm-base/chat`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
@@ -86,65 +83,11 @@ export const sendChatMessageStream = async (
 }
 
 /**
- * 创建新的聊天会话
- * @param request 创建请求
- * @returns 创建的聊天会话ID
- */
-export const createChatSession = async (request: CreateChatRequest) => {
-  return http_base_server.post<string>('/ai/chat/sessions', request)
-}
-
-/**
- * 获取聊天会话列表
- * @returns 聊天会话列表
- */
-export const getChatSessions = async () => {
-  return http_base_server.get<ChatHistory[]>('/ai/chat/sessions')
-}
-
-/**
- * 获取指定聊天会话的详情
- * @param sessionId 会话ID
- * @returns 聊天会话详情
- */
-export const getChatSession = async (sessionId: string) => {
-  return http_base_server.get<ChatHistory>(`/ai/chat/sessions/${sessionId}`)
-}
-
-/**
- * 更新聊天会话
- * @param sessionId 会话ID
- * @param request 更新请求
- */
-export const updateChatSession = async (sessionId: string, request: UpdateChatRequest) => {
-  return http_base_server.put<void>(`/ai/chat/sessions/${sessionId}`, request)
-}
-
-/**
- * 删除聊天会话
- * @param sessionId 会话ID
- */
-export const deleteChatSession = async (sessionId: string) => {
-  return http_base_server.delete<void>(`/ai/chat/sessions/${sessionId}`)
-}
-
-/**
- * 获取聊天会话的消息列表
- * @param sessionId 会话ID
- * @returns 消息列表
- */
-export const getChatMessages = async (sessionId: string) => {
-  return http_base_server.get<ChatMessage[]>(`/ai/chat/sessions/${sessionId}/messages`)
-}
-
-/**
  * 清除模型缓存（测试用）
- * @param model_id 模型ID
+ * @param model_id 模型ID(为空清除全部)
  */
 export const clearModelCache = async (model_id?: string) => {
-  const url = model_id
-    ? `/ai/llm_base/_test_cache_clear/${model_id}`
-    : '/ai/llm_base/_test_cache_clear'
+  const url = model_id ? `/ai/llm-base/cache/${model_id}` : '/ai/llm-base/cache'
   return http_base_server.delete<void>(url)
 }
 
@@ -154,7 +97,7 @@ export const clearModelCache = async (model_id?: string) => {
  * @returns 校验结果
  */
 export const checkModelConfig = async (modelConfig: any) => {
-  return http_base_server.post<{ message: string }>('/ai/llm_base/check_config', modelConfig)
+  return http_base_server.post<{ message: string }>('/ai/llm-base/check-config', modelConfig)
 }
 
 // 本地存储相关的辅助函数

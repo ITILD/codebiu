@@ -1,4 +1,4 @@
-// src/types/authorization/role.ts
+// src/modules/authorization/types/role.ts
 
 interface RoleBase {
   name: string;

@@ -8,6 +8,7 @@ class ModelConfigService:
     """模型配置服务层"""
 
     def __init__(self, model_config_dao: ModelConfigDao =None):
+        """依赖注入构造器:初始化所需的数据访问对象"""
         self.model_config_dao = model_config_dao or ModelConfigDao()
 
     async def add(self, model_config: ModelConfigCreate) -> str:
@@ -46,7 +47,7 @@ class ModelConfigService:
         return await self.model_config_dao.get(id)
 
 
-    async def list_all(
+    async def list_paged(
         self,
         pagination: PaginationParams,
         model: str | None = None,
@@ -61,7 +62,7 @@ class ModelConfigService:
         :param server_type: 服务类型精确过滤
         :return: 分页响应数据
         """
-        items = await self.model_config_dao.list_all(
+        items = await self.model_config_dao.list_paged(
             pagination, model=model, model_type=model_type, server_type=server_type
         )
         total = await self.model_config_dao.count(
@@ -78,13 +79,21 @@ class ModelConfigService:
         items = await self.model_config_dao.get_scroll(params)
         return InfiniteScrollResponse.create(items, params.limit)
     
-    async def get_default_params(self) -> list[dict]:
+    async def get_default_params(self, model_name: str) -> dict:
         """
-        获取当前所有注册的默认模型服务参数kv列表
-        :return: 默认模型服务参数kv列表
+        获取指定模型的默认参数kv(基于 ModelConfig 字段默认值)
+        :param model_name: 模型标识名称
+        :return: 默认参数kv字典
         """
-        # return await self.model_config_dao.get_default_params()
-        pass
+        from pydantic_core import PydanticUndefined
+
+        from module_ai.utils.llm.do.llm_config import ModelConfig
+
+        return {
+            name: (info.default if info.default is not PydanticUndefined else None)
+            for name, info in ModelConfig.model_fields.items()
+            if name != "model"  # model 为调用方传入的标识名称, 不在默认参数内
+        }
     
 
 if __name__ == "__main__":

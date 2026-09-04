@@ -16,6 +16,7 @@ class ProjectMemberService:
     """项目成员服务(角色存成员表,项目内鉴权按档位判断,见 dependencies/permission.py)"""
 
     def __init__(self, member_dao: ProjectMemberDao):
+        """依赖注入构造器:初始化所需的数据访问对象"""
         self.member_dao = member_dao or ProjectMemberDao()
 
     async def add(self, member: ProjectMemberCreate) -> str:

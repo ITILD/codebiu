@@ -33,7 +33,7 @@ async def create_role(
     "/list", summary="分页查询角色列表", response_model=PaginationResponse,
     dependencies=[Depends(require_permission("sys", "role", "read"))],
 )
-async def list_all(
+async def list_roles(
     pagination: PaginationParams = Depends(),
     name: str | None = Query(None, max_length=50, description="角色名称模糊搜索"),
     role_key: str | None = Query(None, max_length=100, description="权限字符模糊搜索"),
@@ -48,7 +48,7 @@ async def list_all(
     :param is_active: 状态过滤(true=启用/false=禁用)
     """
     try:
-        return await service.list_all(
+        return await service.list_paged(
             pagination, name=name, role_key=role_key, is_active=is_active
         )
     except Exception as e:
@@ -56,14 +56,14 @@ async def list_all(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
-@router.get("/list_all", summary="获取所有角色(不分页)",
+@router.get("/all", summary="获取所有角色(不分页)",
     dependencies=[Depends(require_permission("sys", "role", "read"))])
-async def list_all_no_page(
+async def list_all_roles(
     service: RoleService = Depends(get_role_service)
 ):
     """获取所有角色列表(不分页, 用于下拉选择)"""
     try:
-        return await service.list_all_no_page()
+        return await service.list_all()
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -88,6 +88,8 @@ async def get_role(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Role not found"
             )
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -149,6 +151,8 @@ async def get_role_by_name(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Role not found"
             )
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -168,6 +172,8 @@ async def get_role_by_key(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Role not found"
             )
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)

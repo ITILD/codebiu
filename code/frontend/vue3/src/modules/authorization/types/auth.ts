@@ -1,4 +1,4 @@
-// src/types/authorization/auth.ts
+// src/modules/authorization/types/auth.ts
 import type { User } from './user';
 import type { TokenResponseBase } from './token';
 
@@ -34,7 +34,7 @@ export interface RefreshTokenRequest {
   token_refresh: string;
 }
 
-/** 当前用户角色与权限码信息(me_permissions 接口响应) */
+/** 当前用户角色与权限码信息(me-permissions 接口响应) */
 export interface UserPermissionInfo {
   /** 角色绑定,按域分组,如 { "*": ["admin"], "main": ["main_viewer"] } */
   roles: Record<string, string[]>;

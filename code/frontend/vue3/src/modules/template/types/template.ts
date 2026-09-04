@@ -1,4 +1,4 @@
-// src/types/template.ts
+// src/modules/template/types/template.ts
 interface TemplateBase {
   pid?: string;
   value?: number;

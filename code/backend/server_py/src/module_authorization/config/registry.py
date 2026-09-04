@@ -27,6 +27,14 @@
     1. 在模块下新建 config/permissions.py, 声明 ModulePermissionDefine
     2. 在模块 config/server.py(或被 app.py 导入的任意入口)导入该文件完成注册
     3. 控制器路由使用 require_permission(模块, 资源, 动作) 校验
+
+默认权限约定(重要):
+    新加模块默认不带权限, 即 default_policies=[] (模块权限树照常声明,
+    仅新用户默认策略为空)。普通用户需要访问时, 由管理员在
+    角色管理→分配权限 界面按需勾选该模块的按钮级权限码。
+    注意: default_policies 变更只做增量同步(启动时补写缺失策略),
+    移除声明不会自动回收已存在的 user 角色策略, 需在界面取消勾选
+    或直接清理 casbin_rule 表对应记录。详见 doc/dev/permission.md。
 """
 from dataclasses import dataclass, field
 import logging
@@ -85,6 +93,7 @@ class PermissionRegistry:
     """权限注册中心(单例),收集各模块的权限声明"""
 
     def __init__(self):
+        """初始化权限声明注册表(模块名 -> 权限声明)"""
         self._defines: dict[str, ModulePermissionDefine] = {}
 
     def register(self, define: ModulePermissionDefine) -> None:

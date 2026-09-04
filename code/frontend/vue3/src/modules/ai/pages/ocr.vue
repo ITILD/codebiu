@@ -153,8 +153,8 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import type { Ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
-import type { Language, OcrResult, OcrResponse } from '@/types/ocr'
-import { fetchLanguages as fetchOCRLanguages, performOCR, performOCRWithTranslation } from '@/api/ocr'
+import type { Language, OcrResult, OcrResponse } from '../types/ocr'
+import { listOcrLanguages, recognizeText, recognizeAndTranslate } from '../api/ocr'
 
 // 响应式数据
 const fileInputRef: Ref<HTMLInputElement | null> = ref(null)
@@ -198,7 +198,7 @@ onUnmounted(() => {
 // 获取支持的语言列表
 const fetchLanguages = async () => {
   try {
-    const data: Language[] = await fetchOCRLanguages()
+    const data: Language[] = await listOcrLanguages()
     languages.value = data
     if (data.length > 0) {
       selectedLang.value = data[0].code
@@ -421,7 +421,7 @@ const startRecognition = async () => {
   bgImage.value = ''
 
   try {
-    const data: OcrResponse = await performOCR(formData)
+    const data: OcrResponse = await recognizeText(formData)
 
     // 处理结果
     results.value = (data.results || []).map((item, index) => ({
@@ -469,7 +469,7 @@ const startRecognitionTranslate = async () => {
   bgImage.value = ''
 
   try {
-    const data: OcrResponse = await performOCRWithTranslation(formData)
+    const data: OcrResponse = await recognizeAndTranslate(formData)
 
     // 处理结果
     results.value = (data.results || []).map((item, index) => ({

@@ -3,7 +3,10 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 
 class TranslatePrompt:
+    """翻译任务提示词构造器"""
+
     async def get_prompt_system(self):
+        """构造翻译系统提示词(声明翻译角色与保留特殊字符的要求)"""
         prompt_result = SystemMessage(
             # 你是一个精通多种语言的翻译，请按要求将提供的内容翻译成对应语言，保留阿拉伯数字等特殊字符。
             content="""
@@ -15,6 +18,7 @@ Please translate the provided content into the specified language while preservi
 
     # 减少截断影响，需求放前面
     async def get_prompt_user(self, translate: Translate):
+        """构造翻译用户提示词(含OCR纠错与只输出译文的要求)"""
         prompt_result = HumanMessage(
             #  将 以下内容{translate.content} 翻译成 {translate.lang} 语言。
             content=f"""

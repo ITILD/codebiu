@@ -1,5 +1,5 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
-from sqlmodel import select, exists, update
+from sqlmodel import select, exists, update, func
 from common.config.db import DaoRel
 from module_file.do.filesystem import FileContent, FileContentCreate, FileContentUpdate
 from common.enum.task import TaskStatus
@@ -127,3 +127,32 @@ class FileContentDao:
 
         if result.rowcount == 0:
             raise ValueError(f"未找到可引用的文件: {content_hash}")
+
+    @DaoRel
+    async def list_all(
+        self, session: AsyncSession | None = None
+    ) -> list[FileContent]:
+        """
+        查询全部物理内容记录(存储迁移遍历用)
+        :param session: 可选数据库会话
+        :return: 内容记录列表
+        """
+        result = await session.exec(select(FileContent))
+        return list(result.all())
+
+    @DaoRel
+    async def stats(
+        self, session: AsyncSession | None = None
+    ) -> tuple[int, int]:
+        """
+        物理内容统计(存储统计用)
+        :param session: 可选数据库会话
+        :return: (内容记录总数, 物理存储总占用字节)
+        """
+        statement = select(
+            func.count(FileContent.content_hash),
+            func.coalesce(func.sum(FileContent.file_size_bytes), 0),
+        )
+        result = await session.exec(statement)
+        row = result.one()
+        return row[0], row[1]

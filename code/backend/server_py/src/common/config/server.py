@@ -56,6 +56,7 @@ if conf.middleware.cors:  # 跨域
 # 为app增加接口处理耗时的响应头信息
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
+    """中间件:统计请求处理耗时并写入 X-Process-Time 响应头,附带处理token刷新"""
     start_time = time.time()
     response: Response = await call_next(request)
     await dealToken(request, response)
@@ -72,6 +73,7 @@ async def add_process_time_header(request: Request, call_next):
 #     security.secret, security.algorithm, security.expire
 # )
 async def dealToken(request: Request, response: Response):
+    """token通用过滤钩子:响应阶段处理令牌续期(预留扩展点,当前为空实现)"""
     # 解析出数据
     # data = token_util.token2data(request)
     # 验证用户存在

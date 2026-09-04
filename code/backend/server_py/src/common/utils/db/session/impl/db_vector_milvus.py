@@ -7,6 +7,7 @@ from pymilvus import (
     Collection
 )
 from pymilvus import Function, FunctionType
+from pydantic_core import PydanticUndefined
 from common.utils.db.do.db_config import MilvusConfig
 from common.utils.db.orm.vector_model import VectorModel
 from common.utils.db.session.interface.db_vector_interface import DBVectorInterface
@@ -137,8 +138,10 @@ class DBVectorMilvus(DBVectorInterface):
                     is_primary = field_info.json_schema_extra.get("primary_key", False)
                 # 兜底：兼容某些旧版本或特殊配置直接挂在 field_info 上的情况
                 elif hasattr(field_info, "primary_key"):
-                    is_primary = getattr(field_info, "primary_key", False)
-
+                    # 注意: sqlmodel FieldInfo 的 primary_key 默认值是 PydanticUndefined(truthy),
+                    # 直接 getattr 会把未声明主键的字段误判为主键, 必须显式排除
+                    _pk_val = getattr(field_info, "primary_key", False)
+                    is_primary = bool(_pk_val) and _pk_val is not PydanticUndefined
                 # 必须有且仅有一个主键
                 if is_primary:
                     if primary_field_name is not None:
@@ -279,9 +282,12 @@ class DBVectorMilvus(DBVectorInterface):
                     input_field_names=[analyzer_field_name],
                     output_field_names=[sparse_field_name],
                 )
-            # 注意：CollectionSchema 的 functions 参数在 pymilvus 中接受列表
+            # 注意：CollectionSchema 的 functions 参数在 pymilvus 中接受列表,
+            # 无 BM25 函数时必须传 None(传 [None] 会触发 SchemaNotReadyException)
             schema = CollectionSchema(
-                fields, description=f"Schema for {collection_name}", functions=[bm25_function]
+                fields,
+                description=f"Schema for {collection_name}",
+                functions=[bm25_function] if bm25_function else None,
             )
             # 创建集合
             await self.async_vector.create_collection(collection_name, schema=schema)

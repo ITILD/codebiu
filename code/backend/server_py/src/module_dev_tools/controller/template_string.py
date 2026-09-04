@@ -86,7 +86,7 @@ async def list_template_strings(
     :return: 分页响应结果
     """
     try:
-        pagination_response = await service.list_all(pagination)
+        pagination_response = await service.list_paged(pagination)
         return pagination_response
     except Exception as e:
         raise HTTPException(
@@ -112,6 +112,9 @@ async def get_template_string(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Template string not found"
             )
         return result
+    except HTTPException:
+        # 保留 404 语义,避免被包装成 500
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -209,4 +212,4 @@ async def validate_template_syntax(
 # TODO 凑文件夹压缩包规则,下载模板文件 只修改do
 
 # 将路由挂载到模块应用
-module_app.include_router(router, prefix="/template_strings", tags=["模板字符串管理"])
+module_app.include_router(router, prefix="/template-strings", tags=["模板字符串管理"])

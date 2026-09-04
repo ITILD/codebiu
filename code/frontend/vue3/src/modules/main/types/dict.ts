@@ -1,4 +1,4 @@
-// src/types/main/dict.ts
+// src/modules/main/types/dict.ts
 // 对应后端 module_main 的 /dict_types 与 /dict_items 接口数据结构
 
 /** 字典类型(字段表-类型表) */

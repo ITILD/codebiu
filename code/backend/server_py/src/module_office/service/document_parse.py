@@ -12,6 +12,7 @@ class DocumentParseService:
     """文件解析服务"""
 
     def __init__(self):
+        """依赖注入构造器:初始化所需的数据访问对象"""
         pass
 
     async def file2chunk(

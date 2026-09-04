@@ -13,7 +13,7 @@
     </div>
 
     <!-- 数据表格 -->
-    <el-table :data="tableData" v-loading="loading" stripe w-full row-key="id" :tree-props="{ children: 'children' }" default-expand-all>
+    <el-table :data="tableData" v-loading="loading" stripe w-full row-key="id" :tree-props="{ children: 'children' }">
       <el-table-column prop="name" label="部门名称" min-width="180" />
       <el-table-column prop="order_num" label="排序" min-width="80" align="center" />
       <el-table-column prop="leader" label="负责人" min-width="100" />
@@ -78,8 +78,8 @@
 
 <script setup lang="ts">
 import { Search } from '@element-plus/icons-vue'
-import { createDept, deleteDept, getDept, getDeptTree, updateDept } from '@/api/authorization/dept'
-import type { DeptCreate, DeptTree, DeptUpdate } from '@/types/authorization/dept'
+import { createDept, deleteDept, getDept, getDeptTree, updateDept } from '../api/dept'
+import type { DeptCreate, DeptTree, DeptUpdate } from '../types/dept'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 
 // 树节点类型（DeptTree 树形接口未包含 created_at，此处扩展以便表格展示后端可能返回的创建时间）

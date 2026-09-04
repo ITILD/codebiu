@@ -5,6 +5,7 @@ logger = logging.getLogger(__name__)
 class CasbinRuleDao:
     """Casbin规则数据访问对象"""
     def __init__(self):
+        """依赖注入构造器:初始化所需的数据访问对象"""
         self.enforcer = auth_manager.enforcer
 
     async def add_policy(self, sub: str, dom: str, obj: str, act: str) -> bool:

@@ -34,6 +34,7 @@ async def run_hooks(hooks):
 
 
 async def server_start():
+    """服务启动流程:建立数据库连接→执行建表前钩子→建表→执行建表后钩子"""
     logger.info("server_start...")
     try:
         await db_manager.connect_all()
@@ -51,6 +52,7 @@ async def server_start():
 
 
 async def server_end():
+    """服务关闭流程:释放数据库等资源"""
     logger.info("server_end...")
     # redis持久化 英文
     await db_manager.shutdown()
@@ -58,6 +60,7 @@ async def server_end():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """FastAPI 生命周期管理:启动时初始化数据库,关闭时释放资源"""
     # 启动时执行
     await server_start()
 

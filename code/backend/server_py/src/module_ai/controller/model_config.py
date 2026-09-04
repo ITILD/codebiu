@@ -87,7 +87,7 @@ async def list_model_configs(
     :return: 分页响应数据
     """
     try:
-        return await service.list_all(
+        return await service.list_paged(
             params, model=model, model_type=model_type, server_type=server_type
         )
     except Exception as e:
@@ -178,7 +178,7 @@ async def delete_model_config(
         )
 
 # 根据码表选取模型获取默认参数
-@router.get("/default_params/{model_name}", summary="获取默认模型参数kv")
+@router.get("/default-params/{model_name}", summary="获取默认模型参数kv")
 async def get_default_model_params(
     model_name: str,
     service: ModelConfigService = Depends(get_model_config_service),
@@ -197,6 +197,9 @@ async def get_default_model_params(
                 detail=f"未找到模型 {model_name} 的默认参数",
             )
         return {"params": params}
+    except HTTPException:
+        # 保留 404 语义,避免被包装成 500
+        raise
     except Exception as e:
         logger.error(f"获取模型 {model_name} 默认参数失败: {e}")
         raise HTTPException(
@@ -206,4 +209,4 @@ async def get_default_model_params(
 
 
 # 将路由注册到模块应用
-module_app.include_router(router, prefix="/model_config", tags=["模型配置"])
+module_app.include_router(router, prefix="/model-configs", tags=["模型配置"])

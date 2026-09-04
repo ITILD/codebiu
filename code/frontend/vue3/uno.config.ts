@@ -96,6 +96,8 @@ export default defineConfig({
       'shadow-note': 'shadow-[0_2px_12px_rgba(108,191,143,0.14)]',
       // 苔绿渐变(hero用)
       'bg-note-gradient': 'bg-gradient-to-br from-[#e7f2e9] via-[#f4f8f2] to-[#ddeddf] dark:from-[#16241c] dark:via-[#101c15] dark:to-[#1d3a2e]',
+      // 毛玻璃纸底(吸顶头部用; shortcut 不支持 /80 透明度修饰, 故单独定义)
+      'bg-note-glass': 'bg-[rgba(244,248,242,0.85)] dark:bg-[rgba(21,35,28,0.85)]',
     },
      // 背景文字颜色
      [

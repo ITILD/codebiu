@@ -1,4 +1,4 @@
-// src/types/file.ts
+// src/modules/file/types/file.ts
 // 文件模块类型定义(虚拟文件系统)
 
 /** 条目状态 */
@@ -38,5 +38,41 @@ type FileEntryUpdate = {
   description?: string;
 };
 
+/** 存储统计信息 */
+type StorageStats = {
+  /** 当前生效存储类型(local/s3/rustfs) */
+  storage_type: string;
+  /** 逻辑条目总数(含目录) */
+  entry_total: number;
+  /** 文件条目数 */
+  file_total: number;
+  /** 目录条目数 */
+  folder_total: number;
+  /** 物理内容记录数(去重后) */
+  content_total: number;
+  /** 物理存储总占用(字节) */
+  used_bytes: number;
+};
+
+/** 存储迁移请求 */
+type MigrateRequest = {
+  from_type: "local" | "s3" | "rustfs";
+  to_type: "local" | "s3" | "rustfs";
+};
+
+/** 存储迁移结果 */
+type MigrateResult = {
+  total: number;
+  migrated: number;
+  skipped: number;
+  failed: { content_hash: string; error: string }[];
+};
+
 export { EntryStatus };
-export type { FileEntry, FileEntryUpdate };
+export type {
+  FileEntry,
+  FileEntryUpdate,
+  StorageStats,
+  MigrateRequest,
+  MigrateResult,
+};

@@ -37,6 +37,7 @@ class FileType(str, Enum):
 
     @classmethod
     def is_document(cls, ext: str) -> bool:
+        """判断是否为支持解析的文本文档类型"""
         return ext.lower() in [
             cls.PDF.value,
             cls.DOCX.value,

@@ -45,8 +45,8 @@ async def infinite_scroll(
     :return: 分页响应数据
     """
     try:
-        itnfinite_scroll_response = await service.get_scroll(params)
-        return itnfinite_scroll_response
+        infinite_scroll_response = await service.get_scroll(params)
+        return infinite_scroll_response
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -65,7 +65,7 @@ async def list_templates(
     :return: 分页响应结果
     """
     try:
-        pagination_response: PaginationResponse = await service.list_all(pagination)
+        pagination_response: PaginationResponse = await service.list_paged(pagination)
         return pagination_response
     except Exception as e:
         raise HTTPException(

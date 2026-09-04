@@ -19,38 +19,37 @@ declare module 'vue-router/auto-routes' {
    */
   export interface RouteNamedMap {
     '/': RouteRecordInfo<'/', '/', Record<never, never>, Record<never, never>>,
-    '/_sys': RouteRecordInfo<'/_sys', '/_sys', Record<never, never>, Record<never, never>, '/_sys/' | '/_sys/ai/chat' | '/_sys/ai/model_config' | '/_sys/ai/ocr' | '/_sys/ai/voice' | '/_sys/database/dict' | '/_sys/database/overview' | '/_sys/database/user' | '/_sys/file/' | '/_sys/geometry/earth' | '/_sys/life/baby_name' | '/_sys/little_utils/todolist' | '/_sys/manager/casbin' | '/_sys/manager/dept' | '/_sys/manager/permission' | '/_sys/manager/role' | '/_sys/manager/user' | '/_sys/monitor/server_status' | '/_sys/monitor/uistore' | '/_sys/rag/conversation' | '/_sys/rag/document' | '/_sys/rag/member' | '/_sys/rag/project' | '/_sys/setting' | '/_sys/template/babylon' | '/_sys/template/container' | '/_sys/template/infoview' | '/_sys/template/mediapipe_face' | '/_sys/template/overview' | '/_sys/template/template'>,
-    '/_sys/': RouteRecordInfo<'/_sys/', '/_sys', Record<never, never>, Record<never, never>>,
-    '/_sys/ai/chat': RouteRecordInfo<'/_sys/ai/chat', '/_sys/ai/chat', Record<never, never>, Record<never, never>>,
-    '/_sys/ai/model_config': RouteRecordInfo<'/_sys/ai/model_config', '/_sys/ai/model_config', Record<never, never>, Record<never, never>>,
-    '/_sys/ai/ocr': RouteRecordInfo<'/_sys/ai/ocr', '/_sys/ai/ocr', Record<never, never>, Record<never, never>>,
-    '/_sys/ai/voice': RouteRecordInfo<'/_sys/ai/voice', '/_sys/ai/voice', Record<never, never>, Record<never, never>>,
-    '/_sys/database/dict': RouteRecordInfo<'/_sys/database/dict', '/_sys/database/dict', Record<never, never>, Record<never, never>>,
-    '/_sys/database/overview': RouteRecordInfo<'/_sys/database/overview', '/_sys/database/overview', Record<never, never>, Record<never, never>>,
-    '/_sys/database/user': RouteRecordInfo<'/_sys/database/user', '/_sys/database/user', Record<never, never>, Record<never, never>>,
-    '/_sys/file/': RouteRecordInfo<'/_sys/file/', '/_sys/file', Record<never, never>, Record<never, never>>,
-    '/_sys/geometry/earth': RouteRecordInfo<'/_sys/geometry/earth', '/_sys/geometry/earth', Record<never, never>, Record<never, never>>,
-    '/_sys/life/baby_name': RouteRecordInfo<'/_sys/life/baby_name', '/_sys/life/baby_name', Record<never, never>, Record<never, never>>,
-    '/_sys/little_utils/todolist': RouteRecordInfo<'/_sys/little_utils/todolist', '/_sys/little_utils/todolist', Record<never, never>, Record<never, never>>,
-    '/_sys/manager/casbin': RouteRecordInfo<'/_sys/manager/casbin', '/_sys/manager/casbin', Record<never, never>, Record<never, never>>,
-    '/_sys/manager/dept': RouteRecordInfo<'/_sys/manager/dept', '/_sys/manager/dept', Record<never, never>, Record<never, never>>,
-    '/_sys/manager/permission': RouteRecordInfo<'/_sys/manager/permission', '/_sys/manager/permission', Record<never, never>, Record<never, never>>,
-    '/_sys/manager/role': RouteRecordInfo<'/_sys/manager/role', '/_sys/manager/role', Record<never, never>, Record<never, never>>,
-    '/_sys/manager/user': RouteRecordInfo<'/_sys/manager/user', '/_sys/manager/user', Record<never, never>, Record<never, never>>,
-    '/_sys/monitor/server_status': RouteRecordInfo<'/_sys/monitor/server_status', '/_sys/monitor/server_status', Record<never, never>, Record<never, never>>,
-    '/_sys/monitor/uistore': RouteRecordInfo<'/_sys/monitor/uistore', '/_sys/monitor/uistore', Record<never, never>, Record<never, never>>,
-    '/_sys/rag/conversation': RouteRecordInfo<'/_sys/rag/conversation', '/_sys/rag/conversation', Record<never, never>, Record<never, never>>,
-    '/_sys/rag/document': RouteRecordInfo<'/_sys/rag/document', '/_sys/rag/document', Record<never, never>, Record<never, never>>,
-    '/_sys/rag/member': RouteRecordInfo<'/_sys/rag/member', '/_sys/rag/member', Record<never, never>, Record<never, never>>,
-    '/_sys/rag/project': RouteRecordInfo<'/_sys/rag/project', '/_sys/rag/project', Record<never, never>, Record<never, never>>,
-    '/_sys/setting': RouteRecordInfo<'/_sys/setting', '/_sys/setting', Record<never, never>, Record<never, never>>,
-    '/_sys/template/babylon': RouteRecordInfo<'/_sys/template/babylon', '/_sys/template/babylon', Record<never, never>, Record<never, never>>,
-    '/_sys/template/container': RouteRecordInfo<'/_sys/template/container', '/_sys/template/container', Record<never, never>, Record<never, never>>,
-    '/_sys/template/infoview': RouteRecordInfo<'/_sys/template/infoview', '/_sys/template/infoview', Record<never, never>, Record<never, never>>,
-    '/_sys/template/mediapipe_face': RouteRecordInfo<'/_sys/template/mediapipe_face', '/_sys/template/mediapipe_face', Record<never, never>, Record<never, never>>,
-    '/_sys/template/overview': RouteRecordInfo<'/_sys/template/overview', '/_sys/template/overview', Record<never, never>, Record<never, never>>,
-    '/_sys/template/template': RouteRecordInfo<'/_sys/template/template', '/_sys/template/template', Record<never, never>, Record<never, never>>,
     '/[..all]': RouteRecordInfo<'/[..all]', '/:ll(.*)', { ll: ParamValue<true> }, { ll: ParamValue<false> }>,
+    '/admin': RouteRecordInfo<'/admin', '/admin', Record<never, never>, Record<never, never>>,
+    '/ai/chat': RouteRecordInfo<'/ai/chat', '/ai/chat', Record<never, never>, Record<never, never>>,
+    '/ai/model_config': RouteRecordInfo<'/ai/model_config', '/ai/model_config', Record<never, never>, Record<never, never>>,
+    '/ai/ocr': RouteRecordInfo<'/ai/ocr', '/ai/ocr', Record<never, never>, Record<never, never>>,
+    '/ai/voice': RouteRecordInfo<'/ai/voice', '/ai/voice', Record<never, never>, Record<never, never>>,
+    '/authorization/casbin': RouteRecordInfo<'/authorization/casbin', '/authorization/casbin', Record<never, never>, Record<never, never>>,
+    '/authorization/dept': RouteRecordInfo<'/authorization/dept', '/authorization/dept', Record<never, never>, Record<never, never>>,
+    '/authorization/permission': RouteRecordInfo<'/authorization/permission', '/authorization/permission', Record<never, never>, Record<never, never>>,
+    '/authorization/role': RouteRecordInfo<'/authorization/role', '/authorization/role', Record<never, never>, Record<never, never>>,
+    '/authorization/user': RouteRecordInfo<'/authorization/user', '/authorization/user', Record<never, never>, Record<never, never>>,
+    '/file/': RouteRecordInfo<'/file/', '/file', Record<never, never>, Record<never, never>>,
+    '/geometry/earth': RouteRecordInfo<'/geometry/earth', '/geometry/earth', Record<never, never>, Record<never, never>>,
+    '/life/baby_name': RouteRecordInfo<'/life/baby_name', '/life/baby_name', Record<never, never>, Record<never, never>>,
+    '/little_utils/todolist': RouteRecordInfo<'/little_utils/todolist', '/little_utils/todolist', Record<never, never>, Record<never, never>>,
+    '/main/dict': RouteRecordInfo<'/main/dict', '/main/dict', Record<never, never>, Record<never, never>>,
+    '/main/overview': RouteRecordInfo<'/main/overview', '/main/overview', Record<never, never>, Record<never, never>>,
+    '/monitor/server_status': RouteRecordInfo<'/monitor/server_status', '/monitor/server_status', Record<never, never>, Record<never, never>>,
+    '/monitor/uistore': RouteRecordInfo<'/monitor/uistore', '/monitor/uistore', Record<never, never>, Record<never, never>>,
+    '/rag/conversation': RouteRecordInfo<'/rag/conversation', '/rag/conversation', Record<never, never>, Record<never, never>>,
+    '/rag/document': RouteRecordInfo<'/rag/document', '/rag/document', Record<never, never>, Record<never, never>>,
+    '/rag/member': RouteRecordInfo<'/rag/member', '/rag/member', Record<never, never>, Record<never, never>>,
+    '/rag/project': RouteRecordInfo<'/rag/project', '/rag/project', Record<never, never>, Record<never, never>>,
+    '/setting': RouteRecordInfo<'/setting', '/setting', Record<never, never>, Record<never, never>>,
+    '/task/queue': RouteRecordInfo<'/task/queue', '/task/queue', Record<never, never>, Record<never, never>>,
+    '/template/babylon': RouteRecordInfo<'/template/babylon', '/template/babylon', Record<never, never>, Record<never, never>>,
+    '/template/container': RouteRecordInfo<'/template/container', '/template/container', Record<never, never>, Record<never, never>>,
+    '/template/infoview': RouteRecordInfo<'/template/infoview', '/template/infoview', Record<never, never>, Record<never, never>>,
+    '/template/mediapipe_face': RouteRecordInfo<'/template/mediapipe_face', '/template/mediapipe_face', Record<never, never>, Record<never, never>>,
+    '/template/overview': RouteRecordInfo<'/template/overview', '/template/overview', Record<never, never>, Record<never, never>>,
+    '/template/template': RouteRecordInfo<'/template/template', '/template/template', Record<never, never>, Record<never, never>>,
   }
 
   /**
@@ -68,132 +67,128 @@ declare module 'vue-router/auto-routes' {
       routes: '/'
       views: never
     }
-    'src/pages/_sys.vue': {
-      routes: '/_sys' | '/_sys/' | '/_sys/file/' | '/_sys/ai' | '/_sys/life/baby_name' | '/_sys/template/babylon' | '/_sys/manager/casbin' | '/_sys/ai/chat' | '/_sys/template/container' | '/_sys/rag/conversation' | '/_sys/database' | '/_sys/manager/dept' | '/_sys/database/dict' | '/_sys/rag/document' | '/_sys/geometry/earth' | '/_sys/file' | '/_sys/geometry' | '/_sys/template/infoview' | '/_sys/life' | '/_sys/little_utils' | '/_sys/manager' | '/_sys/template/mediapipe_face' | '/_sys/rag/member' | '/_sys/ai/model_config' | '/_sys/monitor' | '/_sys/ai/ocr' | '/_sys/database/overview' | '/_sys/template/overview' | '/_sys/manager/permission' | '/_sys/rag/project' | '/_sys/rag' | '/_sys/manager/role' | '/_sys/monitor/server_status' | '/_sys/setting' | '/_sys/template' | '/_sys/template/template' | '/_sys/little_utils/todolist' | '/_sys/monitor/uistore' | '/_sys/database/user' | '/_sys/manager/user' | '/_sys/ai/voice'
-      views: 'default'
-    }
-    'src/pages/_sys/index.vue': {
-      routes: '/_sys/'
-      views: never
-    }
-    'src/pages/_sys/ai/chat.vue': {
-      routes: '/_sys/ai/chat'
-      views: never
-    }
-    'src/pages/_sys/ai/model_config.vue': {
-      routes: '/_sys/ai/model_config'
-      views: never
-    }
-    'src/pages/_sys/ai/ocr.vue': {
-      routes: '/_sys/ai/ocr'
-      views: never
-    }
-    'src/pages/_sys/ai/voice.vue': {
-      routes: '/_sys/ai/voice'
-      views: never
-    }
-    'src/pages/_sys/database/dict.vue': {
-      routes: '/_sys/database/dict'
-      views: never
-    }
-    'src/pages/_sys/database/overview.vue': {
-      routes: '/_sys/database/overview'
-      views: never
-    }
-    'src/pages/_sys/database/user.vue': {
-      routes: '/_sys/database/user'
-      views: never
-    }
-    'src/pages/_sys/file/index.vue': {
-      routes: '/_sys/file/'
-      views: never
-    }
-    'src/pages/_sys/geometry/earth.vue': {
-      routes: '/_sys/geometry/earth'
-      views: never
-    }
-    'src/pages/_sys/life/baby_name.vue': {
-      routes: '/_sys/life/baby_name'
-      views: never
-    }
-    'src/pages/_sys/little_utils/todolist.vue': {
-      routes: '/_sys/little_utils/todolist'
-      views: never
-    }
-    'src/pages/_sys/manager/casbin.vue': {
-      routes: '/_sys/manager/casbin'
-      views: never
-    }
-    'src/pages/_sys/manager/dept.vue': {
-      routes: '/_sys/manager/dept'
-      views: never
-    }
-    'src/pages/_sys/manager/permission.vue': {
-      routes: '/_sys/manager/permission'
-      views: never
-    }
-    'src/pages/_sys/manager/role.vue': {
-      routes: '/_sys/manager/role'
-      views: never
-    }
-    'src/pages/_sys/manager/user.vue': {
-      routes: '/_sys/manager/user'
-      views: never
-    }
-    'src/pages/_sys/monitor/server_status.vue': {
-      routes: '/_sys/monitor/server_status'
-      views: never
-    }
-    'src/pages/_sys/monitor/uistore.vue': {
-      routes: '/_sys/monitor/uistore'
-      views: never
-    }
-    'src/pages/_sys/rag/conversation.vue': {
-      routes: '/_sys/rag/conversation'
-      views: never
-    }
-    'src/pages/_sys/rag/document.vue': {
-      routes: '/_sys/rag/document'
-      views: never
-    }
-    'src/pages/_sys/rag/member.vue': {
-      routes: '/_sys/rag/member'
-      views: never
-    }
-    'src/pages/_sys/rag/project.vue': {
-      routes: '/_sys/rag/project'
-      views: never
-    }
-    'src/pages/_sys/setting.vue': {
-      routes: '/_sys/setting'
-      views: never
-    }
-    'src/pages/_sys/template/babylon.vue': {
-      routes: '/_sys/template/babylon'
-      views: never
-    }
-    'src/pages/_sys/template/container.vue': {
-      routes: '/_sys/template/container'
-      views: never
-    }
-    'src/pages/_sys/template/infoview.vue': {
-      routes: '/_sys/template/infoview'
-      views: never
-    }
-    'src/pages/_sys/template/mediapipe_face.vue': {
-      routes: '/_sys/template/mediapipe_face'
-      views: never
-    }
-    'src/pages/_sys/template/overview.vue': {
-      routes: '/_sys/template/overview'
-      views: never
-    }
-    'src/pages/_sys/template/template.vue': {
-      routes: '/_sys/template/template'
-      views: never
-    }
     'src/pages/[..all].vue': {
       routes: '/[..all]'
+      views: never
+    }
+    'src/pages/admin.vue': {
+      routes: '/admin'
+      views: never
+    }
+    'src/modules/ai/pages/chat.vue': {
+      routes: '/ai/chat'
+      views: never
+    }
+    'src/modules/ai/pages/model_config.vue': {
+      routes: '/ai/model_config'
+      views: never
+    }
+    'src/modules/ai/pages/ocr.vue': {
+      routes: '/ai/ocr'
+      views: never
+    }
+    'src/modules/ai/pages/voice.vue': {
+      routes: '/ai/voice'
+      views: never
+    }
+    'src/modules/authorization/pages/casbin.vue': {
+      routes: '/authorization/casbin'
+      views: never
+    }
+    'src/modules/authorization/pages/dept.vue': {
+      routes: '/authorization/dept'
+      views: never
+    }
+    'src/modules/authorization/pages/permission.vue': {
+      routes: '/authorization/permission'
+      views: never
+    }
+    'src/modules/authorization/pages/role.vue': {
+      routes: '/authorization/role'
+      views: never
+    }
+    'src/modules/authorization/pages/user.vue': {
+      routes: '/authorization/user'
+      views: never
+    }
+    'src/modules/file/pages/index.vue': {
+      routes: '/file/'
+      views: never
+    }
+    'src/modules/geometry/pages/earth.vue': {
+      routes: '/geometry/earth'
+      views: never
+    }
+    'src/modules/life/pages/baby_name.vue': {
+      routes: '/life/baby_name'
+      views: never
+    }
+    'src/modules/little_utils/pages/todolist.vue': {
+      routes: '/little_utils/todolist'
+      views: never
+    }
+    'src/modules/main/pages/dict.vue': {
+      routes: '/main/dict'
+      views: never
+    }
+    'src/modules/main/pages/overview.vue': {
+      routes: '/main/overview'
+      views: never
+    }
+    'src/modules/monitor/pages/server_status.vue': {
+      routes: '/monitor/server_status'
+      views: never
+    }
+    'src/modules/monitor/pages/uistore.vue': {
+      routes: '/monitor/uistore'
+      views: never
+    }
+    'src/modules/rag/pages/conversation.vue': {
+      routes: '/rag/conversation'
+      views: never
+    }
+    'src/modules/rag/pages/document.vue': {
+      routes: '/rag/document'
+      views: never
+    }
+    'src/modules/rag/pages/member.vue': {
+      routes: '/rag/member'
+      views: never
+    }
+    'src/modules/rag/pages/project.vue': {
+      routes: '/rag/project'
+      views: never
+    }
+    'src/pages/setting.vue': {
+      routes: '/setting'
+      views: never
+    }
+    'src/modules/task/pages/queue.vue': {
+      routes: '/task/queue'
+      views: never
+    }
+    'src/modules/template/pages/babylon.vue': {
+      routes: '/template/babylon'
+      views: never
+    }
+    'src/modules/template/pages/container.vue': {
+      routes: '/template/container'
+      views: never
+    }
+    'src/modules/template/pages/infoview.vue': {
+      routes: '/template/infoview'
+      views: never
+    }
+    'src/modules/template/pages/mediapipe_face.vue': {
+      routes: '/template/mediapipe_face'
+      views: never
+    }
+    'src/modules/template/pages/overview.vue': {
+      routes: '/template/overview'
+      views: never
+    }
+    'src/modules/template/pages/template.vue': {
+      routes: '/template/template'
       views: never
     }
   }

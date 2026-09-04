@@ -3,6 +3,7 @@ from module_authorization.service.casbin_rule import CasbinRuleService
 from module_authorization.dao.casbin_rule import CasbinRuleDao
 
 async def get_casbin_rule_dao():
+    """Casbin规则DAO工厂(FastAPI依赖注入)"""
     return CasbinRuleDao()
     
     

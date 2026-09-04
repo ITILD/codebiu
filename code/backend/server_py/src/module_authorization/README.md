@@ -1,4 +1,4 @@
-# 权限设计
+﻿# 权限设计
 
 ## 系统架构概述
 
@@ -139,14 +139,14 @@ await enforce_project_permission(user_id, project_id, "doc", "delete")
 
 其他常用能力：
 - `sync_default_user_roles(user_id, is_first_user)`：新用户绑定内置 user 角色；首个注册用户自动引导为全局管理员
-- `GET /authorization/auth/me_permissions`：返回当前用户角色(按域分组)与权限码列表(全局管理员返回 `["*"]`)
+- `GET /authorization/auth/me-permissions`：返回当前用户角色(按域分组)与权限码列表(全局管理员返回 `["*"]`)
 
 ---
 
 ## 五、角色授权管理（前端）
 
-- `GET /authorization/casbin_rules/module-tree`：全部模块声明的权限树（可分配权限集合）
-- `POST /authorization/casbin_rules/role-perms`：`{role_key, codes}` 全量同步角色节点级权限——仅处理权限树按钮节点对应策略，内置角色的通配策略(如 `admin/*/*/*`、`main/*` read)不受影响
+- `GET /authorization/casbin-rules/module-tree`：全部模块声明的权限树（可分配权限集合）
+- `POST /authorization/casbin-rules/role-perms`：`{role_key, codes}` 全量同步角色节点级权限——仅处理权限树按钮节点对应策略，内置角色的通配策略(如 `admin/*/*/*`、`main/*` read)不受影响
 - 前端 `usePermission()` 组合式函数：`hasPerm("rag:project:create")` 按钮级控制、菜单按权限码过滤
 
 ---
@@ -174,8 +174,8 @@ await enforce_project_permission(user_id, project_id, "doc", "delete")
 | 维度 | 建议方案 |
 |------|----------|
 | **策略持久化** | `casbin_async_sqlalchemy_adapter`，`g` 表存 `用户-角色-域`，`p` 表存角色策略，与业务共用 DB 连接 |
-| **热更新机制** | 策略变更时调用 `POST /casbin_rules/reload-policy`，或结合 Redis Pub/Sub 通知多节点刷新内存策略 |
-| **性能优化** | `me_permissions` 结果可缓存至 Redis，TTL 随策略版本号失效 |
+| **热更新机制** | 策略变更时调用 `POST /casbin-rules/reload-policy`，或结合 Redis Pub/Sub 通知多节点刷新内存策略 |
+| **性能优化** | `me-permissions` 结果可缓存至 Redis，TTL 随策略版本号失效 |
 | **审计日志** | 在 `require_permission` 依赖中注入 `logging`，记录 `(uid, dom, obj, act, result, timestamp)` 至独立审计表 |
 | **越权测试** | 单元测试覆盖非成员调用项目 `delete` 接口的场景，验证 `403` 拦截与档位判断是否生效 |
 

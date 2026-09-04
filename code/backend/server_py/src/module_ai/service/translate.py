@@ -34,11 +34,12 @@ class TranslateService:
         ocr_service: OcrService,
         llm_base_service: LLMBaseService,
     ):
+        """依赖注入构造器:初始化所需的数据访问对象"""
         self.translate_prompt = translate_prompt
         self.ocr_service = ocr_service
         self.llm_base_service = llm_base_service
 
-    async def base(self, translate: Translate) -> str:
+    async def translate_base(self, translate: Translate) -> str:
         """翻译单句"""
         prompt = []
         prompt.append(await self.translate_prompt.get_prompt_system())
@@ -50,7 +51,7 @@ class TranslateService:
         responses = await self.llm_base_service.chat_completion(request)
         return responses
 
-    async def ocr(
+    async def translate_ocr(
         self,
         image: bytes,
         lang_in: Language,

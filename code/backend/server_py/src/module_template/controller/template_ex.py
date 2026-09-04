@@ -94,4 +94,4 @@ async def broadcast(message: dict):
             active_connections.pop(connection, None)
 
 
-module_app.include_router(router, prefix="/template_ex", tags=["扩展模板"])
+module_app.include_router(router, prefix="/template-ex", tags=["扩展模板"])

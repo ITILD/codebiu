@@ -1,7 +1,7 @@
 <template>
-  <div flex flex-col h-app w-full bg-gray-50>
+  <div flex flex-col h-app w-full bg-note-paper>
     <!-- 顶部模型选择栏 -->
-    <div p-4 border-b bg-white shadow-sm>
+    <div p-4 border-b bg-note-card shadow-note>
       <div flex flex-wrap items-center gap-4>
         <LLMSelect v-model:model-id="model_id" :model-list="tableData" :disabled="isSending"
           @change="handleModelChange" />
@@ -10,8 +10,8 @@
 
     <!-- 主体内容区 -->
     <div flex flex-1 flex-col md:flex-row overflow-hidden>
-      <!-- 左侧表单输入区 -->
-      <div w-full md:w-100 border-r bg-white p-4 overflow-y-auto>
+      <!-- 左侧表单输入区(手机全宽, 平板及以上侧栏) -->
+      <div w-full md:w-100 border-r bg-note-card p-4 overflow-y-auto>
         <div text-lg font-bold mb-4>宝宝信息</div>
 
         <el-form :model="formData" label-width="80px" size="small">
@@ -59,7 +59,7 @@
         <!-- 结果列表 -->
         <div flex-1 overflow-y-auto p-4>
           <div v-if="!result.explanation_constellation && !result.explanation_wuxing" flex flex-col items-center
-            justify-center h-full text-gray-400>
+            justify-center h-full text-note-sub>
             <div text-6xl mb-4>👶</div>
             <div text-lg>等待预测</div>
             <div text-sm>填写左侧宝宝信息后点击预测</div>
@@ -76,20 +76,20 @@
 
               <div space-y-3>
                 <div>
-                  <div text-sm font-semibold text-gray-700 mb-1>五行解释</div>
-                  <div text-sm text-gray-600 leading-relaxed
+                  <div text-sm font-semibold text-note mb-1>五行解释</div>
+                  <div text-sm text-note leading-relaxed
                     v-html="renderMarkdown(result.explanation_wuxing || '正在生成......')"></div>
                 </div>
 
                 <div>
-                  <div text-sm font-semibold text-gray-700 mb-1>星座解释</div>
-                  <div text-sm text-gray-600 leading-relaxed
+                  <div text-sm font-semibold text-note mb-1>星座解释</div>
+                  <div text-sm text-note leading-relaxed
                     v-html="renderMarkdown(result.explanation_constellation || '正在生成......')"></div>
                 </div>
 
                 <div>
-                  <div text-sm font-semibold text-gray-700 mb-1>名字及解释</div>
-                  <div text-sm text-gray-600 leading-relaxed
+                  <div text-sm font-semibold text-note mb-1>名字及解释</div>
+                  <div text-sm text-note leading-relaxed
                     v-html="renderMarkdown(result.explanation_meaning_list || '正在生成......')"></div>
                 </div>
               </div>
@@ -106,16 +106,16 @@
 import {
   type PaginationParams,
   type PaginationResponse,
-} from '@/types/common';
-import type { ModelConfig } from '@/types/model_config';
-import { listModelConfigs } from '@/api/model_config'
-import { predictBabyNameStream } from '@/api/life/baby_name'
+} from '@/common/types/common';
+import type { ModelConfig } from '@/modules/ai/types/model_config';
+import { listModelConfigs } from '@/modules/ai/api/model_config'
+import { predictBabyNameStream } from '../api/baby_name'
 import type {
   NameInfoPredictFullRequest,
   NameInfoResponse,
   GenderEnum
-} from '@/types/life/baby_name'
-import LLMSelect from '@/components/app/ai/LLMSelect.vue'
+} from '../types/baby_name'
+import LLMSelect from '@/modules/ai/components/LLMSelect.vue'
 import { marked } from 'marked'
 
 // 渲染 Markdown 内容

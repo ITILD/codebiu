@@ -12,6 +12,6 @@ logger = logging.getLogger(__name__)
 module_app = FastAPI()
 
 # 挂载到主应用
-app.mount("/dev_tools", module_app)
+app.mount("/dev-tools", module_app)
 
 logger.info("开发辅助模块配置完成")

@@ -183,7 +183,7 @@ class SynonymGroupDao:
         return result.first()
 
     @DaoRel
-    async def list_all(
+    async def list_paged(
         self, pagination: PaginationParams, session: AsyncSession | None = None
     ) -> list[SynonymGroup]:
         """
@@ -197,7 +197,7 @@ class SynonymGroupDao:
         return result.all()
 
     @DaoRel
-    async def list_all_by_pid(
+    async def list_paged_by_pid(
         self, pagination: PaginationParams, pid: str, session: AsyncSession | None = None
     ) -> list[SynonymGroup]:
         """

@@ -19,16 +19,18 @@ from module_authorization.do.auth import AuthResponse,AuthLogoutRequest
 router = APIRouter()
 
 
-@router.get("/me")
-async def read_users_me(current_user: User = Depends(get_current_user)):
+@router.get("/me", summary="获取当前登录用户信息")
+async def get_me(current_user: User = Depends(get_current_user)):
+    """根据访问令牌返回当前登录用户的完整信息"""
     return current_user
 
-@router.get("/me_id")
-async def read_users_me_id(current_user_id: str = Depends(get_current_user_id)):
+@router.get("/me-id", summary="获取当前登录用户ID")
+async def get_me_id(current_user_id: str = Depends(get_current_user_id)):
+    """根据访问令牌返回当前登录用户的ID(轻量级身份校验)"""
     return current_user_id
 
-@router.get("/me_permissions", summary="获取当前用户的角色与权限码")
-async def read_user_permissions(
+@router.get("/me-permissions", summary="获取当前用户的角色与权限码")
+async def get_my_permissions(
     current_user_id: str = Depends(get_current_user_id),
     auth_service: AuthService = Depends(get_auth_service),
 ):
@@ -64,7 +66,7 @@ async def login_for_access_token(
     return token_response
 
 
-@router.post("/_token", summary="OAuth2 标准登录(Swagger Authorize 专用) 调试使用")
+@router.post("/token", summary="OAuth2 标准登录(Swagger Authorize 专用) 调试使用")
 async def login_for_oauth2(
     form_data: OAuth2PasswordRequestForm = Depends(),
     auth_service: AuthService = Depends(get_auth_service),

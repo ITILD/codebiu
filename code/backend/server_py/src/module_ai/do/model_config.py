@@ -18,6 +18,8 @@ class ModelConfigBase(SQLModel):
     model: str = Field(..., description="模型标识名称")
     url: str | None = Field(None, description="API基础URL")
     api_key: str | None = Field(None, description="API访问密钥")
+    # 共享标记(True=所有用户可绑定使用,含 api_key 归属校验放行)
+    is_public: bool = Field(default=False, description="共享标记(True=所有用户可用)")
 
     # 成本
     pay_in: float | None = Field(0.0, ge=0, description="模型调用成本")
@@ -118,6 +120,8 @@ class ModelConfigUpdate(SQLModel):
     model: str = None
     url: str | None = None
     api_key: str | None = None
+    # 共享标记
+    is_public: bool | None = None
 
     # 成本
     pay_in: float | None = None

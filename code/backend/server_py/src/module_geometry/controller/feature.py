@@ -49,7 +49,7 @@ async def list_all_geo_features(
     :return: 要素响应列表
     """
     try:
-        return await service.list_all_without_page()
+        return await service.list_all()
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -76,7 +76,7 @@ async def list_geo_features(
     :return: 分页响应结果
     """
     try:
-        return await service.list_all(
+        return await service.list_paged(
             pagination, keyword=keyword, feature_type=feature_type
         )
     except ValueError as e:

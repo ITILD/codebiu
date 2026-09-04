@@ -1,12 +1,12 @@
-// src/api/model_config.ts
-import { http_base_server } from '@/utils/http';
+// src/modules/ai/api/model_config.ts
+import { http_base_server } from '@/common/api/http';
 import {
   type InfiniteScrollParams,
   type InfiniteScrollResponse,
   type PaginationParams,
   type PaginationResponse,
-} from '@/types/common';
-import type { ModelConfig, ModelConfigCreate, ModelConfigUpdate } from '@/types/model_config';
+} from '@/common/types/common';
+import type { ModelConfig, ModelConfigCreate, ModelConfigUpdate } from '../types/model_config';
 
 /**
  * 创建新模型配置
@@ -14,7 +14,7 @@ import type { ModelConfig, ModelConfigCreate, ModelConfigUpdate } from '@/types/
  * @returns 创建的模型配置ID
  */
 export const createModelConfig = (modelConfig: ModelConfigCreate) => {
-  return http_base_server.post<object>('/ai/model_config', modelConfig);
+  return http_base_server.post<object>('/ai/model-configs', modelConfig);
 };
 
 /**
@@ -22,7 +22,7 @@ export const createModelConfig = (modelConfig: ModelConfigCreate) => {
  * @param modelConfigId 模型配置ID
  */
 export const deleteModelConfig = (modelConfigId: string) => {
-  return http_base_server.delete<void>(`/ai/model_config/${modelConfigId}`);
+  return http_base_server.delete<void>(`/ai/model-configs/${modelConfigId}`);
 };
 
 /**
@@ -31,7 +31,7 @@ export const deleteModelConfig = (modelConfigId: string) => {
  * @param modelConfig 模型配置数据
  */
 export const updateModelConfig = (modelConfigId: string, modelConfig: ModelConfigUpdate) => {
-  return http_base_server.put<void>(`/ai/model_config/${modelConfigId}`, modelConfig);
+  return http_base_server.put<void>(`/ai/model-configs/${modelConfigId}`, modelConfig);
 };
 
 /**
@@ -40,7 +40,7 @@ export const updateModelConfig = (modelConfigId: string, modelConfig: ModelConfi
  * @returns 模型配置详情
  */
 export const getModelConfig = (modelConfigId: string) => {
-  return http_base_server.get<ModelConfig>(`/ai/model_config/${modelConfigId}`);
+  return http_base_server.get<ModelConfig>(`/ai/model-configs/${modelConfigId}`);
 };
 
 /**
@@ -49,7 +49,7 @@ export const getModelConfig = (modelConfigId: string) => {
  * @returns 分页响应结果
  */
 export const listModelConfigs = (params: PaginationParams) => {
-  return http_base_server.get<PaginationResponse<ModelConfig>>('/ai/model_config/list', { params });
+  return http_base_server.get<PaginationResponse<ModelConfig>>('/ai/model-configs/list', { params });
 };
 
 /**
@@ -58,7 +58,7 @@ export const listModelConfigs = (params: PaginationParams) => {
  * @returns 滚动加载响应结果
  */
 export const infiniteScrollModelConfigs = (params: InfiniteScrollParams) => {
-  return http_base_server.get<InfiniteScrollResponse<ModelConfig>>('/ai/model_config/scroll', {
+  return http_base_server.get<InfiniteScrollResponse<ModelConfig>>('/ai/model-configs/scroll', {
     params
   });
 };

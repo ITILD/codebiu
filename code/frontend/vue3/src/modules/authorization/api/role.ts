@@ -1,7 +1,7 @@
-// src/api/authorization/role.ts
-import { http_base_server } from '@/utils/http';
-import type { PaginationParams, PaginationResponse } from '@/types/common';
-import type { Role, RoleCreate, RoleUpdate } from '@/types/authorization/role';
+// src/modules/authorization/api/role.ts
+import { http_base_server } from '@/common/api/http';
+import type { PaginationParams, PaginationResponse } from '@/common/types/common';
+import type { Role, RoleCreate, RoleUpdate } from '../types/role';
 
 /** 创建角色 */
 export const createRole = (role: RoleCreate) => {
@@ -30,7 +30,7 @@ export const listRoles = (params: PaginationParams) => {
 
 /** 获取所有角色(不分页, 用于下拉选择) */
 export const listAllRoles = () => {
-  return http_base_server.get<Role[]>('/authorization/roles/list_all');
+  return http_base_server.get<Role[]>('/authorization/roles/all');
 };
 
 /** 通过名称获取角色 */

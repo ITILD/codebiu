@@ -1,4 +1,4 @@
-// src/types/todolist.ts
+// src/modules/little_utils/types/todolist.ts
 interface TodolistBase {
   pid?: string;
   value?: number;

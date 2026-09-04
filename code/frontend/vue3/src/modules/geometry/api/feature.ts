@@ -1,7 +1,7 @@
 // 地理空间模块 API(Babylon 地球绘制的点线面要素管理)
-import { http_base_server } from '@/utils/http'
-import type { PaginationParams, PaginationResponse } from '@/types/common'
-import type { GeoFeature, GeoFeatureCreate, GeoFeatureUpdate } from '@/types/geometry'
+import { http_base_server } from '@/common/api/http'
+import type { PaginationParams, PaginationResponse } from '@/common/types/common'
+import type { GeoFeature, GeoFeatureCreate, GeoFeatureUpdate } from '../types'
 
 /** 要素列表过滤参数 */
 export type GeoFeatureListParams = PaginationParams & {
@@ -30,8 +30,16 @@ export const listAllGeoFeatures = () => {
 }
 
 /**
+ * 查询单个几何要素(样式更新后重渲染用)
+ * @param id 要素ID
+ */
+export const getGeoFeature = (id: string) => {
+  return http_base_server.get<GeoFeature>(`/geometry/features/${id}`)
+}
+
+/**
  * 创建几何要素(以 GeoJSON 提交点/线/面)
- * @param data 要素数据(名称 + 几何体)
+ * @param data 要素数据(名称 + 几何体 + 样式)
  */
 export const createGeoFeature = (data: GeoFeatureCreate) => {
   return http_base_server.post<string>('/geometry/features', data)

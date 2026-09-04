@@ -1,13 +1,13 @@
 <template>
-  <div flex flex-col w-full bg-gray-50 p-2 md:p-4>
+  <div flex flex-col w-full bg-note-paper p-2 md:p-4>
     <div flex flex-col md:flex-row gap-4>
       <video id="videoDom" width="500" height="500" -scale-x-100 class="w-full max-w-[500px] h-auto rounded"></video>
-      <div text-sm text-gray-600>fps:{{ fps.toFixed(3) }}</div>
+      <div text-sm text-note-sub>fps:{{ fps.toFixed(3) }}</div>
     </div>
     <div flex flex-wrap w-full gap-2 mt-4>
-      <div v-for="categorie in categories" :key="categorie.index" class="w-1/2 sm:w-40 p-2 bg-white rounded shadow-sm">
+      <div v-for="categorie in categories" :key="categorie.index" class="w-1/2 sm:w-40 p-2 bg-note-card rounded shadow-note">
         <div text-sm font-medium>{{ categorie.categoryName }}</div>
-        <div text-xs text-gray-500>{{ categorie.score.toFixed(8) }}</div>
+        <div text-xs text-note-sub>{{ categorie.score.toFixed(8) }}</div>
       </div>
     </div>
   </div>

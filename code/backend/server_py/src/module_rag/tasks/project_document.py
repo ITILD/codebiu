@@ -30,6 +30,7 @@ def reparse_document_task(self, document_id: str, user_id: str, force_preset_id:
         
         # 定义一个内部的 async 函数，用于实例化依赖并调用 Service
         async def _execute_service():
+            """在 Worker 进程中手动组装依赖并执行文档重解析逻辑"""
             # 1. 在 Worker 进程中手动实例化依赖 (替代 FastAPI 的 Depends)
             doc_dao = ProjectDocumentDao()
             proj_dao = ProjectDao()

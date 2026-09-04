@@ -45,6 +45,11 @@ class GeoFeature(GeoFeatureBase, table=True):
         description="唯一标识符",
     )
     user_id: str = Field(index=True, description="创建者用户ID")
+    style: dict | None = Field(
+        default=None,
+        sa_column=Column(JSONB),
+        description="渲染样式(color/opacity/width 等, 由前端定义结构)",
+    )
     geometry: object = Field(
         sa_column=Column(
             Geometry(geometry_type="GEOMETRY", srid=4326, spatial_index=True),
@@ -74,6 +79,7 @@ class GeoFeatureCreate(SQLModel):
     name: str = Field(max_length=100, description="要素名称")
     geometry: GeoJSONGeometry = Field(description="GeoJSON 几何体")
     properties: dict | None = Field(default=None, description="扩展属性")
+    style: dict | None = Field(default=None, description="渲染样式 JSON")
 
 
 class GeoFeatureUpdate(SQLModel):
@@ -82,6 +88,7 @@ class GeoFeatureUpdate(SQLModel):
     name: str | None = Field(default=None, max_length=100, description="要素名称")
     geometry: GeoJSONGeometry | None = Field(default=None, description="GeoJSON 几何体")
     properties: dict | None = Field(default=None, description="扩展属性")
+    style: dict | None = Field(default=None, description="渲染样式 JSON")
 
 
 class GeoFeatureResponse(SQLModel):
@@ -91,6 +98,7 @@ class GeoFeatureResponse(SQLModel):
     name: str
     feature_type: str
     properties: dict | None
+    style: dict | None = None
     user_id: str
     geometry: GeoJSONGeometry | None = None
     created_at: datetime

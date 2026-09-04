@@ -24,6 +24,7 @@ class BabyNameBase(SQLModel):
     @field_validator("name")
     @classmethod
     def validate_name_length(cls, v):
+        """校验名字长度必须在1-10个字符之间"""
         if len(v) < 1 or len(v) > 10:
             raise ValueError("名字长度必须在1-10个字符之间")
         return v

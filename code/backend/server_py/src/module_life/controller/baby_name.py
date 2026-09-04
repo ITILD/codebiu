@@ -36,7 +36,7 @@ router = APIRouter()
 
 # 根据name_info推测五行和星座等偏好信息
 @router.post(
-    "/predict_name_info_preference",
+    "/predict-name-info-preference",
     summary="推测五行星座等偏好信息",
     status_code=status.HTTP_200_OK,
     response_model=NameInfoPreference,
@@ -84,7 +84,7 @@ async def predict_baby_name(
 
 
 @router.post(
-    "/predict_baby_info_base",
+    "/predict-baby-info-base",
     summary="推测宝宝五行星座名字的简易接口",
     status_code=status.HTTP_200_OK,
     response_model=NameInfoResultList,
@@ -116,7 +116,7 @@ async def predict_baby_info_base(
 
 # 根据名字反推五行和星座等偏好信息和寓意
 @router.post(
-    "/predict_name_info_preference_meaning",
+    "/predict-name-info-preference-meaning",
     summary="推测五行星座等偏好信息和寓意",
     status_code=status.HTTP_200_OK,
     response_model=NameInfoResultExplanation,
@@ -171,7 +171,26 @@ async def list_baby_names(
     :return: 分页响应数据
     """
     try:
-        return await service.list_all(params)
+        return await service.list_paged(params)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+
+@router.get("/scroll", summary="滚动加载宝宝名字列表")
+async def infinite_scroll(
+    params: InfiniteScrollParams = Depends(),
+    service: BabyNameService = Depends(get_baby_name_service),
+) -> InfiniteScrollResponse:
+    """
+    无限滚动接口实现
+    :param params: 分页参数
+    :param service: 服务层依赖
+    :return: 分页响应数据
+    """
+    try:
+        return await service.get_scroll(params)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -217,6 +236,9 @@ async def update_baby_name(
     """
     try:
         await service.update(name_id, baby_name)
+    except ValueError as e:
+        # 资源不存在 → 404(与 geometry 等模块错误映射保持一致)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -234,6 +256,9 @@ async def delete_baby_name(
     """
     try:
         await service.delete(name_id)
+    except ValueError as e:
+        # 资源不存在 → 404
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -259,24 +284,5 @@ async def batch_delete_baby_names(
         )
 
 
-@router.get("/scroll", summary="滚动加载宝宝名字列表")
-async def infinite_scroll(
-    params: InfiniteScrollParams = Depends(),
-    service: BabyNameService = Depends(get_baby_name_service),
-) -> InfiniteScrollResponse:
-    """
-    无限滚动接口实现
-    :param params: 分页参数
-    :param service: 服务层依赖
-    :return: 分页响应数据
-    """
-    try:
-        return await service.get_scroll(params)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
-
-
 # 将路由注册到模块应用
-module_app.include_router(router, prefix="/baby_name", tags=["宝宝名字管理"])
+module_app.include_router(router, prefix="/baby-names", tags=["宝宝名字管理"])

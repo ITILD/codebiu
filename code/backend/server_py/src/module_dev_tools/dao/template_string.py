@@ -80,7 +80,7 @@ class TemplateStringDao:
         return await session.get(TemplateString, id)
 
     @DaoRel
-    async def list_all(
+    async def list_paged(
         self, pagination: PaginationParams, session: AsyncSession | None = None
     ) -> list[TemplateString]:
         """

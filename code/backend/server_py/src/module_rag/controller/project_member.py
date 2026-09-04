@@ -127,6 +127,9 @@ async def get_project_member(
                 status_code=status.HTTP_404_NOT_FOUND, detail="项目成员未找到"
             )
         return result
+    except HTTPException:
+        # 保留 404 语义,避免被包装成 500
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)

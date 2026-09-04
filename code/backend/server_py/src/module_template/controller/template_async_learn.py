@@ -48,7 +48,7 @@ async def async_endpoint(id: str, duration_use: float):
     return {"id": id, "result": f"Async task {id} completed"}
 
 # duration_use. 异步中调用同步任务(阻塞事件循环)
-@router.get("/async_sync/{id}/{duration_use}")
+@router.get("/async-sync/{id}/{duration_use}")
 async def async_sync_endpoint(id: str, duration_use: float):
     log_info("Async-Sync", id)
     start_time = time.time()
@@ -58,7 +58,7 @@ async def async_sync_endpoint(id: str, duration_use: float):
     return {"id": id, "result": result}
 
 # 4. 异步中使用线程池运行同步任务
-@router.get("/async_threadpool/{id}/{duration_use}")
+@router.get("/async-threadpool/{id}/{duration_use}")
 async def async_threadpool_endpoint(id: str, duration_use: float):
     log_info("Async-Threadpool", id)
     start_time = time.time()
@@ -67,4 +67,4 @@ async def async_threadpool_endpoint(id: str, duration_use: float):
     log_info("Async-Threadpool", id, elapsed)
     return {"id": id, "result": result}
 
-module_app.include_router(router, prefix="/template_async_learn", tags=["异步多线程并发模板"])
+module_app.include_router(router, prefix="/template-async-learn", tags=["异步多线程并发模板"])

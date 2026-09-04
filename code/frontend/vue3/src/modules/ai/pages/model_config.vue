@@ -32,6 +32,13 @@
           {{ row.url || '-' }}
         </template>
       </el-table-column>
+      <el-table-column label="共享" width="80" align="center">
+        <template #default="{ row }">
+          <el-tag :type="row.is_public ? 'success' : 'info'" size="small">
+            {{ row.is_public ? '公开' : '私有' }}
+          </el-tag>
+        </template>
+      </el-table-column>
       <el-table-column label="更新时间" width="160" show-overflow-tooltip>
         <template #default="{ row }">
           {{ formatTime(row.updated_at) }}
@@ -82,6 +89,9 @@
           </el-form-item>
           <el-form-item label="API Key" prop="api_key">
             <el-input v-model="form.api_key" placeholder="sk-..." show-password />
+          </el-form-item>
+          <el-form-item label="共享" prop="is_public">
+            <el-switch v-model="form.is_public" active-text="公开(所有用户可用)" inactive-text="私有" />
           </el-form-item>
         </template>
 
@@ -141,9 +151,9 @@
 </template>
 
 <script setup lang="ts">
-import { createModelConfig, deleteModelConfig, updateModelConfig, getModelConfig, listModelConfigs } from '@/api/model_config'
-import type { PaginationParams, PaginationResponse } from '@/types/common'
-import TableSearchBar, { type SearchField } from '@/components/app/sys/TableSearchBar.vue'
+import { createModelConfig, deleteModelConfig, updateModelConfig, getModelConfig, listModelConfigs } from '../api/model_config'
+import type { PaginationParams, PaginationResponse } from '@/common/types/common'
+import TableSearchBar, { type SearchField } from '@/common/components/TableSearchBar.vue'
 import {
   ModelType,
   modelTypeOptions,
@@ -155,7 +165,7 @@ import {
   type ModelConfig,
   type ModelConfigCreate,
   type ModelConfigUpdate,
-} from '@/types/model_config'
+} from '../types/model_config'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
 
 // ################ 搜索 ################
@@ -231,6 +241,7 @@ interface ModelConfigForm {
   model: string
   url: string
   api_key: string
+  is_public: boolean
   pay_in: number
   pay_out: number
   input_tokens: number
@@ -247,6 +258,7 @@ const defaultForm = (): ModelConfigForm => ({
   model: '',
   url: '',
   api_key: '',
+  is_public: false,
   pay_in: 0,
   pay_out: 0,
   input_tokens: 8192,
@@ -321,6 +333,7 @@ const handleEdit = async (row: ModelConfig) => {
     form.model = detail.model || ''
     form.url = detail.url || ''
     form.api_key = detail.api_key || ''
+    form.is_public = detail.is_public ?? false
     form.pay_in = detail.pay_in ?? 0
     form.pay_out = detail.pay_out ?? 0
     form.input_tokens = detail.input_tokens ?? 8192
@@ -359,6 +372,7 @@ const handleSubmit = async () => {
     model: form.model,
     url: isLocal ? undefined : (form.url || undefined),
     api_key: isLocal ? undefined : (form.api_key || undefined),
+    is_public: isLocal ? undefined : form.is_public,
     timeout: isLocal ? undefined : (form.timeout || undefined),
     pay_in: isLocal ? undefined : (form.pay_in ?? 0),
     pay_out: isLocal ? undefined : (form.pay_out ?? 0),

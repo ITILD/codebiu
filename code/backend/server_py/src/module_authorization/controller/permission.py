@@ -42,7 +42,7 @@ async def list_permissions(
 ):
     """分页查询权限列表"""
     try:
-        return await service.list_all(pagination)
+        return await service.list_paged(pagination)
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
@@ -58,6 +58,8 @@ async def get_permission(
         if not result:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Permission not found")
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
@@ -102,6 +104,8 @@ async def get_permission_by_code(
         if not result:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Permission not found")
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 

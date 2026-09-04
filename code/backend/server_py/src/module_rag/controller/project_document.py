@@ -110,6 +110,28 @@ async def list_project_documents(
 
 
 @router.get(
+    "/supported-types",
+    summary="获取支持上传的文件格式列表",
+    description="返回系统支持的所有文件格式，按文档、图片、音频、视频分类，供前端渲染上传组件使用。"
+)
+async def get_supported_file_types():
+    """
+    获取支持上传的文件格式列表
+    """
+    return {
+        "code": 200,
+        "message": "success",
+        "data": {
+            "documents": DocType.DOCUMENT_TYPES,
+            "images": DocType.IMAGE_TYPES,
+            "audios": DocType.AUDIO_TYPES,
+            "videos": DocType.VIDEO_TYPES,
+            "all_extensions": DocType.ALLOWED_EXTENSIONS  # 扁平列表，方便直接传给 <input accept="...">
+        }
+    }
+
+
+@router.get(
     "/{document_id}",
     summary="获取文档详情",
     response_model=ProjectDocumentResponse,
@@ -168,10 +190,20 @@ async def download_project_document(
             current_user_id, document.project_id, "doc", "read"
         )
         file_name, mime_type, file_path = await service.get_file_for_download(document_id)
+        # Content-Disposition: ASCII 回退 + RFC 5987 filename*(支持中文等非 ASCII 文件名)
+        from urllib.parse import quote
+
+        ascii_fallback = file_name.encode("ascii", "ignore").decode() or "download"
+        encoded_name = quote(file_name)
+        headers = {
+            "Content-Disposition": (
+                f"attachment; filename=\"{ascii_fallback}\"; filename*=UTF-8''{encoded_name}"
+            )
+        }
         return StreamingResponse(
             FileUtils.read_file_stream(file_path),
             media_type=mime_type or "application/octet-stream",
-            headers={"Content-Disposition": f'attachment; filename="{file_name}"'},
+            headers=headers,
         )
     except HTTPException:
         raise
@@ -285,7 +317,7 @@ async def reparse_project_document(
         )
 
 @router.post(
-    "/{document_id}/reparse_task",
+    "/{document_id}/reparse-task",
     summary="重新解析文档加入任务队列",
     response_model=bool,
 )
@@ -318,29 +350,6 @@ async def reparse_project_document_task(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
-
-
-
-@router.get(
-    "/supported-types", 
-    summary="获取支持上传的文件格式列表",
-    description="返回系统支持的所有文件格式，按文档、图片、音频、视频分类，供前端渲染上传组件使用。"
-)
-async def get_supported_file_types():
-    """
-    获取支持上传的文件格式列表
-    """
-    return {
-        "code": 200,
-        "message": "success",
-        "data": {
-            "documents": DocType.DOCUMENT_TYPES,
-            "images": DocType.IMAGE_TYPES,
-            "audios": DocType.AUDIO_TYPES,
-            "videos": DocType.VIDEO_TYPES,
-            "all_extensions": DocType.ALLOWED_EXTENSIONS  # 扁平列表，方便直接传给 <input accept="...">
-        }
-    }
 
 
 

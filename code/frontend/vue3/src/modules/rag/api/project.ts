@@ -1,8 +1,8 @@
-// src/api/rag/project.ts
+// src/modules/rag/api/project.ts
 // 知识库项目 API
-import { http_base_server } from '@/utils/http';
-import type { PaginationParams, PaginationResponse } from '@/types/common';
-import type { Project, ProjectCreate, ProjectUpdate } from '@/types/rag';
+import { http_base_server } from '@/common/api/http';
+import type { PaginationParams, PaginationResponse } from '@/common/types/common';
+import type { Project, ProjectCreate, ProjectUpdate } from '../types';
 
 /**
  * 创建知识库项目(创建者自动成为项目管理员)

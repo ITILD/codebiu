@@ -27,20 +27,20 @@
 import { Suspense } from 'vue'
 
 const LazyBaseMoacoEdit = defineAsyncComponent(
-  () => import('@/components/app/ide/BaseMoacoEdit.vue'),
+  () => import('@/common/components/ide/BaseMoacoEdit.vue'),
 )
 import type Node from 'element-plus/es/components/tree/src/model/node'
 //
-import {getLocalStorageKeys} from '@/common/utils/database/localstorage'
+import {getLocalStorageKeys} from '@/common/utils/localstorage'
 
-import { CodeType } from '@/common/enum/code'
+import { CodeType } from '@/common/enums/code'
 // 所有状态
-import { useAuthStore } from '@/stores/auth'
+import { useAuthStore } from '@/common/stores/auth'
 
 const authStore = useAuthStore()
 
 // 导入系统设置 Store
-import { SysSettingStore } from '@/stores/sys'
+import { SysSettingStore } from '@/common/stores/sys'
 
 const sysSettingStore = SysSettingStore()
 

@@ -64,7 +64,7 @@ async def list_projects(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"无效的知识库分类 '{kb_category}'，允许的值: {'/'.join(KbCategory.values())}",
             )
-        return await service.list_all(
+        return await service.list_paged(
             pagination, kb_category=kb_category, name=name, is_private=is_private
         )
     except HTTPException:
@@ -94,6 +94,9 @@ async def get_project(
                 status_code=status.HTTP_404_NOT_FOUND, detail="项目未找到"
             )
         return result
+    except HTTPException:
+        # 保留 404 语义,避免被包装成 500
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)

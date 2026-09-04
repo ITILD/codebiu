@@ -1,9 +1,9 @@
 /**
  * 语音 ASR/TTS 相关 API
  */
-import { http_base_server } from '@/utils/http'
-import { useAuthStore } from '@/stores/auth'
-import type { ASRResponse, TTSRequest, VoiceEngine } from '@/types/voice'
+import { http_base_server } from '@/common/api/http'
+import { useAuthStore } from '@/common/stores/auth'
+import type { ASRResponse, TTSRequest, VoiceEngine } from '../types/voice'
 
 // 后端接口前缀(与 utils/http.ts 中 http_base_server 一致)
 const API_PREFIX = '/base_server'

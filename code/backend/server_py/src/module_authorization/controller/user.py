@@ -52,7 +52,7 @@ async def list_users(
     :return: 分页响应结果
     """
     try:
-        return await service.list_all(
+        return await service.list_paged(
             pagination, username=username, nickname=nickname, is_active=is_active
         )
     except Exception as e:
@@ -79,6 +79,9 @@ async def get_user(
                 status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
             )
         return result
+    except HTTPException:
+        # 保留 404 语义,避免被包装成 500
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)

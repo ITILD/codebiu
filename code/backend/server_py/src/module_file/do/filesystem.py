@@ -280,3 +280,25 @@ class FileEntryWithContent(BaseModel):
         if content:
             data.update(content.model_dump())
         return cls(**data)
+
+
+class StorageStats(BaseModel):
+    """
+    存储统计信息(管理视图)
+    """
+
+    storage_type: str = Field(..., description="当前生效的存储类型(local/s3/rustfs)")
+    entry_total: int = Field(0, description="逻辑条目总数(含目录)")
+    file_total: int = Field(0, description="文件条目数")
+    folder_total: int = Field(0, description="目录条目数")
+    content_total: int = Field(0, description="物理内容记录数(按内容哈希去重后)")
+    used_bytes: int = Field(0, description="物理存储总占用(字节,去重后)")
+
+
+class MigrateRequest(BaseModel):
+    """
+    存储迁移请求(把旧存储的物理内容搬运到新存储,逻辑条目不变)
+    """
+
+    from_type: StorageType = Field(..., description="源存储类型(旧数据所在存储)")
+    to_type: StorageType = Field(..., description="目标存储类型(迁移目的地)")

@@ -1,4 +1,4 @@
-// src/types/main/status.ts
+// src/modules/main/types/status.ts
 // 对应后端 module_main 的 /server_status 接口数据结构
 
 /** 磁盘信息 */

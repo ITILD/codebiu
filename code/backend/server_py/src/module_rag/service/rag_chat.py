@@ -60,6 +60,7 @@ class RagChatService:
         project_document_chunk_service: ProjectDocumentChunkService | None = None,
         conversation_service: ConversationService | None = None,
     ):
+        """依赖注入构造器:初始化所需的数据访问对象"""
         self.llm_base_service = llm_base_service or LLMBaseService()
         self.user_model_service = user_model_service or UserModelService()
         self.chat_message_service = chat_message_service or ChatMessageService()

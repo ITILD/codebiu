@@ -45,11 +45,11 @@ SYS_DEFINE = ModulePermissionDefine(
     order_num=1,
     description="用户/角色/部门/权限/策略规则等系统基础管理",
     nodes=[
-        _crud_nodes("user", "用户管理", path="/_sys/manager/user", icon="UserFilled", order=1),
-        _crud_nodes("role", "角色管理", path="/_sys/manager/role", icon="Avatar", order=2),
-        _crud_nodes("dept", "部门管理", path="/_sys/manager/dept", icon="OfficeBuilding", order=3),
-        _crud_nodes("permission", "权限管理", path="/_sys/manager/permission", icon="Key", order=4),
-        _crud_nodes("casbin", "策略规则", path="/_sys/manager/casbin", icon="List", order=5),
+        _crud_nodes("user", "用户管理", path="/authorization/user", icon="UserFilled", order=1),
+        _crud_nodes("role", "角色管理", path="/authorization/role", icon="Avatar", order=2),
+        _crud_nodes("dept", "部门管理", path="/authorization/dept", icon="OfficeBuilding", order=3),
+        _crud_nodes("permission", "权限管理", path="/authorization/permission", icon="Key", order=4),
+        _crud_nodes("casbin", "策略规则", path="/authorization/casbin", icon="List", order=5),
     ],
     # 新用户不自动获得系统管理权限,需管理员分配
     default_policies=[],
@@ -67,7 +67,7 @@ MAIN_DEFINE = ModulePermissionDefine(
             name="字典管理",
             code="main:dict",
             menu_type="C",
-            path="/_sys/database/dict",
+            path="/main/dict",
             icon="Notebook",
             order_num=1,
             children=[
@@ -81,7 +81,7 @@ MAIN_DEFINE = ModulePermissionDefine(
             name="数据库管理",
             code="main:db",
             menu_type="C",
-            path="/_sys/database/overview",
+            path="/main/overview",
             icon="Coin",
             order_num=2,
             children=[PermNode(name="查询", code="main:db:read", menu_type="F")],
@@ -90,7 +90,7 @@ MAIN_DEFINE = ModulePermissionDefine(
             name="文件管理",
             code="main:file",
             menu_type="C",
-            path="/_sys/file",
+            path="/file",
             icon="FolderOpened",
             order_num=3,
             children=[
@@ -98,6 +98,7 @@ MAIN_DEFINE = ModulePermissionDefine(
                 PermNode(name="上传/新建", code="main:file:create", menu_type="F"),
                 PermNode(name="重命名/移动", code="main:file:update", menu_type="F"),
                 PermNode(name="删除", code="main:file:delete", menu_type="F"),
+                PermNode(name="存储迁移", code="main:file:migrate", menu_type="F"),
             ],
         ),
         PermNode(

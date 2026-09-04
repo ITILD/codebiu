@@ -1,6 +1,6 @@
-// src/api/authorization/dept.ts
-import { http_base_server } from '@/utils/http';
-import type { Dept, DeptCreate, DeptUpdate, DeptTree } from '@/types/authorization/dept';
+// src/modules/authorization/api/dept.ts
+import { http_base_server } from '@/common/api/http';
+import type { Dept, DeptCreate, DeptUpdate, DeptTree } from '../types/dept';
 
 /** 获取部门树形结构 */
 export const getDeptTree = () => {

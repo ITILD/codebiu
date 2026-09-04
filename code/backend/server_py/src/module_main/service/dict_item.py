@@ -8,6 +8,7 @@ class DictItemService:
     """字典项服务"""
 
     def __init__(self, dict_item_dao: DictItemDao, dict_type_dao: DictTypeDao):
+        """依赖注入构造器:初始化所需的数据访问对象"""
         self.dict_item_dao = dict_item_dao or DictItemDao()
         self.dict_type_dao = dict_type_dao or DictTypeDao()
 
@@ -41,9 +42,9 @@ class DictItemService:
             return []
         return await self.dict_item_dao.list_by_dict_type(dict_type.id)
 
-    async def list_all(self, pagination: PaginationParams) -> PaginationResponse:
+    async def list_paged(self, pagination: PaginationParams) -> PaginationResponse:
         """分页查询字典项列表"""
-        items = await self.dict_item_dao.list_all(pagination)
+        items = await self.dict_item_dao.list_paged(pagination)
         total = await self.dict_item_dao.count()
         return PaginationResponse.create(items, total, pagination)
 

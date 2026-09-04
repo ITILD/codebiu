@@ -32,7 +32,7 @@ BLOG_DEFINE = ModulePermissionDefine(
             name="文章管理",
             code="blog:post",
             menu_type="C",
-            path="/_sys/blog/post",
+            path="/blog/post",
             order_num=1,
             children=[
                 PermNode(name="查询", code="blog:post:read", menu_type="F"),
@@ -45,7 +45,7 @@ BLOG_DEFINE = ModulePermissionDefine(
             name="分类管理",
             code="blog:category",
             menu_type="C",
-            path="/_sys/blog/category",
+            path="/blog/category",
             order_num=2,
             children=[
                 PermNode(name="查询", code="blog:category:read", menu_type="F"),
@@ -58,7 +58,7 @@ BLOG_DEFINE = ModulePermissionDefine(
             name="评论管理",
             code="blog:comment",
             menu_type="C",
-            path="/_sys/blog/comment",
+            path="/blog/comment",
             order_num=3,
             children=[
                 PermNode(name="查询", code="blog:comment:read", menu_type="F"),

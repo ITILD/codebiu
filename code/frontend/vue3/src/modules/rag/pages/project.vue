@@ -46,11 +46,11 @@
         <!-- 操作按钮 -->
         <div flex gap-1 mt-1>
           <el-button size="small" type="primary" plain flex-1
-            @click="router.push(`/_sys/rag/document?project_id=${item.id}`)">
+            @click="router.push(`/rag/document?project_id=${item.id}`)">
             文档
           </el-button>
           <el-button size="small" type="success" plain flex-1
-            @click="router.push(`/_sys/rag/member?project_id=${item.id}`)">
+            @click="router.push(`/rag/member?project_id=${item.id}`)">
             成员
           </el-button>
           <el-button size="small" type="warning" plain @click="handleEdit(item)">
@@ -111,15 +111,15 @@ import {
   deleteRagProject,
   listRagProjects,
   updateRagProject,
-} from '@/api/rag/project'
+} from '../api/project'
 import {
   KbCategory,
   kbCategoryOptions,
   type Project,
   type ProjectCreate,
-} from '@/types/rag'
-import TableSearchBar, { type SearchField } from '@/components/app/sys/TableSearchBar.vue'
-import type { PaginationParams } from '@/types/common'
+} from '../types'
+import TableSearchBar, { type SearchField } from '@/common/components/TableSearchBar.vue'
+import type { PaginationParams } from '@/common/types/common'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
 import { useRouter } from 'vue-router'
 

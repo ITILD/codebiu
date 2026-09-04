@@ -66,7 +66,7 @@ class ProjectDao:
         return await session.get(Project, id)
 
     @DaoRel
-    async def list_all(
+    async def list_paged(
         self, pagination: PaginationParams, session: AsyncSession | None = None,
         name: str | None = None,
         kb_category: str | None = None,

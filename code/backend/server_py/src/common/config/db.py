@@ -24,6 +24,8 @@ logger = logging.getLogger(__name__)
 
 
 class DatabaseManager:
+    """数据库连接管理器:统一管理关系型/缓存/向量/图数据库的连接生命周期"""
+
     def __init__(self):
         self.db_rel: DBRelationInterface | None = None
         self.db_cache: DBCacheInterface | None = None
@@ -35,9 +37,10 @@ class DatabaseManager:
         self.async_cache: Redis | None = None
         # 异步向量数据库连接  注意只能异步连接  生命周期需要运行时获取
         self._async_vector: AsyncConnection | AsyncMilvusClient | None = None
-        
+
     @property
     def async_vector(self) -> AsyncConnection | AsyncMilvusClient | None:
+        """获取异步向量库连接(lancedb连接或milvus客户端)"""
         return self._async_vector
     
     def start(self):
@@ -74,6 +77,7 @@ class DatabaseManager:
             self.db_graph = DBFactory.create_graph(self.db_graph_config)
 
     async def table_create_all(self):
+        """创建所有关系表与向量表(向量库连接不存在时会先建立连接)"""
         # 创建所有数据库表
         if self.db_rel:
             await self.db_rel.create_all()

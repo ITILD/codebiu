@@ -5,6 +5,10 @@ from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, System
 from common.config.index import conf
 from module_ai.service.llm_base import LLMBaseService, ModelConfigCreateRequest, ModelType, ModelServerType
 
+# 本文件为服务层联调脚本: 依赖 config.yaml 的 test 配置段并会发起真实 LLM 网络调用,
+# 不符合接口自动化测试规范(零外部依赖), 统一跳过; 接口层测试见 tests/module_ai/controller/
+pytestmark = pytest.mark.skip(reason="依赖真实 LLM 服务与 config.test 配置段, 手动联调时移除本标记")
+
 @pytest.mark.asyncio
 async def test_llm_chat():
     llm_service = LLMBaseService()

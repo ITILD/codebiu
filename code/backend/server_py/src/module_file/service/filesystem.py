@@ -9,11 +9,15 @@ from module_file.do.filesystem import (
     FileEntry,
     FileEntryCreate,
     FileEntryUpdate,
+    FileEntryWithContent,
+    FileContentCreate,
     GeneratePresignedUrlRequest,
     PresignedUploadParams,
     PresignedDownloadParams,
     GeneratePresignedUploadResponse,
     GeneratePresignedDownloadResponse,
+    StorageStats,
+    MigrateRequest,
 )
 from module_file.dao.file_entry_dao import FileEntryDao
 from module_file.dao.file_content_dao import FileContentDao
@@ -24,15 +28,33 @@ from fastapi import UploadFile, HTTPException
 from sqlmodel.ext.asyncio.session import AsyncSession
 from common.config.db import DaoRel
 from pathlib import Path
-from module_file.do.filesystem import FileContentCreate
 import logging
 from module_file.utils.multi_storage.do.storage_config import PresignedType
 from common.config.index import conf
+from common.config.path import DIR_UPLOAD
 from datetime import datetime
 from common.enum.task import TaskStatus
 
 # 配置日志
 logger = logging.getLogger(__name__)
+
+
+def build_storage(storage_type: StorageType | str):
+    """
+    按类型构建存储实例(存储迁移/双存储搬运用,与全局单例互不影响)
+    :param storage_type: 存储类型(local/s3/rustfs)
+    :return: StorageInterface 实例
+    """
+    from module_file.utils.multi_storage.do.storage_config import (
+        StorageConfigFactory,
+    )
+    from module_file.utils.multi_storage.storage_factory import StorageFactory
+
+    cfg = StorageConfigFactory.create(str(storage_type), conf.file_system)
+    # local 未配置目录时回退到全局上传目录(与 config/filesystem.py 保持一致)
+    if str(storage_type) == StorageType.LOCAL and not getattr(cfg, "base_dir", None):
+        cfg.base_dir = str(DIR_UPLOAD)
+    return StorageFactory.create(cfg)
 
 
 class FileService:
@@ -244,13 +266,13 @@ class FileService:
         """
         return await self.file_entry_dao.get(id)
 
-    async def list_all(self, pagination: PaginationParams) -> PaginationResponse:
+    async def list_paged(self, pagination: PaginationParams) -> PaginationResponse:
         """
         分页查询所有条目
         :param pagination: 分页参数
         :return: 分页响应结果
         """
-        items = await self.file_entry_dao.list_all(pagination)
+        items = await self.file_entry_dao.list_paged(pagination)
         total = await self.file_entry_dao.count()
         return PaginationResponse.create(items, total, pagination)
 
@@ -330,19 +352,20 @@ class FileService:
         return InfiniteScrollResponse.create(items, params.limit)
 
     ####################################通用上传/下载(本地/对象存储由配置切换)##############################################
-    @DaoRel
-    async def upload_file(
+    async def _upload_content(
         self,
-        file: UploadFile,
-        description: str = None,
-        pid: str = None,
-        owner_user_id: str = None,
+        content: bytes,
+        filename: str,
+        description: str | None = None,
+        pid: str | None = None,
+        owner_user_id: str | None = None,
         session: AsyncSession | None = None,
     ) -> FileEntry:
         """
-        上传文件到指定目录(虚拟文件系统)
+        字节级上传核心逻辑(虚拟文件系统,UploadFile/客户端直传共用)
         基于内容哈希(SHA-256)去重: 相同内容秒传,不重复占用物理存储
-        :param file: 上传的文件对象
+        :param content: 文件字节内容
+        :param filename: 文件名
         :param description: 文件描述
         :param pid: 父目录ID(为空表示根目录)
         :param owner_user_id: 上传者ID
@@ -360,28 +383,27 @@ class FileService:
         else:
             dir_path = ""
 
-        content = await file.read()
         # 大小与MIME类型校验(依据 file_system 配置)
         if len(content) > storage_config.max_size_bytes:
             raise ValueError(
                 f"文件大小超过限制: {storage_config.max_size}MB"
             )
-        mime_type = file.content_type or "application/octet-stream"
+        mime_type = self._guess_mime(filename) or "application/octet-stream"
         if not storage_config.is_mime_allowed(mime_type):
             raise ValueError(f"不支持的文件类型: {mime_type}")
 
         # 同目录同名冲突校验
         if await self.file_entry_dao.exists_by_pid_name(
-            pid, file.filename, session=session
+            pid, filename, session=session
         ):
-            raise ValueError(f"当前目录下已存在同名文件: {file.filename}")
+            raise ValueError(f"当前目录下已存在同名文件: {filename}")
 
         # 内容哈希去重: 已存在且完成的内容直接复用(秒传)
         content_hash = hashlib.sha256(content).hexdigest()
         file_content = await self.file_content_dao.get_by_content_hash(
             content_hash, session
         )
-        file_ext = Path(file.filename).suffix
+        file_ext = Path(filename).suffix
         if file_content and file_content.content_status == TaskStatus.SUCCESS:
             physical_storage = file_content.physical_storage
         else:
@@ -402,9 +424,9 @@ class FileService:
 
         # 建立虚拟文件系统条目
         file_create = FileEntryCreate(
-            name=file.filename,
+            name=filename,
             pid=pid,
-            logical_path=f"{dir_path}/{file.filename}",
+            logical_path=f"{dir_path}/{filename}",
             file_size_bytes=len(content),
             file_extension=file_ext[1:] if file_ext else "",
             mime_type=mime_type,
@@ -418,6 +440,41 @@ class FileService:
         await self.file_content_dao.ref_count_change(content_hash, 1, session)
         logger.info(f"文件上传成功: {file_create.name} -> {file_create.logical_path}")
         return await self.file_entry_dao.get(created_id, session)
+
+    @staticmethod
+    def _guess_mime(filename: str) -> str | None:
+        """
+        按扩展名推断MIME类型(客户端直传时无Content-Type头,保证类型校验一致)
+        :param filename: 文件名
+        :return: MIME类型,未知返回None
+        """
+        import mimetypes
+
+        mime, _ = mimetypes.guess_type(filename)
+        return mime
+
+    @DaoRel
+    async def upload_file(
+        self,
+        file: UploadFile,
+        description: str = None,
+        pid: str = None,
+        owner_user_id: str = None,
+        session: AsyncSession | None = None,
+    ) -> FileEntry:
+        """
+        上传文件到指定目录(虚拟文件系统,HTTP multipart入口)
+        :param file: 上传的文件对象
+        :param description: 文件描述
+        :param pid: 父目录ID(为空表示根目录)
+        :param owner_user_id: 上传者ID
+        :return: 文件信息对象
+        :raises: ValueError 父目录无效/同名冲突/大小或类型超限
+        """
+        content = await file.read()
+        return await self._upload_content(
+            content, file.filename, description, pid, owner_user_id, session=session
+        )
 
     async def get_file_info_for_download(
         self, entry_id: str
@@ -471,12 +528,303 @@ class FileService:
             logger.error(f"读取文件内容时发生错误: {e}")
             raise
 
+    ####################################路径操作/搜索/复制/读取(虚拟文件系统高阶能力)##############################################
+
+    async def get_by_path(self, logical_path: str) -> FileEntry | None:
+        """
+        按逻辑路径精确查询条目
+        :param logical_path: 用户视角完整路径(如 /docs/readme.md)
+        :return: 条目对象,不存在返回None
+        """
+        return await self.file_entry_dao.get_by_logical_path(logical_path)
+
+    @DaoRel
+    async def list_by_path(
+        self,
+        logical_path: str,
+        pagination: PaginationParams,
+        name: str | None = None,
+        session: AsyncSession | None = None,
+    ) -> PaginationResponse:
+        """
+        按逻辑路径浏览目录(前端路径导航用)
+        :param logical_path: 目录逻辑路径
+        :param pagination: 分页参数
+        :param name: 名称模糊过滤
+        :return: 分页响应结果
+        """
+        entry = await self.file_entry_dao.get_by_logical_path(
+            logical_path, session
+        )
+        if not entry or not entry.is_directory:
+            raise ValueError(f"目录不存在: {logical_path}")
+        return await self.list_by_pid(entry.id, pagination, name)
+
+    @DaoRel
+    async def mkdir_p(
+        self,
+        path: str,
+        owner_user_id: str | None = None,
+        session: AsyncSession | None = None,
+    ) -> FileEntry:
+        """
+        按逻辑路径递归创建目录(mkdir -p 语义,已存在直接返回)
+        :param path: 目录逻辑路径(如 /docs/images,支持多级一次创建)
+        :param owner_user_id: 拥有者用户ID
+        :return: 最终层目录条目
+        :raises: ValueError 路径段非法或与同名文件冲突
+        """
+        # 规范化路径: 去首尾斜杠,拆分层级
+        parts = [p.strip() for p in path.strip("/").split("/") if p.strip()]
+        if not parts:
+            raise ValueError("目录路径不能为空")
+        current_pid: str | None = None
+        current_path = ""
+        entry: FileEntry | None = None
+        for part in parts:
+            # 逐级按完整逻辑路径查询(存在则复用,不存在则创建)
+            current_path = f"{current_path}/{part}"
+            entry = await self.file_entry_dao.get_by_logical_path(
+                current_path, session
+            )
+            if entry is None:
+                entry = await self.create_folder(
+                    part, current_pid, owner_user_id, session=session
+                )
+            elif not entry.is_directory:
+                raise ValueError(f"路径 /{part} 已被同名文件占用")
+            current_pid = entry.id
+        return entry
+
+    async def search(
+        self, keyword: str, pagination: PaginationParams
+    ) -> PaginationResponse:
+        """
+        全树模糊搜索(匹配名称或逻辑路径)
+        :param keyword: 搜索关键字
+        :param pagination: 分页参数
+        :return: 分页响应结果
+        """
+        items = await self.file_entry_dao.search(keyword, pagination)
+        total = await self.file_entry_dao.count_search(keyword)
+        return PaginationResponse.create(items, total, pagination)
+
+    @DaoRel
+    async def copy_entry(
+        self,
+        entry_id: str,
+        target_pid: str | None = None,
+        owner_user_id: str | None = None,
+        session: AsyncSession | None = None,
+    ) -> FileEntry:
+        """
+        复制条目(文件/目录自动分发)
+        文件复制: 新建条目指向同一内容哈希,物理文件不复制(引用计数+1)
+        目录复制: 递归复制整棵子树(内容哈希去重,同一内容仅+1次引用)
+        :param entry_id: 源条目ID
+        :param target_pid: 目标父目录ID(为空表示根目录)
+        :param owner_user_id: 操作者用户ID
+        :return: 复制出的新条目
+        """
+        entry = await self.file_entry_dao.get(entry_id, session)
+        if not entry or not entry.is_active:
+            raise ValueError("条目不存在或已被删除")
+        # 校验目标目录
+        if target_pid:
+            target = await self.file_entry_dao.get(target_pid, session)
+            if not target or not target.is_active:
+                raise ValueError("目标目录不存在或已被删除")
+            if not target.is_directory:
+                raise ValueError("目标条目不是目录")
+            # 环形防护: 目录不能复制到自身子树内
+            if entry.is_directory and (
+                target.logical_path == entry.logical_path
+                or target.logical_path.startswith(entry.logical_path + "/")
+            ):
+                raise ValueError("不能复制到自身或其子目录下")
+            target_path = target.logical_path.rstrip("/")
+        else:
+            target_path = ""
+        # 目标同名冲突校验
+        if await self.file_entry_dao.exists_by_pid_name(
+            target_pid, entry.name, session=session
+        ):
+            raise ValueError(f"目标目录下已存在同名条目: {entry.name}")
+        copied = await self._copy_recursive(
+            entry, target_pid, target_path, owner_user_id, session
+        )
+        return copied
+
+    async def _copy_recursive(
+        self,
+        entry: FileEntry,
+        target_pid: str | None,
+        target_path: str,
+        owner_user_id: str | None,
+        session: AsyncSession,
+    ) -> FileEntry:
+        """
+        递归复制单个条目及其子树(内部方法,调用方负责冲突/环形校验)
+        :param entry: 源条目
+        :param target_pid: 目标父目录ID
+        :param target_path: 目标父目录逻辑路径(为空表示根目录)
+        :param owner_user_id: 操作者用户ID
+        :return: 新条目
+        """
+        new_path = f"{target_path}/{entry.name}" if target_path else f"/{entry.name}"
+        if entry.is_directory:
+            folder_id = await self.file_entry_dao.add(
+                FileEntryCreate(
+                    name=entry.name,
+                    pid=target_pid,
+                    logical_path=new_path,
+                    is_directory=True,
+                    description=entry.description,
+                    user_id=owner_user_id or entry.user_id,
+                ),
+                session,
+            )
+            # 递归复制全部直接子项
+            children = await self.file_entry_dao.list_children(entry.id, session)
+            for child in children:
+                await self._copy_recursive(
+                    child, folder_id, new_path, owner_user_id, session
+                )
+            return await self.file_entry_dao.get(folder_id, session)
+        # 文件: 新条目指向同一内容哈希,物理文件不复制
+        file_id = await self.file_entry_dao.add(
+            FileEntryCreate(
+                name=entry.name,
+                pid=target_pid,
+                logical_path=new_path,
+                is_directory=False,
+                content_hash=entry.content_hash,
+                file_size_bytes=entry.file_size_bytes,
+                file_extension=entry.file_extension,
+                mime_type=entry.mime_type,
+                description=entry.description,
+                user_id=owner_user_id or entry.user_id,
+            ),
+            session,
+        )
+        await self.file_content_dao.ref_count_change(entry.content_hash, 1, session)
+        return await self.file_entry_dao.get(file_id, session)
+
+    async def read_file_bytes(self, entry_id: str) -> bytes:
+        """
+        读取文件完整字节内容(小文件直接读,大文件请用 stream_file_content)
+        :param entry_id: 文件条目ID
+        :return: 文件字节内容
+        :raises: ValueError 文件不存在/是目录/内容缺失
+        """
+        info = await self.file_entry_dao.get_file_entry_with_content(entry_id)
+        if not info or not info.is_active:
+            raise ValueError(f"文件不存在: {entry_id}")
+        if info.is_directory:
+            raise ValueError("目录不支持按内容读取")
+        if not info.physical_storage:
+            raise ValueError("文件内容记录缺失")
+        return await self.storage.load(info.physical_storage)
+
+    async def read_file_text(self, entry_id: str, encoding: str = "utf-8") -> str:
+        """
+        读取文本文件内容
+        :param entry_id: 文件条目ID
+        :param encoding: 文本编码(默认utf-8)
+        :return: 文本内容
+        """
+        return (await self.read_file_bytes(entry_id)).decode(encoding)
+
+    async def stream_entry_chunks(self, entry_id: str, chunk_size: int = 8192):
+        """
+        按条目ID流式读取文件内容(异步生成器,跨模块大文件转发用)
+        :param entry_id: 文件条目ID
+        :param chunk_size: 每次读取的块大小
+        :yield: 文件内容块
+        """
+        info = await self.file_entry_dao.get_file_entry_with_content(entry_id)
+        if not info or not info.is_active:
+            raise ValueError(f"文件不存在: {entry_id}")
+        if info.is_directory:
+            raise ValueError("目录不支持按内容读取")
+        if not info.physical_storage:
+            raise ValueError("文件内容记录缺失")
+        async for chunk in self.storage.iter_chunks(info.physical_storage, chunk_size):
+            yield chunk
+
+    @DaoRel
+    async def get_stats(self, session: AsyncSession | None = None) -> StorageStats:
+        """
+        存储统计(条目数/物理内容数/总占用)
+        :return: 统计信息
+        """
+        entry_total, file_total, folder_total = (
+            await self.file_entry_dao.count_by_type(session)
+        )
+        content_total, used_bytes = await self.file_content_dao.stats(session)
+        return StorageStats(
+            storage_type=str(conf.file_system.storage_type),
+            entry_total=entry_total,
+            file_total=file_total,
+            folder_total=folder_total,
+            content_total=content_total,
+            used_bytes=used_bytes,
+        )
+
+    @DaoRel
+    async def migrate_storage(
+        self, req: MigrateRequest, session: AsyncSession | None = None
+    ) -> dict:
+        """
+        存储迁移: 把源存储的全部物理内容搬运到目标存储(逻辑条目与物理键不变)
+        用途: 配置切换 local<->rustfs/s3 前,先迁移历史数据实现无缝切换
+        :param req: MigrateRequest(from_type/to_type)
+        :return: 迁移结果 {total, migrated, skipped, failed}
+        """
+        from module_file.do.filesystem import FileContentUpdate
+
+        if req.from_type == req.to_type:
+            raise ValueError("源与目标存储类型相同,无需迁移")
+        src = build_storage(req.from_type)
+        dst = build_storage(req.to_type)
+        contents = await self.file_content_dao.list_all(session)
+        migrated, skipped, failed = 0, 0, []
+        for c in contents:
+            # 已在目标存储的内容跳过(支持断点续迁)
+            if c.storage_type is not None and str(c.storage_type) == str(req.to_type):
+                skipped += 1
+                continue
+            try:
+                data = await src.load(c.physical_storage)
+                await dst.save(c.physical_storage, data)
+                # 更新内容记录的存储类型(物理键不变)
+                await self.file_content_dao.update(
+                    c.content_hash,
+                    FileContentUpdate(storage_type=req.to_type),
+                    session,
+                )
+                migrated += 1
+            except Exception as e:
+                logger.error(f"迁移失败 {c.content_hash}: {e}")
+                failed.append({"content_hash": c.content_hash, "error": str(e)})
+        logger.info(
+            f"存储迁移完成: {req.from_type}->{req.to_type} "
+            f"migrated={migrated} skipped={skipped} failed={len(failed)}"
+        )
+        return {
+            "total": len(contents),
+            "migrated": migrated,
+            "skipped": skipped,
+            "failed": failed,
+        }
+
     ######################################兼容本地存储和s3/minio/oss/rustfs对象存储######################################
     @DaoRel
     async def generate_presigned_url_upload(
         self,
         presigned_url_request: GeneratePresignedUrlRequest,
         presigned_url_path: str,
+        base_url: str = "",
         session: AsyncSession | None = None,
     ) -> GeneratePresignedUploadResponse:
         """
@@ -484,7 +832,8 @@ class FileService:
 
         若文件内容已存在且状态为 SUCCESS，则不生成新 URL；
         否则（新文件或上传未完成），生成预签名上传地址。
-        本地存储时，URL 会拼接为完整路径。
+        前后端接口统一: 无论 local 还是 rustfs/s3,返回的都是可直接 PUT 的完整 URL
+        (local 指向后端代理端点, rustfs/s3 指向对象存储直传地址)
         """
         if presigned_url_request.file_size_bytes > storage_config.max_size_bytes:
             raise HTTPException(status_code=400, detail="文件大小超过限制")
@@ -524,8 +873,9 @@ class FileService:
                 presigned_url_request.content_type,
             )
             if conf.file_system.storage_type == StorageType.LOCAL:
-                base_path = presigned_url_path.replace("generate_", "")
-                presigned_url = f"{base_path}{presigned_url}"
+                # 本地签名是相对路径,拼接为完整URL指向后端代理端点(与对象存储直传协议一致)
+                # presigned_url_path 由 controller 直接传入预签名代理端点常量,无需再派生
+                presigned_url = f"{base_url}{presigned_url_path}{presigned_url}"
 
         return GeneratePresignedUploadResponse(
             presigned_url=presigned_url,
@@ -560,6 +910,12 @@ class FileService:
         file: FileEntryCreate,
         session: AsyncSession | None = None,
     ):
+        """预签名URL上传成功后的落库处理:登记文件条目并给文件内容引用计数+1
+
+        :param file: 文件条目创建数据
+        :param session: 可选数据库会话(事务内复用)
+        :return: 新建的文件条目ID
+        """
         # 文件夹文件业务逻辑
         file_id = await self.file_entry_dao.add(file, session)
         # 文件内容 引用计数+1,更新状态为成功
@@ -570,10 +926,14 @@ class FileService:
         self,
         file_id: str,
         presigned_url_path: str,
+        base_url: str = "",
     ) -> GeneratePresignedDownloadResponse:
         """
         生成预签名URL用于下载文件
+        前后端接口统一: local 返回后端代理完整URL, rustfs/s3 返回对象存储直传URL
         :param file_id: 文件ID
+        :param presigned_url_path: 预签名下载代理端点路径
+        :param base_url: 服务端根地址(scheme://host:port,用于拼接本地完整URL)
         :return: 预签名URL或None
         """
         try:
@@ -588,8 +948,8 @@ class FileService:
 
             # 判断存储类型
             if conf.file_system.storage_type == StorageType.LOCAL:
-                base_path = presigned_url_path.replace("generate_", "")
-                presigned_url = f"{base_path}{presigned_url}"
+                # presigned_url_path 由 controller 直接传入预签名代理端点常量,无需再派生
+                presigned_url = f"{base_url}{presigned_url_path}{presigned_url}"
 
             return GeneratePresignedDownloadResponse(
                 presigned_url=presigned_url,

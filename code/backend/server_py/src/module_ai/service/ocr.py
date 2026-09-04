@@ -5,11 +5,11 @@ from module_ai.utils.onnx.ocr_rapid.tbpu.parser_multi_para import MultiPara
 
 from module_ai.config.ocr import path_lout_model
 
-tupu_use = MultiPara()
+segment_engine = MultiPara()
 layout_engine = RapidLayout(model_path=path_lout_model)
 
 class OcrService:
-    def ocr(self,image_cv: any, detect: bool, classify: bool, lang: str, inpaint=False):
+    def recognize(self,image_cv: any, detect: bool, classify: bool, lang: str, inpaint=False):
         """执行文字识别(OCR)处理，支持多语言识别、文本检测和分类
 
         Args:
@@ -31,12 +31,12 @@ class OcrService:
             # numpy.float32转float
             resultOne["score"] = float(resultOne["score"])
         return result
-    def ocr_tupu(self,image_cv: any, detect: bool, classify: bool, lang: str, inpaint=False):
+    def segment_layout(self,image_cv: any, detect: bool, classify: bool, lang: str, inpaint=False):
         """执行文字识别/分栏分段"""
-        result = self.ocr(image_cv, detect, classify, lang, inpaint=inpaint)
+        result = self.recognize(image_cv, detect, classify, lang, inpaint=inpaint)
         results = result["results"]
         if len(results) > 0:
-            result["results"] = tupu_use.run(results)
+            result["results"] = segment_engine.run(results)
         return result
 
     def layout(self,image_cv: any):
@@ -45,10 +45,10 @@ class OcrService:
         return boxes, scores, class_names, elapse
 
 
-    async def ocr_all(self,image_cv: any, detect: bool, classify: bool, lang: str, inpaint=False):
+    async def recognize_all(self,image_cv: any, detect: bool, classify: bool, lang: str, inpaint=False):
         """执行文字识别/分栏分段/版面分析"""
-        # 1 ocr_tupu
-        result = self.ocr_tupu(image_cv, detect, classify, lang, inpaint=inpaint)
+        # 1 文字识别+分栏分段
+        result = self.segment_layout(image_cv, detect, classify, lang, inpaint=inpaint)
         boxes, scores, class_names, elapse = layout_engine.check(image_cv)
         layout = []
         i = 0

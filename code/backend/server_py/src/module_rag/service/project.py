@@ -5,6 +5,7 @@ from module_rag.do.project import Project, ProjectCreate, ProjectUpdate, Project
 from module_rag.do.project_member import ProjectMemberCreate, RagRole
 from module_rag.dao.project import ProjectDao
 from module_rag.dao.project_member import ProjectMemberDao
+from module_rag.dao.project_dept import ProjectDeptDao
 from module_rag.dao.project_document import ProjectDocumentDao
 from common.config.path import DIR_UPLOAD
 import logging
@@ -23,13 +24,16 @@ class ProjectService:
         member_dao: ProjectMemberDao | None = None,
         document_dao: ProjectDocumentDao | None = None,
         project_document_chunk_dao: ProjectDocumentChunkDao  | None = None,
+        dept_auth_dao: ProjectDeptDao | None = None,
     ):
+        """依赖注入构造器:初始化所需的数据访问对象"""
         self.project_dao = project_dao or ProjectDao()
         self.member_dao = member_dao or ProjectMemberDao()
         self.document_dao = document_dao or ProjectDocumentDao()
         self.project_document_chunk_dao = (
             project_document_chunk_dao or ProjectDocumentChunkDao()
         )
+        self.dept_auth_dao = dept_auth_dao or ProjectDeptDao()
 
     @DaoRel
     async def add(
@@ -110,6 +114,14 @@ class ProjectService:
             f"删除项目 {project_id}: 已清理 {deleted_members} 个成员记录"
         )
 
+        # 5.5 删 db 部门授权记录
+        deleted_depts = await self.dept_auth_dao.delete_by_project(
+            project_id, session=session
+        )
+        logger.info(
+            f"删除项目 {project_id}: 已清理 {deleted_depts} 个部门授权记录"
+        )
+
         # 6. 删项目上传目录
         project_dir = DIR_UPLOAD / project_id
         try:
@@ -143,7 +155,7 @@ class ProjectService:
         """
         return await self.project_dao.get(project_id)
 
-    async def list_all(
+    async def list_paged(
         self, pagination: PaginationParams, kb_category: str | None = None,
         name: str | None = None, is_private: bool | None = None,
     ) -> PaginationResponse:
@@ -155,7 +167,7 @@ class ProjectService:
         :param is_private: 可选私有状态过滤(true=私有/false=公开)
         :return: 分页项目列表
         """
-        items = await self.project_dao.list_all(
+        items = await self.project_dao.list_paged(
             pagination, name=name, kb_category=kb_category, is_private=is_private
         )
         total = await self.project_dao.count(

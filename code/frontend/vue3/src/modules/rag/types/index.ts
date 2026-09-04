@@ -1,6 +1,6 @@
-// src/types/rag/index.ts
+// src/modules/rag/types/index.ts
 // 知识库(RAG)模块类型定义
-import type { MessageBlock } from '@/types/chat';
+import type { MessageBlock } from '@/common/types/chat';
 
 // 知识库分类: 个人/项目/公司
 enum KbCategory {
@@ -118,6 +118,28 @@ interface MyProject {
   created_at: string;
 }
 
+// ---------------- 项目部门授权 ----------------
+
+// 部门授权生效规则: 用户生效档位 = max(直连成员档位, 部门链命中最高档)
+interface ProjectDept {
+  id: string;
+  project_id: string;
+  dept_id: string;
+  role: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ProjectDeptCreate {
+  project_id: string;
+  dept_id: string;
+  role: string;
+}
+
+interface ProjectDeptUpdate {
+  role?: string;
+}
+
 // ---------------- 对话 ----------------
 
 interface Conversation {
@@ -182,6 +204,9 @@ export type {
   ProjectMemberCreate,
   ProjectMemberUpdate,
   MyProject,
+  ProjectDept,
+  ProjectDeptCreate,
+  ProjectDeptUpdate,
   Conversation,
   ConversationCreate,
   ConversationUpdate,

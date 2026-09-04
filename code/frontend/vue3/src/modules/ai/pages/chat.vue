@@ -75,15 +75,15 @@
 
 <script setup lang="ts">
 import { ChatDotRound, EditPen, DataAnalysis, Cpu, List } from '@element-plus/icons-vue'
-import type { PaginationParams, PaginationResponse } from '@/types/common'
-import type { ModelConfig } from '@/types/model_config'
-import type { ChatMessageWithBlocks, MessageBlock } from '@/types/chat'
-import { StreamEventType } from '@/types/chat'
-import { listModelConfigs } from '@/api/model_config'
-import { sendChatMessageStream } from '@/api/chat'
-import LLMSelect from '@/components/app/ai/LLMSelect.vue'
-import ChatMessageList from '@/components/app/chat/ChatMessageList.vue'
-import ChatComposer from '@/components/app/chat/ChatComposer.vue'
+import type { PaginationParams, PaginationResponse } from '@/common/types/common'
+import type { ModelConfig } from '../types/model_config'
+import type { ChatMessageWithBlocks, MessageBlock } from '@/common/types/chat'
+import { StreamEventType } from '@/common/types/chat'
+import { listModelConfigs } from '../api/model_config'
+import { sendChatMessageStream } from '../api/chat'
+import LLMSelect from '../components/LLMSelect.vue'
+import ChatMessageList from '@/common/components/chat/ChatMessageList.vue'
+import ChatComposer from '@/common/components/chat/ChatComposer.vue'
 
 // ===== 模型配置 =====
 const pagination = ref<PaginationParams>({ page: 1, size: 50 })

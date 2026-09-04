@@ -15,6 +15,7 @@ class TokenService:
     """令牌服务"""
 
     def __init__(self, token_dao: TokenDao):
+        """依赖注入构造器:初始化所需的数据访问对象"""
         self.token_dao = token_dao or TokenDao()
         # 初始化TokenUtil工具类(使用BaseModel配置类)
         self.token_util = TokenUtil(token_config)
@@ -60,28 +61,28 @@ class TokenService:
         :param token: 待验证的令牌字符串
         :param token_type: 令牌类型，必须为 access 或 refresh
         :return: 令牌载荷(用户ID等信息)
-        :raises jwt.JWTError: 令牌无效、过期或已被撤销
+        :raises jwt.InvalidTokenError: 令牌无效、过期或已被撤销
         """
         try:
             payload = self.token_util.verify_token(token)
             user_id = payload.get("sub")
             if not user_id:
-                raise jwt.JWTError("Invalid token payload: missing 'sub'")
+                raise jwt.InvalidTokenError("Invalid token payload: missing 'sub'")
 
             # 刷新令牌必须检查数据库状态(是否被撤销)
             if token_type == TokenType.refresh:
                 token_info = await self.token_dao.get_token_by_user_id(user_id)
                 if not token_info or token_info.is_revoked:
-                    raise jwt.JWTError("Token has been revoked")
+                    raise jwt.InvalidTokenError("Token has been revoked")
 
             return payload
 
         except jwt.ExpiredSignatureError:
             # 过期刷新令牌自动撤销，仅抛出错误，由上层决定是否清理
-            raise jwt.JWTError("Token has expired")
+            raise jwt.InvalidTokenError("Token has expired")
 
         except (jwt.InvalidTokenError, jwt.PyJWTError):
-            raise jwt.JWTError("Invalid token")
+            raise jwt.InvalidTokenError("Invalid token")
 
     async def token_refresh(self, token_refresh):
         """
@@ -103,7 +104,7 @@ class TokenService:
 
             # 创建新的令牌对
             return await self.create_token(request)
-        except jwt.JWTError as e:
+        except jwt.InvalidTokenError as e:
             raise ValueError(f"Invalid refresh token: {str(e)}")
 
     async def revoke_token(self, token, token_id):

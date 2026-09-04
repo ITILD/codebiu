@@ -1,0 +1,90 @@
+{
+ "paths": [
+  "/",
+  "/db/create",
+  "/db/reset",
+  "/dict_items",
+  "/dict_items/by-type/{type_code}",
+  "/dict_items/by-type/{type_code}/count",
+  "/dict_items/code/{item_code}",
+  "/dict_items/list",
+  "/dict_items/scroll",
+  "/dict_items/{dict_item_id}",
+  "/dict_types",
+  "/dict_types/code/{type_code}",
+  "/dict_types/list",
+  "/dict_types/scroll",
+  "/dict_types/{dict_type_id}",
+  "/server-status/cache",
+  "/server-status/hardware-status",
+  "/server-status/mount-count",
+  "/server-status/network-status",
+  "/server-status/sys-info"
+ ],
+ "methods": {
+  "/": [
+   "get"
+  ],
+  "/server-status/cache": [
+   "get"
+  ],
+  "/server-status/sys-info": [
+   "get"
+  ],
+  "/server-status/hardware-status": [
+   "get"
+  ],
+  "/server-status/network-status": [
+   "get"
+  ],
+  "/server-status/mount-count": [
+   "get"
+  ],
+  "/db/create": [
+   "get"
+  ],
+  "/db/reset": [
+   "get"
+  ],
+  "/dict_types": [
+   "post"
+  ],
+  "/dict_types/scroll": [
+   "get"
+  ],
+  "/dict_types/list": [
+   "get"
+  ],
+  "/dict_types/code/{type_code}": [
+   "get"
+  ],
+  "/dict_types/{dict_type_id}": [
+   "delete",
+   "get",
+   "put"
+  ],
+  "/dict_items": [
+   "post"
+  ],
+  "/dict_items/scroll": [
+   "get"
+  ],
+  "/dict_items/list": [
+   "get"
+  ],
+  "/dict_items/by-type/{type_code}": [
+   "get"
+  ],
+  "/dict_items/by-type/{type_code}/count": [
+   "get"
+  ],
+  "/dict_items/code/{item_code}": [
+   "get"
+  ],
+  "/dict_items/{dict_item_id}": [
+   "delete",
+   "get",
+   "put"
+  ]
+ }
+}

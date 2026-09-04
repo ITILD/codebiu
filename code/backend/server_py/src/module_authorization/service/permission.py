@@ -7,6 +7,7 @@ class PermissionService:
     """权限服务"""
 
     def __init__(self, permission_dao: PermissionDao):
+        """依赖注入构造器:初始化所需的数据访问对象"""
         self.permission_dao = permission_dao or PermissionDao()
 
     async def add(self, permission: PermissionCreate):
@@ -29,9 +30,9 @@ class PermissionService:
         """根据权限代码获取权限"""
         return await self.permission_dao.get_by_code(code)
 
-    async def list_all(self, pagination: PaginationParams) -> PaginationResponse:
+    async def list_paged(self, pagination: PaginationParams) -> PaginationResponse:
         """分页获取权限列表"""
-        items = await self.permission_dao.list_all(pagination)
+        items = await self.permission_dao.list_paged(pagination)
         total = await self.permission_dao.count()
         return PaginationResponse.create(items, total, pagination)
 
@@ -41,7 +42,7 @@ class PermissionService:
 
     async def get_tree(self) -> list[PermissionTree]:
         """获取权限树形结构"""
-        permissions = await self.permission_dao.list_all_no_page()
+        permissions = await self.permission_dao.list_all()
         return self._build_tree(permissions)
 
     def _build_tree(self, permissions: list[Permission]) -> list[PermissionTree]:

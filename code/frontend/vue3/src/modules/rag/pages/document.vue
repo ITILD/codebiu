@@ -2,7 +2,7 @@
   <div p-2 w-full>
     <!-- 页头: 返回 + 项目名 + 上传 -->
     <div mb-4 flex flex-wrap items-center gap-2>
-      <el-button :icon="Back" @click="router.push('/_sys/rag/project')" />
+      <el-button :icon="Back" @click="router.push('/rag/project')" />
       <span font-bold text-lg>{{ projectName }}</span>
       <el-tag v-if="projectId" size="small">文档管理</el-tag>
       <div flex-1 />
@@ -75,7 +75,8 @@
           {{ formatDate(row.created_at) }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="280" align="center" fixed="right">
+      <!-- 操作列: 平板及以上固定右侧, 手机取消固定避免遮挡(表格自带横向滚动) -->
+      <el-table-column label="操作" min-width="280" align="center" :fixed="isMd ? 'right' : false">
         <template #default="{ row }">
           <el-button size="small" type="primary" plain @click="handleDownload(row)">下载</el-button>
           <el-button size="small" type="warning" plain @click="handleReparse(row)">重新解析</el-button>
@@ -128,17 +129,22 @@ import {
   updateRagDocument,
   deleteRagDocument,
   reparseRagDocument,
-} from '@/api/rag/document'
-import { listRagProjects } from '@/api/rag/project'
-import { ParseStatus, parseStatusOptions } from '@/types/rag'
-import type { ProjectDocument } from '@/types/rag'
-import TableSearchBar, { type SearchField } from '@/components/app/sys/TableSearchBar.vue'
-import type { PaginationParams } from '@/types/common'
+} from '../api/document'
+import { listRagProjects } from '../api/project'
+import { ParseStatus, parseStatusOptions } from '../types'
+import type { ProjectDocument } from '../types'
+import TableSearchBar, { type SearchField } from '@/common/components/TableSearchBar.vue'
+import type { PaginationParams } from '@/common/types/common'
+import { SysSettingStore } from '@/common/stores/sys'
 import { ElMessage, ElMessageBox, type FormInstance, type UploadRawFile } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
 const router = useRouter()
+
+// 断点状态(操作列固定策略)
+const sysSettingStore = SysSettingStore()
+const isMd = computed(() => sysSettingStore.sysStyle.isMd)
 
 // 路径参数中的项目ID
 const projectId = computed(() => (route.query.project_id as string) || '')

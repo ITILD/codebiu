@@ -8,8 +8,8 @@ from common.config.server import app
 
 # 主模块
 from module_main.controller import static as main_static, status, db, dict_type, dict_item
-# # 基础模块
-# from module_file.controller import filesystem
+# # 文件模块(网络文件系统: 虚拟文件树 + local/rustfs/s3 存储无缝切换)
+from module_file.controller import filesystem
 from module_websearch.controller import websearch
 from module_authorization.controller import token, casbin_rule, permission, role, user,auth,dept
 # # 业务模块
@@ -21,26 +21,40 @@ from module_authorization.controller import token, casbin_rule, permission, role
 # # 语言模块
 # from module_nlp.controller import synonym
 # from module_life.controller import baby_name
-# # 知识库模块
-# from module_office.controller import document_parse, document_chunk
-# from module_rag.controller import (
-#     conversation,
-#     project,
-#     project_document,
-#     project_document_chunk,
-#     project_member,
-#     rag_chat,
-#     user_model,
-# )
+# # 知识库模块(项目/文档/成员/部门授权/问答)
+from module_rag.controller import (
+    conversation,
+    project,
+    project_document,
+    project_document_chunk,
+    project_member,
+    project_dept,
+    rag_chat,
+    user_model,
+)
+# # 知识库模块: 权限声明注册保持权限表与声明一致
+from module_rag.config import permissions as rag_permissions  # noqa: F401
 # # 博客模块: 目前仅注册权限声明(域 blog),控制器待业务开发后在此导入
-# from module_blog.config import permissions as blog_permissions  # noqa: F401
+from module_blog.config import permissions as blog_permissions  # noqa: F401
 # # 地理空间模块(Babylon 地球绘制 + PostGIS 点线面存储)
 from module_geometry.controller import feature
 from module_geometry.config import permissions as geometry_permissions  # noqa: F401
+# # 任务队列模块(Celery+Redis 异步任务: 创建/轮询/取消/重试)
+from module_task.controller import task
+from module_task.config import permissions as task_permissions  # noqa: F401
+# # AI 模块: 仅挂载模型配置管理(用户私有模型配置 + 共享标记),chat/voice/ocr 待启用
+from module_ai.controller import model_config
 
 if __name__ == "__main__":
+    import sys
     import uvicorn
     from common.utils.sys.kill_process import find_and_kill_process
+
+    # Windows 下切换 Selector 事件循环(psycopg 异步模式不支持 ProactorEventLoop)
+    if sys.platform == "win32":
+        import asyncio
+
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
     # 关闭之前运行的进程
     find_and_kill_process(conf.server.port)

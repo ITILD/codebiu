@@ -14,6 +14,7 @@ class ProjectDocumentChunkDao:
     """项目文档数据访问对象"""
 
     def __init__(self):
+        """依赖注入构造器:初始化所需的数据访问对象"""
         self.collection_name = ProjectDocumentChunk.__name__.lower()
 
     async def search(
@@ -76,6 +77,10 @@ class ProjectDocumentChunkDao:
         return project_documents_chunk_search_responses
 
     async def vector_delete_by_document_id(self, document_id: str):
+        """按文档ID删除向量库中的全部分块向量
+
+        :param document_id: 文档ID
+        """
         # 因为 DBVectorMilvus 没封装 delete 方法，我们直接调用底层 pymilvus 客户端的 delete
         await db_vector.async_vector.delete(
             collection_name=self.collection_name,
@@ -83,6 +88,10 @@ class ProjectDocumentChunkDao:
         )
 
     async def vector_delete_by_project_id(self, project_id: str):
+        """按项目ID删除向量库中的全部分块向量(清理整个知识库时使用)
+
+        :param project_id: 项目ID
+        """
         await db_vector.async_vector.delete(
             collection_name=self.collection_name, filter=f'project_id == "{project_id}"'
         )

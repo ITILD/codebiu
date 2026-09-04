@@ -1,4 +1,4 @@
-// src/types/authorization/permission.ts
+// src/modules/authorization/types/permission.ts
 
 interface PermissionBase {
   parent_id: string;

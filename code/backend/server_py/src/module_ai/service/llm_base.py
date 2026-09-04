@@ -51,6 +51,11 @@ class LLMBaseService:
     async def check_config(
         self, model_config_create_request: ModelConfigCreateRequest
     ) -> ModelConfigCheckResponse:
+        """校验模型配置连通性与输出格式(创建/修改模型配置时使用)
+
+        :param model_config_create_request: 待校验的模型配置
+        :return: 校验结果(是否有效/失败原因)
+        """
         llm_chain = self._llm_by_config(model_config_create_request)
         # ModelConfigCheckResponse
         model_config_check_response = ModelConfigCheckResponse()

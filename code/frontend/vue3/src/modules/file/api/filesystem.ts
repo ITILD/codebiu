@@ -1,8 +1,14 @@
-// src/api/file/filesystem.ts
+// src/modules/file/api/filesystem.ts
 // 文件模块 API(虚拟文件系统,后端存储可配置切换本地/rustfs)
-import { http_base_server } from '@/utils/http';
-import type { PaginationParams, PaginationResponse } from '@/types/common';
-import type { FileEntry, FileEntryUpdate } from '@/types/file';
+import { http_base_server } from '@/common/api/http';
+import type { PaginationParams, PaginationResponse } from '@/common/types/common';
+import type {
+  FileEntry,
+  FileEntryUpdate,
+  StorageStats,
+  MigrateRequest,
+  MigrateResult,
+} from '../types/file';
 
 /**
  * 浏览指定目录(目录排前,名称排序)
@@ -16,7 +22,7 @@ export const listDir = (
   name?: string
 ) => {
   return http_base_server.get<PaginationResponse<FileEntry>>(
-    '/file/filesystem/list_dir',
+    '/file/filesystem/list-dir',
     { params: { pid: pid || undefined, name: name || undefined, ...params } }
   );
 };
@@ -70,7 +76,7 @@ export const createFolder = (name: string, pid?: string) => {
  * @param entryId 条目ID
  */
 export const getFileEntry = (entryId: string) => {
-  return http_base_server.get<FileEntry>(`/file/filesystem/file_entry/${entryId}`);
+  return http_base_server.get<FileEntry>(`/file/filesystem/entries/${entryId}`);
 };
 
 /**
@@ -88,7 +94,7 @@ export const getFileDownloadUrl = (entryId: string) => {
  */
 export const updateFileEntry = (entryId: string, data: FileEntryUpdate) => {
   return http_base_server.put<FileEntry>(
-    `/file/filesystem/entry/${entryId}`,
+    `/file/filesystem/entries/${entryId}`,
     data
   );
 };
@@ -100,7 +106,7 @@ export const updateFileEntry = (entryId: string, data: FileEntryUpdate) => {
  */
 export const renameEntry = (entryId: string, newName: string) => {
   return http_base_server.put<FileEntry>(
-    `/file/filesystem/entry/${entryId}/rename`,
+    `/file/filesystem/entries/${entryId}/rename`,
     null,
     { params: { new_name: newName } }
   );
@@ -113,7 +119,7 @@ export const renameEntry = (entryId: string, newName: string) => {
  */
 export const moveEntry = (entryId: string, targetPid?: string) => {
   return http_base_server.put<FileEntry>(
-    `/file/filesystem/entry/${entryId}/move`,
+    `/file/filesystem/entries/${entryId}/move`,
     null,
     { params: { target_pid: targetPid || undefined } }
   );
@@ -124,7 +130,7 @@ export const moveEntry = (entryId: string, targetPid?: string) => {
  * @param entryId 文件ID
  */
 export const deleteFile = (entryId: string) => {
-  return http_base_server.delete<void>(`/file/filesystem/file/${entryId}`);
+  return http_base_server.delete<void>(`/file/filesystem/files/${entryId}`);
 };
 
 /**
@@ -133,4 +139,79 @@ export const deleteFile = (entryId: string) => {
  */
 export const deleteFolder = (folderId: string) => {
   return http_base_server.delete<void>(`/file/filesystem/folder/${folderId}`);
+};
+
+/**
+ * 按逻辑路径查询条目(路径导航用)
+ * @param path 逻辑路径(如 /docs/readme.md)
+ */
+export const getEntryByPath = (path: string) => {
+  return http_base_server.get<FileEntry>('/file/filesystem/path', {
+    params: { path },
+  });
+};
+
+/**
+ * 按逻辑路径浏览目录(目录排前,名称排序)
+ * @param path 目录逻辑路径
+ * @param params 分页参数
+ * @param name 名称模糊过滤
+ */
+export const listByPath = (
+  path: string,
+  params: PaginationParams,
+  name?: string
+) => {
+  return http_base_server.get<PaginationResponse<FileEntry>>(
+    '/file/filesystem/list-by-path',
+    { params: { path, name: name || undefined, ...params } }
+  );
+};
+
+/**
+ * 按逻辑路径递归创建目录(mkdir -p 语义,已存在直接返回)
+ * @param path 目录路径(如 /docs/images,多级一次创建)
+ */
+export const mkdirP = (path: string) => {
+  return http_base_server.post<FileEntry>('/file/filesystem/mkdir-p', null, {
+    params: { path },
+  });
+};
+
+/**
+ * 全树模糊搜索条目(匹配名称或逻辑路径)
+ * @param keyword 搜索关键字
+ * @param params 分页参数
+ */
+export const searchEntries = (keyword: string, params: PaginationParams) => {
+  return http_base_server.get<PaginationResponse<FileEntry>>(
+    '/file/filesystem/search',
+    { params: { keyword, ...params } }
+  );
+};
+
+/**
+ * 复制条目(文件共享内容哈希,目录递归整树复制)
+ * @param entryId 源条目ID
+ * @param targetPid 目标父目录ID(为空表示根目录)
+ */
+export const copyEntry = (entryId: string, targetPid?: string) => {
+  return http_base_server.post<FileEntry>('/file/filesystem/copy', null, {
+    params: { entry_id: entryId, target_pid: targetPid || undefined },
+  });
+};
+
+/**
+ * 存储统计(条目数/物理内容数/总占用/当前存储类型)
+ */
+export const getStorageStats = () => {
+  return http_base_server.get<StorageStats>('/file/filesystem/stats');
+};
+
+/**
+ * 存储迁移(local<->rustfs/s3 物理内容搬运,切换配置前调用)
+ * @param data 迁移请求(源/目标存储类型)
+ */
+export const migrateStorage = (data: MigrateRequest) => {
+  return http_base_server.post<MigrateResult>('/file/filesystem/migrate', data);
 };

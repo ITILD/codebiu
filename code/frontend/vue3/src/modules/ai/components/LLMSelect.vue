@@ -19,7 +19,7 @@
 </template>
 
 <script setup lang="ts">
-import type { ModelConfig } from '@/types/model_config'
+import type { ModelConfig } from '../types/model_config'
 
 // 组件属性定义
 interface Props {

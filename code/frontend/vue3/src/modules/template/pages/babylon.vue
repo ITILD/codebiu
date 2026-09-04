@@ -12,7 +12,7 @@ import {
   Scene,
 } from 'babylonjs'
 // img
-import { BaseScene } from './babylon-start-page/BaseScene'
+import { BaseScene } from '../utils/BaseScene'
 let scene: Scene | undefined
 let baseScene: BaseScene
 // 创建一个56个三维数组

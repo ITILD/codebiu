@@ -26,6 +26,7 @@ router = APIRouter()
     description="返回首页html",
 )
 async def server():
+    """返回系统首页 HTML(渲染前端入口页面)"""
     html_file = open(DIR_HTML_MAIN / "index.html", "r", encoding="utf-8").read()
     return html_file
 
