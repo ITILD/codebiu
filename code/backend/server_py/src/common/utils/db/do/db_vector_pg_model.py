@@ -22,6 +22,7 @@ class DocumentBase(SQLModel):
 
 
 class Document(VectorMixin, DocumentBase, table=True):
+    __tablename__ = "document"
     # index=True 索引
     pid: str = Field(default_factory=lambda: str(uuid.uuid4()), index=True)
     # 动态覆盖默认维度

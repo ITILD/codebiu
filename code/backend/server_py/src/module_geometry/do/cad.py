@@ -16,6 +16,8 @@ class GeoJSONGeometry(SQLModel):
 
 
 class Feature(SQLModel, table=True):
+    """A GeoJSON feature fragment."""
+    __tablename__ = "feature"
     id: uuid.UUID | None = Field(
         default_factory=uuid.uuid4,
         primary_key=True,

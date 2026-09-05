@@ -1,18 +1,26 @@
 from pydantic import BaseModel, Field, field_validator
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
-
+from uuid import uuid4
+from module_ai.utils.llm.do.llm_type import RoleType, LCRoleType
+from module_ai.utils.llm.do.llm_type import StreamStatus
 
 class Message(BaseModel):
     """消息模型，与langchain_core.messages兼容"""
 
-    role: str = Field(..., description="消息角色：system、user、assistant")
+    role: RoleType = Field(
+        RoleType.USER, description="消息角色：system、user、assistant"
+    )
     content: str = Field(..., description="消息内容")
     additional_kwargs: dict = Field(default_factory=dict)
 
     @classmethod
     def from_langchain_message(cls, msg: BaseMessage) -> "Message":
         """从 LangChain 消息创建 Message 对象"""
-        role_mapping = {"human": "user", "ai": "assistant", "system": "system"}
+        role_mapping = {
+            LCRoleType.USHUMAN: RoleType.USER,
+            LCRoleType.AI: RoleType.ASSISTANT,
+            LCRoleType.SYSTEM: RoleType.SYSTEM,
+        }
 
         role = role_mapping.get(msg.type, msg.type)
         return cls(
@@ -24,9 +32,9 @@ class Message(BaseModel):
     def to_langchain_message(self) -> BaseMessage:
         """转换为 LangChain 消息对象"""
         role_mapping = {
-            "user": HumanMessage,
-            "assistant": AIMessage,
-            "system": SystemMessage,
+            RoleType.USER: HumanMessage,
+            RoleType.ASSISTANT: AIMessage,
+            RoleType.SYSTEM: SystemMessage,
         }
 
         msg_class = role_mapping.get(self.role, HumanMessage)
@@ -37,7 +45,7 @@ class ChatRequest(BaseModel):
     """聊天请求模型"""
 
     model_id: str = Field(..., description="模型配置ID或模型标识名称")
-    messages: list[Message | HumanMessage | AIMessage | SystemMessage] | str = Field(
+    messages: str | list[Message | HumanMessage | AIMessage | SystemMessage] = Field(
         ..., description="消息内容"
     )
     streaming: bool = Field(False, description="是否启用流式响应")
@@ -92,3 +100,19 @@ class ModelConfigCheckResponse(BaseModel):
 
     is_valid: bool = Field(False, description="模型配置是否有效")
     is_format: bool = Field(False, description="模型支持格式化")
+
+
+class StreamChunkResponse(BaseModel):
+    """流式响应主模型 单个Chunk"""
+
+    status: StreamStatus = Field(StreamStatus.STREAM, description="响应状态")
+    role: RoleType = Field(
+        RoleType.ASSISTANT,
+        description="消息角色:system、user、assistant 或具体业务模拟",
+    )
+    content: str | None = Field(None, description="响应内容")
+    response_id: str = Field(
+        default_factory=lambda: uuid4().hex, description="响应唯一标识 uuid"
+    )
+    # usage: Usage = Field(description="Token 使用统计信息")
+    timestamp: float = Field(0.0, description="Unix 时间戳（秒）")

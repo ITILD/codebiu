@@ -1,7 +1,7 @@
 from sqlmodel import Column, DateTime, Field, SQLModel, JSON
 from uuid import uuid4
 from datetime import datetime, timezone
-from module_ai.utils.llm.do.model_type import ModelType, ModelServerType
+from module_ai.utils.llm.do.llm_type import ModelType, ModelServerType
 from pydantic import model_validator
 
 class ModelConfigBase(SQLModel):
@@ -63,7 +63,8 @@ class ModelConfig(ModelConfigBase, table=True):
     """
     模型配置数据库模型
     """
-
+    __tablename__ = "model_config"
+    
     user_id: str = Field(..., description="用户ID")
     id: str = Field(
         default_factory=lambda: uuid4().hex,

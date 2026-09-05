@@ -20,7 +20,8 @@ class TokenBase(SQLModel):
 
 class Token(TokenBase, table=True):
     """令牌数据库模型(对应数据库表)"""
-
+    __tablename__ = "token"
+    
     id: str = Field(
         default_factory=lambda: uuid4().hex,
         primary_key=True,  # 主键

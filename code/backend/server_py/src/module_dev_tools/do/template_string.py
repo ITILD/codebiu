@@ -30,7 +30,8 @@ class TemplateString(TemplateStringBase, table=True):
     """
     模板字符串数据库模型
     """
-
+    __tablename__ = "template_string"
+    
     id: str = Field(
         default_factory=lambda: uuid4().hex,
         primary_key=True,

@@ -23,7 +23,8 @@ class Template(TemplateBase, table=True):
     """
     模板数据库模型(对应数据库表)
     """
-
+    __tablename__ = "template"
+    
     id: str = Field(
         default_factory=lambda: uuid4().hex,
         primary_key=True,  # 主键

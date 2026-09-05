@@ -1,0 +1,255 @@
+# ############################# 状态配置 #############################
+state:
+  is_dev: true
+  # is_dev: false
+  config_path: config.dev.yaml
+  # 数据库自检,rel创建基础表
+  check_db: true
+
+
+
+# ############################# 后端服务配置 #############################
+server:
+  # 根路由代理
+  server_root_path: ''
+  host: 0.0.0.0
+  port: 2001
+# 中间件配置 
+middleware:
+  cors: true
+  gzip: true
+# 网络代理配置
+# proxy:
+#   type: http
+#   host: 127.0.0.1
+#   port: 18081
+# 目录配置
+dir:
+  # 基础根目录
+  base: temp_source
+
+  # 子目录定义（按功能划分）
+  base_child:
+    source:     source      # 源代码/原始文件
+    upload:   upload    # 用户上传文件
+    log:        log         # 日志文件
+    sys_out:    sys_out     # 系统输出（如运行结果、导出文件）
+    temp:       temp        # 临时文件
+    db:         db          # 数据库文件（如 SQLite、缓存等）
+    test:       test        # 测试相关资源
+    model:      model       # 模型文件
+    lib_third:  lib_third   # 第三方库文件
+  public: public
+
+
+
+
+
+
+
+
+# ############################# 上传文件系统配置 #############################
+# # 单独上传文件系统设置
+# file_system:
+#   # 上传文件目录 local默认走 本地目录 dir.base配置的upload目录
+#   storage_type: local
+#   # secret_key: '123456'
+#   # 上传文件大小限制
+#   max_size: 10 # 10MB
+#   # 文件类型限制
+#   allowed_extensions:
+#     - "application/zip"
+#     - "application/pdf"
+#     - "image/*"
+#     # docx
+#     - "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+#   # 本地存地址
+#   base_dir: null
+#     # 默认使用已有的 base_child upload 目录
+
+#  # S3/MinIO/rustfs 存储配置
+file_system:
+  # 上传文件目录 local默认走 本地目录 dir.base配置的upload目录
+  storage_type: s3
+  # 上传文件大小限制
+  max_size: 10 # 10MB
+  # 文件类型限制
+  allowed_extensions:
+    - "application/zip"
+    - "application/pdf"
+    - "image/*"
+    # docx
+    - "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  # S3/MinIO/rustfs 存储配置
+  endpoint_url: "http://localhost:9000"
+  access_key: "rustfs"
+  secret_key: "12345678"
+  bucket: "bucket0"
+  region: "us-east-1"
+  secure: false  
+
+# ############################# 数据库配置 #############################
+# db_rel:
+#   type: sqlite
+#   database: temp_source\db\data.db
+db_rel:
+  type: postgres
+  database: server_example
+  host: localhost
+  port: 5432
+  user: postgres
+  password: '123456'
+####################### 数据库配置
+# db_cache:
+#   type: redis
+#   db: 0
+#   host: localhost
+#   port: 6379
+#   password: ''
+#   database: temp_source\db\redis.db # 缓存持久化地址
+db_cache:
+  type: fakeredis
+  database: temp_source\db\fakeredis.db
+db_vector:
+  type: lancedb
+  database: temp_source\db\lancedb_dir
+# db_vector:
+#   type: milvus
+#   database: server_example
+#   uri: null
+#   token: null
+# db_graph:
+#   type: kuzu
+#   database: temp_source\db\kuzu.db
+db_graph:
+  type: neo4j
+  host: 127.0.0.1
+  port: 7687
+  user: neo4j
+  password: '123456'
+  database: neo4j
+# ############################# 认证配置 #############################
+token:
+  secret_key: '123456'
+  algorithm: HS256
+  expire_minutes: 30000
+  refresh_expire_days: 20
+# 邮箱配置
+email:
+  smtp_server: smtp.qq.com
+  smtp_port: 465
+  sender_email : null
+  sender_password : null # 授权码
+  sender_name: Python邮件服务 # 发件人 可以不写
+  
+########################## 单独功能配置
+# 功能类
+ocr:
+  global:
+    use_cuda: false
+    verbose: false
+    cuda_provider:
+      device_id: 0
+      arena_extend_strategy: kNextPowerOfTwo
+      cudnn_conv_algo_search: EXHAUSTIVE
+      do_copy_in_default_stream: true
+  # 模型配置
+  models:
+    # 位置检测模型
+    detect:
+      det_en:
+        path: en_PP-OCRv3_det_infer.onnx
+        config: &detectConfig
+          pre_process:
+            - class: DetResizeForTest
+              limit_side_len: 1000
+              limit_type: max
+              # limit_side_len: 736
+              # limit_type: min
+            - class: NormalizeImage
+              std: [0.229, 0.224, 0.225]
+              mean: [0.485, 0.456, 0.406]
+              # 1 / 255
+              scale: 0.00392156862745098
+              order: hwc
+            - class: ToCHWImage
+            - class: KeepKeys
+              keep_keys: ["image", "shape"]
+          post_process:
+            thresh: 0.5
+            box_thresh: 0.5
+            max_candidates: 1000
+            unclip_ratio: 1.9
+            use_dilation: false
+      det_ch:
+        # path: models/ch_PP-OCRv3_det_infer.onnx
+        path: ch_PP-OCRv4_det_infer.onnx
+        config: *detectConfig
+      det_ml:
+        path: ch_PP-OCRv4_det_infer.onnx
+        config: *detectConfig
+      det_ja:
+        # path: models/ch_PP-OCRv4_det_infer.onnx
+        path: ch_PP-OCRv3_det_infer.onnx
+        # path: models/ch_PP-OCRv4_det_server_infer.onnx
+        config: *detectConfig
+    # 方向检测模型
+    classify:
+      cls_ml:
+        path: ch_ppocr_mobile_v2.0_cls_infer.meta.onnx
+        config:
+          batch_size: 6
+          score_thresh: 0.9
+    # 文字识别模型
+    recognize:
+      rec_ch:
+        path: ch_PP-OCRv3_rec_infer.meta.onnx
+        config: &recognizeConfig
+          batch_size: 6
+      rec_cht:
+        path: chinese_cht_PP-OCRv3_rec_infer.meta.onnx
+        config: *recognizeConfig
+      rec_en:
+        path: en_PP-OCRv3_rec_infer.meta.onnx
+        config: *recognizeConfig
+      rec_ja:
+        path: japan_PP-OCRv3_rec_infer.meta.onnx
+        # path: models/rec_japan_PP-OCRv3_infer.onnx
+        config: *recognizeConfig
+    layout: yolov8n_layout_report.onnx
+
+  # 多语言配置
+  languages:
+    ch:
+      name: 中文
+      models:
+        detect: det_ch
+        classify: cls_ml
+        recognize: rec_ch
+      config: &languageConfig
+        text_score: 0.5
+        use_angle_cls: true
+        verbose: false
+        min_height: 30
+    cht:
+      name: 繁体中文
+      models:
+        detect: det_ch
+        classify: cls_ml
+        recognize: rec_cht
+      config: *languageConfig
+    ja:
+      name: 日文
+      models:
+        detect: det_ja
+        classify: cls_ml
+        recognize: rec_ja
+        # recognize: rec_cht
+      config: *languageConfig
+    en:
+      name: 英文
+      models:
+        detect: det_en
+        classify: cls_ml
+        recognize: rec_en
+      config: *languageConfig

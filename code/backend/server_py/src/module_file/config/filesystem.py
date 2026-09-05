@@ -6,6 +6,7 @@ from module_file.utils.multi_storage.do.storage_config import (
     StorageConfigFactory,
     StorageConfig,
 )
+from module_file.utils.multi_storage.do.storage_config import StorageType
 from common.config.index import conf, is_dev
 from common.config.path import DIR_UPLOAD
 import logging
@@ -17,8 +18,8 @@ if conf.file_system.storage_type:
         conf.file_system.storage_type, conf.file_system
     )
     # 默认使用common配置
-    if conf.file_system.storage_type == "local":
-        if not conf.file_system.local:
+    if conf.file_system.storage_type == StorageType.LOCAL:
+        if not conf.file_system.base_dir:
             storage_config.base_dir = str(DIR_UPLOAD)
 
     storage: StorageInterface = StorageFactory.create(storage_config)

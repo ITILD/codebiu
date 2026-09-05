@@ -6,8 +6,15 @@ from pathlib import Path
 from typing import AsyncIterator
 import aiofiles
 import io
-from module_file.utils.multi_storage.session.interface.strorage_interface import StorageInterface
-from module_file.utils.multi_storage.do.storage_config import LocalStorage
+from module_file.utils.multi_storage.session.interface.strorage_interface import (
+    StorageInterface,
+)
+from module_file.utils.multi_storage.do.storage_config import (
+    LocalStorage,
+    PresignedType,
+    PresignedParamsBase,
+)
+from urllib.parse import urlencode
 
 
 class LocalStorageInterface(StorageInterface):
@@ -15,18 +22,20 @@ class LocalStorageInterface(StorageInterface):
         self.config = config
         self.base_dir = Path(config.base_dir).resolve()
 
-    async def save(self, key: str, data: bytes | io.IOBase | AsyncIterator[bytes]) -> str:
+    async def save(
+        self, key: str, data: bytes | io.IOBase | AsyncIterator[bytes]
+    ) -> str:
         file_path = self.base_dir / key
         file_path.parent.mkdir(parents=True, exist_ok=True)
 
         if isinstance(data, bytes):
             async with aiofiles.open(file_path, "wb") as f:
                 await f.write(data)
-        elif hasattr(data, 'read'):  # io.IOBase
+        elif hasattr(data, "read"):  # io.IOBase
             async with aiofiles.open(file_path, "wb") as f:
                 while chunk := data.read(8192):
                     await f.write(chunk)
-        elif hasattr(data, '__aiter__'):  # AsyncIterator
+        elif hasattr(data, "__aiter__"):  # AsyncIterator
             async with aiofiles.open(file_path, "wb") as f:
                 async for chunk in data:
                     await f.write(chunk)
@@ -57,6 +66,7 @@ class LocalStorageInterface(StorageInterface):
         return file_path.stat().st_size
 
     async def list(self, prefix: str = "") -> list[str]:
+        """列出指定前缀的所有键"""
         path_prefix = self.base_dir / prefix
         result = []
         for p in path_prefix.rglob("*"):
@@ -65,97 +75,117 @@ class LocalStorageInterface(StorageInterface):
                 result.append(rel_path)
         return sorted(result)
 
-    async def generate_presigned_url(self, key: str, method: str = 'put', expiration: int = 3600) -> str | None:
-        """生成预签名URL，格式为: file://{key}?expires={expire_time}&method={method}&token={token}"""
+    async def generate_presigned_url(
+        self,
+        method: PresignedType,
+        # 文件路径
+        key: str,
+        content_type: str = "application/octet-stream",
+        expiration: int = 3600,
+    ) -> str | None:
+        """生成预签名URL，格式为"""
+        # 模拟真实s3格式
         expire_time = int(time.time()) + expiration
-        
-        # 创建签名内容
-        sign_content = f"{key}:{method}:{expire_time}"
         # 使用HMAC SHA256生成签名
-        token = hmac.new(
-            self.config.secret_key.encode('utf-8'), 
-            sign_content.encode('utf-8'), 
-            hashlib.sha256
-        ).hexdigest()
-        
+        signature = await self.generate_signature(key, method.value, expire_time)
         # 构建URL
-        encoded_key = urllib.parse.quote(key, safe='')
-        url = f"file://{encoded_key}?expires={expire_time}&method={method.lower()}&token={token}"
-        return url
+        params = urlencode(
+            {
+                "expires": expire_time,
+                "method": method.lower(),
+                "signature": signature,
+            }
+        )
+        url_path = f"/{key}?{params}"
+        return url_path
 
-    async def validate_and_extract_params(self, presigned_url: str) -> tuple[str, str] | None:
-        """验证预签名URL并提取参数"""
-        parsed = urllib.parse.urlparse(presigned_url)
-        
-        # 验证协议是否为file
-        if parsed.scheme != 'file':
-            return None
-            
-        key = urllib.parse.unquote(parsed.path.lstrip('/'))
-        
-        params = dict(urllib.parse.parse_qsl(parsed.query))
-        expires = int(params.get('expires', 0))
-        method = params.get('method', 'get')
-        token = params.get('token')
-        
+    async def validate_presigned_params(
+        self,
+        file_path: str,
+        presigned_upload_params: PresignedParamsBase,
+    ) -> tuple[str, str] | None:
+        """验证预签名参数"""
         # 检查URL是否过期
-        if time.time() > expires:
-            return None
-            
+        if time.time() > presigned_upload_params.expires:
+            return False
+
         # 验证签名
+        expected_signature = await self.generate_signature(
+            file_path, presigned_upload_params.method, presigned_upload_params.expires
+        )
+        # 验证签名是否匹配
+        if not hmac.compare_digest(
+            presigned_upload_params.signature, expected_signature
+        ):
+            return False
+
+        return True
+
+    # 生成验证签名
+    async def generate_signature(
+        self,
+        key: str,
+        method: str,
+        expires: int,
+    ) -> str:
+        """生成验证签名"""
         sign_content = f"{key}:{method}:{expires}"
-        expected_token = hmac.new(
-            self.config.secret_key.encode('utf-8'),
-            sign_content.encode('utf-8'),
-            hashlib.sha256
+        return hmac.new(
+            self.config.secret_key.encode("utf-8"),
+            sign_content.encode("utf-8"),
+            hashlib.sha256,
         ).hexdigest()
-        
-        if not hmac.compare_digest(token, expected_token):
-            return None
-            
-        return key, method
 
-    async def upload_with_presigned_url(self, presigned_url: str, data: bytes | io.IOBase | AsyncIterator[bytes]) -> bool:
+    async def upload_with_presigned_url(
+        self,
+        file_path: str,
+        presigned_upload_params: PresignedParamsBase,
+        content: bytes,
+    ) -> bool:
         """使用预签名URL上传数据"""
-        result = await self.validate_and_extract_params(presigned_url)
-        if result is None:
-            return False
-            
-        key, method = result
-        if method.lower() != 'put':
-            return False
-            
         try:
-            await self.save(key, data)
-            return True
+            result: bool = await self.validate_presigned_params(
+                file_path, presigned_upload_params
+            )
+            if result:
+                await self.save(file_path, content)
+                return True
+            else:
+                raise ValueError("Invalid presigned upload params")
         except Exception:
             return False
 
-    async def download_with_presigned_url(self, presigned_url: str) -> bytes | None:
+    async def download_with_presigned_url(
+        self,
+        file_path: str,
+        presigned_params: PresignedParamsBase,
+    ) -> bytes | None:
         """使用预签名URL下载数据"""
-        result = await self.validate_and_extract_params(presigned_url)
-        if result is None:
-            return None
-            
-        key, method = result
-        if method.lower() != 'get':
-            return None
-            
         try:
-            return await self.load(key)
+            result: bool = await self.validate_presigned_params(
+                file_path, presigned_params
+            )
+            if result:
+                return await self.load(file_path)
+            else:
+                raise ValueError("Invalid presigned upload params")
         except Exception:
             return None
 
-    async def delete_with_presigned_url(self, presigned_url: str) -> bool:
+    async def delete_with_presigned_url(
+        self, file_path: str, presigned_params: PresignedParamsBase
+    ) -> bool:
         """使用预签名URL删除数据"""
-        result = await self.validate_and_extract_params(presigned_url)
+        result = await self.validate_presigned_params(
+            file_path, presigned_params
+        )
         if result is None:
             return False
-            
+
         key, method = result
-        if method.lower() != 'delete':
+        if method.lower() != "delete":
             return False
-            
+
         try:
             return await self.delete(key)
         except Exception:

@@ -44,7 +44,7 @@
     </div>
 
     <!-- 编辑/创建对话框 -->
-    <el-dialog v-model="dialogVisible" :title="dialogTitle" w-500>
+    <el-dialog v-model="dialogVisible" :title="dialogTitle">
       <el-form :model="form" :rules="rules" ref="formRef" label-width="80px">
         <template v-for="column in tableColumns" :key="column.prop">
           <el-form-item v-if="column.edit" :prop="column.prop" :label="column.label">
