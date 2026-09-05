@@ -44,6 +44,8 @@ from module_task.controller import task
 from module_task.config import permissions as task_permissions  # noqa: F401
 # # AI 模块: 仅挂载模型配置管理(用户私有模型配置 + 共享标记),chat/voice/ocr 待启用
 from module_ai.controller import model_config
+# # 数据清洗模块: 独立模块, 复用 module_ai 的 LLM 基础服务
+from module_data_clean.controller import data_clean
 
 if __name__ == "__main__":
     import sys

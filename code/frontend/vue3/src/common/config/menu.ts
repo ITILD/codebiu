@@ -10,7 +10,7 @@ import {
   HomeFilled, UserFilled, Document,
   Monitor, ChatDotRound,
   Files, Collection, FolderOpened,
-  Location, Sunny, Timer,
+  Location, Sunny, Timer, Brush,
 } from '@element-plus/icons-vue'
 
 /** 菜单项定义(perm 为权限码:与后端模块权限声明一致;缺省表示登录即可见) */
@@ -76,6 +76,12 @@ export const menuItems: MenuItem[] = [
       { index: '/ai/ocr', title: 'OCR 识别' },
       { index: '/ai/voice', title: '语音识别' },
     ],
+  },
+  {
+    index: '/data_clean',
+    icon: markRaw(Brush),
+    title: '数据清洗',
+    desc: 'LLM 驱动的数据清洗与结构化转换。',
   },
   {
     index: '/file',
