@@ -8,6 +8,8 @@ const route = useRoute()
 // 后台管理页面才显示左侧模块列表, 首页等为纯展示布局(页首+内容+页脚)
 // admin 标记由 vite.config.ts 的 extendRoute 写入路由 meta
 const isAdmin = computed(() => Boolean(route.meta.admin))
+// 全屏页面(如三维地球): 锁定文档滚动(滚轮留给场景缩放), 页脚隐藏
+const isFullpage = computed(() => Boolean(route.meta.fullpage))
 
 // 最近访问采集: 仅记录后台路由(登录后才有意义), 标题取菜单树末级
 const { pushRecent } = useRecentPages()
@@ -33,7 +35,7 @@ onMounted(() => {
   <!-- 整体: 吸顶导航 + (后台: 粘性侧边栏 + 主内容) + 页脚(文档末尾)
        注意: 不包 Suspense —— 无组件使用顶层 await, 且 Suspense 会与
        路由 Transition(out-in) 冲突导致切页后视图空白 -->
-  <div min-h-screen flex flex-col bg-note-paper>
+  <div class="flex flex-col bg-note-paper" :class="isFullpage ? 'h-screen overflow-hidden' : 'min-h-screen'">
     <!-- 顶部栏(吸顶+毛玻璃): 滚动时钉在视口顶部
          注意: bg-note-glass 含方括号任意值, 必须写进 class 属性(attributify 陷阱)
          高度保持 h-14 md:h-16 不变 —— h-app/max-h-app 公式与侧边栏 top-16 依赖它 -->
@@ -54,8 +56,8 @@ onMounted(() => {
       </main>
     </div>
 
-    <!-- 页脚: 位于文档末尾, 随内容增长 -->
-    <SysFooter w-full shrink-0 />
+    <!-- 页脚: 位于文档末尾, 随内容增长(全屏页面隐藏, 避免产生文档滚动) -->
+    <SysFooter v-if="!isFullpage" w-full shrink-0 />
   </div>
 </template>
 

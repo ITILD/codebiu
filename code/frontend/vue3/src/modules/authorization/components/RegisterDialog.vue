@@ -1,6 +1,8 @@
 <template>
+  <!-- append-to-body: 吸顶 header 带 backdrop-filter 会成为 fixed 后代的包含块,
+       不传送门到 body 弹窗会被困在顶栏内 -->
   <el-dialog v-model="visible" :title="$t('sign_up')" width="90%" class="max-w-[400px]" :modal="true" :close-on-click-modal="true"
-    draggable @close="handleClose">
+    append-to-body draggable @close="handleClose">
     <template #header="{ titleId, titleClass }">
       <div flex justify-between items-center>
         <span :id="titleId" :titleClass>{{ $t('sign_up') }}</span>

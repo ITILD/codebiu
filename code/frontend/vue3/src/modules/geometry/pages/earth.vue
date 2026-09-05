@@ -1,136 +1,168 @@
 <template>
-  <div p-4 md:p-6 w-full flex flex-col gap-4>
-    <!-- 绘制工具栏 -->
-    <div flex flex-wrap items-center gap-3>
-      <el-radio-group v-model="drawMode" @change="handleModeChange">
-        <el-radio-button value="none">
-          <el-icon mr-1><Pointer /></el-icon>浏览
-        </el-radio-button>
-        <el-radio-button value="point">
-          <el-icon mr-1><Location /></el-icon>画点
-        </el-radio-button>
-        <el-radio-button value="linestring">
-          <el-icon mr-1><Share /></el-icon>画线
-        </el-radio-button>
-        <el-radio-button value="polygon">
-          <el-icon mr-1><Grid /></el-icon>画面
-        </el-radio-button>
-        <el-radio-button value="extrude">
-          <el-icon mr-1><Box /></el-icon>立体
-        </el-radio-button>
-      </el-radio-group>
-
-      <!-- 绘制操作按钮(仅绘制线/面/立体时显示) -->
-      <template v-if="drawMode === 'linestring' || drawMode === 'polygon' || drawMode === 'extrude'">
-        <el-button
-          type="primary" :disabled="draftPoints.length < (drawMode === 'linestring' ? 2 : 3)"
-          @click="handleFinishDraft"
-        >
-          完成绘制
-        </el-button>
-        <el-button :disabled="!draftPoints.length" @click="handleUndoDraft">撤销</el-button>
-        <el-button @click="handleCancelDraft">取消</el-button>
-        <el-tag type="warning" effect="plain">
-          已选 {{ draftPoints.length }} 点(单击加点, 双击结束, Ctrl+Z 撤销)
-        </el-tag>
-      </template>
+  <!-- 全屏页(路由 meta.fullpage): 画布铺满除侧边栏外的整个子页面, 文档锁定滚动(滚轮留给场景缩放) -->
+  <div relative w-full overflow-hidden class="h-[calc(100vh-3.5rem)] md:h-[calc(100vh-4rem)]">
+    <!-- 三维画布(铺满底层; 绘制模式下指针变十字, 浏览时抓手) -->
+    <div id="earthCanvasP" absolute inset-0 :style="{ cursor: drawMode === 'none' ? 'grab' : 'crosshair' }">
+      <canvas id="earthDom" w-full h-full></canvas>
     </div>
 
-    <!-- 主区域: 地球 + 右侧要素面板 -->
-    <div flex flex-col lg:flex-row gap-4>
-      <!-- 地球画布(绘制模式下指针变十字, 浏览时抓手) -->
+    <!-- 顶部悬浮: 浏览/绘制工具栏 -->
+    <div absolute top-3 left-3 right-3 z-20 flex justify-center pointer-events-none>
       <div
-        flex-1 min-w-0 rounded-lg overflow-hidden relative
-        class="h-[55vh] lg:h-[70vh]"
-        bg-note-card border border-note shadow-note
-        :style="{ cursor: drawMode === 'none' ? 'grab' : 'crosshair' }"
+        pointer-events-auto
+        class="flex flex-wrap items-center justify-center gap-2 rounded-lg border border-note bg-note-glass px-3 py-2 shadow-note backdrop-blur-md"
       >
-        <div id="earthCanvasP" w-full h-full absolute>
-          <canvas id="earthDom" w-full h-full></canvas>
-        </div>
-        <!-- 绘制模式提示角标 -->
-        <div
-          v-if="drawMode !== 'none'"
-          absolute top-3 left-3 z-10 px-3 py-1.5 rounded-full
-          bg-note-card border border-note text-sm text-note
-        >
-          {{ drawTips }}
-        </div>
-        <!-- 指针所指地表坐标(绘制模式下实时显示) -->
-        <div
-          v-if="hoverLngLat"
-          absolute bottom-3 left-3 z-10 px-3 py-1.5 rounded-full
-          bg-note-card border border-note text-xs text-note-sub
-        >
-          经度 {{ hoverLngLat.lon.toFixed(2) }}° · 纬度 {{ hoverLngLat.lat.toFixed(2) }}°
-        </div>
+        <el-radio-group v-model="drawMode" size="small" @change="handleModeChange">
+          <el-radio-button value="none">
+            <el-icon mr-1><Pointer /></el-icon>浏览
+          </el-radio-button>
+          <el-radio-button value="point">
+            <el-icon mr-1><Location /></el-icon>画点
+          </el-radio-button>
+          <el-radio-button value="linestring">
+            <el-icon mr-1><Share /></el-icon>画线
+          </el-radio-button>
+          <el-radio-button value="polygon">
+            <el-icon mr-1><Grid /></el-icon>画面
+          </el-radio-button>
+          <el-radio-button value="extrude">
+            <el-icon mr-1><Box /></el-icon>立体
+          </el-radio-button>
+        </el-radio-group>
+
+        <!-- 绘制操作按钮(仅绘制线/面/立体时显示) -->
+        <template v-if="drawMode === 'linestring' || drawMode === 'polygon' || drawMode === 'extrude'">
+          <el-button
+            type="primary" size="small"
+            :disabled="draftPoints.length < (drawMode === 'linestring' ? 2 : 3)"
+            @click="handleFinishDraft"
+          >
+            完成绘制
+          </el-button>
+          <el-button size="small" :disabled="!draftPoints.length" @click="handleUndoDraft">撤销</el-button>
+          <el-button size="small" @click="handleCancelDraft">取消</el-button>
+        </template>
+        <!-- 模式提示/进度角标 -->
+        <el-tag v-if="drawMode !== 'none'" type="warning" effect="plain" size="small">
+          {{ toolbarTips }}
+        </el-tag>
+      </div>
+    </div>
+
+    <!-- 左侧悬浮: 图层面板 + 各图层要素列表 -->
+    <div
+      v-if="!panelCollapsed"
+      class="absolute bottom-3 left-3 top-16 z-10 flex w-64 md:w-72 flex-col rounded-lg border border-note bg-note-glass shadow-note backdrop-blur-md"
+    >
+      <!-- 面板头: 标题 + 新增图层 + 收起 -->
+      <div flex items-center gap-2 border-b border-note px-3 py-2 shrink-0>
+        <span text-sm font-bold text-note>🗂️ 图层</span>
+        <el-button link type="primary" size="small" :icon="Plus" @click="handleAddLayer">
+          新增
+        </el-button>
+        <el-button link size="small" class="ml-auto" :icon="Fold" title="收起面板" @click="panelCollapsed = true" />
       </div>
 
-      <!-- 右侧: 要素列表 -->
-      <div w-full lg:w-96 shrink-0 flex flex-col gap-3>
-        <!-- 搜索栏 -->
-        <TableSearchBar
-          v-model="queryParams"
-          :fields="searchFields"
-          :collapse-count="2"
-          @search="handleSearch"
-          @reset="handleSearch"
-        />
+      <!-- 要素名称过滤 -->
+      <div px-2 pt-2 shrink-0>
+        <el-input v-model="featureKeyword" size="small" clearable :prefix-icon="Search" placeholder="筛选要素名称" />
+      </div>
 
-        <!-- 表格 -->
-        <el-table :data="tableData" v-loading="loading" stripe w-full>
-          <el-table-column prop="name" label="名称" min-width="110" show-overflow-tooltip />
-          <el-table-column label="类型" width="70" align="center">
-            <template #default="{ row }">
-              <el-tag :type="tagType(row.feature_type)" size="small">
-                {{ featureTypeLabel(row.feature_type) }}
-              </el-tag>
-              <!-- 立体物标记(面要素拉伸后 feature_type 仍为 polygon, 以 style.height 区分) -->
-              <el-tag v-if="(row.style?.height ?? 0) > 0" size="small" type="warning" effect="plain" class="ml-1">
-                3D
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="顶点" width="60" align="center">
-            <template #default="{ row }">
-              {{ vertexCount(row) }}
-            </template>
-          </el-table-column>
-          <el-table-column label="样式" width="64" align="center">
-            <template #default="{ row }">
+      <!-- 图层树(图层行 + 展开的要素列表) -->
+      <el-scrollbar flex-1 min-h-0>
+        <div px-1.5 py-1.5>
+          <div v-for="layer in layerStore.layers" :key="layer.id">
+            <!-- 图层行: 展开/显隐/激活/统计/删除 -->
+            <div
+              flex items-center gap-1 rounded px-1 py-1
+              :class="isDrawableLayer(layer.id) && layerStore.activeLayerId === layer.id ? 'bg-note-tint' : ''"
+            >
+              <el-icon
+                v-if="isDrawableLayer(layer.id)"
+                class="shrink-0 cursor-pointer text-xs text-note-sub transition-transform"
+                :class="layerExpanded(layer.id) ? 'rotate-90' : ''"
+                @click="toggleLayerExpand(layer.id)"
+              >
+                <CaretRight />
+              </el-icon>
+              <span @click.stop>
+                <el-switch
+                  size="small"
+                  :model-value="layerStore.isVisible(layer.id)"
+                  @update:model-value="(v: string | number | boolean) => layerStore.setVisible(layer.id, !!v)"
+                />
+              </span>
+              <!-- 点击图层名设为绘制目标(world 除外) -->
               <span
-                inline-block w-3.5 h-3.5 rounded-full border border-note align-middle
-                :style="{ backgroundColor: resolveStyle(row.feature_type, row.style).color }"
+                text-sm truncate
+                :class="isDrawableLayer(layer.id) ? 'cursor-pointer text-note' : 'text-note-sub'"
+                :title="isDrawableLayer(layer.id) ? '点击设为绘制目标图层' : '内置图层'"
+                @click="isDrawableLayer(layer.id) && (layerStore.activeLayerId = layer.id)"
+              >
+                {{ layer.name }}
+              </span>
+              <el-tag v-if="layerStore.activeLayerId === layer.id && isDrawableLayer(layer.id)" size="small" type="success" effect="plain" shrink-0>
+                绘制中
+              </el-tag>
+              <span text-xs text-note-sub ml-auto shrink-0>
+                {{ layer.id === WORLD_LAYER_ID ? '内置' : layerFeatureCount(layer.id) }}
+              </span>
+              <el-button
+                v-if="isDrawableLayer(layer.id) && layer.id !== DEFAULT_LAYER_ID"
+                link type="danger" size="small" :icon="Delete"
+                :disabled="layerFeatureCount(layer.id) > 0"
+                @click="handleRemoveLayer(layer.id)"
               />
-            </template>
-          </el-table-column>
-          <el-table-column label="更新时间" width="100" show-overflow-tooltip>
-            <template #default="{ row }">
-              {{ formatTime(row.updated_at) }}
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="186" align="center">
-            <template #default="{ row }">
-              <el-button link type="primary" size="small" @click="handleFocus(row)">定位</el-button>
-              <el-button link type="primary" size="small" @click="handleStyle(row)">样式</el-button>
-              <el-button link type="primary" size="small" @click="handleRename(row)">重命名</el-button>
-              <el-button link type="danger" size="small" @click="handleDelete(row)">删除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+            </div>
 
-        <!-- 分页 -->
-        <div flex justify-end>
-          <el-pagination
-            v-model:current-page="pagination.page"
-            v-model:page-size="pagination.size"
-            :total="total"
-            layout="total, prev, pager, next"
-            @size-change="fetchData"
-            @current-change="fetchData"
-          />
+            <!-- 要素列表(点击定位, 悬浮显示操作按钮) -->
+            <div v-if="isDrawableLayer(layer.id) && layerExpanded(layer.id)">
+              <div
+                v-for="f in featuresOfLayer(layer.id)"
+                :key="f.id"
+                class="group flex cursor-pointer items-center gap-1.5 rounded py-1 pl-6 pr-1 hover:bg-note-tint"
+                @click="handleFocus(f)"
+              >
+                <span
+                  shrink-0 inline-block w-2.5 h-2.5 rounded-full border border-note
+                  :style="{ backgroundColor: resolveStyle(f.feature_type, f.style).color }"
+                />
+                <span text-xs text-note truncate flex-1>{{ f.name }}</span>
+                <!-- 立体物标记(面要素拉伸后 feature_type 仍为 polygon, 以 style.height 区分) -->
+                <el-tag v-if="is3D(f)" size="small" type="warning" effect="plain" shrink-0>3D</el-tag>
+                <div class="hidden items-center group-hover:flex">
+                  <el-button link type="primary" size="small" :icon="Aim" title="定位" @click.stop="handleFocus(f)" />
+                  <el-button link type="primary" size="small" :icon="Brush" title="样式" @click.stop="handleStyle(f)" />
+                  <el-button link type="primary" size="small" :icon="Edit" title="重命名" @click.stop="handleRename(f)" />
+                  <el-button link type="danger" size="small" :icon="Delete" title="删除" @click.stop="handleDelete(f)" />
+                </div>
+              </div>
+              <div v-if="!featuresOfLayer(layer.id).length" py-0.5 pl-6 pr-1 text-xs text-note-sub>
+                {{ featureKeyword.trim() ? '无匹配要素' : '暂无要素' }}
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      </el-scrollbar>
+
+      <p shrink-0 border-t border-note px-3 py-1.5 text-xs text-note-sub>
+        绘制目标: {{ activeLayerName }} · 显隐设置自动保存
+      </p>
+    </div>
+    <!-- 面板收起时的展开按钮 -->
+    <el-button
+      v-else
+      class="absolute left-3 top-16 z-10"
+      circle :icon="Expand" title="展开图层面板"
+      @click="panelCollapsed = false"
+    />
+
+    <!-- 指针所指地表坐标(绘制模式下实时显示) -->
+    <div
+      v-if="hoverLngLat"
+      class="absolute bottom-3 right-3 z-10 rounded-full border border-note bg-note-glass px-3 py-1.5 text-xs text-note-sub shadow-note backdrop-blur-md"
+    >
+      经度 {{ hoverLngLat.lon.toFixed(2) }}° · 纬度 {{ hoverLngLat.lat.toFixed(2) }}°
     </div>
 
     <!-- 保存要素命名对话框 -->
@@ -140,6 +172,16 @@
           <el-tag :type="tagType(pendingType)">
             {{ featureTypeLabel(pendingType) }}
           </el-tag>
+        </el-form-item>
+        <el-form-item label="图层">
+          <el-select v-model="saveForm.layer" w-full>
+            <el-option
+              v-for="l in drawableLayers"
+              :key="l.id"
+              :label="l.name"
+              :value="l.id"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item label="名称" prop="name">
           <el-input v-model="saveForm.name" placeholder="请输入要素名称" maxlength="100" />
@@ -242,20 +284,23 @@
 </template>
 
 <script setup lang="ts">
-import { Pointer, Location, Share, Grid, Box } from '@element-plus/icons-vue'
+import {
+  Aim, Box, Brush, CaretRight, Delete, Edit, Expand, Fold,
+  Grid, Location, Plus, Pointer, Search, Share,
+} from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
 import {
   createGeoFeature,
   deleteGeoFeature,
-  getGeoFeature,
   listAllGeoFeatures,
-  listGeoFeatures,
   updateGeoFeature,
 } from '../api/feature'
-import TableSearchBar, { type SearchField } from '@/common/components/TableSearchBar.vue'
 import {
+  DEFAULT_LAYER_ID,
+  WORLD_LAYER_ID,
   defaultExtrudeStyle,
   defaultFeatureStyles,
+  featureLayerOf,
   FeatureType,
   featureTypeOptions,
   featureTypeTagType,
@@ -265,17 +310,23 @@ import {
   type GeoJSONGeometry,
   type LngLat,
 } from '../types'
-import type { PaginationParams, PaginationResponse } from '@/common/types/common'
+import { useLayerStore } from '../stores/layer'
+import { SysSettingStore } from '@/common/stores/sys'
 import { EarthScene, type DrawMode, type DrawEvent } from '../utils/EarthScene'
 
 // ################ 地球场景 ################
 let earthScene: EarthScene | undefined
+/** 图层设置 store(显隐/激活图层持久化) */
+const layerStore = useLayerStore()
 /** 当前绘制模式 */
 const drawMode = ref<DrawMode>('none')
 /** 绘制中已收集的点(用于完成按钮禁用判断) */
 const draftPoints = ref<LngLat[]>([])
 /** 绘制模式下指针所指地表坐标(实时显示) */
 const hoverLngLat = ref<LngLat | null>(null)
+/** 图层面板收起状态(移动端默认收起, 避免遮挡三维视图) */
+const { sysStyle } = SysSettingStore()
+const panelCollapsed = ref(!sysStyle.isMd)
 
 /** 各模式操作提示 */
 const drawTips = computed(() => {
@@ -288,10 +339,20 @@ const drawTips = computed(() => {
   }
 })
 
+/** 工具栏提示文本(画点=操作提示; 线/面/立体=已选点数与保存目标) */
+const toolbarTips = computed(() => {
+  if (drawMode.value === 'point') return drawTips.value
+  return `已选 ${draftPoints.value.length} 点(单击加点, 双击结束, Ctrl+Z 撤销) · 保存到「${activeLayerName.value}」`
+})
+
 /** 初始化场景与全量渲染 */
 const initScene = () => {
   earthScene = new EarthScene('earthDom')
   earthScene.observeResize('earthCanvasP')
+  // 初始同步图层显隐(持久化恢复的设置要立即作用于渲染, watch 仅监听后续变化)
+  for (const l of layerStore.layers) {
+    earthScene.setLayerVisible(l.id, layerStore.isVisible(l.id))
+  }
   // 绘制模式下指针悬停实时回显地表坐标
   earthScene.setHoverCallback((p) => {
     hoverLngLat.value = p
@@ -310,10 +371,11 @@ const handleDrawEvent = (e: DrawEvent) => {
   if (e.finished) {
     pendingType.value = e.mode
     pendingCoords.value = e.points
-    // 按类型初始化默认样式(立体物使用拉伸默认样式, 预览实时同步)
+    // 按类型初始化默认样式(立体物使用拉伸默认样式, 预览实时同步); 图层默认为当前激活图层
     saveForm.value.style = e.mode === 'extrude'
       ? { ...defaultExtrudeStyle }
       : { ...defaultFeatureStyles[e.mode as FeatureType] }
+    saveForm.value.layer = layerStore.activeLayerId
     saveForm.value.name = defaultName(e.mode)
     saveDialogVisible.value = true
   }
@@ -357,11 +419,94 @@ const handleKeydown = (e: KeyboardEvent) => {
   }
 }
 
+// ################ 图层管理 ################
+/** 全部要素(供图层面板按图层分组展示) */
+const allFeatures = ref<GeoFeature[]>([])
+/** 可作为绘制目标的图层(world 为内置散点层, 不可绘制) */
+const drawableLayers = computed(() =>
+  layerStore.layers.filter(l => isDrawableLayer(l.id)),
+)
+/** 绘制目标图层显示名 */
+const activeLayerName = computed(() =>
+  drawableLayers.value.find(l => l.id === layerStore.activeLayerId)?.name ?? '默认图层',
+)
+/** 要素名称过滤关键字 */
+const featureKeyword = ref('')
+/** 图层展开状态(未记录默认展开) */
+const expandedMap = ref<Record<string, boolean>>({})
+
+/** 是否可作为绘制目标图层(world 内置散点层除外) */
+const isDrawableLayer = (id: string) => id !== WORLD_LAYER_ID
+
+/** 图层是否展开 */
+const layerExpanded = (id: string) => expandedMap.value[id] ?? true
+
+/** 切换图层展开/收起 */
+const toggleLayerExpand = (id: string) => {
+  expandedMap.value[id] = !layerExpanded(id)
+}
+
+/** 图层要素数统计 */
+const layerFeatureCount = (id: string) =>
+  allFeatures.value.filter(f => featureLayerOf(f) === id).length
+
+/** 图层内要素列表(按名称关键字过滤, 供树形面板展示) */
+const featuresOfLayer = (id: string) => {
+  const kw = featureKeyword.value.trim().toLowerCase()
+  return allFeatures.value.filter((f) => {
+    if (featureLayerOf(f) !== id) return false
+    return !kw || f.name.toLowerCase().includes(kw)
+  })
+}
+
+/** 是否立体物(面要素拉伸后以 style.height 区分) */
+const is3D = (f: GeoFeature) => (f.style?.height ?? 0) > 0
+
+/** 新增用户图层(成功后自动设为绘制目标) */
+const handleAddLayer = () => {
+  ElMessageBox.prompt('请输入图层名称', '新增图层', {
+    confirmButtonText: '创建',
+    cancelButtonText: '取消',
+    inputPattern: /\S+/,
+    inputErrorMessage: '图层名称不能为空',
+  })
+    .then(({ value }) => {
+      const layer = layerStore.addLayer(value ?? '')
+      if (!layer) {
+        ElMessage.warning('图层名称已存在')
+        return
+      }
+      ElMessage.success(`图层「${layer.name}」已创建, 新绘制的要素将保存到该图层`)
+    })
+    .catch(() => {})
+}
+
+/** 删除空的用户图层(有要素时后端数据会失去归属, 故仅允许删空层) */
+const handleRemoveLayer = (id: string) => {
+  if (layerFeatureCount(id) > 0) {
+    ElMessage.warning('图层内仍有要素, 请先删除或移动后再删除图层')
+    return
+  }
+  layerStore.removeLayer(id, true)
+}
+
+// 图层显隐变化同步到地球渲染
+watch(
+  () => layerStore.hiddenIds,
+  () => {
+    for (const l of layerStore.layers) {
+      earthScene?.setLayerVisible(l.id, layerStore.isVisible(l.id))
+    }
+  },
+  { deep: true },
+)
+
 // ################ 保存对话框 ################
 const saveDialogVisible = ref(false)
 const saveFormRef = ref<FormInstance>()
-const saveForm = ref<{ name: string, style: Required<GeoFeatureStyle> }>({
+const saveForm = ref<{ name: string, layer: string, style: Required<GeoFeatureStyle> }>({
   name: '',
+  layer: DEFAULT_LAYER_ID,
   style: { ...defaultFeatureStyles[FeatureType.POINT] },
 })
 const saveRules = {
@@ -415,6 +560,8 @@ const handleSave = async () => {
       name: saveForm.value.name,
       geometry,
       style: { ...saveForm.value.style },
+      // 图层归属存于 properties.layer(后端 JSONB 透传, 无需迁移)
+      properties: { layer: saveForm.value.layer || DEFAULT_LAYER_ID },
     })
     ElMessage.success('要素已保存')
     saveDialogVisible.value = false
@@ -455,67 +602,20 @@ const buildGeometry = (mode: DrawMode, points: LngLat[]): GeoJSONGeometry | null
   return { type: 'Polygon', coordinates: [ring] }
 }
 
-// ################ 列表与搜索 ################
-const loading = ref(false)
-const tableData = ref<GeoFeature[]>([])
-const total = ref(0)
-const pagination = ref<PaginationParams>({ page: 1, size: 10 })
-
-// 搜索字段配置(名称/类型多字段筛选)
-const searchFields: SearchField[] = [
-  { prop: 'keyword', label: '名称' },
-  {
-    prop: 'feature_type', label: '类型', type: 'select',
-    options: featureTypeOptions.map(o => ({ label: o.label, value: o.value as string })),
-  },
-]
-// 查询参数(与后端列表接口过滤参数对齐)
-const queryParams = ref<Record<string, unknown>>({
-  keyword: '',
-  feature_type: undefined,
-})
-
-/** 获取列表(携带多字段过滤参数) */
-const fetchData = async () => {
-  try {
-    loading.value = true
-    const { keyword, feature_type } = queryParams.value
-    const res: PaginationResponse<GeoFeature> = await listGeoFeatures({
-      ...pagination.value,
-      keyword: (keyword as string) || undefined,
-      feature_type: (feature_type as string) || undefined,
-    })
-    tableData.value = res.items
-    total.value = res.total
-  }
-  catch (error) {
-    console.error('获取要素列表失败:', error)
-    ElMessage.error('获取要素列表失败')
-  }
-  finally {
-    loading.value = false
-  }
-}
-
-/** 搜索/重置: 回到第一页后重新查询 */
-const handleSearch = () => {
-  pagination.value.page = 1
-  fetchData()
-}
-
-/** 刷新球渲染 + 列表 */
+// ################ 数据刷新 ################
+/** 拉取全部要素并重渲染地球(图层面板与渲染共用同一份数据) */
 const refreshAll = async () => {
   try {
     const all = await listAllGeoFeatures()
+    allFeatures.value = all
     earthScene?.renderFeatures(all)
   }
   catch (error) {
     console.error('刷新地球渲染失败:', error)
   }
-  await fetchData()
 }
 
-// ################ 行操作 ################
+// ################ 要素操作 ################
 /** 类型中文标签 */
 const featureTypeLabel = (type: string) =>
   featureTypeOptions.find(o => o.value === type)?.label ?? type
@@ -525,19 +625,7 @@ type TagType = 'primary' | 'success' | 'warning' | 'info' | 'danger'
 const tagType = (type: string): TagType =>
   (featureTypeTagType as Record<string, TagType>)[type] ?? 'info'
 
-/** 顶点数量 */
-const vertexCount = (row: GeoFeature) => {
-  if (row.geometry.type === 'Point') return 1
-  if (row.geometry.type === 'LineString') return (row.geometry.coordinates as number[][]).length
-  const ring = (row.geometry.coordinates as number[][][])[0] ?? []
-  return Math.max(0, ring.length - 1)
-}
-
-/** 时间格式化 */
-const formatTime = (value: string) =>
-  new Date(value).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
-
-/** 定位要素 */
+/** 定位要素(相机飞行聚焦) */
 const handleFocus = (row: GeoFeature) => earthScene?.focusFeature(row)
 
 /** 重命名 */
@@ -561,7 +649,7 @@ const handleRenameSubmit = async () => {
     await updateGeoFeature(renameTarget.value.id, { name: renameName.value.trim() })
     ElMessage.success('重命名成功')
     renameDialogVisible.value = false
-    await fetchData()
+    await refreshAll()
   }
   catch (error) {
     console.error('重命名失败:', error)
@@ -572,7 +660,7 @@ const handleRenameSubmit = async () => {
   }
 }
 
-/** 样式编辑(保存后单要素重渲染) */
+/** 样式编辑(保存后重渲染) */
 const styleDialogVisible = ref(false)
 const styleTarget = ref<GeoFeature | null>(null)
 const styleForm = ref<Required<GeoFeatureStyle>>({ ...defaultFeatureStyles[FeatureType.POINT] })
@@ -589,12 +677,9 @@ const handleStyleSubmit = async () => {
     submitting.value = true
     const style: GeoFeatureStyle = { ...styleForm.value }
     await updateGeoFeature(styleTarget.value.id, { style })
-    // 取最新数据后仅重渲染该要素
-    const updated = await getGeoFeature(styleTarget.value.id)
-    earthScene?.renderFeature(updated)
     ElMessage.success('样式已更新')
     styleDialogVisible.value = false
-    await fetchData()
+    await refreshAll()
   }
   catch (error) {
     console.error('样式更新失败:', error)
@@ -615,13 +700,8 @@ const handleDelete = (row: GeoFeature) => {
     .then(async () => {
       try {
         await deleteGeoFeature(row.id)
-        earthScene?.removeFeature(row.id)
         ElMessage.success('删除成功')
-        // 处理空页情况
-        if (tableData.value.length === 1 && pagination.value.page > 1) {
-          pagination.value.page -= 1
-        }
-        await fetchData()
+        await refreshAll()
       }
       catch (error) {
         console.error('删除要素失败:', error)

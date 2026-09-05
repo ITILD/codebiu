@@ -12,7 +12,10 @@
     z-10
     shrink-0
   >
-    <div flex flex-col max-h-app>
+    <!-- 注意: 必须用确定高度 h-app 而非 max-h-app —— 仅 max-height 的容器高度
+         对百分比解析是 indefinite, el-scrollbar 内部 wrap 的 height:100% 会
+         解析失败被内容撑开, 导致内部滚动条永远不出现 -->
+    <div flex flex-col h-app>
       <!-- 折叠按钮(点击切换 抽屉式收窄/展开) -->
       <div flex p-2 shrink-0 :class="isCollapse ? 'justify-center' : 'justify-end'">
         <el-tooltip :content="isCollapse ? '展开菜单' : '收起菜单'" placement="right">
@@ -27,8 +30,8 @@
         </el-tooltip>
       </div>
 
-      <!-- 模块菜单(超出视口高度时内部滚动) -->
-      <el-scrollbar flex-1>
+      <!-- 模块菜单(超出视口高度时内部滚动; min-h-0 允许 flex 子项收缩, 否则菜单撑开后无法滚动) -->
+      <el-scrollbar flex-1 min-h-0>
         <el-menu
           :default-active="routerStore.routerPath.now"
           :router="true"

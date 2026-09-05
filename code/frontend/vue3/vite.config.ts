@@ -58,6 +58,8 @@ export default defineConfig(
             const file = (route.component ?? '').replace(/\\/g, '/')
             const isPublic = file.endsWith('/src/pages/index.vue') || file.includes('/[..all].vue')
             if (file && !isPublic) route.addToMeta({ admin: true })
+            // 全屏页面(如三维地球): 锁定文档滚动, 页面内容占满视口剩余高度
+            if (file.endsWith('/modules/geometry/pages/earth.vue')) route.addToMeta({ fullpage: true })
           },
         }),
         vueDevTools(),

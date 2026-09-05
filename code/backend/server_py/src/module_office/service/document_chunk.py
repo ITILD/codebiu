@@ -8,9 +8,6 @@ from module_office.do.schemas import (
     TextChunk,
     ContentBlock,
 )
-from module_office.utils.document_chunk.chunk_strategy.utils.dispatcher import (
-    chunk_markdown as engine_chunk_markdown,
-)
 from langchain.chat_models import BaseChatModel
 from module_office.utils.document_chunk.do.chunk import (
     ChunkConfig,

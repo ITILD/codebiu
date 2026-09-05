@@ -11,7 +11,7 @@
       <div flex items-center gap-2>
         <el-switch v-model="autoRefresh" active-text="自动刷新" inactive-text="暂停" />
         <el-tooltip content="立即刷新(实时读取硬件状态)">
-          <el-button :icon="Refresh" :loading="loading" circle />
+          <el-button :icon="Refresh" :loading="loading" circle @click="fetchData" />
         </el-tooltip>
       </div>
     </div>

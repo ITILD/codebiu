@@ -2,11 +2,13 @@
  * Babylon 地球场景封装(卡通风格点阵地球)
  *
  * 功能:
- *  - 卡通风格球体: 亮蓝海洋 + 绿色陆地散点(Web Mercator 掩膜采样) + 轮廓描边
+ *  - 卡通风格球体: 亮蓝海洋 + 绿色陆地散点(内置极简全球边界 GeoJSON 实时点内采样) + 轮廓描边
+ *  - 图层系统: 全球边界散点(world)与要素图层分组渲染, 支持显隐切换(setLayerVisible)
  *  - 球面拾取: 点击获取经纬度(WGS84), 绘制时指针悬停实时显示坐标
  *  - 点/线/面/立体物绘制交互(单击加点, 双击/按钮结束, 撤销由页面调用 undoDraftPoint)
- *  - 已保存要素渲染(样式化: 点=标记球, 线=管状线, 面=切平面填充+描边,
- *    立体物=面沿法线拉伸棱柱, 高度存于 style.height)
+ *  - 面填充为球面共形网格(经纬度空间 earcut + 递归细分 + 投影球面), 贴合地表无切平面翘边;
+ *    边界先按大圆弧加密(与描边管同路径), 面与边线重合无缝隙
+ *  - 立体物为球面棱柱: 顶盖球面网格沿法向抬升, 侧壁沿边界大圆弧生成, 无多余竖直面
  *  - 相机定位飞行(聚焦某要素); 拉近不穿帮: 近裁剪面远小于最近观察距离,
  *    相机下限保持在球外, 任何缩放级别都能看到地表
  */
@@ -20,22 +22,19 @@ import {
   Engine,
   FresnelParameters,
   HemisphericLight,
-  Matrix,
   Mesh,
   MeshBuilder,
-  PointLight,
   PointsCloudSystem,
   PointerEventTypes,
-  PolygonMeshBuilder,
-  Quaternion,
+  PointLight,
   Scene,
   StandardMaterial,
   VertexData,
   Vector3,
 } from 'babylonjs'
 import earcut from 'earcut'
-import earthMaskImg from '@/assets/img/earth_0.png'
-import { resolveStyle, type GeoFeature, type GeoFeatureStyle, type LngLat } from '../types'
+import worldLand from '../assets/world-land-110m.json'
+import { DEFAULT_LAYER_ID, WORLD_LAYER_ID, featureLayerOf, resolveStyle, type GeoFeature, type GeoFeatureStyle, type LngLat } from '../types'
 
 /** 绘制模式(extrude=立体物: 绘制底面后按 style.height 拉伸) */
 export type DrawMode = 'none' | 'point' | 'linestring' | 'polygon' | 'extrude'
@@ -53,10 +52,25 @@ export interface DrawEvent {
 const EARTH_RADIUS = 2
 /** 要素/预览相对球面的抬升比例(避免 z-fighting) */
 const LIFT = 1.004
-/** 陆地掩膜判定阈值(R 通道, 白色陆地 > 205, 青色海洋 < 180) */
-const LAND_THRESHOLD = 205
 /** 陆地散点基础间距(度) */
-const DOT_STEP_DEG = 1.1
+const DOT_STEP_DEG = 0.9
+/** 面网格细分目标边长(度, 经度按纬度余弦加权) */
+const SUBDIV_DEG = 1.5
+/** 面网格细分最大递归深度(防止超大面顶点爆炸) */
+const SUBDIV_MAX_DEPTH = 4
+/** 侧壁边界弧线细分段数 */
+const WALL_SEGMENTS = 12
+/** 面边界大圆弧加密段数(与描边管线路径一致, 保证面边界与边线重合无缝隙) */
+const RING_DENSE_SEGMENTS = 16
+
+/** 归一化陆地多边形(外环+洞; 经度连续化后的 [lon,lat] 环 + 包围盒) */
+interface LandPolygon {
+  rings: number[][][]
+  minLon: number
+  maxLon: number
+  minLat: number
+  maxLat: number
+}
 
 class EarthScene {
   canvas: HTMLCanvasElement
@@ -67,6 +81,12 @@ class EarthScene {
 
   /** 已保存要素的 mesh 集合(要素ID -> mesh列表, 便于删除) */
   private featureMeshes = new Map<string, AbstractMesh[]>()
+  /** 要素归属图层(要素ID -> 图层ID, 来自 properties.layer) */
+  private featureLayerOf = new Map<string, string>()
+  /** 图层可见性(未记录的图层默认可见) */
+  private layerVisibility = new Map<string, boolean>()
+  /** 陆地散点 mesh(内置 world 图层) */
+  private landDotsMesh: Mesh | null = null
   /** 绘制预览 mesh 列表(进行中描边 + 完成后成品预览共用) */
   private draftMeshes: AbstractMesh[] = []
   /** 绘制中已收集的顶点 */
@@ -177,14 +197,15 @@ class EarthScene {
     return earth
   }
 
+  // ################ 内置图层: 全球边界散点 ################
+
   /**
-   * 陆地散点(卡通配色): 读取陆地掩膜图, 按等积密度采样陆地区域,
-   * 以 PointsCloudSystem 渲染绿色散点模拟陆地。
-   * 注: 掩膜图为 Web Mercator 投影, 需按墨卡托公式反算纵坐标。
+   * 陆地散点(内置 world 图层): 用极简全球边界 GeoJSON 实时做点内采样,
+   * 在陆地区域按等积密度生成绿色散点(替代旧掩膜图方案, 州域形状准确)。
    */
   private async _initLandDots(): Promise<void> {
     try {
-      const positions = await EarthScene.sampleLandDotPositions()
+      const positions = EarthScene.sampleLandDotPositions()
       if (!positions.length) return
 
       const pcs = new PointsCloudSystem('landDots', 2.4, this.scene)
@@ -200,6 +221,8 @@ class EarthScene {
       material.alpha = 0.85
       material.disableLighting = true
       mesh.isPickable = false
+      mesh.setEnabled(this.layerVisible(WORLD_LAYER_ID))
+      this.landDotsMesh = mesh
     }
     catch (error) {
       console.warn('陆地散点生成失败, 仅显示纯色球体:', error)
@@ -207,50 +230,97 @@ class EarthScene {
   }
 
   /**
-   * 采样陆地散点球面坐标
-   * 纬度环按 cos(lat) 加密经度采样, 保证球面散点密度均匀(极区不过密)
+   * 采样陆地散点球面坐标(GeoJSON 点内判定)
+   * 纬度环按 cos(lat) 加密经度采样保证密度均匀(极区不过密),
+   * 每个多边形只在其包围盒经度范围内扫描, 避免全球遍历。
    */
-  static async sampleLandDotPositions(): Promise<Vector3[]> {
-    const mask = await EarthScene.loadLandMask()
-    if (!mask) return []
+  static sampleLandDotPositions(): Vector3[] {
+    const polys = EarthScene.buildLandPolygons()
     const positions: Vector3[] = []
     for (let lat = -83; lat <= 83; lat += DOT_STEP_DEG) {
-      // 每纬度环的经度步长与 cos(lat) 成反比(墨卡托纬向收缩补偿)
+      // 每纬度环的经度步长与 cos(lat) 成反比(纬向收缩补偿)
       const lonStep = DOT_STEP_DEG / Math.max(0.12, Math.cos((lat * Math.PI) / 180))
-      for (let lon = -180; lon < 180; lon += lonStep) {
-        if (EarthScene.isLand(mask, lat, lon)) {
-          positions.push(EarthScene.latLonToVector3(lat, lon, EARTH_RADIUS * 1.002))
+      for (const poly of polys) {
+        if (lat < poly.minLat - DOT_STEP_DEG || lat > poly.maxLat + DOT_STEP_DEG) continue
+        // 与全球网格同相位取经度采样点, 再做点内判定
+        const start = Math.ceil(poly.minLon / lonStep) * lonStep
+        for (let lon = start; lon <= poly.maxLon; lon += lonStep) {
+          if (EarthScene.isLandPoint(poly, lon, lat)) {
+            // 归一化位移后的经度(如 190)与 360° 周期投影到同一球面点
+            positions.push(EarthScene.latLonToVector3(lat, lon, EARTH_RADIUS * 1.002))
+          }
         }
       }
     }
     return positions
   }
 
-  /** 加载陆地掩膜图到离屏画布(Web Mercator 投影, 256x256) */
-  private static async loadLandMask(): Promise<ImageData | null> {
-    const img = new Image()
-    img.src = earthMaskImg
-    await img.decode()
-    const canvas = document.createElement('canvas')
-    canvas.width = img.naturalWidth
-    canvas.height = img.naturalHeight
-    const ctx = canvas.getContext('2d', { willReadFrequently: true })
-    if (!ctx) return null
-    ctx.drawImage(img, 0, 0)
-    return ctx.getImageData(0, 0, canvas.width, canvas.height)
+  /** 解析内置 GeoJSON 为归一化陆地多边形列表(Polygon/MultiPolygon 兼容) */
+  private static buildLandPolygons(): LandPolygon[] {
+    const polys: LandPolygon[] = []
+    for (const f of worldLand.features) {
+      const g = f.geometry
+      if (!g) continue
+      const groups: number[][][][] = g.type === 'Polygon'
+        ? [g.coordinates as unknown as number[][][]]
+        : g.type === 'MultiPolygon'
+          ? (g.coordinates as unknown as number[][][][])
+          : []
+      for (const rings of groups) {
+        if (!rings.length || rings[0].length < 4) continue
+        const outer = EarthScene.normalizeRing(rings[0])
+        const normalized: number[][][] = [outer]
+        for (let i = 1; i < rings.length; i++) normalized.push(EarthScene.normalizeRing(rings[i]))
+        const xs = outer.map(p => p[0])
+        const ys = outer.map(p => p[1])
+        polys.push({
+          rings: normalized,
+          minLon: Math.min(...xs),
+          maxLon: Math.max(...xs),
+          minLat: Math.min(...ys),
+          maxLat: Math.max(...ys),
+        })
+      }
+    }
+    return polys
   }
 
-  /** 判定经纬度是否为陆地(掩膜图 Web Mercator 纵坐标反算) */
-  static isLand(mask: ImageData, lat: number, lon: number): boolean {
-    const { width, height, data } = mask
-    const x = Math.min(width - 1, Math.max(0, Math.floor(((lon + 180) / 360) * width)))
-    // Web Mercator: y = (1/2 - ln(tan(π/4 + lat/2)) / 2π), 纬度越往两极越拉伸
-    const clampedLat = Math.min(85, Math.max(-85, lat))
-    const mercY
-      = 0.5 - Math.log(Math.tan(Math.PI / 4 + (clampedLat * Math.PI) / 360)) / (2 * Math.PI)
-    const y = Math.min(height - 1, Math.max(0, Math.floor(mercY * height)))
-    const idx = (y * width + x) * 4
-    return data[idx] > LAND_THRESHOLD // R 通道: 白色陆地/青色海洋
+  /** 经度连续化: 相邻顶点经度差收敛到 ±180 内(跨 180° 多边形正确采样/三角化) */
+  private static normalizeRing(ring: number[][]): number[][] {
+    const out: number[][] = [[ring[0][0], ring[0][1]]]
+    let prev = ring[0][0]
+    for (let i = 1; i < ring.length; i++) {
+      let lon = ring[i][0]
+      while (lon - prev > 180) lon -= 360
+      while (lon - prev < -180) lon += 360
+      out.push([lon, ring[i][1]])
+      prev = lon
+    }
+    return out
+  }
+
+  /** 奇偶规则点内判定(射线法) */
+  static pointInRing(lon: number, lat: number, ring: number[][]): boolean {
+    let inside = false
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const xi = ring[i][0]
+      const yi = ring[i][1]
+      const xj = ring[j][0]
+      const yj = ring[j][1]
+      if ((yi > lat) !== (yj > lat) && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) {
+        inside = !inside
+      }
+    }
+    return inside
+  }
+
+  /** 判定点是否在陆地多边形内(任意外环内 且 不在所有洞内) */
+  private static isLandPoint(poly: LandPolygon, lon: number, lat: number): boolean {
+    if (!EarthScene.pointInRing(lon, lat, poly.rings[0])) return false
+    for (let i = 1; i < poly.rings.length; i++) {
+      if (EarthScene.pointInRing(lon, lat, poly.rings[i])) return false
+    }
+    return true
   }
 
   /** 指针事件(点击拾取球面经纬度 + 移动悬停跟随) */
@@ -322,22 +392,26 @@ class EarthScene {
 
   // ################ 经纬度 <-> 3D 坐标 ################
 
-  /** 经纬度转球面坐标 */
+  /**
+   * 经纬度转球面坐标(经度 360° 周期: lon 与 lon±360 映射到同一点)
+   * 注意: Babylon 默认左手坐标系, 不能直接套用 three.js 右手系公式
+   * (x 取负会导致东西经镜像), 此处 x 不取负保证大陆形状方向正确。
+   */
   static latLonToVector3(lat: number, lon: number, radius: number): Vector3 {
     const phi = ((90 - lat) * Math.PI) / 180
     const theta = ((lon + 180) * Math.PI) / 180
     return new Vector3(
-      -radius * Math.sin(phi) * Math.cos(theta),
+      radius * Math.sin(phi) * Math.cos(theta),
       radius * Math.cos(phi),
       radius * Math.sin(phi) * Math.sin(theta),
     )
   }
 
-  /** 球面坐标转经纬度 */
+  /** 球面坐标转经纬度(与 latLonToVector3 严格互逆) */
   static vector3ToLatLon(point: Vector3): LngLat {
     const r = point.length()
     const lat = 90 - (Math.acos(point.y / r) * 180) / Math.PI
-    let lon = (Math.atan2(point.z, -point.x) * 180) / Math.PI - 180
+    let lon = (Math.atan2(point.z, point.x) * 180) / Math.PI - 180
     if (lon < -180) lon += 360
     if (lon > 180) lon -= 360
     return { lon, lat }
@@ -360,6 +434,52 @@ class EarthScene {
       pts.push(p.scale(a.length()))
     }
     return pts
+  }
+
+  /** 单位方向球面插值(侧壁边界弧线细分用) */
+  private _slerpDir(a: Vector3, b: Vector3, t: number): Vector3 {
+    const dot = Math.min(1, Math.max(-1, Vector3.Dot(a, b)))
+    const omega = Math.acos(dot)
+    if (omega < 1e-6) return a.clone()
+    const so = Math.sin(omega)
+    return a
+      .scale(Math.sin((1 - t) * omega) / so)
+      .add(b.scale(Math.sin(t * omega) / so))
+      .normalize()
+  }
+
+  /**
+   * 多边形边界大圆弧加密(转回经纬度): 与描边管线路径完全一致
+   * (同 slerp、同段数), 保证面边界与边线中心线重合, 消除面/线缝隙。
+   * @param lngLats 相邻点间加密的折线点列(不自动闭合)
+   */
+  private _densifyLngLats(lngLats: LngLat[], segments = RING_DENSE_SEGMENTS): LngLat[] {
+    if (lngLats.length < 2) return [...lngLats]
+    const out: LngLat[] = []
+    for (let i = 0; i < lngLats.length - 1; i++) {
+      const a = EarthScene.latLonToVector3(lngLats[i].lat, lngLats[i].lon, 1)
+      const b = EarthScene.latLonToVector3(lngLats[i + 1].lat, lngLats[i + 1].lon, 1)
+      const seg = this._slerpPoints(a, b, segments)
+      if (i > 0) seg.shift() // 去掉与前段重复的衔接点
+      for (const p of seg) out.push(EarthScene.vector3ToLatLon(p))
+    }
+    return out
+  }
+
+  // ################ 图层显隐 ################
+
+  /** 当前图层是否可见(未记录默认可见) */
+  layerVisible(layer: string): boolean {
+    return this.layerVisibility.get(layer) ?? true
+  }
+
+  /** 切换图层显隐(world=内置边界散点; 其余按 properties.layer 过滤要素) */
+  setLayerVisible(layer: string, visible: boolean): void {
+    this.layerVisibility.set(layer, visible)
+    if (layer === WORLD_LAYER_ID) this.landDotsMesh?.setEnabled(visible)
+    for (const [id, ly] of this.featureLayerOf) {
+      if (ly === layer) this.featureMeshes.get(id)?.forEach((m) => m.setEnabled(visible))
+    }
   }
 
   // ################ 绘制交互 ################
@@ -507,15 +627,20 @@ class EarthScene {
     else if (this.drawMode === 'polygon' || this.drawMode === 'extrude') {
       const height = this.drawMode === 'extrude' ? Math.max(0.005, style.height) : 0
       if (height > 0) {
-        // 立体物: 底面拉伸棱柱 + 顶缘描边
+        // 立体物: 球面棱柱(顶盖抬升 + 边界侧壁) + 顶缘描边
         this.draftMeshes.push(
           ...this._createExtrudedMesh('draft_x', this.draftPoints, color, style.opacity, height, style.width),
         )
       }
       else {
-        // 平面: 半透明填充 + 描边
-        const polygonMesh = this._createPolygonMesh('draft_poly', this.draftPoints, color, style.opacity)
-        if (polygonMesh) this.draftMeshes.push(polygonMesh)
+        // 平面: 球面共形填充 + 描边
+        const polygonMesh = this._createSphericalPatch(
+          'draft_poly', this.draftPoints, EARTH_RADIUS * LIFT,
+        )
+        if (polygonMesh) {
+          polygonMesh.material = this._flatMaterial('draft_poly_mat', color, style.opacity)
+          this.draftMeshes.push(polygonMesh)
+        }
         if (this.draftPoints.length > 2) {
           this.draftMeshes.push(
             this._createTubeLine(
@@ -532,7 +657,7 @@ class EarthScene {
   // ################ 要素渲染 ################
 
   /**
-   * 全量渲染已保存要素(先清空旧 mesh)
+   * 全量渲染已保存要素(先清空旧 mesh), 按 properties.layer 分组并应用图层显隐
    * @param features 后端返回的要素列表
    */
   renderFeatures(features: GeoFeature[]): void {
@@ -570,15 +695,20 @@ class EarthScene {
       const lngLats = pts.map(([lon, lat]) => ({ lon, lat }))
       const height = Math.max(0, style.height ?? 0)
       if (height > 0.001 && lngLats.length > 2) {
-        // 立体物: 底面拉伸棱柱(style.height > 0)
+        // 立体物: 球面棱柱(style.height > 0)
         meshes.push(
           ...this._createExtrudedMesh(`f_${feature.id}_x`, lngLats, color, style.opacity, height, style.width),
         )
       }
       else {
-        // 平面: 半透明填充面
-        const polygonMesh = this._createPolygonMesh(`f_${feature.id}_poly`, lngLats, color, style.opacity)
-        if (polygonMesh) meshes.push(polygonMesh)
+        // 平面: 球面共形填充面(贴合地表)
+        const polygonMesh = this._createSphericalPatch(
+          `f_${feature.id}_poly`, lngLats, EARTH_RADIUS * LIFT,
+        )
+        if (polygonMesh) {
+          polygonMesh.material = this._flatMaterial(`f_${feature.id}_poly_mat`, color, style.opacity)
+          meshes.push(polygonMesh)
+        }
         // 描边
         if (lngLats.length > 2) {
           meshes.push(
@@ -588,6 +718,10 @@ class EarthScene {
       }
     }
 
+    // 按归属图层应用显隐
+    const layer = featureLayerOf(feature)
+    this.featureLayerOf.set(feature.id, layer)
+    if (!this.layerVisible(layer)) meshes.forEach((m) => m.setEnabled(false))
     this.featureMeshes.set(feature.id, meshes)
   }
 
@@ -596,6 +730,7 @@ class EarthScene {
     const meshes = this.featureMeshes.get(featureId)
     meshes?.forEach((m) => m.dispose())
     this.featureMeshes.delete(featureId)
+    this.featureLayerOf.delete(featureId)
   }
 
   /** 清空全部要素渲染 */
@@ -604,6 +739,7 @@ class EarthScene {
       meshes.forEach((m) => m.dispose())
     }
     this.featureMeshes.clear()
+    this.featureLayerOf.clear()
   }
 
   /** 相机飞行聚焦要素(看向要素中心上空) */
@@ -692,15 +828,16 @@ class EarthScene {
     return marker
   }
 
-  /** 管状线渲染(卡通平涂, 样式化线宽) */
+  /** 管状线渲染(卡通平涂, 样式化线宽; radius 可指定抬升半径) */
   private _createTubeLine(
     name: string,
     lngLats: LngLat[],
     color: Color3,
     radius: number,
     opacity = 1,
+    liftRadius = EARTH_RADIUS * LIFT,
   ): Mesh {
-    const path = this._buildArcPath(lngLats)
+    const path = this._buildArcPath(lngLats, liftRadius)
     const tube = MeshBuilder.CreateTube(name, {
       path,
       radius: Math.max(0.002, radius),
@@ -712,16 +849,16 @@ class EarthScene {
     return tube
   }
 
-  /** 经纬度点列转大圆弧路径(每段细分16份, radius 为球面抬升半径) */
-  private _buildArcPath(points: LngLat[], radius = EARTH_RADIUS * LIFT): Vector3[] {
+  /** 经纬度点列转大圆弧路径(每段细分16份, liftRadius 为球面抬升半径) */
+  private _buildArcPath(points: LngLat[], liftRadius = EARTH_RADIUS * LIFT): Vector3[] {
     if (points.length === 0) return []
     if (points.length === 1) {
-      return [EarthScene.latLonToVector3(points[0].lat, points[0].lon, radius)]
+      return [EarthScene.latLonToVector3(points[0].lat, points[0].lon, liftRadius)]
     }
     const path: Vector3[] = []
     for (let i = 0; i < points.length - 1; i++) {
-      const a = EarthScene.latLonToVector3(points[i].lat, points[i].lon, radius)
-      const b = EarthScene.latLonToVector3(points[i + 1].lat, points[i + 1].lon, radius)
+      const a = EarthScene.latLonToVector3(points[i].lat, points[i].lon, liftRadius)
+      const b = EarthScene.latLonToVector3(points[i + 1].lat, points[i + 1].lon, liftRadius)
       const seg = this._slerpPoints(a, b, 16)
       // 去掉与前段重复的衔接点
       if (i > 0) seg.shift()
@@ -731,60 +868,101 @@ class EarthScene {
   }
 
   /**
-   * 计算多边形在中心切平面的局部坐标系与轮廓投影
-   * 返回: 单位法向量 n, 切点 c, 局部->世界旋转矩阵 rot, 切平面轮廓点(局部 XY)
+   * 球面共形多边形填充: 经纬度空间 earcut 三角化后递归细分,
+   * 全部顶点投影到球面 → 填充面贴合地表弯曲, 无切平面翘边/穿模。
+   * @param lngLats 多边形顶点(未闭合)
+   * @param radius 球面半径(含抬升量)
    */
-  private _polygonFrame(lngLats: LngLat[], radius: number) {
-    // 中心方向(顶点平均单位向量)
-    const center = new Vector3(0, 0, 0)
-    for (const p of lngLats) {
-      center.addInPlace(EarthScene.latLonToVector3(p.lat, p.lon, 1))
-    }
-    const n = center.normalize()
-    const c = n.scale(radius)
-
-    // 切平面局部坐标系(u, v 垂直于 n)
-    const ref = Math.abs(n.y) < 0.9 ? new Vector3(0, 1, 0) : new Vector3(1, 0, 0)
-    const u = Vector3.Cross(n, ref).normalize()
-    const v = Vector3.Cross(n, u)
-
-    // 顶点投影到切平面(2D 轮廓)
-    const contour = lngLats.map((p) => {
-      const pt = EarthScene.latLonToVector3(p.lat, p.lon, radius)
-      return new Vector3(Vector3.Dot(pt, u), Vector3.Dot(pt, v), 0)
-    })
-
-    // 旋转对齐切平面(局部 X->u, Y->v, Z->n)
-    // 行向量约定: 局部 X 轴 (1,0,0)*M = 第一行 = u
-    const rot = Matrix.FromValues(
-      u.x, u.y, u.z, 0,
-      v.x, v.y, v.z, 0,
-      n.x, n.y, n.z, 0,
-      0, 0, 0, 1,
-    )
-    return { n, c, rot, contour }
-  }
-
-  /**
-   * 球面多边形渲染: 顶点投影到中心切平面, earcut 裁剪生成半透明填充面
-   */
-  private _createPolygonMesh(name: string, lngLats: LngLat[], color: Color3, opacity = 0.35): Mesh | null {
+  private _createSphericalPatch(name: string, lngLats: LngLat[], radius: number): Mesh | null {
     if (lngLats.length < 3) return null
-    const radius = EARTH_RADIUS * (LIFT + 0.001)
 
-    const { c, rot, contour } = this._polygonFrame(lngLats, radius)
-    const builder = new PolygonMeshBuilder(name, contour, this.scene, earcut)
-    const mesh = builder.build()
-    mesh.material = this._flatMaterial(`${name}_mat`, color, opacity)
+    // 边界先按大圆弧加密(含闭合边)再三角化: 面边界与描边管线走同一路径, 无缝隙
+    const closed = [...lngLats, lngLats[0]]
+    const dense = this._densifyLngLats(closed)
+    dense.pop() // 去掉与首点重复的闭合点(earcut 隐式闭合)
+
+    // 经度连续化(跨 180° 多边形可正确三角化; 投影具有 360° 周期性, 位移经度映射同一球面点)
+    const ring = EarthScene.normalizeLngLats(dense)
+    const flat: number[] = []
+    for (const p of ring) flat.push(p[0], p[1])
+    const triIndices = earcut(flat, null, 2)
+    if (!triIndices.length) return null
+
+    // 逐三角形递归细分后投影球面(三角形汤: 每 3 个顶点一个三角形)
+    const positions: number[] = []
+    for (let t = 0; t < triIndices.length; t += 3) {
+      this._emitPatchTriangle(
+        ring[triIndices[t]], ring[triIndices[t + 1]], ring[triIndices[t + 2]],
+        0, radius, positions,
+      )
+    }
+    if (!positions.length) return null
+
+    const mesh = new Mesh(name, this.scene)
+    const vd = new VertexData()
+    vd.positions = positions
+    const idx: number[] = []
+    for (let i = 0; i < positions.length / 3; i += 3) idx.push(i, i + 1, i + 2)
+    vd.indices = idx
+    const normals: number[] = []
+    VertexData.ComputeNormals(positions, idx, normals)
+    vd.normals = normals
+    vd.applyToMesh(mesh)
     mesh.isPickable = false
-    mesh.rotationQuaternion = Quaternion.FromRotationMatrix(rot)
-    mesh.position = c
     return mesh
   }
 
+  /** 经纬度点列经度连续化(供三角化/侧壁生成; 投影周期性保证位移经度渲染一致) */
+  private static normalizeLngLats(lngLats: LngLat[]): number[][] {
+    const out: number[][] = [[lngLats[0].lon, lngLats[0].lat]]
+    let prev = lngLats[0].lon
+    for (let i = 1; i < lngLats.length; i++) {
+      let lon = lngLats[i].lon
+      while (lon - prev > 180) lon -= 360
+      while (lon - prev < -180) lon += 360
+      out.push([lon, lngLats[i].lat])
+      prev = lon
+    }
+    return out
+  }
+
+  /** 三角形递归细分(经纬度空间, 边长按纬度余弦加权)后投影球面并输出顶点 */
+  private _emitPatchTriangle(
+    a: number[],
+    b: number[],
+    c: number[],
+    depth: number,
+    radius: number,
+    out: number[],
+  ): void {
+    const edgeDeg = (p: number[], q: number[]) => {
+      const cosLat = Math.cos((((p[1] + q[1]) / 2) * Math.PI) / 180)
+      return Math.hypot((p[0] - q[0]) * cosLat, p[1] - q[1])
+    }
+    const span = Math.max(edgeDeg(a, b), edgeDeg(b, c), edgeDeg(c, a))
+    if (span <= SUBDIV_DEG || depth >= SUBDIV_MAX_DEPTH) {
+      const pa = EarthScene.latLonToVector3(a[1], a[0], radius)
+      const pb = EarthScene.latLonToVector3(b[1], b[0], radius)
+      const pc = EarthScene.latLonToVector3(c[1], c[0], radius)
+      out.push(pa.x, pa.y, pa.z, pb.x, pb.y, pb.z, pc.x, pc.y, pc.z)
+      return
+    }
+    // 中点细分(经纬度线性中点)
+    const mid = (p: number[], q: number[]): number[] => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2]
+    const ab = mid(a, b)
+    const bc = mid(b, c)
+    const ca = mid(c, a)
+    this._emitPatchTriangle(a, ab, ca, depth + 1, radius, out)
+    this._emitPatchTriangle(ab, b, bc, depth + 1, radius, out)
+    this._emitPatchTriangle(ca, bc, c, depth + 1, radius, out)
+    this._emitPatchTriangle(ab, bc, ca, depth + 1, radius, out)
+  }
+
   /**
-   * 立体物渲染: 以多边形为底面, 沿切平面法线拉伸 height 生成棱柱
-   * 返回 [侧壁, 顶盖, 顶缘描边] 三组 mesh(卡通平涂, 侧面用深一号颜色增强立体感)
+   * 立体物渲染(球面棱柱): 顶盖为球面网格片沿法向抬升 height,
+   * 侧壁沿边界大圆弧在 底环(rBase) 与 顶环(rTop) 间生成四边形条带,
+   * 顶缘描边闭合管。整体贴合球面弯曲, 无多余竖直面。
+   * 返回 [顶盖, 侧壁, 顶缘描边] 三组 mesh(卡通平涂, 侧面深一号颜色增强立体感)
    */
   private _createExtrudedMesh(
     name: string,
@@ -795,28 +973,36 @@ class EarthScene {
     width = 1,
   ): AbstractMesh[] {
     if (lngLats.length < 3) return []
-    const radius = EARTH_RADIUS * LIFT
-
-    const { n, c, rot, contour } = this._polygonFrame(lngLats, radius)
+    const rBase = EARTH_RADIUS * LIFT
+    const rTop = rBase + height
     const meshes: AbstractMesh[] = []
 
-    // ---- 顶盖: 轮廓平移到高度 h 后三角化 ----
-    const cap = new PolygonMeshBuilder(`${name}_cap`, contour, this.scene, earcut).build()
-    cap.material = this._flatMaterial(`${name}_cap_mat`, color, opacity)
-    cap.isPickable = false
-    cap.rotationQuaternion = Quaternion.FromRotationMatrix(rot)
-    cap.position = c.add(n.scale(height))
-    meshes.push(cap)
+    // ---- 顶盖: 球面共形网格片(rTop) ----
+    const cap = this._createSphericalPatch(`${name}_cap`, lngLats, rTop)
+    if (cap) {
+      cap.material = this._flatMaterial(`${name}_cap_mat`, color, opacity)
+      meshes.push(cap)
+    }
 
-    // ---- 侧壁: 底环(z=0)与顶环(z=h)之间的四边形条带 ----
-    const count = contour.length
+    // ---- 侧壁: 边界弧线细分, 每个细分方向 d 上连接 d*rBase 与 d*rTop ----
+    const ring = EarthScene.normalizeLngLats(lngLats)
     const positions: number[] = []
-    for (const p of contour) positions.push(p.x, p.y, 0)
-    for (const p of contour) positions.push(p.x, p.y, height)
     const indices: number[] = []
+    let base = 0
+    const count = ring.length
     for (let i = 0; i < count; i++) {
+      const a = EarthScene.latLonToVector3(ring[i][1], ring[i][0], 1).normalize()
       const j = (i + 1) % count
-      indices.push(i, j, j + count, i, j + count, i + count)
+      const b = EarthScene.latLonToVector3(ring[j][1], ring[j][0], 1).normalize()
+      for (let s = 0; s <= WALL_SEGMENTS; s++) {
+        const d = this._slerpDir(a, b, s / WALL_SEGMENTS)
+        positions.push(d.x * rBase, d.y * rBase, d.z * rBase, d.x * rTop, d.y * rTop, d.z * rTop)
+        if (s > 0) {
+          const p = base + (s - 1) * 2
+          indices.push(p, p + 1, p + 3, p, p + 3, p + 2)
+        }
+      }
+      base += (WALL_SEGMENTS + 1) * 2
     }
     const walls = new Mesh(`${name}_wall`, this.scene)
     const vd = new VertexData()
@@ -828,21 +1014,12 @@ class EarthScene {
     vd.applyToMesh(walls)
     walls.material = this._flatMaterial(`${name}_wall_mat`, color.scale(0.78), opacity)
     walls.isPickable = false
-    walls.rotationQuaternion = Quaternion.FromRotationMatrix(rot)
-    walls.position = c
     meshes.push(walls)
 
-    // ---- 顶缘描边: 顶环世界坐标闭合成管, 深色粗边(卡通描边) ----
-    const topRing = contour.map((p) =>
-      Vector3.TransformCoordinates(new Vector3(p.x, p.y, height), rot).add(c))
-    const rim = MeshBuilder.CreateTube(`${name}_rim`, {
-      path: [...topRing, topRing[0]],
-      radius: Math.max(0.003, 0.0045 * width),
-      tessellation: 6,
-      cap: Mesh.NO_CAP,
-    }, this.scene)
-    rim.material = this._flatMaterial(`${name}_rim_mat`, color.scale(0.55), 1)
-    rim.isPickable = false
+    // ---- 顶缘描边: 顶环大圆弧闭合成管, 深色粗边(卡通描边) ----
+    const rimLngLats = [...lngLats, lngLats[0]]
+    const rim = this._createTubeLine(`${name}_rim`, rimLngLats, color.scale(0.55), Math.max(0.003, 0.0045 * width), 1, rTop)
+    rim.name = `${name}_rim`
     meshes.push(rim)
 
     return meshes

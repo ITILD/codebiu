@@ -64,6 +64,17 @@ interface LngLat {
   lat: number
 }
 
+/** 内置图层: 全球边界散点(由内置 GeoJSON 实时采样) */
+const WORLD_LAYER_ID = 'world'
+/** 内置图层: 未分组要素 */
+const DEFAULT_LAYER_ID = 'default'
+
+/** 要素归属图层(properties.layer, 缺省为默认图层) */
+const featureLayerOf = (f: { properties?: Record<string, unknown> | null }): string => {
+  const layer = f.properties?.['layer']
+  return typeof layer === 'string' && layer ? layer : DEFAULT_LAYER_ID
+}
+
 /** 几何要素基础字段 */
 interface GeoFeatureBase {
   name: string
@@ -104,6 +115,9 @@ export {
   defaultFeatureStyles,
   defaultExtrudeStyle,
   resolveStyle,
+  WORLD_LAYER_ID,
+  DEFAULT_LAYER_ID,
+  featureLayerOf,
   type GeoFeatureStyle,
   type GeoJSONGeometry,
   type LngLat,

@@ -17,12 +17,26 @@ interface RequestConfig extends RequestInit {
   apiPrefix?: string;
   timeout?: number;
   params?: Record<string, QueryParamValue>;
+  /** 内部标记: 401 刷新令牌后重试的请求, 不再二次重试 */
+  _retry?: boolean;
 }
+
+// 认证端点本身的 401 属于业务失败(密码错误/刷新令牌无效), 不做刷新重试
+const AUTH_NO_RETRY_PATHS = [
+  '/authorization/auth/login',
+  '/authorization/auth/register',
+  '/authorization/auth/refresh',
+];
+
+// 防止并发请求同时触发多次回登录跳转
+let redirectingToLogin = false;
 
 class HttpClient {
   // 构造函数
   private apiPrefix: string;
   private timeout: number;
+  // 单飞刷新: 并发 401 共享同一次刷新令牌请求
+  private refreshPromise: Promise<boolean> | null = null;
 
   constructor(config: RequestConfig = {}) {
     this.apiPrefix = config.apiPrefix || import.meta.env.VITE_API_PREFIX;
@@ -42,7 +56,26 @@ class HttpClient {
         signal: controller.signal,
       });
 
-      const response = await fetch(url, requestConfig);
+      let response = await fetch(url, requestConfig);
+
+      // 401 处理: 访问令牌过期时用刷新令牌续期并重试一次(认证端点本身除外)
+      if (response.status === 401 && !config._retry && !AUTH_NO_RETRY_PATHS.includes(endpoint)) {
+        // 是否曾登录过(存在刷新令牌); 从未登录的 401 保持原有行为交由调用方处理
+        const hadSession = this.hasRefreshToken();
+        const refreshed = hadSession && (await this.tryRefreshToken());
+        if (refreshed) {
+          // 重试时 requestInterceptor 会读取新令牌
+          const retryConfig = this.requestInterceptor({
+            ...config,
+            signal: controller.signal,
+            _retry: true,
+          });
+          response = await fetch(url, retryConfig);
+        } else if (hadSession) {
+          // 登录过但刷新失败: 会话已彻底失效, 清空并引导重新登录
+          this.forceReLogin();
+        }
+      }
 
       // 响应拦截
       return this.responseInterceptor<T>(response);
@@ -79,6 +112,61 @@ class HttpClient {
       ...config,
       headers,
     };
+  }
+
+  // 是否存在刷新令牌(判断是否登录过; Pinia 未初始化时视为未登录)
+  private hasRefreshToken(): boolean {
+    try {
+      return !!useAuthStore().authState.tokens.refresh.token;
+    } catch {
+      return false;
+    }
+  }
+
+  // 单飞刷新入口: 并发 401 共享同一次刷新请求
+  private tryRefreshToken(): Promise<boolean> {
+    if (!this.refreshPromise) {
+      this.refreshPromise = this.doRefreshToken().finally(() => {
+        this.refreshPromise = null;
+      });
+    }
+    return this.refreshPromise;
+  }
+
+  // 调用后端刷新接口续期访问令牌(直接 fetch, 避免与认证 api 模块形成循环依赖)
+  private async doRefreshToken(): Promise<boolean> {
+    try {
+      const authStore = useAuthStore();
+      const refreshToken = authStore.authState.tokens.refresh.token;
+      if (!refreshToken) return false;
+      const res = await fetch(`${this.apiPrefix}/authorization/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token_refresh: refreshToken }),
+      });
+      if (!res.ok) return false;
+      // TokenResponseBase: { token, expires_in, token_id }
+      const access = await res.json();
+      if (!access?.token) return false;
+      // 更新 store 中的访问令牌(persist 插件会自动持久化)
+      authStore.authState.tokens.access = access;
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // 会话彻底失效: 清空认证状态并回到首页引导登录(与路由守卫约定一致)
+  private forceReLogin() {
+    try {
+      useAuthStore().initAuthState();
+    } catch {
+      return; // Pinia 未初始化, 交由路由守卫处理
+    }
+    if (redirectingToLogin) return;
+    redirectingToLogin = true;
+    console.warn('登录会话已过期, 请重新登录');
+    window.location.replace('/?login=1');
   }
 
   // 响应拦截器
