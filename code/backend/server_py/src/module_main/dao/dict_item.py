@@ -6,6 +6,7 @@ from common.utils.db.schema.pagination import (
     ScrollDirection,
 )
 from common.config.db import DaoRel
+from common.utils.fastapiEX.exceptions import NotFoundError
 from module_main.do.dict_item import DictItem, DictItemCreate, DictItemUpdate
 
 
@@ -34,7 +35,7 @@ class DictItemDao:
         """
         dict_item = await session.get(DictItem, id)
         if not dict_item:
-            raise ValueError(f"未找到ID为 {id} 的字典项")
+            raise NotFoundError(f"未找到ID为 {id} 的字典项")
         await session.delete(dict_item)
         await session.flush()
 
@@ -57,7 +58,7 @@ class DictItemDao:
         result = await session.exec(stmt)
 
         if result.rowcount == 0:
-            raise ValueError(f"未找到ID为 {dict_item_id} 的字典项")
+            raise NotFoundError(f"未找到ID为 {dict_item_id} 的字典项")
         await session.flush()
 
     @DaoRel
@@ -142,7 +143,7 @@ class DictItemDao:
         if params.last_id:
             last_dict_item = await session.get(DictItem, params.last_id)
             if not last_dict_item:
-                raise ValueError(f"未找到ID为 {params.last_id} 的字典项")
+                raise NotFoundError(f"未找到ID为 {params.last_id} 的字典项")
 
             sort_value = getattr(last_dict_item, sort_by)
             search_value = getattr(DictItem, sort_by)

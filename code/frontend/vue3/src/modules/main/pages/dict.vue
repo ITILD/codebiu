@@ -10,7 +10,7 @@
 
     <div flex flex-col lg:flex-row gap-4>
       <!-- ############ 左侧: 字段类型列表 ############ -->
-      <div w-full shrink-0 p-4 rounded-lg bg-note-card border-note shadow-note class="lg:w-2/5">
+      <div w-full shrink-0 page-card class="lg:w-2/5">
         <div mb-3 flex items-center justify-between>
           <h3 font-bold text-note>字段类型</h3>
           <el-button size="small" type="primary" @click="openTypeDialog()">新增类型</el-button>
@@ -30,14 +30,15 @@
           size="small" @current-change="handleTypeSelect">
           <el-table-column prop="type_name" label="类型名称" min-width="100" show-overflow-tooltip />
           <el-table-column prop="type_code" label="类型编码" min-width="100" show-overflow-tooltip />
-          <el-table-column label="状态" width="70" align="center">
+          <el-table-column label="状态" min-width="70" align="center">
             <template #default="{ row }">
               <el-tag :type="row.is_active ? 'success' : 'info'" size="small">
                 {{ row.is_active ? '启用' : '禁用' }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="110" align="center">
+          <!-- 操作列: 平板及以上固定右侧, 手机取消固定避免遮挡 -->
+          <el-table-column label="操作" min-width="110" align="center" :fixed="isMd ? 'right' : false">
             <template #default="{ row }">
               <el-button size="small" type="primary" link @click.stop="openTypeDialog(row)">编辑</el-button>
               <el-button size="small" type="danger" link @click.stop="handleDeleteType(row)">删除</el-button>
@@ -54,7 +55,7 @@
       </div>
 
       <!-- ############ 右侧: 字段项列表 ############ -->
-      <div flex-1 min-w-0 p-4 rounded-lg bg-note-card border-note shadow-note>
+      <div flex-1 min-w-0 page-card>
         <div mb-3 flex flex-wrap items-center justify-between gap-2>
           <h3 font-bold text-note>
             字段项
@@ -73,8 +74,8 @@
             <el-table-column prop="item_name" label="项名称" min-width="100" show-overflow-tooltip />
             <el-table-column prop="item_code" label="项编码" min-width="100" show-overflow-tooltip />
             <el-table-column prop="item_value" label="项值" min-width="100" show-overflow-tooltip />
-            <el-table-column prop="sort_order" label="排序" width="70" align="center" />
-            <el-table-column label="状态" width="70" align="center">
+            <el-table-column prop="sort_order" label="排序" min-width="70" align="center" />
+            <el-table-column label="状态" min-width="70" align="center">
               <template #default="{ row }">
                 <el-tag :type="row.is_active ? 'success' : 'info'" size="small">
                   {{ row.is_active ? '启用' : '禁用' }}
@@ -169,13 +170,12 @@ import {
   createDictItem, deleteDictItem, listDictItemsByType, updateDictItem,
 } from '../api/dict'
 import TableSearchBar, { type SearchField } from '@/common/components/TableSearchBar.vue'
-import { SysSettingStore } from '@/common/stores/sys'
+import { useResponsive } from '@/common/composables/useResponsive'
 import type { PaginationParams } from '@/common/types/common'
 import type { DictType, DictItem } from '../types/dict'
 
 // 断点状态(操作列固定策略)
-const sysSettingStore = SysSettingStore()
-const isMd = computed(() => sysSettingStore.sysStyle.isMd)
+const { isMd } = useResponsive()
 
 // ################ 左侧: 字段类型 ################
 // 搜索字段配置(关键字/状态多字段筛选)

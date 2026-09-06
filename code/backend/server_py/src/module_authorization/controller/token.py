@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 import jwt
 from fastapi import Request
 
+from common.utils.fastapiEX.exceptions import NotFoundError, BusinessError
 from module_authorization.config.server import module_app
 from module_authorization.dependencies.token import get_token_service
 from module_authorization.service.token import TokenService
@@ -32,13 +33,7 @@ async def create_token(
     
     返回包含访问令牌、刷新令牌和过期信息的Token对象
     """
-    try:
-        return await service.create_token(request)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
+    return await service.create_token(request)
 
 
 @router.post(
@@ -56,13 +51,8 @@ async def token_refresh(
     
     返回包含新的访问令牌和刷新令牌的Token对象
     """
-    try:
-        return await service.token_refresh(request.token_refresh)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
+    # 刷新令牌无效等校验失败抛 ValueError, 由全局处理器映射为 400
+    return await service.token_refresh(request.token_refresh)
 
 
 @router.post(
@@ -81,11 +71,8 @@ async def verify_token(
     返回令牌中的有效载荷数据
     """
     if not token_access:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Missing token_access parameter"
-        )
-    
+        raise BusinessError("Missing token_access parameter")
+
     try:
         payload = await service.verify_token(token_access)
         return {
@@ -93,6 +80,7 @@ async def verify_token(
             "payload": payload
         }
     except jwt.InvalidTokenError as e:
+        # 令牌无效 -> 401; 保留 HTTPException 以携带 WWW-Authenticate 响应头
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid token: {str(e)}",
@@ -116,14 +104,8 @@ async def revoke_all_tokens(
     
     强制用户重新登录
     """
-    try:
-        await service.revoke_all_tokens_by_user(user_id)
-        return {"success": True}
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
+    await service.revoke_all_tokens_by_user(user_id)
+    return {"success": True}
 
 
 @router.get(
@@ -142,41 +124,32 @@ async def get_token_info(
     返回令牌在数据库中的完整信息
     """
     if not token_access:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Missing token_access parameter"
-        )
+        raise BusinessError("Missing token_access parameter")
 
     try:
-        # 先解码令牌提取用户ID,再查数据库中的令牌记录
+        # 先解码令牌提取用户ID
         payload = await service.verify_token(token_access)
-        user_id = payload.get("sub")
-        if not user_id:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token: missing 'sub'",
-                headers={"WWW-Authenticate": "Bearer"}
-            )
-        token_info = await service.get_token_by_user_id(user_id)
-        if not token_info:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Token not found"
-            )
-        return token_info
-    except HTTPException:
-        raise
     except jwt.InvalidTokenError as e:
+        # 令牌无效 -> 401; 保留 HTTPException 以携带 WWW-Authenticate 响应头
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid token: {str(e)}",
             headers={"WWW-Authenticate": "Bearer"}
         )
-    except Exception as e:
+
+    user_id = payload.get("sub")
+    if not user_id:
+        # 保留 HTTPException 以携带 WWW-Authenticate 响应头
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token: missing 'sub'",
+            headers={"WWW-Authenticate": "Bearer"}
         )
+    # 再查数据库中的令牌记录
+    token_info = await service.get_token_by_user_id(user_id)
+    if not token_info:
+        raise NotFoundError("令牌不存在")
+    return token_info
 
 
 # 将路由器挂载到模块应用

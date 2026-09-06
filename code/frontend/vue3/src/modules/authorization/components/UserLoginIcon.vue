@@ -1,16 +1,14 @@
 <template>
   <div ml-2>
-    <div v-if="authState.user.avatar">
-      <img w-full h-full :src="authState.user.avatar" alt="" srcset="" />
-    </div>
-    <!--游客图标 -->
-    <!-- <UserSVG w-full h-full v-else /> -->
-    <el-avatar :size="30" :icon="UserFilled" v-else  />
+    <!-- 用户头像(公共组件, 与设置页预览样式一致; 无头像时显示首字默认头像) -->
+    <UserAvatar
+      :size="30"
+      :src="authState.user.avatar"
+      :name="authState.user.nickname || authState.user.username"
+    />
   </div>
 </template>
 <script setup lang="ts">
-// 样式控制
-import { UserFilled } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/common/stores/auth'
 const authStore = useAuthStore()
 const authState = authStore.authState

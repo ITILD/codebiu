@@ -1,7 +1,7 @@
 <template>
   <div p-4 md:p-6 w-full flex flex-col gap-4>
     <!-- 说明与操作 -->
-    <div rounded-lg p-4 bg-note-card border border-note shadow-note flex flex-col gap-3>
+    <div page-card flex flex-col gap-3>
       <div flex flex-wrap items-center gap-3>
         <div flex-1 min-w-0>
           <div text-base font-bold text-note>前端接口测试</div>
@@ -81,20 +81,20 @@
           </div>
         </template>
       </el-table-column>
-      <el-table-column label="状态" width="90" align="center">
+      <el-table-column label="状态" min-width="90" align="center">
         <template #default="{ row }">
           <el-tag :type="levelTagType(resultOf(row).level)" size="small" effect="light">
             {{ levelLabel(resultOf(row).level) }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="module" label="模块" width="110" show-overflow-tooltip />
+      <el-table-column prop="module" label="模块" min-width="110" show-overflow-tooltip />
       <el-table-column prop="fn" label="接口函数" min-width="150" show-overflow-tooltip>
         <template #default="{ row }">
           <span text-xs>{{ row.fn }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="方法" width="90" align="center">
+      <el-table-column label="方法" min-width="90" align="center">
         <template #default="{ row }">
           <el-tag :type="methodTagType(row.method)" size="small" effect="plain">{{ row.method }}</el-tag>
         </template>
@@ -104,7 +104,7 @@
           <span text-xs font-mono>{{ row.path }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="耗时" width="80" align="center">
+      <el-table-column label="耗时" min-width="80" align="center">
         <template #default="{ row }">
           <span v-if="resultOf(row).ms" text-xs text-note-sub>{{ resultOf(row).ms }}ms</span>
           <span v-else text-xs text-note-sub>-</span>
@@ -117,7 +117,7 @@
           </span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="100" align="center" :fixed="isMd ? 'right' : false">
+      <el-table-column label="操作" min-width="100" align="center" :fixed="isMd ? 'right' : false">
         <template #default="{ row }">
           <el-button
             link type="primary" size="small"
@@ -136,12 +136,11 @@
 // 接口测试页面: 查看前端全部接口的连通性测试结果
 import { computed, ref } from 'vue';
 import { VideoPlay } from '@element-plus/icons-vue';
-import { SysSettingStore } from '@/common/stores/sys';
+import { useResponsive } from '@/common/composables/useResponsive';
 import { API_CASES, caseKey, type ApiCase } from '../data/cases';
 import { useApiTest, type CaseResult } from '../composables/useApiTest';
 
-const sysSettingStore = SysSettingStore();
-const isMd = computed(() => sysSettingStore.sysStyle.isMd);
+const { isMd } = useResponsive();
 
 const {
   results, running, progress, autoCases, stats, uncoveredFns,

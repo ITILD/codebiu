@@ -4,7 +4,6 @@ from module_template.config.server import module_app
 from module_template.dependencies.template import get_template_service
 from fastapi import (
     APIRouter,
-    HTTPException,
     WebSocket,
     WebSocketDisconnect,
     status,
@@ -23,27 +22,21 @@ router = APIRouter()
 
 @router.post("/upload", summary="上传文件")
 async def upload_file(
-    file: UploadFile = File(...), service=Depends(get_template_service)
+    file: UploadFile = File(..., description="要上传的文件"), service=Depends(get_template_service)
 ):
-    """文件上传接口"""
-    try:
-        file_content = await file.read()
-        file_size = len(file_content)
+    """读取上传文件到内存并返回文件名/类型/大小等基础信息(不做持久化存储)"""
+    file_content = await file.read()
+    file_size = len(file_content)
 
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content={
-                "filename": file.filename,
-                "content_type": file.content_type,
-                "size": file_size,
-                "message": "File uploaded successfully",
-            },
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error uploading file: {str(e)}",
-        )
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={
+            "filename": file.filename,
+            "content_type": file.content_type,
+            "size": file_size,
+            "message": "File uploaded successfully",
+        },
+    )
 
 
 @router.get("/stream", summary="流式返回")

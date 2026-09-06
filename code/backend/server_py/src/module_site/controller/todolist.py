@@ -7,7 +7,8 @@ from module_site.do.todolist import Todolist, TodolistCreate, TodolistUpdate
 from module_authorization.dependencies.permission import require_permission
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
 
-from fastapi import APIRouter, HTTPException, status, Depends, Query
+from fastapi import APIRouter, status, Depends, Query
+from common.utils.fastapiEX.exceptions import NotFoundError
 
 router = APIRouter()
 
@@ -25,12 +26,7 @@ async def create_todolist(
     :param todolist: 备忘数据
     :return: 创建的备忘ID
     """
-    try:
-        return await service.add(todolist, current_user_id)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.add(todolist, current_user_id)
 
 
 @router.get(
@@ -47,12 +43,7 @@ async def list_memos_by_range(
     - 年视图: 传整年起止; 月视图: 传整月起止; 周视图: 传本周起止
     - 前端按本地日历日分组展示
     """
-    try:
-        return await service.list_in_range(current_user_id, start, end)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.list_in_range(current_user_id, start, end)
 
 
 @router.get("/list", summary="分页查询备忘列表(管理页)", response_model=PaginationResponse)
@@ -68,14 +59,9 @@ async def list_todolists(
     """
     分页查询本人备忘列表(支持名称/状态过滤)
     """
-    try:
-        return await service.list_mine(
-            pagination, current_user_id, name=name, status=status_filter
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.list_mine(
+        pagination, current_user_id, name=name, status=status_filter
+    )
 
 
 # 低优先级路由(放在 /range /list 之后)
@@ -86,20 +72,11 @@ async def get_todolist(
     service: TodolistService = Depends(get_todolist_service),
 ) -> Todolist:
     """获取备忘详情(仅本人可见)"""
-    try:
-        result = await service.get(todolist_id, current_user_id)
-        if not result:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="备忘不存在"
-            )
-        return result
-    except HTTPException:
-        # 保留 404 语义,避免被通用异常处理包装成 500
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    # 备忘不存在时返回 404(由全局异常处理器统一响应)
+    result = await service.get(todolist_id, current_user_id)
+    if not result:
+        raise NotFoundError("备忘不存在")
+    return result
 
 
 @router.delete(
@@ -115,11 +92,7 @@ async def delete_todolist(
         await service.delete(todolist_id, current_user_id)
     except ValueError as e:
         # 资源不存在或不属于当前用户 → 404
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+        raise NotFoundError(str(e))
 
 
 @router.put(
@@ -135,11 +108,8 @@ async def update_todolist(
     try:
         await service.update(todolist_id, todolist, current_user_id)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+        # 资源不存在或不属于当前用户 → 404
+        raise NotFoundError(str(e))
 
 
 module_app.include_router(router, prefix="/todolists", tags=["个人小站-备忘"])

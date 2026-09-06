@@ -246,8 +246,8 @@ async def test_upload_nonexistent_project(client: httpx.AsyncClient):
         f"{BASE}/no-such-project-{uuid.uuid4().hex[:8]}/upload",
         files={"file": ("test.txt", b"content", "text/plain")},
     )
-    # 期望 404;当前实现服务层抛 LookupError 被控制器包装成 500(缺陷,见报告)
-    assert resp.status_code in (400, 404, 500), resp.text
+    # 不存在的项目 -> 404(服务层抛 NotFoundError, 全局处理器映射)
+    assert resp.status_code == 404, resp.text
 
 
 async def test_delete_nonexistent_document(client: httpx.AsyncClient):
@@ -423,7 +423,7 @@ async def test_document_instant_upload_existing(client: httpx.AsyncClient):
         assert body["content_hash"] == content_hash
         assert body["physical_path"], "秒传登记应复用已存在的物理键"
 
-        # 秒传到不存在的内容应 400
+        # 秒传到不存在的内容应 404(内容记录不存在语义)
         resp = await client.post(
             f"{BASE}/{project_id}/upload-complete",
             json={
@@ -432,7 +432,7 @@ async def test_document_instant_upload_existing(client: httpx.AsyncClient):
                 "file_size_bytes": 13,
             },
         )
-        assert resp.status_code == 400, resp.text
+        assert resp.status_code == 404, resp.text
     finally:
         for d in doc_ids:
             await client.delete(f"{BASE}/{d}")

@@ -56,16 +56,13 @@ async def summarize_conversation(
     rag_chat_service: RagChatService = Depends(get_rag_chat_service_single),
 ):
     """
-    总结历史对话(压缩消息)并生成标题
+    对指定会话执行结构化总结并持久化: 生成的新标题写入对话记录,
+    总结失败时降级返回默认空摘要
     - 从 checkpointer 拉取完整消息历史
     - 调用 LLM 生成对话摘要和简短标题
     - 持久化更新对话标题
     """
-    try:
-        result = await rag_chat_service.summarize_conversation(conversation_id, current_user_id)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    return await rag_chat_service.summarize_conversation(conversation_id, current_user_id)
 
 
 # 注册路由(挂在 /rag/rag-chat 前缀下)

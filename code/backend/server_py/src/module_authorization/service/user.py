@@ -1,6 +1,7 @@
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
 from module_authorization.do.user import User, UserCreate, UserUpdate, UserResponse
 from module_authorization.dao.user import UserDao
+from common.utils.fastapiEX.exceptions import ConflictError
 from common.utils.security.password import verify_password,hash_password
 
 class UserService:
@@ -19,7 +20,7 @@ class UserService:
         # 检查用户名是否已存在
         existing_user = await self.user_dao.get_by_username(user.username)
         if existing_user:
-            raise ValueError(f"用户名 '{user.username}' 已存在")
+            raise ConflictError(f"用户名 '{user.username}' 已存在")
         # 首个注册用户自动引导为全局管理员(bootstrap)
         is_first_user = await self.user_dao.count() == 0
         # 密码进行加密处理

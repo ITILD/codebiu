@@ -270,6 +270,40 @@ async def test_upload_my_avatar_requires_login(anon_client: httpx.AsyncClient):
     )
     assert resp.status_code == 401, resp.text
 
+
+async def test_delete_my_avatar_ok(client: httpx.AsyncClient, anon_client: httpx.AsyncClient):
+    """删除头像还原默认: 头像字段置空, avatar 条目被清理(下载404)"""
+    content = PNG_BYTES + b"-del"
+    resp = await client.post(
+        f"{BASE}/me/avatar",
+        files={"file": (f"avatar_del_{uuid.uuid4().hex[:6]}.png", content, "image/png")},
+    )
+    assert resp.status_code == 200, resp.text
+    entry_id = resp.json()["entry_id"]
+
+    # 删除头像(还原默认首字头像)
+    resp = await client.delete(f"{BASE}/me/avatar")
+    assert resp.status_code == 204, resp.text
+
+    # me 头像字段已置空
+    me = (await client.get(f"{BASE}/me")).json()
+    assert not me["avatar"], "头像字段应被置空"
+
+    # avatar 文件条目已清理
+    resp_dl = await anon_client.get(f"/file/filesystem/download/{entry_id}")
+    assert resp_dl.status_code == 404, "已删除的头像条目下载应404"
+
+    # 重复删除应 400(当前无头像)
+    resp = await client.delete(f"{BASE}/me/avatar")
+    assert resp.status_code == 400, resp.text
+
+
+async def test_delete_my_avatar_requires_login(anon_client: httpx.AsyncClient):
+    """未登录删除头像应 401"""
+    resp = await anon_client.delete(f"{BASE}/me/avatar")
+    assert resp.status_code == 401, resp.text
+
+
 async def test_avatar_entry_readonly_in_file_module(client: httpx.AsyncClient):
     """业务条目只读守卫: avatar 条目在文件管理模块中不可改/删(400), 下载不受影响
 

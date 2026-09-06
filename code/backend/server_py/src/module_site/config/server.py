@@ -1,5 +1,5 @@
 from common.config.server import app
-from fastapi import FastAPI
+from common.utils.fastapiEX.exceptions import BizFastAPI
 import logging
 from sqlalchemy import Enum as SAEnum, inspect, text
 
@@ -10,7 +10,7 @@ from module_site.config import permissions as site_permissions  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
-module_app = FastAPI()
+module_app = BizFastAPI()
 
 app.mount("/site", module_app)
 

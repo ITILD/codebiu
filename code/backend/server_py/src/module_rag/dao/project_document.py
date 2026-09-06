@@ -2,6 +2,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select, func, update
 from common.utils.db.schema.pagination import PaginationParams
 from common.config.db import DaoRel,db_vector
+from common.utils.fastapiEX.exceptions import NotFoundError
 from module_rag.do.project_document import (
     ProjectDocument,
     ProjectDocumentCreate,
@@ -39,7 +40,7 @@ class ProjectDocumentDao:
         """
         document = await session.get(ProjectDocument, id)
         if not document:
-            raise ValueError(f"未找到ID为 {id} 的文档")
+            raise NotFoundError(f"未找到ID为 {id} 的文档")
         await session.delete(document)
         await session.flush()
 
@@ -64,7 +65,7 @@ class ProjectDocumentDao:
         )
         result = await session.exec(stmt)
         if result.rowcount == 0:
-            raise ValueError(f"未找到ID为 {document_id} 的文档")
+            raise NotFoundError(f"未找到ID为 {document_id} 的文档")
         await session.flush()
 
     @DaoRel

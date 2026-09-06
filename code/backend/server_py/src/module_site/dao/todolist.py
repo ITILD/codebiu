@@ -3,6 +3,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select, func, update
 from common.utils.db.schema.pagination import PaginationParams
 from common.config.db import DaoRel
+from common.utils.fastapiEX.exceptions import NotFoundError
 from module_site.do.todolist import Todolist, TodolistCreate, TodolistUpdate
 
 
@@ -51,7 +52,7 @@ class TodolistDao:
         )
         result = await session.exec(stmt)
         if result.rowcount == 0:
-            raise ValueError(f"未找到ID为 {todolist_id} 的备忘")
+            raise NotFoundError(f"未找到ID为 {todolist_id} 的备忘")
         await session.flush()
 
     @DaoRel
@@ -63,7 +64,7 @@ class TodolistDao:
         """
         todolist = await session.get(Todolist, todolist_id)
         if not todolist or (todolist.user_id and todolist.user_id != user_id):
-            raise ValueError(f"未找到ID为 {todolist_id} 的备忘")
+            raise NotFoundError(f"未找到ID为 {todolist_id} 的备忘")
         await session.delete(todolist)
         await session.flush()
 

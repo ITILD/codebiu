@@ -19,7 +19,8 @@ from common.utils.db.schema.pagination import (
     PaginationParams,
     PaginationResponse,
 )
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, status, Depends
+from common.utils.fastapiEX.exceptions import NotFoundError
 
 router = APIRouter()
 
@@ -37,10 +38,7 @@ async def create_synonym_group(
     :param service: 同义词组服务依赖注入
     :return: 创建的同义词组ID
     """
-    try:
-        return await service.add(synonym_group)
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    return await service.add(synonym_group)
 
 
 @router.post(
@@ -53,15 +51,12 @@ async def batch_create_synonyms(
     batch_create: SynonymBatchCreate, service: SynonymService = Depends(get_synonym_service)
 ) -> list[str]:
     """
-    批量创建同义词
+    在指定项目/同义词组下批量插入词语(共用同一语言代码), 返回新建同义词的ID列表
     :param batch_create: 批量创建同义词请求
     :param service: 同义词服务依赖注入
     :return: 创建的同义词ID列表
     """
-    try:
-        return await service.batch_add(batch_create)
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    return await service.batch_add(batch_create)
 
 @router.put(
     "/synonyms/batch/{group_id}", 
@@ -74,19 +69,13 @@ async def batch_update_synonyms(
     service: SynonymService = Depends(get_synonym_service)
 ) -> None:
     """
-    批量更新同义词
+    以请求的词语集合为目标, 增量同步指定同义词组内的词语(差集新增/删除)
     :param group_id: 同义词组ID
     :param batch_update: 批量更新同义词请求
     :param service: 同义词服务依赖注入
     :return: None
     """
-    try:
-        await service.batch_update(group_id, batch_update)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-            detail=str(e)
-        )
+    await service.batch_update(group_id, batch_update)
 
 @router.get("/groups/scroll", summary="同义词组滚动加载", response_model=InfiniteScrollResponse)
 async def synonym_group_infinite_scroll(
@@ -101,10 +90,7 @@ async def synonym_group_infinite_scroll(
     :param service: 同义词组服务依赖注入
     :return: 分页响应数据
     """
-    try:
-        return await service.get_scroll_by_pid(params, pid)
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    return await service.get_scroll_by_pid(params, pid)
 
 
 @router.get("/groups/list", summary="分页查询同义词组列表", response_model=PaginationResponse)
@@ -114,16 +100,13 @@ async def list_synonym_groups(
     service: SynonymGroupService = Depends(get_synonym_group_service),
 ) -> PaginationResponse:
     """
-    分页查询同义词组列表
+    分页查询指定项目下的同义词组列表(响应附带总数)
     :param pagination: 分页参数
     :param pid: 项目ID
     :param service: 同义词组服务依赖注入
     :return: 分页响应结果
     """
-    try:
-        return await service.list_paged_by_pid(pagination, pid)
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    return await service.list_paged_by_pid(pagination, pid)
 
 
 @router.get("/groups/{group_id}", summary="获取单个同义词组", response_model=SynonymGroup)
@@ -139,15 +122,11 @@ async def get_synonym_group(
     :param service: 同义词组服务依赖注入
     :return: 同义词组详情
     """
-    try:
-        result = await service.get_by_id_and_pid(group_id, pid)
-        if not result:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="同义词组未找到")
-        return result
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    # 同义词组不存在时返回 404(由全局异常处理器统一响应)
+    result = await service.get_by_id_and_pid(group_id, pid)
+    if not result:
+        raise NotFoundError("同义词组未找到")
+    return result
 
 
 @router.get(
@@ -163,10 +142,7 @@ async def get_synonyms_by_group(
     :param service: 同义词服务依赖注入
     :return: 同义词词语列表
     """
-    try:
-        return await service.get_synonyms_by_group(group_id)
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    return await service.get_synonyms_by_group(group_id)
 
 
 @router.get("/synonyms/search", summary="单个同义词查找", response_model=list[Synonym])
@@ -184,10 +160,7 @@ async def search_synonyms(
     :param service: 同义词服务依赖注入
     :return: 该词语所在同义词组的所有同义词列表
     """
-    try:
-        return await service.search_by_word(word, pid, language)
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    return await service.search_by_word(word, pid, language)
 
 
 @router.delete("/groups/{group_id}", summary="删除同义词组", status_code=status.HTTP_204_NO_CONTENT)
@@ -197,15 +170,12 @@ async def delete_synonym_group(
     service: SynonymGroupService = Depends(get_synonym_group_service),
 ) -> None:
     """
-    删除同义词组
+    删除指定项目下的同义词组, 并级联删除组内全部同义词(组不存在或不属于该项目时报错)
     :param group_id: 同义词组ID
     :param pid: 项目ID
     :param service: 同义词组服务依赖注入
     """
-    try:
-        await service.delete_by_id_and_pid(group_id, pid)
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    await service.delete_by_id_and_pid(group_id, pid)
 
 
 @router.delete("/groups/batch", summary="批量删除同义词组", status_code=status.HTTP_200_OK)
@@ -215,17 +185,14 @@ async def batch_delete_synonym_groups(
     service: SynonymGroupService = Depends(get_synonym_group_service),
 ) -> dict:
     """
-    批量删除同义词组
+    按ID列表批量删除指定项目下的同义词组, 级联删除组内全部同义词, 返回实际删除数量
     :param batch_delete: 批量删除请求(包含ids列表)
     :param pid: 项目ID
     :param service: 同义词组服务依赖注入
     :return: 删除结果(包含实际删除数量)
     """
-    try:
-        deleted_count = await service.batch_delete_by_ids_and_pid(batch_delete, pid)
-        return {"deleted_count": deleted_count}
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    deleted_count = await service.batch_delete_by_ids_and_pid(batch_delete, pid)
+    return {"deleted_count": deleted_count}
 
 
 @router.delete(
@@ -237,15 +204,12 @@ async def delete_synonym(
     service: SynonymService = Depends(get_synonym_service),
 ) -> None:
     """
-    删除同义词
+    按ID删除指定项目下的单个同义词(同义词不存在或不属于该项目时报错)
     :param synonym_id: 同义词ID
     :param pid: 项目ID
     :param service: 同义词服务依赖注入
     """
-    try:
-        await service.delete_by_id_and_pid(synonym_id, pid)
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    await service.delete_by_id_and_pid(synonym_id, pid)
 
 
 @router.delete("/synonyms/batch", summary="批量删除同义词", status_code=status.HTTP_200_OK)
@@ -255,17 +219,14 @@ async def batch_delete_synonyms(
     service: SynonymService = Depends(get_synonym_service),
 ) -> dict:
     """
-    批量删除同义词
+    按ID列表批量删除指定项目下的同义词, 返回实际删除数量
     :param batch_delete: 批量删除请求(包含ids列表)
     :param pid: 项目ID
     :param service: 同义词服务依赖注入
     :return: 删除结果(包含实际删除数量)
     """
-    try:
-        deleted_count = await service.batch_delete_by_ids_and_pid(batch_delete, pid)
-        return {"deleted_count": deleted_count}
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    deleted_count = await service.batch_delete_by_ids_and_pid(batch_delete, pid)
+    return {"deleted_count": deleted_count}
 
 
 @router.put("/groups", summary="更新同义词组", status_code=status.HTTP_204_NO_CONTENT)
@@ -275,15 +236,12 @@ async def update_synonym_group(
     service: SynonymGroupService = Depends(get_synonym_group_service),
 ) -> None:
     """
-    更新同义词组
+    按组ID更新同义词组信息(名称/描述/激活状态等, 组不存在时报错)
     :param group_id: 同义词组ID
     :param synonym_group: 同义词组数据
     :param service: 同义词组服务依赖注入
     """
-    try:
-        await service.update(group_id, synonym_group)
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    await service.update(group_id, synonym_group)
 
 
 @router.post(
@@ -304,13 +262,9 @@ async def batch_search_synonyms(
     :param service: 同义词服务
     :return: 所有词语所在同义词组的所有同义词列表
     """
-    try:
-        results = await service.batch_search_by_words(
-            words=request.words, pid=pid, language=request.language
-        )
-        return results
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    return await service.batch_search_by_words(
+        words=request.words, pid=pid, language=request.language
+    )
 
 
 @router.post(
@@ -332,14 +286,9 @@ async def get_synonym_group_classified_results(
     :param service: 同义词服务依赖注入
     :return: 同义词分组结果列表，每个结果包含输入词组(同义)和对应同义词列表
     """
-    try:
-        return await service.get_synonym_group_classified_results(
-            words=request.words, pid=pid, language=request.language
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.get_synonym_group_classified_results(
+        words=request.words, pid=pid, language=request.language
+    )
 
 
 module_app.include_router(router, prefix="/synonyms", tags=["同义词管理"])

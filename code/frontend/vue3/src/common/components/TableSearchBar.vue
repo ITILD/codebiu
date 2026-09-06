@@ -36,7 +36,7 @@ export interface SearchField {
   </TableSearchBar>
 -->
 <template>
-  <div p-4 mb-4 rounded-lg bg-note-card border border-note shadow-note>
+  <div page-card mb-4>
     <div flex flex-wrap items-center gap-x-4 gap-y-3>
       <!-- 筛选字段区 -->
       <div v-for="field in visibleFields" :key="field.prop" flex items-center gap-2>

@@ -3,17 +3,25 @@
     <h3 class="text-lg font-bold text-note mb-1">基本信息</h3>
     <p class="text-sm text-note-sub mb-5">维护你的昵称、联系方式与头像，登录后即可自助修改。</p>
 
-    <!-- 头像预览 + 上传/地址 -->
+    <!-- 头像预览 + 上传/删除/地址 -->
     <div class="flex items-center gap-4 mb-5">
-      <el-avatar :size="64" :src="form.avatar || undefined" :icon="UserFilled" />
+      <!-- 无上传头像时显示昵称/用户名首字默认头像 -->
+      <UserAvatar :size="64" :src="form.avatar" :name="form.nickname || authState.user.username" />
       <div class="flex-1 flex flex-col gap-2">
         <!-- 头像上传(经统一文件服务存入 /用户头像/<用户ID>/, 成功后自动清理旧头像并更新用户记录) -->
-        <el-upload :show-file-list="false" :before-upload="handleAvatarUpload"
-          :disabled="uploadingAvatar" accept=".png,.jpg,.jpeg,.gif,.webp,.svg,.bmp">
-          <el-button size="small" :loading="uploadingAvatar" :icon="Upload">
-            {{ uploadingAvatar ? '上传中' : '上传头像' }}
+        <div class="flex gap-2">
+          <el-upload :show-file-list="false" :before-upload="handleAvatarUpload"
+            :disabled="uploadingAvatar" accept=".png,.jpg,.jpeg,.gif,.webp,.svg,.bmp">
+            <el-button size="small" :loading="uploadingAvatar" :icon="Upload">
+              {{ uploadingAvatar ? '上传中' : '上传头像' }}
+            </el-button>
+          </el-upload>
+          <!-- 删除头像(仅已上传头像时可用): 清理头像文件并还原默认首字头像 -->
+          <el-button v-if="hasUploadedAvatar" size="small" type="danger" plain :icon="Delete"
+            :loading="deletingAvatar" @click="handleDeleteAvatar">
+            删除头像
           </el-button>
-        </el-upload>
+        </div>
         <el-input v-model="form.avatar" placeholder="头像图片地址(可选, 上传头像后自动填充)" clearable>
           <template #prefix>URL</template>
         </el-input>
@@ -42,15 +50,16 @@
 </template>
 
 <script setup lang="ts">
-import { UserFilled, Upload } from '@element-plus/icons-vue'
-import { updateMyProfile, uploadMyAvatar } from '@/modules/authorization/api/auth'
+import { Upload, Delete } from '@element-plus/icons-vue'
+import { updateMyProfile, uploadMyAvatar, deleteMyAvatar } from '@/modules/authorization/api/auth'
 import { useAuthStore } from '@/common/stores/auth'
-import { ElMessage, type UploadRawFile } from 'element-plus'
+import { ElMessage, ElMessageBox, type UploadRawFile } from 'element-plus'
 
 const authStore = useAuthStore()
 const authState = authStore.authState
 const saving = ref(false)
 const uploadingAvatar = ref(false)
+const deletingAvatar = ref(false)
 
 // 表单初值取自登录会话中的用户信息
 const buildForm = () => ({
@@ -62,6 +71,34 @@ const buildForm = () => ({
 const form = reactive(buildForm())
 
 const resetForm = () => Object.assign(form, buildForm())
+
+/** 是否存在已上传的头像(仅上传的头像可删除; 外部URL不提供删除入口) */
+const hasUploadedAvatar = computed(() =>
+  !!form.avatar && form.avatar.includes('/file/filesystem/download/')
+)
+
+/** 删除头像: 服务端清理头像文件条目并置空头像字段, 回退默认首字头像 */
+const handleDeleteAvatar = async () => {
+  try {
+    await ElMessageBox.confirm(
+      '确定删除当前头像吗？删除后将还原为用户名首字默认头像。',
+      '删除头像',
+      { type: 'warning', confirmButtonText: '确定', cancelButtonText: '取消' }
+    )
+    deletingAvatar.value = true
+    await deleteMyAvatar()
+    form.avatar = ''
+    authState.user.avatar = ''
+    ElMessage.success('头像已删除，已还原为默认头像')
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除头像失败:', error)
+      ElMessage.error(error instanceof Error ? error.message : '删除头像失败')
+    }
+  } finally {
+    deletingAvatar.value = false
+  }
+}
 
 /** 上传头像(返回 false 阻止 el-upload 默认行为)
  *  后端经统一文件服务落盘并更新用户记录, 前端仅同步会话状态与表单回显 */

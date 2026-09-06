@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 
 from module_data_clean.config.server import module_app
 from module_data_clean.dependencies.data_clean import get_data_clean_service
@@ -25,13 +25,7 @@ async def clean(
     - **output_type**: 输出类型, json=结构化 JSON, string=纯字符串
     - **json_schema**: 输出 JSON 结构(JSON Schema), output_type=json 时提供可保证结构
     """
-    try:
-        return await data_clean_service.clean(request)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(f"数据清洗失败: {e}")
-        raise HTTPException(status_code=500, detail=f"数据清洗失败: {str(e)}")
+    return await data_clean_service.clean(request)
 
 
 module_app.include_router(router, prefix="/clean", tags=["数据清洗"])

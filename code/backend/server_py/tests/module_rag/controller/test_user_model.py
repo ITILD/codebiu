@@ -35,11 +35,11 @@ async def test_get_my_binding_default(client: httpx.AsyncClient):
 
 
 async def test_update_binding_unknown_model_rejected(client: httpx.AsyncClient):
-    """绑定不存在的模型配置应 400"""
+    """绑定不存在的模型配置应 404(资源不存在语义)"""
     resp = await client.put(
         f"{BASE}/my", json={"chat_model_id": f"no-such-model-{uuid.uuid4().hex[:8]}"}
     )
-    assert resp.status_code == 400, f"不存在的模型配置应 400: {resp.text}"
+    assert resp.status_code == 404, f"不存在的模型配置应 404: {resp.text}"
 
 
 async def test_binding_upsert_flow(client: httpx.AsyncClient):

@@ -1,6 +1,7 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select, func, update
 from common.config.db import DaoRel
+from common.utils.fastapiEX.exceptions import NotFoundError
 from module_rag.do.conversation import Conversation, ConversationCreate, ConversationUpdate
 
 
@@ -31,7 +32,7 @@ class ConversationDao:
         """
         conv = await session.get(Conversation, conversation_id)
         if not conv:
-            raise ValueError(f"未找到ID为 {conversation_id} 的对话")
+            raise NotFoundError(f"未找到ID为 {conversation_id} 的对话")
         await session.delete(conv)
         await session.flush()
 
@@ -57,7 +58,7 @@ class ConversationDao:
         )
         result = await session.exec(stmt)
         if result.rowcount == 0:
-            raise ValueError(f"未找到ID为 {conversation_id} 的对话")
+            raise NotFoundError(f"未找到ID为 {conversation_id} 的对话")
         await session.flush()
 
     @DaoRel

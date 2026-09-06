@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException, status, Depends, Query
+from fastapi import APIRouter, status, Depends, Query
+from common.utils.fastapiEX.exceptions import BusinessError, NotFoundError
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
 from module_rag.do.project import Project, ProjectCreate, ProjectUpdate, ProjectResponse, KbCategory
 from module_rag.service.project import ProjectService
@@ -26,16 +27,7 @@ async def create_project(
     :param service: 项目服务依赖注入
     :return: 创建的项目ID
     """
-    try:
-        return await service.add(project, current_user_id)
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.add(project, current_user_id)
 
 
 @router.get(
@@ -58,21 +50,13 @@ async def list_projects(
     :param service: 项目服务依赖注入
     :return: 分页响应结果
     """
-    try:
-        if kb_category is not None and kb_category not in KbCategory.values():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"无效的知识库分类 '{kb_category}'，允许的值: {'/'.join(KbCategory.values())}",
-            )
-        return await service.list_paged(
-            pagination, kb_category=kb_category, name=name, is_private=is_private
+    if kb_category is not None and kb_category not in KbCategory.values():
+        raise BusinessError(
+            f"无效的知识库分类 '{kb_category}'，允许的值: {'/'.join(KbCategory.values())}"
         )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.list_paged(
+        pagination, kb_category=kb_category, name=name, is_private=is_private
+    )
 
 
 @router.get("/{project_id}", summary="获取单个项目", response_model=Project)
@@ -87,20 +71,10 @@ async def get_project(
     :param service: 项目服务依赖注入
     :return: 项目详情
     """
-    try:
-        result = await service.get(project_id)
-        if not result:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="项目未找到"
-            )
-        return result
-    except HTTPException:
-        # 保留 404 语义,避免被包装成 500
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    result = await service.get(project_id)
+    if not result:
+        raise NotFoundError("项目未找到")
+    return result
 
 
 @router.delete(
@@ -112,16 +86,12 @@ async def delete_project(
     service: ProjectService = Depends(get_project_service)
 ):
     """
-    删除项目
+    删除项目并级联清理: 虚拟目录树中的项目根文件夹、Milvus向量、
+    全部文档/成员/部门授权记录及旧口径遗留的本地物理文件
     :param project_id: 项目ID
     :param service: 项目服务依赖注入
     """
-    try:
-        await service.delete(project_id)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    await service.delete(project_id)
 
 
 @router.put(
@@ -134,21 +104,12 @@ async def update_project(
     service: ProjectService = Depends(get_project_service)
 ):
     """
-    更新项目
+    更新项目基础信息(校验知识库分类合法性, 无效时返回400); 名称变更时同步重命名虚拟目录中的项目文件夹
     :param project_id: 项目ID
     :param project: 项目数据
     :param service: 项目服务依赖注入
     """
-    try:
-        await service.update(project_id, project)
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    await service.update(project_id, project)
 
 
 # 注册路由

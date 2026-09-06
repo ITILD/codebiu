@@ -48,7 +48,7 @@ async def _resolve_engine(raw: str | None) -> VoiceEngine | None:
 )
 async def asr_upload(
     audio: UploadFile,
-    engine: VoiceEngine | None = Form(None),
+    engine: VoiceEngine | None = Form(None, description="识别引擎：sherpa / qwen，缺省时按模型配置自动选择"),
     voice_service: VoiceService = Depends(get_voice_service),
 ):
     """上传音频文件进行语音识别
@@ -60,14 +60,10 @@ async def asr_upload(
     if not audio_bytes:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "音频文件为空")
     start = time.time()
-    try:
-        text = await voice_service.asr(audio_bytes, engine)
-        return ASRResponse(
-            text=text, engine=engine or VoiceEngine.SHERPA, elapsed=round(time.time() - start, 3)
-        )
-    except Exception as e:
-        logger.error(f"ASR 识别失败: {e}")
-        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(e))
+    text = await voice_service.asr(audio_bytes, engine)
+    return ASRResponse(
+        text=text, engine=engine or VoiceEngine.SHERPA, elapsed=round(time.time() - start, 3)
+    )
 
 
 @router.websocket("/asr/stream")
@@ -173,17 +169,13 @@ async def tts_file(
     """
     if not req.text.strip():
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "文本内容为空")
-    try:
-        pcm, sr = await voice_service.tts(
-            req.text,
-            req.engine,
-            req.speaker,
-            req.speed,
-            req.sample_rate,
-        )
-    except Exception as e:
-        logger.error(f"TTS 合成失败: {e}")
-        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(e))
+    pcm, sr = await voice_service.tts(
+        req.text,
+        req.engine,
+        req.speaker,
+        req.speed,
+        req.sample_rate,
+    )
 
     wav_bytes = pcm_to_wav_bytes(pcm, sr)
     return Response(
@@ -213,14 +205,10 @@ async def tts_stream(
     if not req.text.strip():
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "文本内容为空")
 
-    # 先解析引擎与实际生效方案(生成器内不能 await)
-    try:
-        iterator, effective = await voice_service.tts_stream(
-            req.text, req.engine, req.speaker, req.speed, req.sample_rate
-        )
-    except Exception as e:
-        logger.error(f"TTS 引擎获取失败: {e}")
-        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(e))
+    # 先解析引擎与实际生效方案(生成器内不能 await; 失败由全局异常处理器统一返回)
+    iterator, effective = await voice_service.tts_stream(
+        req.text, req.engine, req.speaker, req.speed, req.sample_rate
+    )
 
     sample_rate_holder = {"sr": req.sample_rate}
 

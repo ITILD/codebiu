@@ -5,6 +5,7 @@ from module_websearch.utils.websearch.do.websearch import EngineInfo, SearchRequ
 from module_authorization.dependencies.permission import require_permission
 
 from fastapi import APIRouter, HTTPException, status, Depends
+from common.utils.fastapiEX.exceptions import BusinessError
 
 router = APIRouter()
 
@@ -24,12 +25,7 @@ async def list_engines(
     :param service: 搜索服务依赖注入
     :return: 引擎元信息列表
     """
-    try:
-        return service.list_engines()
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return service.list_engines()
 
 
 @router.post(
@@ -52,7 +48,8 @@ async def search(
     try:
         return await service.search(request)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        # 请求参数校验失败 -> 400(需显式转换, 避免被下方网络异常 502 分支捕获)
+        raise BusinessError(str(e))
     except Exception as e:
         # 网络类异常(如超时)的 str 可能为空,补充异常类型名便于排查
         detail = f"{type(e).__name__}: {e}" if str(e) else type(e).__name__

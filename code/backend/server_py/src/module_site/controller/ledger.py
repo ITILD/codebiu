@@ -10,7 +10,8 @@ from module_site.do.ledger import (
 from module_authorization.dependencies.permission import require_permission
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
 
-from fastapi import APIRouter, HTTPException, status, Depends, Query
+from fastapi import APIRouter, status, Depends, Query
+from common.utils.fastapiEX.exceptions import NotFoundError
 
 router = APIRouter()
 
@@ -28,12 +29,7 @@ async def create_ledger_record(
     :param record: 记账数据(金额/方向/分类/日期/备注)
     :return: 创建的记录ID
     """
-    try:
-        return await service.add(record, current_user_id)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.add(record, current_user_id)
 
 
 @router.get("/stats", summary="记账统计(概览+饼图+趋势, 支持月/年)", response_model=LedgerStats)
@@ -52,12 +48,7 @@ async def get_ledger_stats(
     - category_pie: 周期内支出分类占比(饼图)
     - trend: 收支趋势(月度近6个月 / 年度全年12个月, 柱状图)
     """
-    try:
-        return await service.stats(current_user_id, month)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.stats(current_user_id, month)
 
 
 @router.get("/list", summary="分页查询记账记录", response_model=PaginationResponse)
@@ -72,14 +63,9 @@ async def list_ledger_records(
     """
     分页查询本人记账记录(支持月份/方向/分类过滤, 按记账日期倒序)
     """
-    try:
-        return await service.list_mine(
-            pagination, current_user_id, month=month, flow_type=flow_type, category=category
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.list_mine(
+        pagination, current_user_id, month=month, flow_type=flow_type, category=category
+    )
 
 
 # 低优先级路由(放在 /stats /list 之后)
@@ -90,20 +76,11 @@ async def get_ledger_record(
     service: LedgerService = Depends(get_ledger_service),
 ) -> LedgerRecord:
     """获取记账记录详情(仅本人可见)"""
-    try:
-        result = await service.get(record_id, current_user_id)
-        if not result:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="记账记录不存在"
-            )
-        return result
-    except HTTPException:
-        # 保留 404 语义,避免被通用异常处理包装成 500
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    # 记录不存在时返回 404(由全局异常处理器统一响应)
+    result = await service.get(record_id, current_user_id)
+    if not result:
+        raise NotFoundError("记账记录不存在")
+    return result
 
 
 @router.delete(
@@ -119,11 +96,7 @@ async def delete_ledger_record(
         await service.delete(record_id, current_user_id)
     except ValueError as e:
         # 资源不存在或不属于当前用户 → 404
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+        raise NotFoundError(str(e))
 
 
 @router.put(
@@ -139,11 +112,8 @@ async def update_ledger_record(
     try:
         await service.update(record_id, record, current_user_id)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+        # 资源不存在或不属于当前用户 → 404
+        raise NotFoundError(str(e))
 
 
 module_app.include_router(router, prefix="/ledger/records", tags=["个人小站-记账"])

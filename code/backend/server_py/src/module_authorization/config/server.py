@@ -1,7 +1,7 @@
 from common.config.server import app
 from common.config.lifespan import register_init_hook
 # lib
-from fastapi import FastAPI
+from common.utils.fastapiEX.exceptions import BizFastAPI
 import logging
 # # 引入权限中间件
 # from common.middleware.permission import PermissionMiddleware
@@ -10,7 +10,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-module_app = FastAPI()
+module_app = BizFastAPI()
 
 app.mount("/authorization", module_app)
 

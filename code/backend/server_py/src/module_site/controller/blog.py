@@ -5,7 +5,8 @@ from module_site.do.blog import BlogPost, BlogPostCreate, BlogPostUpdate
 from module_authorization.dependencies.permission import require_permission
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
 
-from fastapi import APIRouter, HTTPException, status, Depends, Query
+from fastapi import APIRouter, status, Depends, Query
+from common.utils.fastapiEX.exceptions import NotFoundError
 
 router = APIRouter()
 
@@ -27,12 +28,7 @@ async def create_blog_post(
     :param current_user_id: 当前登录用户ID(作者)
     :return: 创建的文章ID
     """
-    try:
-        return await service.add(post, current_user_id)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.add(post, current_user_id)
 
 
 @router.get(
@@ -50,12 +46,7 @@ async def list_published_posts(
     分页查询已发布的博客文章(展示页内容, 需 site:blog:read 权限)
     :param keyword: 标题关键词过滤
     """
-    try:
-        return await service.list_published(pagination, keyword=keyword)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.list_published(pagination, keyword=keyword)
 
 
 @router.get(
@@ -74,18 +65,13 @@ async def list_my_posts(
     """
     分页查询当前用户的博客文章列表(管理页, 仅本人文章)
     """
-    try:
-        return await service.list_mine(
-            pagination,
-            current_user_id,
-            title=title,
-            status=status_filter,
-            source_type=source_filter,
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.list_mine(
+        pagination,
+        current_user_id,
+        title=title,
+        status=status_filter,
+        source_type=source_filter,
+    )
 
 
 # 低优先级路由(放在 /list /view/list 之后)
@@ -98,20 +84,11 @@ async def get_blog_post(
     """
     获取文章详情(草稿仅作者可见, 已发布文章对持有 read 权限的用户可见)
     """
-    try:
-        result = await service.get_visible(post_id, current_user_id)
-        if not result:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="博客文章不存在"
-            )
-        return result
-    except HTTPException:
-        # 保留 404 语义,避免被通用异常处理包装成 500
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    # 文章不存在时返回 404(由全局异常处理器统一响应)
+    result = await service.get_visible(post_id, current_user_id)
+    if not result:
+        raise NotFoundError("博客文章不存在")
+    return result
 
 
 @router.delete(
@@ -127,11 +104,7 @@ async def delete_blog_post(
         await service.delete(post_id, current_user_id)
     except ValueError as e:
         # 资源不存在或不属于当前用户 → 404
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+        raise NotFoundError(str(e))
 
 
 @router.put(
@@ -147,11 +120,8 @@ async def update_blog_post(
     try:
         await service.update(post_id, post, current_user_id)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+        # 资源不存在或不属于当前用户 → 404
+        raise NotFoundError(str(e))
 
 
 module_app.include_router(router, prefix="/blog/posts", tags=["个人小站-博客"])

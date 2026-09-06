@@ -1,5 +1,5 @@
 from common.config.server import app
-from fastapi import FastAPI
+from common.utils.fastapiEX.exceptions import BizFastAPI
 import logging
 from sqlalchemy import inspect, text
 
@@ -12,7 +12,7 @@ from module_rag.config import dict_seed as rag_dict_seed  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
-module_app = FastAPI()
+module_app = BizFastAPI()
 
 app.mount("/rag", module_app)
 

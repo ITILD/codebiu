@@ -4,6 +4,7 @@ from common.utils.db.schema.pagination import (
     PaginationParams,
 )
 from common.config.db import DaoRel
+from common.utils.fastapiEX.exceptions import NotFoundError
 from module_authorization.do.permission import Permission, PermissionCreate, PermissionUpdate
 
 
@@ -23,7 +24,7 @@ class PermissionDao:
         """删除权限记录"""
         permission = await session.get(Permission, id)
         if not permission:
-            raise ValueError(f"未找到ID为 {id} 的权限")
+            raise NotFoundError(f"未找到ID为 {id} 的权限")
         await session.delete(permission)
         await session.flush()
 
@@ -39,7 +40,7 @@ class PermissionDao:
         stmt = update(Permission).where(Permission.id == permission_id).values(**update_data)
         result = await session.exec(stmt)
         if result.rowcount == 0:
-            raise ValueError(f"未找到ID为 {permission_id} 的权限")
+            raise NotFoundError(f"未找到ID为 {permission_id} 的权限")
         await session.flush()
 
     @DaoRel

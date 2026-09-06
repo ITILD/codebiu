@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
+from common.utils.fastapiEX.exceptions import BusinessError, NotFoundError
 from module_authorization.do.casbin_rule import (
     PolicyRequest,
     RoleForUserRequest,
@@ -22,6 +23,7 @@ router = APIRouter()
 @router.post(
     "/policy",
     status_code=status.HTTP_201_CREATED,
+    summary="新增策略规则",
     dependencies=[Depends(require_permission("sys", "casbin", "create"))],
 )
 async def add_policy(
@@ -42,9 +44,7 @@ async def add_policy(
     )
 
     if not success:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="策略规则已存在"
-        )
+        raise BusinessError("策略规则已存在")
 
     return {"message": "策略规则添加成功", "data": request.dict()}
 
@@ -52,13 +52,14 @@ async def add_policy(
 @router.delete(
     "/policy",
     status_code=status.HTTP_200_OK,
+    summary="删除策略规则",
     dependencies=[Depends(require_permission("sys", "casbin", "delete"))],
 )
 async def remove_policy(
     request: PolicyRequest,
     casbin_service: CasbinRuleService = Depends(get_casbin_rule_service),
 ):
-    """删除策略规则
+    """按 sub/dom/obj/act 精确匹配删除策略规则, 规则不存在时返回404
 
     Args:
         request: 删除策略请求数据（包含sub, dom, obj, act）
@@ -72,9 +73,7 @@ async def remove_policy(
     )
 
     if not success:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="策略规则不存在"
-        )
+        raise NotFoundError("策略规则不存在")
 
     return {"message": "策略规则删除成功"}
 
@@ -82,6 +81,7 @@ async def remove_policy(
 @router.post(
     "/role-user",
     status_code=status.HTTP_201_CREATED,
+    summary="为用户绑定角色",
     dependencies=[Depends(require_permission("sys", "casbin", "create"))],
 )
 async def add_role_for_user(
@@ -102,9 +102,7 @@ async def add_role_for_user(
     )
 
     if not success:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="用户已拥有该角色"
-        )
+        raise BusinessError("用户已拥有该角色")
 
     return {"message": "角色添加成功"}
 
@@ -112,6 +110,7 @@ async def add_role_for_user(
 @router.delete(
     "/role-user",
     status_code=status.HTTP_200_OK,
+    summary="解除用户角色绑定",
     dependencies=[Depends(require_permission("sys", "casbin", "delete"))],
 )
 async def remove_role_for_user(
@@ -132,9 +131,7 @@ async def remove_role_for_user(
     )
 
     if not success:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="用户未拥有该角色"
-        )
+        raise NotFoundError("用户未拥有该角色")
 
     return {"message": "角色删除成功"}
 
@@ -142,6 +139,7 @@ async def remove_role_for_user(
 @router.get(
     "/roles/{user_id}",
     status_code=status.HTTP_200_OK,
+    summary="查询用户的角色列表",
     dependencies=[Depends(require_permission("sys", "casbin", "read"))],
 )
 async def get_roles_for_user(
@@ -164,6 +162,7 @@ async def get_roles_for_user(
 @router.get(
     "/permissions/{role_key}",
     status_code=status.HTTP_200_OK,
+    summary="查询角色的权限列表",
     dependencies=[Depends(require_permission("sys", "casbin", "read"))],
 )
 async def get_permissions_for_role(
@@ -187,6 +186,7 @@ async def get_permissions_for_role(
 @router.post(
     "/check-permission",
     status_code=status.HTTP_200_OK,
+    summary="校验用户权限",
     dependencies=[Depends(require_permission("sys", "casbin", "read"))],
 )
 async def check_permission(
@@ -211,6 +211,7 @@ async def check_permission(
 @router.post(
     "/batch-role-permissions",
     status_code=status.HTTP_201_CREATED,
+    summary="批量为角色添加权限",
     dependencies=[Depends(require_permission("sys", "casbin", "create"))],
 )
 async def batch_add_role_permissions(
@@ -241,6 +242,7 @@ async def batch_add_role_permissions(
 @router.post(
     "/batch-user-roles",
     status_code=status.HTTP_201_CREATED,
+    summary="批量为用户绑定角色",
     dependencies=[Depends(require_permission("sys", "casbin", "create"))],
 )
 async def batch_add_user_roles(
@@ -266,6 +268,7 @@ async def batch_add_user_roles(
 @router.delete(
     "/role-permissions/{role_key}",
     status_code=status.HTTP_200_OK,
+    summary="清空角色权限",
     dependencies=[Depends(require_permission("sys", "casbin", "delete"))],
 )
 async def delete_role_permissions(
@@ -289,6 +292,7 @@ async def delete_role_permissions(
 @router.delete(
     "/user-roles/{user_id}",
     status_code=status.HTTP_200_OK,
+    summary="清空用户角色",
     dependencies=[Depends(require_permission("sys", "casbin", "delete"))],
 )
 async def delete_user_roles(
@@ -312,6 +316,7 @@ async def delete_user_roles(
 @router.post(
     "/reload-policy",
     status_code=status.HTTP_200_OK,
+    summary="重载 Casbin 策略",
     dependencies=[Depends(require_permission("sys", "casbin", "update"))],
 )
 async def reload_policy(
@@ -333,6 +338,7 @@ async def reload_policy(
 @router.get(
     "/policies",
     status_code=status.HTTP_200_OK,
+    summary="查询全部策略规则",
     dependencies=[Depends(require_permission("sys", "casbin", "read"))],
 )
 async def get_all_policies(
@@ -357,6 +363,7 @@ async def get_all_policies(
 @router.get(
     "/grouping-policies",
     status_code=status.HTTP_200_OK,
+    summary="查询全部用户-角色绑定",
     dependencies=[Depends(require_permission("sys", "casbin", "read"))],
 )
 async def get_all_grouping_policies(
@@ -396,6 +403,7 @@ def _node_to_dict(node) -> dict:
 @router.get(
     "/module-tree",
     status_code=status.HTTP_200_OK,
+    summary="查询模块权限声明树",
     dependencies=[Depends(require_permission("sys", "casbin", "read"))],
 )
 async def get_module_permission_tree():
@@ -417,6 +425,7 @@ async def get_module_permission_tree():
 @router.get(
     "/role-perms/{role_key}",
     status_code=status.HTTP_200_OK,
+    summary="查询角色已授权的权限码",
     dependencies=[Depends(require_permission("sys", "casbin", "read"))],
 )
 async def get_role_node_codes(
@@ -438,6 +447,7 @@ async def get_role_node_codes(
 @router.post(
     "/role-perms",
     status_code=status.HTTP_200_OK,
+    summary="全量同步角色权限",
     dependencies=[Depends(require_permission("sys", "casbin", "update"))],
 )
 async def sync_role_permissions(

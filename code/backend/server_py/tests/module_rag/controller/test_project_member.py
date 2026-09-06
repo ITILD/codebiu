@@ -139,7 +139,7 @@ async def test_add_member_invalid_role(client: httpx.AsyncClient):
 
 
 async def test_add_duplicate_member_rejected(client: httpx.AsyncClient):
-    """重复添加同一成员应 400"""
+    """重复添加同一成员应 409(重名冲突 ConflictError)"""
     project_id = await _create_project(client)
     user_id = await _create_user(client)
     try:
@@ -154,7 +154,7 @@ async def test_add_duplicate_member_rejected(client: httpx.AsyncClient):
             BASE,
             json={"user_id": user_id, "project_id": project_id, "role": "project_editor"},
         )
-        assert resp.status_code == 400, f"重复添加应 400: {resp.text}"
+        assert resp.status_code == 409, f"重复添加应 409: {resp.text}"
     finally:
         await client.delete(f"{USER_BASE}/{user_id}")
         await client.delete(f"{PROJECT_BASE}/{project_id}")

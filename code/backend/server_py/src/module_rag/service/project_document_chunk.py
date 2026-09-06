@@ -4,6 +4,7 @@ from module_rag.do.project_document_chunk import (
     ProjectDocumentChunkSearchResponse,
 )
 from module_ai.utils.llm.do.llm_type import ModelType
+from common.utils.fastapiEX.exceptions import NotFoundError
 from module_rag.service.user_model import UserModelService
 from module_ai.service.llm_base import LLMBaseService
 import logging
@@ -176,7 +177,7 @@ class ProjectDocumentChunkService:
             model_id = fallback.id
         model_config = await ModelConfigDao().get(model_id)
         if model_config is None:
-            raise ValueError(f"模型配置不存在: {model_id}")
+            raise NotFoundError(f"模型配置不存在: {model_id}")
         embeddings_llm = await LLMBaseService().get_llm(model_id, False)
         if embeddings_llm is None:
             raise ValueError(f"加载向量化模型失败: {model_config.model}")

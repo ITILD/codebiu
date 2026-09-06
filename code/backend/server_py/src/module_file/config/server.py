@@ -1,6 +1,6 @@
 from common.config.server import app
 # lib
-from fastapi import FastAPI
+from common.utils.fastapiEX.exceptions import BizFastAPI
 import logging
 from sqlalchemy import inspect, text
 
@@ -9,7 +9,7 @@ from common.config.lifespan import register_init_hook
 
 logger = logging.getLogger(__name__)
 
-module_app = FastAPI()
+module_app = BizFastAPI()
 
 app.mount("/file", module_app)
 
@@ -48,3 +48,21 @@ async def ensure_file_entry_source_module():
                      "ADD COLUMN source_module VARCHAR(50) DEFAULT NULL")
             )
             logger.info("file_entry.source_module 来源模块列已补齐")
+
+
+@register_init_hook
+async def ensure_file_entry_tags():
+    """存量表补列: file_entry.tags(关键词标签组 JSON, 幂等; create_all 不为旧表加列)"""
+    if db_manager.db_rel is None:
+        return
+    engine = db_manager.db_rel.engine
+    async with engine.begin() as conn:
+        cols = await conn.run_sync(
+            lambda sc: {c["name"] for c in inspect(sc).get_columns("file_entry")}
+        )
+        if "tags" not in cols:
+            await conn.execute(
+                text("ALTER TABLE file_entry "
+                     "ADD COLUMN tags JSON DEFAULT '[]'")
+            )
+            logger.info("file_entry.tags 标签列已补齐")

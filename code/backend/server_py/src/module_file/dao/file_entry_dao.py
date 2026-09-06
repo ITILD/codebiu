@@ -1,5 +1,6 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
 from common.config.db import DaoRel
+from common.utils.fastapiEX.exceptions import NotFoundError
 from sqlmodel import select, func, update, delete, text
 from common.utils.db.schema.pagination import PaginationParams
 from module_file.do.filesystem import (
@@ -36,7 +37,7 @@ class FileEntryDao:
         """
         result = await session.exec(delete(FileEntry).where(FileEntry.id == id))
         if result.rowcount == 0:
-            raise ValueError(f"File with ID '{id}' not found")
+            raise NotFoundError(f"File with ID '{id}' not found")
 
     @DaoRel
     async def soft_delete(self, id, session: AsyncSession | None = None):
@@ -77,7 +78,7 @@ class FileEntryDao:
 
         # 检查是否实际更新了记录
         if result.rowcount == 0:
-            raise ValueError(f"未找到ID为 {file_content_id} 的文件")
+            raise NotFoundError(f"未找到ID为 {file_content_id} 的文件")
         await session.flush()
 
     @DaoRel

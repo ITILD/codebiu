@@ -10,6 +10,7 @@ from common.utils.db.schema.pagination import (
     ScrollDirection,
 )
 from common.config.db import DaoRel
+from common.utils.fastapiEX.exceptions import NotFoundError
 from module_dev_tools.do.template_string import TemplateString, TemplateStringCreate, TemplateStringUpdate
 
 
@@ -42,7 +43,7 @@ class TemplateStringDao:
         """
         template = await session.get(TemplateString, id)
         if not template:
-            raise ValueError(f"未找到ID为 {id} 的模板字符串")
+            raise NotFoundError(f"未找到ID为 {id} 的模板字符串")
         await session.delete(template)
         await session.flush()
 
@@ -65,7 +66,7 @@ class TemplateStringDao:
         stmt = update(TemplateString).where(TemplateString.id == template_string_id).values(**update_data)
         result = await session.exec(stmt)
         if result.rowcount == 0:
-            raise ValueError(f"未找到ID为 {template_string_id} 的模板字符串")
+            raise NotFoundError(f"未找到ID为 {template_string_id} 的模板字符串")
         await session.flush()
         return template_string_id
 
@@ -109,7 +110,7 @@ class TemplateStringDao:
         if params.last_id:
             last_template = await session.get(TemplateString, params.last_id)
             if not last_template:
-                raise ValueError(f"未找到ID为 {params.last_id} 的模板字符串")
+                raise NotFoundError(f"未找到ID为 {params.last_id} 的模板字符串")
 
             sort_value = getattr(last_template, sort_by)
             search_value = getattr(TemplateString, sort_by)

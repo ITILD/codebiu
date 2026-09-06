@@ -28,7 +28,8 @@
         </template>
       </el-table-column>
       <el-table-column prop="created_at" label="创建时间" min-width="180" sortable />
-      <el-table-column label="操作" min-width="260" fixed="right">
+      <!-- 操作列: 平板及以上固定右侧, 手机取消固定避免遮挡 -->
+      <el-table-column label="操作" min-width="260" :fixed="isMd ? 'right' : false">
         <template #default="{ row }">
           <el-button size="small" type="primary" plain @click="handleEdit(row)">编辑</el-button>
           <el-button size="small" type="success" plain @click="handlePermission(row)">分配权限</el-button>
@@ -100,7 +101,11 @@ import type { PaginationParams, PaginationResponse } from '@/common/types/common
 import type { Role, RoleCreate, RoleUpdate } from '../types/role'
 import { dataScopeOptions } from '../types/role'
 import type { SearchField } from '@/common/components/TableSearchBar.vue'
+import { useResponsive } from '@/common/composables/useResponsive'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
+
+// 响应式: 平板及以上操作列固定右侧
+const { isMd } = useResponsive()
 
 // 搜索字段配置(名称/权限字符/状态多字段筛选)
 const searchFields: SearchField[] = [

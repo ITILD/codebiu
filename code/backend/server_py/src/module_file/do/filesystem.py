@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 from sqlmodel import Column, DateTime, Field, SQLModel
+from sqlalchemy import JSON
 from uuid import uuid4
 from datetime import datetime, timezone
 from module_file.utils.multi_storage.do.storage_config import StorageType
@@ -93,6 +94,11 @@ class FileEntryBase(SQLModel):
     description: str | None = Field(
         default=None, max_length=500, description="条目描述"
     )
+    tags: list[str] = Field(
+        default_factory=list,
+        sa_column=Column(JSON, nullable=False, server_default="[]"),
+        description="关键词标签组(默认空,可手动输入或由RAG智能提取)",
+    )
     source_module: str | None = Field(
         default=None,
         max_length=50,
@@ -154,6 +160,7 @@ class FileEntryUpdate(FileEntryBase):
 
     name: str | None = Field(default=None, max_length=255)
     description: str | None = Field(default=None, max_length=500)
+    tags: list[str] | None = Field(default=None, description="关键词标签组")
     is_active: bool | None = Field(default=None)
     # 以下路径字段仅由服务层在重命名/移动时维护,不对前端开放
     pid: str | None = Field(default=None, description="父级ID(移动时使用)")
@@ -248,6 +255,7 @@ class FileEntryWithContent(BaseModel):
     file_extension: str | None = None
     mime_type: str | None = None
     description: str | None = None
+    tags: list[str] | None = None
     is_active: bool = True
     user_id: str | None = None
     group_id: str | None = None
@@ -273,6 +281,43 @@ class FileEntryWithContent(BaseModel):
         if content:
             data.update(content.model_dump())
         return cls(**data)
+
+
+class FileEntryDetail(FileEntryWithContent):
+    """
+    条目详情视图(详情按钮用): 条目+内容元数据+上传用户名
+    """
+
+    owner_name: str | None = Field(None, description="上传用户名(昵称优先,其次用户名)")
+
+    @classmethod
+    def from_entry_with_content(
+        cls, info: FileEntryWithContent, owner_name: str | None = None
+    ) -> "FileEntryDetail":
+        """从联合视图构造详情(tags 归一化为空数组)"""
+        data = info.model_dump()
+        data["tags"] = data.get("tags") or []
+        return cls(**data, owner_name=owner_name)
+
+
+class BatchDeleteRequest(BaseModel):
+    """批量删除请求(文件与目录混选,目录递归删除)"""
+
+    entry_ids: list[str] = Field(..., min_length=1, description="条目ID列表")
+
+
+class BatchDeleteItemError(BaseModel):
+    """批量删除单项失败信息"""
+
+    id: str = Field(..., description="条目ID")
+    error: str = Field(..., description="失败原因")
+
+
+class BatchDeleteResult(BaseModel):
+    """批量删除结果"""
+
+    deleted: int = Field(0, description="成功删除数")
+    failed: list[BatchDeleteItemError] = Field(default_factory=list, description="失败列表")
 
 
 class StorageStats(BaseModel):

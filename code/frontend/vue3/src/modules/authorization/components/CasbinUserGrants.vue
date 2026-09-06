@@ -11,7 +11,7 @@
       <el-card v-for="c in filteredCards" :key="c.user.id" shadow="never" class="!border-note">
         <template #header>
           <div class="flex items-center gap-2">
-            <el-avatar :size="28" :icon="UserFilled" />
+            <UserAvatar :size="28" :src="c.user.avatar" :name="c.user.nickname || c.user.username" />
             <div class="min-w-0">
               <div class="text-sm text-note truncate">{{ c.user.nickname || c.user.username }}</div>
               <div class="text-xs text-note-sub truncate">{{ c.user.username }}</div>
@@ -65,7 +65,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
-import { Search, Plus, Close, UserFilled } from '@element-plus/icons-vue'
+import { Search, Plus, Close } from '@element-plus/icons-vue'
 import { getAllGroupingPolicies, addRoleForUser, removeRoleForUser, getModuleTree, type GroupingPolicyRow } from '../api/casbin'
 import { listRoles } from '../api/role'
 import { listUsers } from '../api/user'

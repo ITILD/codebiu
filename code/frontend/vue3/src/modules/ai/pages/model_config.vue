@@ -17,14 +17,14 @@
 
     <!-- 数据表格(不生效模型整行灰显) -->
     <el-table :data="tableData" v-loading="loading" stripe w-full :row-class-name="inactiveRowClass">
-      <el-table-column label="模型类型" width="90" align="center">
+      <el-table-column label="模型类型" min-width="90" align="center">
         <template #default="{ row }">
           <el-tag :type="modelTypeTagType[row.model_type] ?? 'info'" size="small">
             {{ modelTypeLabel(row.model_type) }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="服务方案" width="130" align="center">
+      <el-table-column label="服务方案" min-width="130" align="center">
         <template #default="{ row }">
           {{ serverTypeLabel(row.server_type) }}
         </template>
@@ -48,19 +48,20 @@
           {{ row.url || (canManage(row) ? '-' : '仅管理员可见') }}
         </template>
       </el-table-column>
-      <el-table-column label="归属" width="90" align="center">
+      <el-table-column label="归属" min-width="90" align="center">
         <template #default="{ row }">
           <el-tag :type="scopeTagType[row.scope] ?? 'info'" size="small">
             {{ scopeShortLabel(row.scope) }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="更新时间" width="160" show-overflow-tooltip>
+      <el-table-column label="更新时间" min-width="160" show-overflow-tooltip>
         <template #default="{ row }">
           {{ formatTime(row.updated_at) }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="140" align="center">
+      <!-- 操作列: 平板及以上固定右侧, 手机取消固定避免遮挡 -->
+      <el-table-column label="操作" min-width="140" align="center" :fixed="isMd ? 'right' : false">
         <template #default="{ row }">
           <template v-if="canManage(row)">
             <el-button link type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
@@ -193,6 +194,7 @@ import { createModelConfig, deleteModelConfig, updateModelConfig, getModelConfig
 import type { PaginationParams, PaginationResponse } from '@/common/types/common'
 import TableSearchBar, { type SearchField } from '@/common/components/TableSearchBar.vue'
 import { useAuthStore } from '@/common/stores/auth'
+import { useResponsive } from '@/common/composables/useResponsive'
 import { usePermission } from '@/common/composables/usePermission'
 import {
   ModelType,
@@ -215,6 +217,9 @@ import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
 // ################ 当前用户与权限 ################
 const authStore = useAuthStore()
 const { isAdmin } = usePermission()
+
+// 响应式: 平板及以上操作列固定右侧
+const { isMd } = useResponsive()
 const currentUserId = computed(() => authStore.authState.user.id)
 
 /** 是否可管理(编辑/删除)该模型: 全局管理员或创建者本人 */

@@ -180,15 +180,14 @@ import type { PaginationResponse } from '@/common/types/common'
 import type { User } from '../types/user'
 import type { Role } from '../types/role'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
-import { SysSettingStore } from '@/common/stores/sys'
+import { useResponsive } from '@/common/composables/useResponsive'
 
 // ---------------- 顶部三视角标签页(懒加载, 首次进入挂载后缓存) ----------------
 const activeTab = ref('matrix')
 const mountedTabs = reactive(new Set<string>(['matrix']))
 watch(activeTab, (tab) => mountedTabs.add(tab))
 
-const { sysStyle } = SysSettingStore()
-const isMd = computed(() => sysStyle.isMd)
+const { isMd } = useResponsive()
 
 // ---------------- 高级规则: 原始策略/绑定表格 ----------------
 const rawTab = ref('policy')

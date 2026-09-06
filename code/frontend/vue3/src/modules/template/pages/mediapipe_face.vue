@@ -43,6 +43,7 @@
           <!-- 3D 网格叠加层: 正交投影与画面同尺映射, 默认像素级贴合人脸 -->
           <canvas id="meshDom" class="absolute inset-0 w-full h-full block touch-none"></canvas>
           <!-- 状态遮罩 -->
+          <!-- 遮罩色: note-soft/note-paper 的 75% 透明变体(note-glass 为 85% 且暗色值不同), 覆盖在视频画面上需半透明, 无现成 token 故保留硬编码 -->
           <div
             v-if="status !== 'running'"
             class="absolute inset-0 flex flex-col items-center justify-center gap-2 text-note-sub text-sm bg-[rgba(244,248,242,0.75)] dark:bg-[rgba(13,23,17,0.75)]"
@@ -122,6 +123,8 @@
         </span>
       </div>
       <div class="flex flex-wrap items-center gap-2 my-3">
+        <!-- A/B 特征标识色: 绿(#6b9e78, 即 note-green 亮色值)/珊瑚(#e07a5f)刻意成对区分;
+             el-button 的 color 属性只接受静态色值, 无法挂 note-* token -->
         <el-button color="#6b9e78" :disabled="status !== 'running'" @click="captureFeature('A')">捕获当前帧为特征 A</el-button>
         <el-button color="#e07a5f" :disabled="status !== 'running'" @click="captureFeature('B')">捕获当前帧为特征 B</el-button>
         <el-button text :disabled="!featureA && !featureB" @click="clearFeatures">清除</el-button>
@@ -171,6 +174,7 @@
           </div>
           <span class="text-xs text-note-sub">距离 {{ compareResult.distance.toFixed(4) }} · 阈值 {{ matchThreshold.toFixed(2) }}</span>
         </div>
+        <!-- 进度条颜色与上方 A/B 按钮同源(#6b9e78/#e07a5f): el-progress :color 需具体色值, 保留硬编码 -->
         <el-progress :percentage="similarityPercent" :color="compareResult.matched ? '#6b9e78' : '#e07a5f'" :stroke-width="10" />
       </div>
     </div>
@@ -225,6 +229,7 @@ const statusText = computed(() => ({ loading: '初始化中…', running: '检�
 const statusClass = computed(() =>
   status.value === 'running'
     ? 'bg-note-tint text-note-green'
+    // 未匹配红调: note 色板无红色系 token, 状态警示色保留硬编码
     : 'bg-[#f7eaea] text-[#c26d6d] dark:bg-[#3a2626] dark:text-[#d99c9c]'
 )
 

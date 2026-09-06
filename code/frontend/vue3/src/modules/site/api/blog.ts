@@ -4,7 +4,8 @@ import type { PaginationParams, PaginationResponse } from '@/common/types/common
 import type { BlogPost, BlogPostCreate, BlogPostUpdate } from '../types/blog'
 
 /** 我的文章列表查询参数(分页 + 过滤) */
-export interface ListMyPostsParams extends PaginationParams {
+// 用 type 交叉而非 interface: 接口缺隐式索引签名, 无法赋给 http 层 Record<string, QueryParamValue>
+export type ListMyPostsParams = PaginationParams & {
   /** 标题模糊搜索 */
   title?: string
   /** 状态过滤(draft/published) */

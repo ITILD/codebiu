@@ -5,6 +5,7 @@ from sqlmodel import select, func
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from common.config.db import DaoRel
+from common.utils.fastapiEX.exceptions import NotFoundError
 from common.utils.db.schema.pagination import PaginationParams
 from module_geometry.do.feature import (
     GeoFeature,
@@ -52,7 +53,7 @@ class GeoFeatureDao:
         """
         feature = await session.get(GeoFeature, feature_id)
         if not feature:
-            raise ValueError(f"未找到ID为 {feature_id} 的几何要素")
+            raise NotFoundError(f"未找到ID为 {feature_id} 的几何要素")
         await session.delete(feature)
         await session.flush()
 
@@ -73,7 +74,7 @@ class GeoFeatureDao:
         """
         feature = await session.get(GeoFeature, feature_id)
         if not feature:
-            raise ValueError(f"未找到ID为 {feature_id} 的几何要素")
+            raise NotFoundError(f"未找到ID为 {feature_id} 的几何要素")
         if data.name is not None:
             feature.name = data.name
         if data.properties is not None:

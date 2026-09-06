@@ -4,7 +4,8 @@ import type { PaginationParams, PaginationResponse } from '@/common/types/common
 import type { Todolist, TodolistCreate, TodolistUpdate } from '../types/todolist'
 
 /** 备忘列表查询参数(分页 + 过滤) */
-export interface ListMemosParams extends PaginationParams {
+// 用 type 交叉而非 interface: 接口缺隐式索引签名, 无法赋给 http 层 Record<string, QueryParamValue>
+export type ListMemosParams = PaginationParams & {
   /** 备忘标题模糊搜索 */
   name?: string
   /** 状态过滤(todo/done/pause) */

@@ -39,7 +39,8 @@
           <el-switch v-model="row.is_active" disabled />
         </template>
       </el-table-column>
-      <el-table-column label="操作" min-width="220" fixed="right">
+      <!-- 操作列: 平板及以上固定右侧, 手机取消固定避免遮挡 -->
+      <el-table-column label="操作" min-width="220" :fixed="isMd ? 'right' : false">
         <template #default="{ row }">
           <el-button size="small" type="primary" plain @click="handleEdit(row)">编辑</el-button>
           <el-button size="small" type="success" plain @click="handleAddChild(row)">新增子项</el-button>
@@ -120,6 +121,10 @@ import type {
   PermissionUpdate,
 } from '../types/permission'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
+import { useResponsive } from '@/common/composables/useResponsive'
+
+// 响应式: 平板及以上操作列固定右侧
+const { isMd } = useResponsive()
 
 // 搜索字段配置(名称/类型/状态多字段筛选, 客户端过滤树)
 const searchFields: SearchField[] = [

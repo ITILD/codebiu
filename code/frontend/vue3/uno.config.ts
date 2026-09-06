@@ -109,6 +109,12 @@ export default defineConfig({
       'bg-note-gradient': 'bg-gradient-to-br from-[#e7f2e9] via-[#f4f8f2] to-[#ddeddf] dark:from-[#16241c] dark:via-[#101c15] dark:to-[#1d3a2e]',
       // 毛玻璃纸底(吸顶头部用; shortcut 不支持 /80 透明度修饰, 故单独定义)
       'bg-note-glass': 'bg-[rgba(244,248,242,0.85)] dark:bg-[rgba(21,35,28,0.85)]',
+      // 页面根容器(视口内边距, 移动/桌面双档)
+      'page-shell': 'p-4 md:p-6 w-full',
+      // 卡片容器(表格/面板通用, 含边框宽度——裸用 border-note 缺宽度时边框不会渲染)
+      'page-card': 'p-4 rounded-lg bg-note-card border border-note shadow-note',
+      // 卡片标题行(标题+右侧操作按钮)
+      'card-toolbar': 'mb-3 flex flex-wrap items-center justify-between gap-2',
     },
      // 背景文字颜色
      [

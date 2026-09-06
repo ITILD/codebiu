@@ -1,4 +1,5 @@
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
+from common.utils.fastapiEX.exceptions import ConflictError, NotFoundError
 from module_rag.do.project_dept import (
     ProjectDept,
     ProjectDeptCreate,
@@ -36,17 +37,17 @@ class ProjectDeptService:
         # 项目存在性校验
         project = await self._project_dao.get(dept_auth.project_id)
         if project is None:
-            raise ValueError(f"项目不存在: {dept_auth.project_id}")
+            raise NotFoundError(f"项目不存在: {dept_auth.project_id}")
         # 部门存在性校验
         dept = await self._dept_dao.get_raw(dept_auth.dept_id)
         if dept is None:
-            raise ValueError(f"部门不存在: {dept_auth.dept_id}")
+            raise NotFoundError(f"部门不存在: {dept_auth.dept_id}")
         # 重复授权查重
         existing = await self.dao.get_by_project_and_dept(
             dept_auth.project_id, dept_auth.dept_id
         )
         if existing:
-            raise ValueError(f"部门 {dept.name} 已授权，可直接调整档位")
+            raise ConflictError(f"部门 {dept.name} 已授权，可直接调整档位")
         return await self.dao.add(dept_auth)
 
     async def delete(self, id: str):

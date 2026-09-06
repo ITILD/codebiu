@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException, status, Depends, Query
+from fastapi import APIRouter, status, Depends, Query
+from common.utils.fastapiEX.exceptions import BusinessError, NotFoundError
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
 from module_rag.do.project_member import (
     ProjectMember,
@@ -36,24 +37,14 @@ async def add_project_member(
     """
     # 角色合法性校验(仅允许分配项目级角色)
     if member.role not in RagRole.PROJECT_ROLES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"无效的角色 '{member.role}'，允许的角色: {'/'.join(RagRole.PROJECT_ROLES)}",
+        raise BusinessError(
+            f"无效的角色 '{member.role}'，允许的角色: {'/'.join(RagRole.PROJECT_ROLES)}"
         )
     # 邀请权限校验(域 rag:{project_id})
     await enforce_project_permission(
         current_user_id, member.project_id, "member", "invite"
     )
-    try:
-        return await service.add(member)
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.add(member)
 
 
 @router.get(
@@ -71,12 +62,7 @@ async def list_my_projects(
     :param service: 项目成员服务依赖注入
     :return: 分页响应结果
     """
-    try:
-        return await service.list_my_projects(current_user_id, pagination)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.list_my_projects(current_user_id, pagination)
 
 
 @router.get(
@@ -99,14 +85,9 @@ async def list_project_members(
     :param service: 项目成员服务依赖注入
     :return: 分页响应结果
     """
-    try:
-        return await service.list_by_project(
-            project_id, pagination, role=role, user_keyword=user_keyword
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.list_by_project(
+        project_id, pagination, role=role, user_keyword=user_keyword
+    )
 
 
 @router.get("/{member_id}", summary="获取单个项目成员", response_model=ProjectMember)
@@ -120,20 +101,10 @@ async def get_project_member(
     :param service: 项目成员服务依赖注入
     :return: 项目成员详情
     """
-    try:
-        result = await service.get(member_id)
-        if not result:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="项目成员未找到"
-            )
-        return result
-    except HTTPException:
-        # 保留 404 语义,避免被包装成 500
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    result = await service.get(member_id)
+    if not result:
+        raise NotFoundError("项目成员未找到")
+    return result
 
 
 @router.delete(
@@ -153,18 +124,11 @@ async def remove_project_member(
     # 先查成员记录以获取 project_id 做权限校验
     member_info = await service.get(member_id)
     if not member_info:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="项目成员未找到"
-        )
+        raise NotFoundError("项目成员未找到")
     await enforce_project_permission(
         current_user_id, member_info.project_id, "member", "remove"
     )
-    try:
-        await service.delete(member_id)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    await service.delete(member_id)
 
 
 @router.put(
@@ -185,25 +149,17 @@ async def update_project_member(
     """
     # 角色合法性校验(仅允许分配项目级角色)
     if member.role is not None and member.role not in RagRole.PROJECT_ROLES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"无效的角色 '{member.role}'，允许的角色: {'/'.join(RagRole.PROJECT_ROLES)}",
+        raise BusinessError(
+            f"无效的角色 '{member.role}'，允许的角色: {'/'.join(RagRole.PROJECT_ROLES)}"
         )
     # 先查成员记录以获取 project_id 做权限校验
     member_info = await service.get(member_id)
     if not member_info:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="项目成员未找到"
-        )
+        raise NotFoundError("项目成员未找到")
     await enforce_project_permission(
         current_user_id, member_info.project_id, "member", "update"
     )
-    try:
-        await service.update(member_id, member)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    await service.update(member_id, member)
 
 
 # 注册路由

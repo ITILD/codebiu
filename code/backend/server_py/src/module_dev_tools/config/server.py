@@ -3,13 +3,13 @@
 """
 
 from common.config.server import app
-from fastapi import FastAPI
+from common.utils.fastapiEX.exceptions import BizFastAPI
 import logging
 
 logger = logging.getLogger(__name__)
 
 # 创建模块应用实例
-module_app = FastAPI()
+module_app = BizFastAPI()
 
 # 挂载到主应用
 app.mount("/dev-tools", module_app)

@@ -1,6 +1,5 @@
 from fastapi import (
     APIRouter,
-    HTTPException,
     status,
     Depends,
     UploadFile,
@@ -9,6 +8,7 @@ from fastapi import (
     Query,
     Request,
 )
+from common.utils.fastapiEX.exceptions import BusinessError, NotFoundError
 from fastapi.responses import RedirectResponse, StreamingResponse
 from pathlib import Path
 import logging
@@ -49,17 +49,6 @@ from module_task.dependencies.task import get_task_queue_service
 router = APIRouter()
 
 logger = logging.getLogger(__name__)
-
-
-def _raise_by_error_type(e: Exception) -> HTTPException:
-    """按异常类型映射 HTTP 状态码: 项目不存在404 / 参数与类型问题400 / 其余500"""
-    if isinstance(e, LookupError):
-        return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    if isinstance(e, ValueError):
-        return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    return HTTPException(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-    )
 
 
 async def _dispatch_parse_task(
@@ -104,7 +93,7 @@ async def _dispatch_parse_task(
 async def upload_project_document(
     project_id: str,
     file: UploadFile,
-    description: str | None = Form(default=None),
+    description: str | None = Form(default=None, description="文档描述(可选)"),
     pid: str | None = Form(default=None, description="父目录ID(为空上传到项目根文件夹)"),
     current_user_id: str = Depends(require_project_permission("doc", "upload")),
     service: ProjectDocumentService = Depends(get_project_document_service),
@@ -122,20 +111,15 @@ async def upload_project_document(
     :param task_service: 统一任务队列服务依赖注入
     :return: 文档元数据(parse_task_warning 携带解析任务派发警告)
     """
-    try:
-        document = await service.upload_document(
-            project_id, file, current_user_id, description, pid
-        )
-        # 上传成功后自动派发异步解析任务(模型缺失/队列不可用时返回告警)
-        response = ProjectDocumentResponse.model_validate(document.model_dump())
-        response.parse_task_warning = await _dispatch_parse_task(
-            service, task_service, document, current_user_id
-        )
-        return response
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise _raise_by_error_type(e)
+    document = await service.upload_document(
+        project_id, file, current_user_id, description, pid
+    )
+    # 上传成功后自动派发异步解析任务(模型缺失/队列不可用时返回告警)
+    response = ProjectDocumentResponse.model_validate(document.model_dump())
+    response.parse_task_warning = await _dispatch_parse_task(
+        service, task_service, document, current_user_id
+    )
+    return response
 
 
 @router.get(
@@ -160,14 +144,9 @@ async def list_project_documents(
     :param service: 文档服务依赖注入
     :return: 分页文档列表
     """
-    try:
-        return await service.list_by_project(
-            project_id, pagination, name=name, parse_status=parse_status
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.list_by_project(
+        project_id, pagination, name=name, parse_status=parse_status
+    )
 
 
 @router.get(
@@ -177,7 +156,8 @@ async def list_project_documents(
 )
 async def get_supported_file_types():
     """
-    获取支持上传的文件格式列表
+    返回支持上传的文件格式, 按文档/图片/音频/视频四类分组,
+    并附 all_extensions 扁平列表供前端直接用于 input accept 属性
     """
     return {
         "code": 200,
@@ -254,14 +234,9 @@ async def init_rag_document_multipart(
     :param req: 初始化请求(文件名/大小/SHA-256/MIME)
     :return: 会话凭证与上传模式(is_existing=True 时直接调 /upload-complete 秒传登记)
     """
-    try:
-        return await service.init_multipart_upload(
-            project_id, req, owner_user_id=current_user_id
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise _raise_by_error_type(e)
+    return await service.init_multipart_upload(
+        project_id, req, owner_user_id=current_user_id
+    )
 
 
 @router.put(
@@ -284,17 +259,10 @@ async def upload_rag_document_part(
     :param request: 请求体为分片二进制内容
     :return: 分片信息(part_number/etag/size)
     """
-    try:
-        content: bytes = await request.body()
-        if not content:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="分片内容不能为空"
-            )
-        return await file_service.upload_multipart_part(upload_id, part_number, content)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise _raise_by_error_type(e)
+    content: bytes = await request.body()
+    if not content:
+        raise BusinessError("分片内容不能为空")
+    return await file_service.upload_multipart_part(upload_id, part_number, content)
 
 
 @router.get(
@@ -313,12 +281,7 @@ async def list_rag_document_parts(
     :param upload_id: 分片会话凭证
     :return: 分片信息列表
     """
-    try:
-        return await file_service.list_multipart_parts(upload_id)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise _raise_by_error_type(e)
+    return await file_service.list_multipart_parts(upload_id)
 
 
 @router.post(
@@ -342,20 +305,15 @@ async def complete_rag_document_multipart(
     :param req: 完成请求(文件名/分片列表/描述)
     :return: 创建的文档元数据(parse_task_warning 携带解析任务派发警告)
     """
-    try:
-        document = await service.complete_multipart_upload(
-            project_id, upload_id, req, current_user_id
-        )
-        # 登记成功后自动派发异步解析任务(模型缺失/队列不可用时返回告警)
-        response = ProjectDocumentResponse.model_validate(document.model_dump())
-        response.parse_task_warning = await _dispatch_parse_task(
-            service, task_service, document, current_user_id
-        )
-        return response
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise _raise_by_error_type(e)
+    document = await service.complete_multipart_upload(
+        project_id, upload_id, req, current_user_id
+    )
+    # 登记成功后自动派发异步解析任务(模型缺失/队列不可用时返回告警)
+    response = ProjectDocumentResponse.model_validate(document.model_dump())
+    response.parse_task_warning = await _dispatch_parse_task(
+        service, task_service, document, current_user_id
+    )
+    return response
 
 
 @router.delete(
@@ -373,12 +331,7 @@ async def abort_rag_document_multipart(
     取消分片上传会话并清理存储侧已上传的分片
     :param upload_id: 分片会话凭证(init 返回)
     """
-    try:
-        await file_service.abort_multipart_upload(upload_id)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise _raise_by_error_type(e)
+    await file_service.abort_multipart_upload(upload_id)
 
 
 @router.post(
@@ -400,20 +353,15 @@ async def complete_rag_document_entry(
     :param req: 登记请求(文件名/内容SHA-256/大小/描述)
     :return: 创建的文档元数据(parse_task_warning 携带解析任务派发警告)
     """
-    try:
-        document = await service.create_document_from_content(
-            project_id, req, current_user_id
-        )
-        # 秒传登记成功后同样自动派发解析任务(与其他上传口径一致)
-        response = ProjectDocumentResponse.model_validate(document.model_dump())
-        response.parse_task_warning = await _dispatch_parse_task(
-            service, task_service, document, current_user_id
-        )
-        return response
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise _raise_by_error_type(e)
+    document = await service.create_document_from_content(
+        project_id, req, current_user_id
+    )
+    # 秒传登记成功后同样自动派发解析任务(与其他上传口径一致)
+    response = ProjectDocumentResponse.model_validate(document.model_dump())
+    response.parse_task_warning = await _dispatch_parse_task(
+        service, task_service, document, current_user_id
+    )
+    return response
 
 
 ######################################知识库文件夹与条目浏览(虚拟目录条目级)######################################
@@ -440,10 +388,7 @@ async def list_project_entries(
     :param service: 文档服务依赖注入
     :return: 分页条目列表(FileEntry)
     """
-    try:
-        return await service.list_entries(project_id, pagination, pid=pid, name=name)
-    except Exception as e:
-        raise _raise_by_error_type(e)
+    return await service.list_entries(project_id, pagination, pid=pid, name=name)
 
 
 @router.post(
@@ -454,7 +399,7 @@ async def list_project_entries(
 )
 async def create_project_folder(
     project_id: str,
-    name: str = Query(..., min_length=1, max_length=255),
+    name: str = Query(..., min_length=1, max_length=255, description="文件夹名称(1-255字符)"),
     pid: str | None = Query(None, description="父目录ID(为空创建到项目根文件夹)"),
     current_user_id: str = Depends(require_project_permission("doc", "upload")),
     service: ProjectDocumentService = Depends(get_project_document_service),
@@ -468,10 +413,7 @@ async def create_project_folder(
     :param service: 文档服务依赖注入
     :return: 新创建的文件夹条目
     """
-    try:
-        return await service.create_folder(project_id, name, current_user_id, pid)
-    except Exception as e:
-        raise _raise_by_error_type(e)
+    return await service.create_folder(project_id, name, current_user_id, pid)
 
 
 @router.put(
@@ -482,7 +424,7 @@ async def create_project_folder(
 async def rename_project_folder(
     project_id: str,
     folder_id: str,
-    name: str = Query(..., min_length=1, max_length=255),
+    name: str = Query(..., min_length=1, max_length=255, description="文件夹新名称(1-255字符)"),
     current_user_id: str = Depends(require_project_permission("doc", "update")),
     service: ProjectDocumentService = Depends(get_project_document_service),
 ) -> FileEntry:
@@ -495,10 +437,7 @@ async def rename_project_folder(
     :param service: 文档服务依赖注入
     :return: 更新后的文件夹条目
     """
-    try:
-        return await service.rename_folder(project_id, folder_id, name)
-    except Exception as e:
-        raise _raise_by_error_type(e)
+    return await service.rename_folder(project_id, folder_id, name)
 
 
 @router.delete(
@@ -520,10 +459,7 @@ async def delete_project_folder(
     :param current_user_id: 当前登录用户ID(由 token 自动解析)
     :param service: 文档服务依赖注入
     """
-    try:
-        await service.delete_folder(project_id, folder_id)
-    except Exception as e:
-        raise _raise_by_error_type(e)
+    await service.delete_folder(project_id, folder_id)
 
 
 ######################################文档详情/进度/下载/编辑/删除/解析######################################
@@ -544,21 +480,14 @@ async def get_project_document(
     :param service: 文档服务依赖注入
     :return: 文档元数据
     """
-    try:
-        document = await service.get_document(document_id)
-        if not document:
-            raise HTTPException(status_code=404, detail="文档不存在")
-        # 权限校验: 通过文档解析所属项目
-        await enforce_project_permission(
-            current_user_id, document.project_id, "doc", "read"
-        )
-        return ProjectDocumentResponse.model_validate(document.model_dump())
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    document = await service.get_document(document_id)
+    if not document:
+        raise NotFoundError("文档不存在")
+    # 权限校验: 通过文档解析所属项目
+    await enforce_project_permission(
+        current_user_id, document.project_id, "doc", "read"
+    )
+    return ProjectDocumentResponse.model_validate(document.model_dump())
 
 
 @router.get(
@@ -579,21 +508,14 @@ async def get_project_document_progress(
     :param service: 文档服务依赖注入
     :return: 入库步骤明细与加权总进度
     """
-    try:
-        document = await service.get_document(document_id)
-        if not document:
-            raise HTTPException(status_code=404, detail="文档不存在")
-        # 权限校验: 通过文档解析所属项目
-        await enforce_project_permission(
-            current_user_id, document.project_id, "doc", "read"
-        )
-        return service.build_ingest_progress(document)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    document = await service.get_document(document_id)
+    if not document:
+        raise NotFoundError("文档不存在")
+    # 权限校验: 通过文档解析所属项目
+    await enforce_project_permission(
+        current_user_id, document.project_id, "doc", "read"
+    )
+    return service.build_ingest_progress(document)
 
 
 @router.get(
@@ -615,49 +537,42 @@ async def download_project_document(
     :param file_service: 统一文件存储服务依赖注入
     :return: 302重定向(直链) 或 文件数据流(代理)
     """
-    try:
-        # 权限校验: 通过文档解析所属项目
-        document = await service.get_document(document_id)
-        if not document:
-            raise HTTPException(status_code=404, detail="文档不存在")
-        await enforce_project_permission(
-            current_user_id, document.project_id, "doc", "read"
-        )
-        file_name, mime_type, source, storage_backed = (
-            await service.get_file_for_download(document_id)
-        )
-        # Content-Disposition: ASCII 回退 + RFC 5987 filename*(支持中文等非 ASCII 文件名)
-        from urllib.parse import quote
+    # 权限校验: 通过文档解析所属项目
+    document = await service.get_document(document_id)
+    if not document:
+        raise NotFoundError("文档不存在")
+    await enforce_project_permission(
+        current_user_id, document.project_id, "doc", "read"
+    )
+    file_name, mime_type, source, storage_backed = (
+        await service.get_file_for_download(document_id)
+    )
+    # Content-Disposition: ASCII 回退 + RFC 5987 filename*(支持中文等非 ASCII 文件名)
+    from urllib.parse import quote
 
-        ascii_fallback = file_name.encode("ascii", "ignore").decode() or "download"
-        encoded_name = quote(file_name)
-        headers = {
-            "Content-Disposition": (
-                f"attachment; filename=\"{ascii_fallback}\"; filename*=UTF-8''{encoded_name}"
-            )
-        }
-        if storage_backed:
-            # 统一存储口径: S3 签发预签名直链 302 重定向(服务端零流量); local 流式代理
-            url = await file_service.presign_download_url(str(source), file_name)
-            if url:
-                return RedirectResponse(url, status_code=status.HTTP_302_FOUND)
-            return StreamingResponse(
-                file_service.stream_file_content(str(source)),
-                media_type=mime_type or "application/octet-stream",
-                headers=headers,
-            )
-        # 旧口径: DIR_UPLOAD 本地文件流式返回
+    ascii_fallback = file_name.encode("ascii", "ignore").decode() or "download"
+    encoded_name = quote(file_name)
+    headers = {
+        "Content-Disposition": (
+            f"attachment; filename=\"{ascii_fallback}\"; filename*=UTF-8''{encoded_name}"
+        )
+    }
+    if storage_backed:
+        # 统一存储口径: S3 签发预签名直链 302 重定向(服务端零流量); local 流式代理
+        url = await file_service.presign_download_url(str(source), file_name)
+        if url:
+            return RedirectResponse(url, status_code=status.HTTP_302_FOUND)
         return StreamingResponse(
-            FileUtils.read_file_stream(source),
+            file_service.stream_file_content(str(source)),
             media_type=mime_type or "application/octet-stream",
             headers=headers,
         )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    # 旧口径: DIR_UPLOAD 本地文件流式返回
+    return StreamingResponse(
+        FileUtils.read_file_stream(source),
+        media_type=mime_type or "application/octet-stream",
+        headers=headers,
+    )
 
 
 @router.put(
@@ -678,21 +593,14 @@ async def update_project_document(
     :param current_user_id: 当前登录用户ID(由 token 自动解析)
     :param service: 文档服务依赖注入
     """
-    try:
-        # 权限校验: 通过文档解析所属项目
-        doc_info = await service.get_document(document_id)
-        if not doc_info:
-            raise HTTPException(status_code=404, detail="文档不存在")
-        await enforce_project_permission(
-            current_user_id, doc_info.project_id, "doc", "update"
-        )
-        await service.update(document_id, document)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    # 权限校验: 通过文档解析所属项目
+    doc_info = await service.get_document(document_id)
+    if not doc_info:
+        raise NotFoundError("文档不存在")
+    await enforce_project_permission(
+        current_user_id, doc_info.project_id, "doc", "update"
+    )
+    await service.update(document_id, document)
 
 
 @router.delete(
@@ -711,21 +619,14 @@ async def delete_project_document(
     :param current_user_id: 当前登录用户ID(由 token 自动解析)
     :param service: 文档服务依赖注入
     """
-    try:
-        # 权限校验: 通过文档解析所属项目
-        doc_info = await service.get_document(document_id)
-        if not doc_info:
-            raise HTTPException(status_code=404, detail="文档不存在")
-        await enforce_project_permission(
-            current_user_id, doc_info.project_id, "doc", "delete"
-        )
-        await service.delete_document(document_id)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    # 权限校验: 通过文档解析所属项目
+    doc_info = await service.get_document(document_id)
+    if not doc_info:
+        raise NotFoundError("文档不存在")
+    await enforce_project_permission(
+        current_user_id, doc_info.project_id, "doc", "delete"
+    )
+    await service.delete_document(document_id)
 
 
 @router.post(
@@ -745,21 +646,15 @@ async def reparse_project_document(
     :param service: 文档服务依赖注入
     :return: 是否成功
     """
-    try:
-        # 权限校验: 通过文档解析所属项目
-        doc_info = await service.get_document(document_id)
-        if not doc_info:
-            raise HTTPException(status_code=404, detail="文档不存在")
-        await enforce_project_permission(
-            current_user_id, doc_info.project_id, "doc", "update"
-        )
-        # return await service.reparse_document(document_id, current_user_id)
-        return await service.parse_document(document_id, current_user_id)
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise _raise_by_error_type(e)
+    # 权限校验: 通过文档解析所属项目
+    doc_info = await service.get_document(document_id)
+    if not doc_info:
+        raise NotFoundError("文档不存在")
+    await enforce_project_permission(
+        current_user_id, doc_info.project_id, "doc", "update"
+    )
+    # return await service.reparse_document(document_id, current_user_id)
+    return await service.parse_document(document_id, current_user_id)
 
 @router.post(
     "/{document_id}/reparse-task",
@@ -780,42 +675,34 @@ async def reparse_project_document_task(
     :param task_service: 统一任务队列服务依赖注入
     :return: 任务提交结果(含 task_queue 任务ID, 可在任务队列页跟踪)
     """
-    try:
-        # 权限校验: 通过文档解析所属项目
-        doc_info = await service.get_document(document_id)
-        if not doc_info:
-            raise HTTPException(status_code=404, detail="文档不存在")
-        await enforce_project_permission(
-            current_user_id, doc_info.project_id, "doc", "update"
+    # 权限校验: 通过文档解析所属项目
+    doc_info = await service.get_document(document_id)
+    if not doc_info:
+        raise NotFoundError("文档不存在")
+    await enforce_project_permission(
+        current_user_id, doc_info.project_id, "doc", "update"
+    )
+    # 模型预检: 对话+向量化模型缺失时拒绝入队(前端弹窗提示)
+    missing = await service.ensure_parse_models(current_user_id)
+    if missing:
+        raise BusinessError(
+            f"未配置可用的{'、'.join(missing)}模型, 无法解析文档; "
+            "请先在模型管理中绑定或由管理员配置默认公共模型"
         )
-        # 模型预检: 对话+向量化模型缺失时拒绝入队(前端弹窗提示)
-        missing = await service.ensure_parse_models(current_user_id)
-        if missing:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
-                    f"未配置可用的{'、'.join(missing)}模型, 无法解析文档; "
-                    "请先在模型管理中绑定或由管理员配置默认公共模型"
-                ),
-            )
-        # 经统一任务队列创建并投递(worker 从库读参数, 以创建者绑定模型执行)
-        task = await task_service.create(
-            TaskQueueCreate(
-                name=f"解析文档: {doc_info.name}",
-                task_type="rag_document_parse",
-                payload={"document_id": document_id},
-            ),
-            current_user_id,
-        )
-        return {
-            "message": "解析任务已提交至后台队列",
-            "document_id": document_id,
-            "task_id": task.id,
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise _raise_by_error_type(e)
+    # 经统一任务队列创建并投递(worker 从库读参数, 以创建者绑定模型执行)
+    task = await task_service.create(
+        TaskQueueCreate(
+            name=f"解析文档: {doc_info.name}",
+            task_type="rag_document_parse",
+            payload={"document_id": document_id},
+        ),
+        current_user_id,
+    )
+    return {
+        "message": "解析任务已提交至后台队列",
+        "document_id": document_id,
+        "task_id": task.id,
+    }
 
 
 

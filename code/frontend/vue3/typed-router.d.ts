@@ -52,8 +52,9 @@ declare module 'vue-router/auto-routes' {
     '/template/infoview': RouteRecordInfo<'/template/infoview', '/template/infoview', Record<never, never>, Record<never, never>>,
     '/template/mediapipe_face': RouteRecordInfo<'/template/mediapipe_face', '/template/mediapipe_face', Record<never, never>, Record<never, never>>,
     '/template/overview': RouteRecordInfo<'/template/overview', '/template/overview', Record<never, never>, Record<never, never>>,
-    '/template/playground': RouteRecordInfo<'/template/playground', '/template/playground', Record<never, never>, Record<never, never>, '/template/playground/' | '/template/playground/business' | '/template/playground/harry_potter'>,
+    '/template/playground': RouteRecordInfo<'/template/playground', '/template/playground', Record<never, never>, Record<never, never>, '/template/playground/' | '/template/playground/brad_garden' | '/template/playground/business' | '/template/playground/harry_potter'>,
     '/template/playground/': RouteRecordInfo<'/template/playground/', '/template/playground', Record<never, never>, Record<never, never>>,
+    '/template/playground/brad_garden': RouteRecordInfo<'/template/playground/brad_garden', '/template/playground/brad_garden', Record<never, never>, Record<never, never>>,
     '/template/playground/business': RouteRecordInfo<'/template/playground/business', '/template/playground/business', Record<never, never>, Record<never, never>>,
     '/template/playground/harry_potter': RouteRecordInfo<'/template/playground/harry_potter', '/template/playground/harry_potter', Record<never, never>, Record<never, never>>,
     '/template/template': RouteRecordInfo<'/template/template', '/template/template', Record<never, never>, Record<never, never>>,
@@ -207,11 +208,15 @@ declare module 'vue-router/auto-routes' {
       views: never
     }
     'src/modules/template/pages/playground.vue': {
-      routes: '/template/playground' | '/template/playground/' | '/template/playground/business' | '/template/playground/harry_potter'
+      routes: '/template/playground' | '/template/playground/' | '/template/playground/brad_garden' | '/template/playground/business' | '/template/playground/harry_potter'
       views: 'default'
     }
     'src/modules/template/pages/playground/index.vue': {
       routes: '/template/playground/'
+      views: never
+    }
+    'src/modules/template/pages/playground/brad_garden.vue': {
+      routes: '/template/playground/brad_garden'
       views: never
     }
     'src/modules/template/pages/playground/business.vue': {

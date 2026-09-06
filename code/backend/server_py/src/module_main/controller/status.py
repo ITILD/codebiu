@@ -1,4 +1,4 @@
-from fastapi import Depends, status, HTTPException, APIRouter
+from fastapi import Depends, APIRouter
 from common.enum.platform import PlatformId
 from common.utils.sys.do.status import HardwareStatus, NetworkStatus
 from common.config.server import app
@@ -14,10 +14,7 @@ async def status_cache(
     status_service: StatusService = Depends(get_status_service_singleton),
 ) -> StatusServer:
     """获取主机综合状态(60秒缓存版本,避免频繁采集)"""
-    try:
-        return await status_service.status_cache()
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    return await status_service.status_cache()
 
 
 @router.get("/sys-info", summary="获取主机型号")
@@ -31,10 +28,7 @@ async def hardware_status(
     status_service: StatusService = Depends(get_status_service_singleton),
 ) -> HardwareStatus:
     """获取硬件状态(CPU/内存/磁盘等使用率)"""
-    try:
-        return await status_service.hardware_status()
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    return await status_service.hardware_status()
 
 
 # 获取网络状态
@@ -43,19 +37,13 @@ async def network_status(
     status_service: StatusService = Depends(get_status_service_singleton),
 ) -> list[NetworkStatus]:
     """获取网络状态(网卡列表及流量统计)"""
-    try:
-        return await status_service.network_status()
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    return await status_service.network_status()
 # 查看挂载数量
 @router.get("/mount-count", summary="查看app挂载路由")
 async def mount_count(
     status_service: StatusService = Depends(get_status_service_singleton),
 ) -> list:
     """查看当前 app 已挂载的路由数量(用于调试模块挂载情况)"""
-    try:
-        return await status_service.mount_count(app)
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    return await status_service.mount_count(app)
 
 app.include_router(router, prefix="/server-status", tags=["server-status"])

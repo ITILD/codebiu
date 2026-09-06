@@ -7,6 +7,7 @@ from common.utils.db.schema.pagination import (
     ScrollDirection,
 )
 from common.config.db import DaoRel
+from common.utils.fastapiEX.exceptions import NotFoundError
 from module_nlp.do.synonym import (
     SynonymGroup,
     SynonymGroupCreate,
@@ -45,7 +46,7 @@ class SynonymGroupDao:
         """
         synonym_group = await session.get(SynonymGroup, id)
         if not synonym_group:
-            raise ValueError(f"未找到ID为 {id} 的同义词组")
+            raise NotFoundError(f"未找到ID为 {id} 的同义词组")
 
         # 删除组内所有同义词
         stmt = delete(Synonym).where(Synonym.group_id == id)
@@ -66,10 +67,10 @@ class SynonymGroupDao:
         """
         synonym_group = await session.get(SynonymGroup, id)
         if not synonym_group:
-            raise ValueError(f"未找到ID为 {id} 的同义词组")
+            raise NotFoundError(f"未找到ID为 {id} 的同义词组")
 
         if synonym_group.pid != pid:
-            raise ValueError(f"同义词组不属于项目 {pid}")
+            raise NotFoundError(f"同义词组不属于项目 {pid}")
 
         # 删除组内所有同义词
         stmt = delete(Synonym).where(Synonym.group_id == id)
@@ -154,7 +155,7 @@ class SynonymGroupDao:
         stmt = update(SynonymGroup).where(SynonymGroup.id == synonym_group_id).values(**update_data)
         result = await session.exec(stmt)
         if result.rowcount == 0:
-            raise ValueError(f"未找到ID为 {synonym_group_id} 的同义词组")
+            raise NotFoundError(f"未找到ID为 {synonym_group_id} 的同义词组")
         await session.flush()
 
     @DaoRel
@@ -232,7 +233,7 @@ class SynonymGroupDao:
         if params.last_id:
             last_synonym_group = await session.get(SynonymGroup, params.last_id)
             if not last_synonym_group:
-                raise ValueError(f"未找到ID为 {params.last_id} 的同义词组")
+                raise NotFoundError(f"未找到ID为 {params.last_id} 的同义词组")
 
             sort_value = getattr(last_synonym_group, sort_by)
             search_value = getattr(SynonymGroup, sort_by)
@@ -324,7 +325,7 @@ class SynonymDao:
         """
         synonym = await session.get(Synonym, id)
         if not synonym:
-            raise ValueError(f"未找到ID为 {id} 的同义词")
+            raise NotFoundError(f"未找到ID为 {id} 的同义词")
         await session.delete(synonym)
         await session.flush()
 
@@ -341,7 +342,7 @@ class SynonymDao:
         stmt = delete(Synonym).where(Synonym.id == id, Synonym.pid == pid)
         result = await session.exec(stmt)
         if result.rowcount == 0:
-            raise ValueError(f"未找到ID为 {id} 且项目ID为 {pid} 的同义词")
+            raise NotFoundError(f"未找到ID为 {id} 且项目ID为 {pid} 的同义词")
         await session.flush()
 
     @DaoRel

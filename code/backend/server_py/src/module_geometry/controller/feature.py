@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
+from common.utils.fastapiEX.exceptions import NotFoundError
 from module_authorization.dependencies.permission import require_permission
 from module_geometry.config.server import module_app
 from module_geometry.dependencies.feature import get_geo_feature_service
@@ -27,14 +28,7 @@ async def create_geo_feature(
     :param service: 几何要素服务依赖注入
     :return: 新创建要素ID
     """
-    try:
-        return await service.add(data, current_user_id)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.add(data, current_user_id)
 
 
 @router.get("/all", summary="查询全部几何要素", response_model=list[GeoFeatureResponse])
@@ -48,12 +42,7 @@ async def list_all_geo_features(
     :param service: 几何要素服务依赖注入
     :return: 要素响应列表
     """
-    try:
-        return await service.list_all()
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.list_all()
 
 
 @router.get("/list", summary="分页查询几何要素列表", response_model=PaginationResponse)
@@ -75,16 +64,9 @@ async def list_geo_features(
     :param service: 几何要素服务依赖注入
     :return: 分页响应结果
     """
-    try:
-        return await service.list_paged(
-            pagination, keyword=keyword, feature_type=feature_type
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.list_paged(
+        pagination, keyword=keyword, feature_type=feature_type
+    )
 
 
 @router.get("/{feature_id}", summary="获取单个几何要素", response_model=GeoFeatureResponse)
@@ -100,19 +82,10 @@ async def get_geo_feature(
     :param service: 几何要素服务依赖注入
     :return: 要素详情
     """
-    try:
-        result = await service.get(feature_id)
-        if not result:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="GeoFeature not found"
-            )
-        return result
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    result = await service.get(feature_id)
+    if not result:
+        raise NotFoundError(f"未找到ID为 {feature_id} 的几何要素")
+    return result
 
 
 @router.put("/{feature_id}", summary="更新几何要素", status_code=status.HTTP_204_NO_CONTENT)
@@ -129,14 +102,7 @@ async def update_geo_feature(
     :param current_user_id: 当前用户ID(权限依赖注入)
     :param service: 几何要素服务依赖注入
     """
-    try:
-        await service.update(feature_id, data)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    await service.update(feature_id, data)
 
 
 @router.delete("/{feature_id}", summary="删除几何要素", status_code=status.HTTP_204_NO_CONTENT)
@@ -146,7 +112,8 @@ async def delete_geo_feature(
     service: GeoFeatureService = Depends(get_geo_feature_service),
 ) -> None:
     """
-    删除几何要素
+    按ID删除几何要素记录(需 geometry:feature:delete 权限)
+    ID不存在时返回 404 错误(detail 为 "未找到ID为 xxx 的几何要素")
     :param feature_id: 要素ID
     :param current_user_id: 当前用户ID(权限依赖注入)
     :param service: 几何要素服务依赖注入
@@ -154,11 +121,8 @@ async def delete_geo_feature(
     try:
         await service.delete(feature_id)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+        # DAO 层记录不存在时以 ValueError 抛出, 统一转为 404 语义
+        raise NotFoundError(str(e))
 
 
 module_app.include_router(router, prefix="/features", tags=["几何要素"])

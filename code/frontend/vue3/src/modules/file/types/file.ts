@@ -26,6 +26,8 @@ type FileEntry = {
   file_extension: string | null;
   mime_type: string | null;
   description: string | null;
+  /** 关键词标签组(默认空,可手动输入或由RAG智能提取) */
+  tags: string[] | null;
   is_active: boolean;
   user_id: string | null;
   group_id: string | null;
@@ -34,10 +36,33 @@ type FileEntry = {
   updated_at: string;
 };
 
-/** 条目更新参数(仅名称/描述可改) */
+/** 条目更新参数(名称/描述/标签可改) */
 type FileEntryUpdate = {
   name?: string;
   description?: string;
+  tags?: string[];
+};
+
+/** 条目详情(内容元数据+上传用户名) */
+type FileEntryDetail = FileEntry & {
+  /** 物理存储相对位置(仅文件) */
+  physical_storage: string | null;
+  /** 内容引用计数(仅文件) */
+  ref_count: number | null;
+  /** 物理存储类型(local/s3/rustfs, 仅文件) */
+  storage_type: string | null;
+  /** 内容状态(仅文件) */
+  content_status: EntryStatus | null;
+  /** 上传用户名(昵称优先) */
+  owner_name: string | null;
+};
+
+/** 批量删除结果 */
+type BatchDeleteResult = {
+  /** 成功删除数 */
+  deleted: number;
+  /** 失败明细 */
+  failed: { id: string; error: string }[];
 };
 
 /** 存储统计信息 */
@@ -74,6 +99,8 @@ export { EntryStatus };
 export type {
   FileEntry,
   FileEntryUpdate,
+  FileEntryDetail,
+  BatchDeleteResult,
   StorageStats,
   MigrateRequest,
   MigrateResult,

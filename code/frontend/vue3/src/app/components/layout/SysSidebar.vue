@@ -1,7 +1,7 @@
 <template>
   <!-- 桌面端: 吸顶侧边栏(随页面滚动钉在导航下方, 超高时内部滚动) -->
   <el-aside
-    v-if="sysSettingStore.sysStyle.isMd"
+    v-if="isMd"
     :width="isCollapse ? '64px' : '230px'"
     transition-all
     duration-300
@@ -110,19 +110,22 @@ import { ref, watch } from 'vue'
 import { Expand, Fold } from '@element-plus/icons-vue'
 import { RouterStore } from '@/common/stores/router'
 import { SysSettingStore } from '@/common/stores/sys'
+import { useResponsive } from '@/common/composables/useResponsive'
 import { useVisibleMenu } from '@/common/composables/useMenu'
 
 const routerStore = RouterStore()
 const sysSettingStore = SysSettingStore()
+// 响应式断点: 常驻侧边栏仅平板及以上显示, 折叠态跟随桌面档
+const { isMd, isLg } = useResponsive()
 const TITLE = import.meta.env.VITE_GLOB_APP_TITLE
 // 菜单数据与权限过滤统一来自共享层(common/config/menu.ts + useMenu)
 const { visibleMenuItems } = useVisibleMenu()
 
 // 三档响应式折叠: 手机(<768)抽屉 / 平板(768-1023)默认折叠图标栏 / 桌面(>=1024)默认展开
-const isCollapse = ref(!sysSettingStore.sysStyle.isLg)
+const isCollapse = ref(!isLg.value)
 // 跨断点(旋转/拉伸窗口)时重置为该档默认值
 watch(
-  () => sysSettingStore.sysStyle.isLg,
+  () => isLg.value,
   (v) => {
     isCollapse.value = !v
   }
@@ -130,9 +133,9 @@ watch(
 
 // 升到平板及以上时关闭移动抽屉(已由常驻侧边栏接管)
 watch(
-  () => sysSettingStore.sysStyle.isMd,
-  (isMd) => {
-    if (isMd) sysSettingStore.sysStyle.isSidebarDrawerOpen = false
+  () => isMd.value,
+  (md) => {
+    if (md) sysSettingStore.sysStyle.isSidebarDrawerOpen = false
   }
 )
 </script>

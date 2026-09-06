@@ -165,4 +165,4 @@ async def test_dict_type_get_not_found(client: httpx.AsyncClient):
     """查询单个不存在的字典类型ID应 404"""
     fake_id = uuid.uuid4().hex
     resp = await client.get(f"{BASE}/{fake_id}")
-    assert resp.status_code in (404, 400, 500), f"应返回404: {resp.status_code} {resp.text}"
+    assert resp.status_code == 404, f"应返回404: {resp.status_code} {resp.text}"

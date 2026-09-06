@@ -4,6 +4,7 @@ from common.utils.db.schema.pagination import (
     PaginationParams,
 )
 from common.config.db import DaoRel
+from common.utils.fastapiEX.exceptions import NotFoundError
 from module_authorization.do.user import User, UserCreate, UserUpdate
 from module_authorization.do.user import UserResponse
 
@@ -35,7 +36,7 @@ class UserDao:
         """
         user = await session.get(User, id)
         if not user:
-            raise ValueError(f"未找到ID为 {id} 的用户")
+            raise NotFoundError(f"未找到ID为 {id} 的用户")
         await session.delete(user)
         await session.flush()
 
@@ -64,7 +65,7 @@ class UserDao:
 
         # 检查是否实际更新了记录
         if result.rowcount == 0:
-            raise ValueError(f"未找到ID为 {user_id} 的用户")
+            raise NotFoundError(f"未找到ID为 {user_id} 的用户")
         await session.flush()
 
     @DaoRel

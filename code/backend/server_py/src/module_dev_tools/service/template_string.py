@@ -5,6 +5,7 @@
 
 import re
 from string import Template
+from common.utils.fastapiEX.exceptions import NotFoundError
 from common.utils.db.schema.pagination import (
     InfiniteScrollParams,
     InfiniteScrollResponse,
@@ -111,7 +112,7 @@ class TemplateStringService:
         if template_id and not template_content:
             template = await self.template_string_dao.get(template_id)
             if not template:
-                raise ValueError(f"未找到ID为 {template_id} 的模板")
+                raise NotFoundError(f"未找到ID为 {template_id} 的模板")
             template_content = template.template_content
         elif not template_content:
             raise ValueError("必须提供模板ID或模板内容")

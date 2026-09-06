@@ -1,6 +1,7 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select, func, update
 from common.config.db import DaoRel
+from common.utils.fastapiEX.exceptions import NotFoundError
 from common.utils.db.schema.pagination import PaginationParams
 from module_rag.do.project_dept import (
     ProjectDept,
@@ -74,7 +75,7 @@ class ProjectDeptDao:
         stmt = update(ProjectDept).where(ProjectDept.id == id).values(**update_data)
         result = await session.exec(stmt)
         if result.rowcount == 0:
-            raise ValueError(f"未找到ID为 {id} 的部门授权")
+            raise NotFoundError(f"未找到ID为 {id} 的部门授权")
         await session.flush()
 
     @DaoRel
@@ -86,7 +87,7 @@ class ProjectDeptDao:
         """
         dept_auth = await session.get(ProjectDept, id)
         if not dept_auth:
-            raise ValueError(f"未找到ID为 {id} 的部门授权")
+            raise NotFoundError(f"未找到ID为 {id} 的部门授权")
         await session.delete(dept_auth)
         await session.flush()
 

@@ -4,6 +4,7 @@ from common.utils.db.schema.pagination import (
     PaginationParams,
 )
 from common.config.db import DaoRel
+from common.utils.fastapiEX.exceptions import NotFoundError
 from module_authorization.do.role import Role, RoleCreate, RoleUpdate
 
 
@@ -32,7 +33,7 @@ class RoleDao:
         """
         role = await session.get(Role, id)
         if not role:
-            raise ValueError(f"未找到ID为 {id} 的角色")
+            raise NotFoundError(f"未找到ID为 {id} 的角色")
         await session.delete(role)
         await session.flush()
 
@@ -61,7 +62,7 @@ class RoleDao:
 
         # 检查是否实际更新了记录
         if result.rowcount == 0:
-            raise ValueError(f"未找到ID为 {role_id} 的角色")
+            raise NotFoundError(f"未找到ID为 {role_id} 的角色")
         await session.flush()
 
     @DaoRel

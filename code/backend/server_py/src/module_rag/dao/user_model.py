@@ -1,6 +1,7 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select, update
 from common.config.db import DaoRel
+from common.utils.fastapiEX.exceptions import NotFoundError
 from module_rag.do.user_model import UserModel, UserModelUpdate
 
 
@@ -56,5 +57,5 @@ class UserModelDao:
         )
         result = await session.exec(stmt)
         if result.rowcount == 0:
-            raise ValueError(f"未找到用户 {user_id} 的模型绑定记录")
+            raise NotFoundError(f"未找到用户 {user_id} 的模型绑定记录")
         await session.flush()

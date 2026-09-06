@@ -1,9 +1,10 @@
 # self
 from common.config.index import conf
 from common.config.lifespan import lifespan
+from common.utils.fastapiEX.exceptions import BizFastAPI
 
 # lib
-from fastapi import FastAPI, Request, Response
+from fastapi import Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 import time
@@ -16,9 +17,11 @@ logger = logging.getLogger(__name__)
 # 总体配置
 SERVER_ROOT_PATH = conf.get("server.server_root_path")
 
-app = FastAPI(
-    title="python工程模板",
-    description="python工程模板",
+# BizFastAPI: 构造时自动注册全局异常处理器
+# (BizError→自带状态码 / ValueError→400 / 兜底 Exception→500+日志)
+app = BizFastAPI(
+    title="CodeBiu API",
+    description="CodeBiu 后端服务: 业务模块经 app.mount 挂载为子应用, 子应用为 BizFastAPI 实例以保证异常处理行为一致",
     version="1.0.0",
     docs_url="/docs",
     # redoc_url="/redoc",

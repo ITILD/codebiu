@@ -34,7 +34,7 @@
       <el-table-column label="名称" min-width="240" show-overflow-tooltip>
         <template #default="{ row }">
           <div flex items-center gap-2 cursor-pointer @click="handleOpen(row)">
-            <el-icon text-lg :class="row.is_directory ? 'text-amber-5' : fileIconClass(row.file_extension)">
+            <el-icon text-lg :class="row.is_directory ? 'text-amber-500' : fileIconClass(row.file_extension)">
               <Folder v-if="row.is_directory" />
               <Document v-else />
             </el-icon>
@@ -43,7 +43,7 @@
           </div>
         </template>
       </el-table-column>
-      <el-table-column label="类型" width="90" align="center">
+      <el-table-column label="类型" min-width="90" align="center">
         <template #default="{ row }">
           <el-tag v-if="!row.is_directory" size="small" type="info">
             {{ (row.file_extension || '').toUpperCase() }}
@@ -51,7 +51,7 @@
         </template>
       </el-table-column>
       <!-- 解析状态(仅文件行): 失败悬浮原因; 解析中/待解析展示入库步骤进度条 -->
-      <el-table-column label="解析状态" width="150" align="center">
+      <el-table-column label="解析状态" min-width="150" align="center">
         <template #default="{ row }">
           <template v-if="!row.is_directory && row.parse_status">
             <el-tooltip
@@ -85,7 +85,7 @@
           <span v-else text-note-sub>-</span>
         </template>
       </el-table-column>
-      <el-table-column label="大小" width="100" align="center">
+      <el-table-column label="大小" min-width="100" align="center">
         <template #default="{ row }">
           {{ row.is_directory ? '-' : formatSize(row.file_size_bytes) }}
         </template>
@@ -95,7 +95,7 @@
           {{ row.description || '-' }}
         </template>
       </el-table-column>
-      <el-table-column label="修改时间" width="120" align="center">
+      <el-table-column label="修改时间" min-width="120" align="center">
         <template #default="{ row }">
           {{ formatDate(row.updated_at || row.created_at) }}
         </template>
@@ -191,7 +191,7 @@ import { listRagProjects } from '../api/project'
 import { ParseStatus, IngestStepState, parseStatusOptions } from '../types'
 import type { DocumentIngestProgress } from '../types'
 import type { PaginationParams } from '@/common/types/common'
-import { SysSettingStore } from '@/common/stores/sys'
+import { useResponsive } from '@/common/composables/useResponsive'
 import { ElMessage, ElMessageBox, type FormInstance, type UploadRawFile } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -199,8 +199,7 @@ const route = useRoute()
 const router = useRouter()
 
 // 断点状态(操作列固定策略)
-const sysSettingStore = SysSettingStore()
-const isMd = computed(() => sysSettingStore.sysStyle.isMd)
+const { isMd } = useResponsive()
 
 // 路径参数中的项目ID
 const projectId = computed(() => (route.query.project_id as string) || '')

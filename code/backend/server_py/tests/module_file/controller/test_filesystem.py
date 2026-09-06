@@ -75,14 +75,14 @@ async def test_upload_download_list_delete(client):
 
 @pytest.mark.asyncio
 async def test_upload_duplicate_name_conflict(client):
-    """同目录同名文件冲突返回 400"""
+    """同目录同名文件冲突返回 409(ConflictError)"""
     filename = f"dup_{os.urandom(4).hex()}.txt"
     for _ in range(2):
         resp = await client.post(
             UPLOAD_URL,
             files={"file": (filename, os.urandom(16), "text/plain")},
         )
-    assert resp.status_code == 400
+    assert resp.status_code == 409
     assert "同名" in resp.json()["detail"]
 
 
@@ -310,7 +310,7 @@ async def test_multipart_init_duplicate_name(client):
     assert resp.status_code == 201, resp.text
     entry = resp.json()
 
-    # 同目录同名文件再 init -> 400,凭证未签发
+    # 同目录同名文件再 init -> 409,凭证未签发
     resp = await client.post(
         MULTIPART_INIT_URL,
         json={
@@ -319,7 +319,7 @@ async def test_multipart_init_duplicate_name(client):
             "content_hash": hashlib.sha256(os.urandom(16)).hexdigest(),
         },
     )
-    assert resp.status_code == 400
+    assert resp.status_code == 409
     assert "同名" in resp.json()["detail"]
     await client.delete(DELETE_FILE_URL.format(file_id=entry["id"]))
 
@@ -354,9 +354,9 @@ async def test_multipart_init_invalid_pid(client):
         "file_size_bytes": PART_SIZE,
         "content_hash": hashlib.sha256(os.urandom(16)).hexdigest(),
     }
-    # pid 不存在
+    # pid 不存在(资源不存在语义 -> 404)
     resp = await client.post(MULTIPART_INIT_URL, json={**base, "pid": "no-such-pid"})
-    assert resp.status_code == 400
+    assert resp.status_code == 404
     assert "父目录" in resp.json()["detail"]
 
     # pid 指向文件(非目录)
@@ -436,3 +436,152 @@ async def test_multipart_proxy_hash_correction(client):
     assert resp.json()["is_existing"] is True
 
     await client.delete(DELETE_FILE_URL.format(file_id=entry["id"]))
+
+# ==================== 批量删除/条目详情/标签 ====================
+BATCH_DELETE_URL = f"{BASE}/entries/batch-delete"
+ENTRY_DETAIL_URL = f"{BASE}/entries/{{entry_id}}/detail"
+FOLDER_URL = f"{BASE}/folder"
+UPDATE_ENTRY_URL = f"{BASE}/entries/{{entry_id}}"
+FOLDER_DELETE_URL = f"{BASE}/folders/{{folder_id}}"
+
+
+@pytest.mark.asyncio
+async def test_batch_delete_mixed_entries(client):
+    """批量删除: 文件+目录混选,目录递归删除子树,返回成功数"""
+    suffix = os.urandom(4).hex()
+    # 上传 2 个文件
+    file_ids = []
+    for name in (f"batch_a_{suffix}.txt", f"batch_b_{suffix}.txt"):
+        resp = await client.post(
+            UPLOAD_URL, files={"file": (name, b"batch content", "text/plain")}
+        )
+        assert resp.status_code == 201, resp.text
+        file_ids.append(resp.json()["id"])
+    # 创建目录并在其中上传 1 个文件
+    folder_name = f"batch_dir_{suffix}"
+    resp = await client.post(FOLDER_URL, params={"name": folder_name})
+    assert resp.status_code == 201, resp.text
+    folder = resp.json()
+    resp = await client.post(
+        UPLOAD_URL,
+        files={"file": (f"inner_{suffix}.txt", b"inner", "text/plain")},
+        params={"pid": folder["id"]},
+    )
+    assert resp.status_code == 201, resp.text
+
+    # 批量删除: 2 文件 + 1 目录(混选)
+    resp = await client.post(
+        BATCH_DELETE_URL, json={"entry_ids": file_ids + [folder["id"]]}
+    )
+    assert resp.status_code == 200, resp.text
+    result = resp.json()
+    assert result["deleted"] == 3
+    assert result["failed"] == []
+
+    # 全部逻辑删除: 目录列表不可见
+    resp = await client.get(LIST_DIR_URL, params={"page": 1, "size": 100})
+    names = [it["name"] for it in resp.json()["items"]]
+    assert f"batch_a_{suffix}.txt" not in names
+    assert folder_name not in names
+    for entry_id in file_ids:
+        resp = await client.get(ENTRY_URL.format(entry_id=entry_id))
+        assert resp.json()["is_active"] is False
+
+
+@pytest.mark.asyncio
+async def test_batch_delete_partial_failure(client):
+    """批量删除: 不存在的ID不阻断其余项,失败明细可见"""
+    resp = await client.post(
+        UPLOAD_URL, files={"file": (f"pf_{os.urandom(4).hex()}.txt", b"pf", "text/plain")}
+    )
+    assert resp.status_code == 201
+    entry_id = resp.json()["id"]
+
+    resp = await client.post(
+        BATCH_DELETE_URL,
+        json={"entry_ids": [entry_id, "not_exist_id", "another_missing"]},
+    )
+    assert resp.status_code == 200, resp.text
+    result = resp.json()
+    assert result["deleted"] == 1
+    assert len(result["failed"]) == 2
+    failed_ids = {it["id"] for it in result["failed"]}
+    assert failed_ids == {"not_exist_id", "another_missing"}
+    assert all(it["error"] for it in result["failed"])
+
+
+@pytest.mark.asyncio
+async def test_entry_detail_with_owner(client):
+    """条目详情: 含上传用户名/物理存储位置/存储类型/引用计数/标签"""
+    resp = await client.post(
+        UPLOAD_URL,
+        files={"file": (f"detail_{os.urandom(4).hex()}.txt", b"detail content " + os.urandom(8), "text/plain")},
+    )
+    assert resp.status_code == 201, resp.text
+    entry_id = resp.json()["id"]
+
+    resp = await client.get(ENTRY_DETAIL_URL.format(entry_id=entry_id))
+    assert resp.status_code == 200, resp.text
+    detail = resp.json()
+    assert detail["id"] == entry_id
+    # 上传用户名(admin 登录用户,昵称优先其次用户名)
+    assert detail["owner_name"]
+    # 内容元数据(存储类型取自配置,conftest 仅覆盖存储实现实例)
+    from common.config.index import conf
+
+    assert detail["physical_storage"]
+    assert detail["storage_type"] == str(conf.file_system.storage_type)
+    assert detail["ref_count"] == 1
+    assert detail["content_status"] == "success"
+    # 标签默认空数组
+    assert detail["tags"] == []
+
+    # 目录也有详情(无内容元数据)
+    resp = await client.post(FOLDER_URL, params={"name": f"detail_dir_{os.urandom(4).hex()}"})
+    folder = resp.json()
+    resp = await client.get(ENTRY_DETAIL_URL.format(entry_id=folder["id"]))
+    assert resp.status_code == 200
+    assert resp.json()["is_directory"] is True
+    assert resp.json()["physical_storage"] is None
+
+    # 不存在的条目 404
+    resp = await client.get(ENTRY_DETAIL_URL.format(entry_id="missing_id"))
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_entry_tags_update(client):
+    """标签组: 编辑接口更新 tags(文件夹/文件通用),详情与列表同步可见"""
+    folder_name = f"tags_dir_{os.urandom(4).hex()}"
+    resp = await client.post(FOLDER_URL, params={"name": folder_name})
+    assert resp.status_code == 201
+    folder = resp.json()
+    assert folder["tags"] == []
+
+    # 更新标签组
+    tags = ["项目资料", "2026", "重要"]
+    resp = await client.put(
+        UPDATE_ENTRY_URL.format(entry_id=folder["id"]),
+        json={"tags": tags},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["tags"] == tags
+
+    # 详情同步可见
+    resp = await client.get(ENTRY_DETAIL_URL.format(entry_id=folder["id"]))
+    assert resp.json()["tags"] == tags
+
+    # 列表同步可见
+    resp = await client.get(LIST_DIR_URL, params={"page": 1, "size": 100})
+    item = next(it for it in resp.json()["items"] if it["id"] == folder["id"])
+    assert item["tags"] == tags
+
+    # 清空标签(传空数组)
+    resp = await client.put(
+        UPDATE_ENTRY_URL.format(entry_id=folder["id"]),
+        json={"tags": []},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["tags"] == []
+
+    await client.delete(FOLDER_DELETE_URL.format(folder_id=folder["id"]))

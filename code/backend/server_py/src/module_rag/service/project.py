@@ -12,6 +12,7 @@ import logging
 import shutil
 from module_rag.dao.project_document_chunk import ProjectDocumentChunkDao
 from module_file.service.filesystem import FileService
+from common.utils.fastapiEX.exceptions import ConflictError, NotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,7 @@ async def ensure_project_folder(
     extra: dict = {"session": session} if session else {}
     project = await project_dao.get(project_id, **extra)
     if not project:
-        raise LookupError(f"项目 {project_id} 不存在")
+        raise NotFoundError(f"项目 {project_id} 不存在")
     if project.root_entry_id:
         # 已关联的条目可能被外部删除 → 失效时重新补建
         entry = await file_service.get_file_entry(project.root_entry_id)
@@ -244,7 +245,7 @@ class ProjectService:
                     await self.file_service.rename(
                         db_project.root_entry_id, project.name
                     )
-                except ValueError:
+                except (ValueError, NotFoundError, ConflictError):
                     # 同名冲突等场景保留原文件夹名(虚拟目录名与项目名短暂不一致可接受)
                     logger.warning(
                         f"项目文件夹重命名失败(可能同名) project={project_id}"

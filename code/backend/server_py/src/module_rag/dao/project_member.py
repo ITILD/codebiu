@@ -2,6 +2,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select, func, update, or_
 from common.utils.db.schema.pagination import PaginationParams
 from common.config.db import DaoRel
+from common.utils.fastapiEX.exceptions import NotFoundError
 from module_rag.do.project_member import (
     ProjectMember,
     ProjectMemberCreate,
@@ -39,7 +40,7 @@ class ProjectMemberDao:
         """
         member = await session.get(ProjectMember, id)
         if not member:
-            raise ValueError(f"未找到ID为 {id} 的项目成员")
+            raise NotFoundError(f"未找到ID为 {id} 的项目成员")
         await session.delete(member)
         await session.flush()
 
@@ -60,7 +61,7 @@ class ProjectMemberDao:
         stmt = update(ProjectMember).where(ProjectMember.id == member_id).values(**update_data)
         result = await session.exec(stmt)
         if result.rowcount == 0:
-            raise ValueError(f"未找到ID为 {member_id} 的项目成员")
+            raise NotFoundError(f"未找到ID为 {member_id} 的项目成员")
         await session.flush()
 
     @DaoRel

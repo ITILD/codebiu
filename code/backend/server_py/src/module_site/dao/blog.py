@@ -2,6 +2,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select, func, update
 from common.utils.db.schema.pagination import PaginationParams
 from common.config.db import DaoRel
+from common.utils.fastapiEX.exceptions import NotFoundError
 from module_site.do.blog import BlogPost, BlogPostCreate, BlogPostUpdate, PostStatus
 
 
@@ -50,7 +51,7 @@ class BlogPostDao:
         )
         result = await session.exec(stmt)
         if result.rowcount == 0:
-            raise ValueError(f"未找到ID为 {post_id} 的博客文章")
+            raise NotFoundError(f"未找到ID为 {post_id} 的博客文章")
         await session.flush()
 
     @DaoRel
@@ -62,7 +63,7 @@ class BlogPostDao:
         """
         post = await session.get(BlogPost, post_id)
         if not post or post.user_id != user_id:
-            raise ValueError(f"未找到ID为 {post_id} 的博客文章")
+            raise NotFoundError(f"未找到ID为 {post_id} 的博客文章")
         await session.delete(post)
         await session.flush()
 

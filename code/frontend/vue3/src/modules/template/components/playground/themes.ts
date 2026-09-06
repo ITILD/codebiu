@@ -166,5 +166,76 @@ const harryPotter: PlaygroundTheme = {
   colors: ['#b08d3e', '#faf4e2', '#f3ead3', '#3b2f2f'],
 }
 
+/** 数字花园: 草木绿主色 + 米纸底色 + 衬线字体, Brad Woods 数字花园可视化技巧演示 */
+const bradGarden: PlaygroundTheme = {
+  key: 'brad_garden',
+  name: '数字花园',
+  desc: '草木绿主色、米纸底色、纸张质感，汇集 blend-modes/3D/描线等可视化技巧的温室。',
+  path: '/template/playground/brad_garden',
+  vars: {
+    // 主色(草木绿)及明暗梯度
+    '--el-color-primary': '#4a7c59',
+    '--el-color-primary-dark-2': '#3b6447',
+    '--el-color-primary-light-3': '#6f9579',
+    '--el-color-primary-light-5': '#93b39b',
+    '--el-color-primary-light-7': '#bcd2c2',
+    '--el-color-primary-light-8': '#d3e2d7',
+    '--el-color-primary-light-9': '#eaf2ec',
+    // 功能色梯度(苔绿 / 麦黄 / 陶红)
+    '--el-color-success': '#2f7d4f',
+    '--el-color-success-dark-2': '#26643f',
+    '--el-color-success-light-3': '#589671',
+    '--el-color-success-light-5': '#8ab498',
+    '--el-color-success-light-7': '#b8d2c0',
+    '--el-color-success-light-8': '#cfe2d5',
+    '--el-color-success-light-9': '#e6f0e9',
+    '--el-color-warning': '#b08a3e',
+    '--el-color-warning-dark-2': '#8d6e31',
+    '--el-color-warning-light-3': '#c2a468',
+    '--el-color-warning-light-5': '#d3bd8f',
+    '--el-color-warning-light-7': '#e3d5b4',
+    '--el-color-warning-light-8': '#ede2cb',
+    '--el-color-warning-light-9': '#f6f0e2',
+    '--el-color-danger': '#a35454',
+    '--el-color-danger-dark-2': '#824343',
+    '--el-color-danger-light-3': '#b87676',
+    '--el-color-danger-light-5': '#cd9898',
+    '--el-color-danger-light-7': '#e0baba',
+    '--el-color-danger-light-8': '#ebcfcf',
+    '--el-color-danger-light-9': '#f5e5e5',
+    '--el-color-info': '#6e7566',
+    '--el-color-info-dark-2': '#585e52',
+    '--el-color-info-light-3': '#8b9184',
+    '--el-color-info-light-5': '#a8ada2',
+    '--el-color-info-light-7': '#c5c8c0',
+    '--el-color-info-light-8': '#d8dad4',
+    '--el-color-info-light-9': '#eaebe6',
+    // 文字 / 背景 / 边框 / 填充(米纸色系)
+    '--el-text-color-primary': '#33392f',
+    '--el-text-color-regular': '#4d5548',
+    '--el-text-color-secondary': '#79806f',
+    '--el-bg-color': '#faf8f1',
+    '--el-bg-color-overlay': '#faf8f1',
+    '--el-bg-color-page': '#f2efe6',
+    '--el-border-color': '#cfc9b8',
+    '--el-border-color-light': '#dcd7c8',
+    '--el-border-color-lighter': '#e8e4d8',
+    '--el-border-color-extra-light': '#f0ede4',
+    '--el-fill-color': '#f0ede2',
+    '--el-fill-color-dark': '#e8e4d6',
+    '--el-fill-color-light': '#f3f0e7',
+    '--el-fill-color-lighter': '#f8f5ee',
+    '--el-fill-color-blank': '#faf8f1',
+    // 圆角 / 字体 / 开关激活色
+    '--el-border-radius-base': '4px',
+    '--el-border-radius-small': '3px',
+    '--el-font-family': "Georgia, 'Noto Serif SC', 'STZhongsong', 'KaiTi', serif",
+    '--el-switch-on-color': '#4a7c59',
+  },
+  rootClass: 'bg-[#f2efe6] text-[#33392f] border border-[#cfc9b8]',
+  bannerClass: 'bg-[#2f3a2c] text-[#e4ecd8] border border-[#cfc9b8]',
+  colors: ['#4a7c59', '#faf8f1', '#f2efe6', '#33392f'],
+}
+
 /** 全部可选主题(新增主题在此追加) */
-export const playgroundThemes: PlaygroundTheme[] = [business, harryPotter]
+export const playgroundThemes: PlaygroundTheme[] = [business, harryPotter, bradGarden]

@@ -116,11 +116,10 @@ import { excerpt } from '../composables/useCalendar'
 import MarkdownView from '../components/MarkdownView.vue'
 import MemoCalendar from '../components/MemoCalendar.vue'
 import LedgerMiniCard from '../components/LedgerMiniCard.vue'
-import { SysSettingStore } from '@/common/stores/sys'
+import { useResponsive } from '@/common/composables/useResponsive'
 
 // 响应式断点(手机抽屉宽度自适应)
-const sysSettingStore = SysSettingStore()
-const isMd = computed(() => sysSettingStore.sysStyle.isMd)
+const { isMd } = useResponsive()
 
 // 列表状态
 const posts = ref<BlogPost[]>([])

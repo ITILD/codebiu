@@ -110,11 +110,10 @@ import { createTodolist, deleteTodolist, listTodolists, updateTodolist } from '.
 import type { Todolist, TodoStatus } from '../../types/todolist'
 import { excerpt } from '../../composables/useCalendar'
 import type { SearchField } from '@/common/components/TableSearchBar.vue'
-import { SysSettingStore } from '@/common/stores/sys'
+import { useResponsive } from '@/common/composables/useResponsive'
 
 // 响应式断点(md 以下走移动端布局)
-const sysSettingStore = SysSettingStore()
-const isMd = computed(() => sysSettingStore.sysStyle.isMd)
+const { isMd } = useResponsive()
 
 // 搜索字段(名称/状态)
 const searchFields: SearchField[] = [
@@ -266,8 +265,8 @@ async function handleDelete(row: Todolist) {
 }
 
 const statusLabel = (s: TodoStatus) => ({ todo: '待办', done: '完成', pause: '暂停' })[s] ?? s
-const statusTagType = (s: TodoStatus) =>
-  ({ todo: 'warning', done: 'success', pause: 'info' })[s] ?? 'info'
+const statusTagType = (s: TodoStatus): 'warning' | 'success' | 'info' =>
+  ({ todo: 'warning', done: 'success', pause: 'info' } as const)[s] ?? 'info'
 const formatDateTime = (v: string) => new Date(v).toLocaleString('zh-CN')
 
 onMounted(fetchData)

@@ -1,10 +1,12 @@
 # self
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
+from common.utils.fastapiEX.exceptions import ConflictError, NotFoundError
 from module_file.do.filesystem import (
     FileEntry,
     FileEntryCreate,
     FileEntryUpdate,
     FileEntryWithContent,
+    FileEntryDetail,
     FileContentCreate,
     FileContentUpdate,
     MultipartInitRequest,
@@ -15,6 +17,9 @@ from module_file.do.filesystem import (
     UploadModeResponse,
     StorageStats,
     MigrateRequest,
+    BatchDeleteRequest,
+    BatchDeleteResult,
+    BatchDeleteItemError,
 )
 from module_file.dao.file_entry_dao import FileEntryDao
 from module_file.dao.file_content_dao import FileContentDao
@@ -135,7 +140,7 @@ class FileService:
         """
         entry = await self.file_entry_dao.get(entry_id, session)
         if not entry or not entry.is_active:
-            raise ValueError(f"未找到ID为 {entry_id} 的文件")
+            raise NotFoundError(f"未找到ID为 {entry_id} 的文件")
         self._ensure_module_writable(entry)
         if entry.is_directory:
             raise ValueError("目录请使用目录删除接口")
@@ -158,7 +163,7 @@ class FileService:
                 folder_id, session
             )
             if not subtree_ids:
-                raise ValueError(f"未找到ID为 {folder_id} 的目录")
+                raise NotFoundError(f"未找到ID为 {folder_id} 的目录")
             # 批量逻辑删除
             await self.file_entry_dao.batch_soft_delete(subtree_ids, session)
             # 对子树中的文件统一释放内容引用(哈希已去重)
@@ -170,6 +175,51 @@ class FileService:
         except Exception as e:
             logger.error(f"删除目录时发生错误: {e}")
             raise
+
+    @DaoRel
+    async def batch_delete(
+        self, entry_ids: list[str], session: AsyncSession | None = None
+    ) -> BatchDeleteResult:
+        """
+        批量删除条目(文件与目录混选,目录递归删除子树)
+        单项失败不阻断其余项,逐项记录失败原因
+        :param entry_ids: 条目ID列表(文件/目录混合)
+        :return: 批量删除结果(成功数+失败明细)
+        """
+        deleted, failed = 0, []
+        for entry_id in entry_ids:
+            try:
+                entry = await self.file_entry_dao.get(entry_id, session)
+                if not entry or not entry.is_active:
+                    failed.append(
+                        BatchDeleteItemError(id=entry_id, error="条目不存在或已删除")
+                    )
+                    continue
+                self._ensure_module_writable(entry)
+                if entry.is_directory:
+                    # 目录: 递归 CTE 取子树,批量逻辑删除后统一释放内容引用
+                    subtree_ids = await self.file_entry_dao.get_subtree_ids(
+                        entry_id, session
+                    )
+                    await self.file_entry_dao.batch_soft_delete(subtree_ids, session)
+                    content_hashes = (
+                        await self.file_entry_dao.get_content_hashes_by_ids(
+                            subtree_ids, session
+                        )
+                    )
+                else:
+                    # 文件: 单条逻辑删除
+                    await self.file_entry_dao.soft_delete(entry_id, session)
+                    content_hashes = (
+                        [entry.content_hash] if entry.content_hash else []
+                    )
+                for content_hash in content_hashes:
+                    await self._release_content(content_hash, session)
+                deleted += 1
+            except Exception as e:
+                logger.warning(f"批量删除条目失败 {entry_id}: {e}")
+                failed.append(BatchDeleteItemError(id=entry_id, error=str(e)))
+        return BatchDeleteResult(deleted=deleted, failed=failed)
 
     @DaoRel
     async def update(
@@ -187,19 +237,24 @@ class FileService:
         """
         entry = await self.file_entry_dao.get(file_id, session)
         if not entry or not entry.is_active:
-            raise ValueError("条目不存在或已被删除")
+            raise NotFoundError("条目不存在或已被删除")
         self._ensure_module_writable(entry)
         # 拆分更新数据(路径字段不对外暴露,仅内部方法维护)
         data = file_update.model_dump(exclude_unset=True)
         new_name = data.get("name")
         new_description = data.get("description")
+        new_tags = data.get("tags")
         # 名称变更走重命名(维护子树路径一致性,同一事务)
         if new_name and new_name != entry.name:
             entry = await self.rename(file_id, new_name, session=session)
+        # 描述/标签变更直接更新(标签组支持手动输入与后续RAG智能提取写入)
+        meta_update = FileEntryUpdate()
         if new_description is not None and new_description != entry.description:
-            await self.file_entry_dao.update(
-                file_id, FileEntryUpdate(description=new_description), session
-            )
+            meta_update.description = new_description
+        if new_tags is not None and new_tags != (entry.tags or []):
+            meta_update.tags = new_tags
+        if meta_update.model_dump(exclude_unset=True):
+            await self.file_entry_dao.update(file_id, meta_update, session)
         return await self.file_entry_dao.get(file_id, session)
 
     @DaoRel
@@ -215,7 +270,7 @@ class FileService:
         """
         entry = await self.file_entry_dao.get(entry_id, session)
         if not entry or not entry.is_active:
-            raise ValueError("条目不存在或已被删除")
+            raise NotFoundError("条目不存在或已被删除")
         self._ensure_module_writable(entry)
         new_name = new_name.strip()
         if not new_name:
@@ -226,7 +281,7 @@ class FileService:
         if await self.file_entry_dao.exists_by_pid_name(
             entry.pid, new_name, exclude_id=entry_id, session=session
         ):
-            raise ValueError(f"当前目录下已存在同名条目: {new_name}")
+            raise ConflictError(f"当前目录下已存在同名条目: {new_name}")
         old_path = entry.logical_path
         parent_path = old_path.rsplit("/", 1)[0]
         new_path = f"{parent_path}/{new_name}"
@@ -256,13 +311,13 @@ class FileService:
         """
         entry = await self.file_entry_dao.get(entry_id, session)
         if not entry or not entry.is_active:
-            raise ValueError("条目不存在或已被删除")
+            raise NotFoundError("条目不存在或已被删除")
         self._ensure_module_writable(entry)
         target_pid = target_pid or None
         if target_pid:
             target = await self.file_entry_dao.get(target_pid, session)
             if not target or not target.is_active:
-                raise ValueError("目标目录不存在或已被删除")
+                raise NotFoundError("目标目录不存在或已被删除")
             if not target.is_directory:
                 raise ValueError("目标条目不是目录")
             self._ensure_module_writable(target)
@@ -281,7 +336,7 @@ class FileService:
         if await self.file_entry_dao.exists_by_pid_name(
             target_pid, entry.name, exclude_id=entry_id, session=session
         ):
-            raise ValueError(f"目标目录下已存在同名条目: {entry.name}")
+            raise ConflictError(f"目标目录下已存在同名条目: {entry.name}")
         old_path = entry.logical_path
         await self.file_entry_dao.update(
             entry_id, FileEntryUpdate(pid=target_pid, logical_path=new_path), session
@@ -300,6 +355,27 @@ class FileService:
         :return: 文件或目录信息对象，不存在返回None
         """
         return await self.file_entry_dao.get(id)
+
+    @DaoRel
+    async def get_entry_detail(
+        self, entry_id: str, session: AsyncSession | None = None
+    ) -> FileEntryDetail | None:
+        """
+        获取条目详情(详情按钮用): 条目+内容元数据(物理存储位置/引用计数/存储类型)+上传用户名
+        :param entry_id: 条目ID
+        :return: 详情对象,不存在返回None
+        """
+        info = await self.file_entry_dao.get_file_entry_with_content(entry_id, session)
+        if not info:
+            return None
+        owner_name = None
+        if info.user_id:
+            from module_authorization.do.user import User
+
+            user = await session.get(User, info.user_id)
+            if user:
+                owner_name = user.nickname or user.username
+        return FileEntryDetail.from_entry_with_content(info, owner_name)
 
     async def list_by_pid(
         self,
@@ -348,7 +424,7 @@ class FileService:
         if pid:
             parent = await self.file_entry_dao.get(pid, session)
             if not parent or not parent.is_active:
-                raise ValueError("父目录不存在或已被删除")
+                raise NotFoundError("父目录不存在或已被删除")
             if not parent.is_directory:
                 raise ValueError("父级条目不是目录")
             self._ensure_module_writable(parent)
@@ -360,7 +436,7 @@ class FileService:
 
         # 同目录下名称唯一校验
         if await self.file_entry_dao.exists_by_pid_name(pid, name, session=session):
-            raise ValueError(f"当前目录下已存在同名条目: {name}")
+            raise ConflictError(f"当前目录下已存在同名条目: {name}")
 
         folder = FileEntryCreate(
             name=name,
@@ -434,7 +510,7 @@ class FileService:
             return "", None
         parent = await self.file_entry_dao.get(pid, session)
         if not parent or not parent.is_active:
-            raise ValueError("父目录不存在或已被删除")
+            raise NotFoundError("父目录不存在或已被删除")
         # 与 create_folder 一致: 文件管理口径(managed实例)禁止向业务条目目录内上传
         self._ensure_module_writable(parent)
         if not parent.is_directory:
@@ -514,7 +590,7 @@ class FileService:
         if await self.file_entry_dao.exists_by_pid_name(
             pid, filename, session=session
         ):
-            raise ValueError(f"当前目录下已存在同名文件: {filename}")
+            raise ConflictError(f"当前目录下已存在同名文件: {filename}")
 
         # 内容哈希去重: 已存在且完成的内容直接复用(秒传)
         content_meta = await self.upload_content_bytes(content, filename, session)
@@ -867,7 +943,7 @@ class FileService:
         if await self.file_entry_dao.exists_by_pid_name(
             req.pid, req.filename, session=session
         ):
-            raise ValueError(f"当前目录下已存在同名文件: {req.filename}")
+            raise ConflictError(f"当前目录下已存在同名文件: {req.filename}")
         mime_type = self._guess_mime(req.filename) or req.content_type or "application/octet-stream"
         if not storage_config.is_mime_allowed(mime_type):
             raise ValueError(f"不支持的文件类型: {mime_type}")
@@ -967,7 +1043,7 @@ class FileService:
         if await self.file_entry_dao.exists_by_pid_name(
             req.pid, req.filename, session=session
         ):
-            raise ValueError(f"当前目录下已存在同名文件: {req.filename}")
+            raise ConflictError(f"当前目录下已存在同名文件: {req.filename}")
 
         # ===== 内容级复用逻辑: 分片对账/合并归位/哈希校正 =====
         meta = await self.complete_multipart_session(
@@ -1008,12 +1084,12 @@ class FileService:
             req.content_hash, session
         )
         if not content or content.content_status != TaskStatus.SUCCESS:
-            raise ValueError("文件内容不存在或未完成上传,无法创建条目")
+            raise NotFoundError("文件内容不存在或未完成上传,无法创建条目")
         dir_path, parent = await self._get_parent_dir(req.pid, session)
         if await self.file_entry_dao.exists_by_pid_name(
             req.pid, req.name, session=session
         ):
-            raise ValueError(f"当前目录下已存在同名文件: {req.name}")
+            raise ConflictError(f"当前目录下已存在同名文件: {req.name}")
         return await self._create_entry_from_content(
             req.name, req.pid, dir_path, req.content_hash, req.file_size_bytes,
             req.mime_type, req.description, owner_user_id, session,
@@ -1129,7 +1205,7 @@ class FileService:
             logical_path, session
         )
         if not entry or not entry.is_directory:
-            raise ValueError(f"目录不存在: {logical_path}")
+            raise NotFoundError(f"目录不存在: {logical_path}")
         return await self.list_by_pid(entry.id, pagination, name)
 
     @DaoRel
@@ -1164,7 +1240,7 @@ class FileService:
                     part, current_pid, owner_user_id, session=session
                 )
             elif not entry.is_directory:
-                raise ValueError(f"路径 /{part} 已被同名文件占用")
+                raise ConflictError(f"路径 /{part} 已被同名文件占用")
             current_pid = entry.id
         return entry
 
@@ -1200,13 +1276,13 @@ class FileService:
         """
         entry = await self.file_entry_dao.get(entry_id, session)
         if not entry or not entry.is_active:
-            raise ValueError("条目不存在或已被删除")
+            raise NotFoundError("条目不存在或已被删除")
         self._ensure_module_writable(entry)
         # 校验目标目录
         if target_pid:
             target = await self.file_entry_dao.get(target_pid, session)
             if not target or not target.is_active:
-                raise ValueError("目标目录不存在或已被删除")
+                raise NotFoundError("目标目录不存在或已被删除")
             if not target.is_directory:
                 raise ValueError("目标条目不是目录")
             self._ensure_module_writable(target)
@@ -1223,7 +1299,7 @@ class FileService:
         if await self.file_entry_dao.exists_by_pid_name(
             target_pid, entry.name, session=session
         ):
-            raise ValueError(f"目标目录下已存在同名条目: {entry.name}")
+            raise ConflictError(f"目标目录下已存在同名条目: {entry.name}")
         copied = await self._copy_recursive(
             entry, target_pid, target_path, owner_user_id, session
         )
@@ -1295,7 +1371,7 @@ class FileService:
         """
         info = await self.file_entry_dao.get_file_entry_with_content(entry_id)
         if not info or not info.is_active:
-            raise ValueError(f"文件不存在: {entry_id}")
+            raise NotFoundError(f"文件不存在: {entry_id}")
         if info.is_directory:
             raise ValueError("目录不支持按内容读取")
         if not info.physical_storage:
@@ -1320,7 +1396,7 @@ class FileService:
         """
         info = await self.file_entry_dao.get_file_entry_with_content(entry_id)
         if not info or not info.is_active:
-            raise ValueError(f"文件不存在: {entry_id}")
+            raise NotFoundError(f"文件不存在: {entry_id}")
         if info.is_directory:
             raise ValueError("目录不支持按内容读取")
         if not info.physical_storage:

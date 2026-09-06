@@ -33,7 +33,8 @@
           {{ row.created_at ? new Date(row.created_at).toLocaleString() : '' }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" min-width="200" fixed="right">
+      <!-- 操作列: 平板及以上固定右侧, 手机取消固定避免遮挡 -->
+      <el-table-column label="操作" min-width="200" :fixed="isMd ? 'right' : false">
         <template #default="{ row }">
           <el-button size="small" @click="handleEdit(row)" plain>编辑</el-button>
           <el-button size="small" type="success" @click="handleAssignRole(row)" plain>分配角色</el-button>
@@ -110,7 +111,11 @@ import type { User, UserCreate, UserUpdate } from '../types/user'
 import type { DeptTree } from '../types/dept'
 import type { Role } from '../types/role'
 import type { SearchField } from '@/common/components/TableSearchBar.vue'
+import { useResponsive } from '@/common/composables/useResponsive'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
+
+// 响应式: 平板及以上操作列固定右侧
+const { isMd } = useResponsive()
 
 // 搜索字段配置(用户名/昵称/状态多字段筛选)
 const searchFields: SearchField[] = [

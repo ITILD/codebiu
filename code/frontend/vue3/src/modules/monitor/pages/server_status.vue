@@ -18,15 +18,15 @@
 
     <!-- 概览卡片: 主机型号 / 挂载路由 / 网络 -->
     <div mb-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3>
-      <div p-4 rounded-lg bg-note-card border-note shadow-note>
+      <div page-card>
         <p text-xs text-note-sub>主机型号</p>
         <p mt-2 text-xl font-bold text-note-green>{{ sysInfo || '未知' }}</p>
       </div>
-      <div p-4 rounded-lg bg-note-card border-note shadow-note>
+      <div page-card>
         <p text-xs text-note-sub>挂载路由数量</p>
         <p mt-2 text-xl font-bold text-note-green>{{ mountCount }}</p>
       </div>
-      <div p-4 rounded-lg bg-note-card border-note shadow-note>
+      <div page-card>
         <p text-xs text-note-sub>网络连通性</p>
         <p mt-2 text-xl font-bold :class="networkOk ? 'text-note-green' : 'text-red-500'">
           {{ networkOk ? '正常' : '异常' }}
@@ -36,7 +36,7 @@
 
     <div v-loading="loading" grid gap-4 lg:grid-cols-2>
       <!-- 硬件状态: CPU / 内存 / 磁盘 -->
-      <div p-4 rounded-lg bg-note-card border-note shadow-note>
+      <div page-card>
         <h3 mb-4 font-bold text-note>🖥️ 硬件状态</h3>
         <template v-if="hardware">
           <!-- CPU -->
@@ -72,7 +72,7 @@
       </div>
 
       <!-- GPU 状态 -->
-      <div p-4 rounded-lg bg-note-card border-note shadow-note>
+      <div page-card>
         <h3 mb-4 font-bold text-note>🎛️ GPU 状态</h3>
         <template v-if="hardware && hardware.gpu.length > 0">
           <div v-for="gpu in hardware.gpu" :key="gpu.id" mb-4 p-3 rounded bg-note-soft last:mb-0>
@@ -94,7 +94,7 @@
         <h3 mb-4 font-bold text-note>🌐 网络状态</h3>
         <el-table :data="networkList" stripe w-full size="small">
           <el-table-column prop="url" label="目标地址" min-width="240" show-overflow-tooltip />
-          <el-table-column label="连接状态" width="120" align="center">
+          <el-table-column label="连接状态" min-width="120" align="center">
             <template #default="{ row }">
               <el-tag :type="row.connect_success ? 'success' : 'danger'" size="small">
                 {{ row.connect_success ? '已连接' : '连接失败' }}

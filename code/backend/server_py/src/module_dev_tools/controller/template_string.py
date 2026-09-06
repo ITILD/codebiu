@@ -20,7 +20,8 @@ from common.utils.db.schema.pagination import (
     PaginationResponse,
 )
 
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, status, Depends
+from common.utils.fastapiEX.exceptions import BusinessError, NotFoundError
 
 router = APIRouter()
 
@@ -38,20 +39,12 @@ async def create_template_string(
     :param service: 模板字符串服务依赖注入
     :return: 创建的模板字符串ID
     """
-    try:
-        # 验证模板语法
-        validation_result = await service.validate_template_syntax(template_string.template_content)
-        if not validation_result["valid"]:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=validation_result["message"]
-            )
-        
-        return await service.add(template_string)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    # 验证模板语法(无效时拒绝创建, 返回 400)
+    validation_result = await service.validate_template_syntax(template_string.template_content)
+    if not validation_result["valid"]:
+        raise BusinessError(validation_result["message"])
+
+    return await service.add(template_string)
 
 
 @router.get("/scroll", summary="滚动加载模板字符串")
@@ -65,13 +58,8 @@ async def infinite_scroll(
     :param service: 服务层依赖
     :return: 分页响应数据
     """
-    try:
-        infinite_scroll_response = await service.get_scroll(params)
-        return infinite_scroll_response
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    infinite_scroll_response = await service.get_scroll(params)
+    return infinite_scroll_response
 
 
 @router.get("/list", summary="分页查询模板字符串列表", response_model=PaginationResponse)
@@ -80,18 +68,14 @@ async def list_template_strings(
     service: TemplateStringService = Depends(get_template_string_service),
 ) -> PaginationResponse:
     """
-    分页查询模板字符串列表
+    按分页参数返回模板字符串数据页, 不做任何条件过滤
+    total 为模板字符串全表总数
     :param pagination: 分页参数
     :param service: 模板字符串服务依赖注入
     :return: 分页响应结果
     """
-    try:
-        pagination_response = await service.list_paged(pagination)
-        return pagination_response
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    pagination_response = await service.list_paged(pagination)
+    return pagination_response
 
 
 @router.get("/{template_string_id}", summary="获取单个模板字符串", response_model=TemplateString)
@@ -105,20 +89,11 @@ async def get_template_string(
     :param service: 模板字符串服务依赖注入
     :return: 模板字符串详情
     """
-    try:
-        result = await service.get(template_string_id)
-        if not result:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Template string not found"
-            )
-        return result
-    except HTTPException:
-        # 保留 404 语义,避免被包装成 500
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    # 记录不存在时返回 404(由全局异常处理器统一响应)
+    result = await service.get(template_string_id)
+    if not result:
+        raise NotFoundError("模板字符串不存在")
+    return result
 
 
 @router.delete(
@@ -129,16 +104,12 @@ async def delete_template_string(
     service: TemplateStringService = Depends(get_template_string_service),
 ) -> None:
     """
-    删除模板字符串
+    按ID删除模板字符串记录
+    ID不存在时返回 404(detail 为 "未找到ID为 xxx 的模板字符串")
     :param template_string_id: 模板字符串ID
     :param service: 模板字符串服务依赖注入
     """
-    try:
-        await service.delete(template_string_id)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    await service.delete(template_string_id)
 
 
 @router.put(
@@ -150,25 +121,18 @@ async def update_template_string(
     service: TemplateStringService = Depends(get_template_string_service),
 ) -> None:
     """
-    更新模板字符串
+    更新前先校验模板语法, 语法无效时拒绝更新
+    按ID部分更新(仅显式传入字段生效); ID不存在时返回 404
     :param template_string_id: 模板字符串ID
     :param template_string: 模板字符串数据
     :param service: 模板字符串服务依赖注入
     """
-    try:
-        # 验证模板语法
-        validation_result = await service.validate_template_syntax(template_string.template_content)
-        if not validation_result["valid"]:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=validation_result["message"]
-            )
-        
-        await service.update(template_string_id, template_string)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    # 验证模板语法(无效时拒绝更新, 返回 400)
+    validation_result = await service.validate_template_syntax(template_string.template_content)
+    if not validation_result["valid"]:
+        raise BusinessError(validation_result["message"])
+
+    await service.update(template_string_id, template_string)
 
 
 @router.post("/render", summary="渲染模板", response_model=TemplateRenderResponse)
@@ -177,18 +141,14 @@ async def render_template(
     service: TemplateStringService = Depends(get_template_string_service),
 ) -> TemplateRenderResponse:
     """
-    渲染模板
+    基于 string.Template 渲染模板: 优先使用请求体中的 template_content,
+    未提供内容时按 template_id 从库中读取(两者均缺省时返回 400, 模板不存在时返回 404)
+    缺失变量按原样保留并记入 variables_missing
     :param render_request: 渲染请求
     :param service: 模板字符串服务依赖注入
     :return: 渲染结果
     """
-    try:
-        return await service.render_template(render_request)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
-
+    return await service.render_template(render_request)
 
 
 
@@ -198,17 +158,13 @@ async def validate_template_syntax(
     service: TemplateStringService = Depends(get_template_string_service),
 ) -> dict:
     """
-    验证模板语法
+    校验模板内容是否符合 string.Template 语法, 并提取其中的 ${var} 变量列表
+    语法错误不抛异常, 以 valid=false 返回
     :param template_content: 模板内容
     :param service: 模板字符串服务依赖注入
     :return: 验证结果
     """
-    try:
-        return await service.validate_template_syntax(template_content)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.validate_template_syntax(template_content)
 # TODO 凑文件夹压缩包规则,下载模板文件 只修改do
 
 # 将路由挂载到模块应用

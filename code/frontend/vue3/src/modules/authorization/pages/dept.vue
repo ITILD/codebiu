@@ -30,7 +30,8 @@
           <span v-else>-</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" min-width="150" fixed="right">
+      <!-- 操作列: 平板及以上固定右侧, 手机取消固定避免遮挡 -->
+      <el-table-column label="操作" min-width="150" :fixed="isMd ? 'right' : false">
         <template #default="{ row }">
           <el-button size="small" type="primary" plain @click="handleEdit(row)">编辑</el-button>
           <el-button size="small" type="danger" plain @click="handleDelete(row)">删除</el-button>
@@ -81,6 +82,10 @@ import { Search } from '@element-plus/icons-vue'
 import { createDept, deleteDept, getDept, getDeptTree, updateDept } from '../api/dept'
 import type { DeptCreate, DeptTree, DeptUpdate } from '../types/dept'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
+import { useResponsive } from '@/common/composables/useResponsive'
+
+// 响应式: 平板及以上操作列固定右侧
+const { isMd } = useResponsive()
 
 // 树节点类型（DeptTree 树形接口未包含 created_at，此处扩展以便表格展示后端可能返回的创建时间）
 interface DeptTreeNode extends DeptTree {

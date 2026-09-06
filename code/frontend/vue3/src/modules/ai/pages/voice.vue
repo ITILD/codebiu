@@ -101,6 +101,7 @@
                   >
                     {{ recording ? '停止录音' : '开始录音' }}
                   </el-button>
+                  <!-- 脉冲点有意用 bg-white: 位于 danger 红色实底标签内, 白色才能保证对比度, 不映射 note-* -->
                   <el-tag v-if="recording" type="danger" effect="dark" flex items-center gap-1>
                     <span inline-block w-2 h-2 bg-white rounded-full animate-pulse></span>
                     录音中

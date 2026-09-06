@@ -1,10 +1,10 @@
 from common.config.server import app
-from fastapi import FastAPI
+from common.utils.fastapiEX.exceptions import BizFastAPI
 import logging
 
 logger = logging.getLogger(__name__)
 
-module_app = FastAPI()
+module_app = BizFastAPI()
 
 app.mount("/nlp", module_app)
 

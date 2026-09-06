@@ -6,6 +6,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from module_data_clean.do.data_clean import DataCleanRequest, DataCleanResponse
 from module_ai.service.llm_base import LLMBaseService
+from common.utils.fastapiEX.exceptions import NotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ class DataCleanService:
             request.model_id, streaming=False
         )
         if llm is None:
-            raise ValueError("模型配置不存在或不可用")
+            raise NotFoundError("模型配置不存在或不可用")
         messages = self._build_messages(request)
         if request.output_type == "json":
             result = await self._clean_json(llm, messages, request.json_schema)

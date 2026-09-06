@@ -11,7 +11,7 @@
       <!-- up: 9/10 -->
       <LazyBaseMoacoEdit
         class="h-[90%]"
-        bg-gray-300
+        bg-note-soft
         v-model="editorContent"
         :language="selectedLanguage"
         :theme="selectedTheme"

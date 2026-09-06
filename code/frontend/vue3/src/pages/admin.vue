@@ -91,6 +91,7 @@ import {
 import type { Component } from 'vue'
 import { useRouter } from 'vue-router'
 import { SysSettingStore } from '@/common/stores/sys'
+import { useResponsive } from '@/common/composables/useResponsive'
 import { useAuthStore } from '@/common/stores/auth'
 import { useVisibleMenu } from '@/common/composables/useMenu'
 import { useRecentPages } from '@/common/composables/useRecentPages'
@@ -99,6 +100,8 @@ import type { HardwareStatus, NetworkStatus } from '@/modules/main/types/status'
 
 const router = useRouter()
 const sysSettingStore = SysSettingStore()
+// 响应式断点: 屏幕档位描述用
+const { isMd, isLg } = useResponsive()
 const authStore = useAuthStore()
 const { recentPages } = useRecentPages()
 const { visibleMenuItems } = useVisibleMenu()
@@ -120,9 +123,8 @@ const envText = import.meta.env.MODE === 'development' ? '开发环境' : '生�
 
 /** 屏幕档位描述(三档断点) */
 const screenLabel = computed(() => {
-  const s = sysSettingStore.sysStyle
-  if (s.isLg) return '桌面(≥1024)'
-  if (s.isMd) return '平板(768-1023)'
+  if (isLg.value) return '桌面(≥1024)'
+  if (isMd.value) return '平板(768-1023)'
   return '手机(<768)'
 })
 

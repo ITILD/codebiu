@@ -88,3 +88,24 @@ class AvatarService:
         avatar_url = f"/base_server/file/filesystem/download/{entry.id}"
         await self.user_dao.update(user_id, UserUpdate(avatar=avatar_url))
         return {"avatar": avatar_url, "entry_id": entry.id}
+
+    async def delete_avatar(self, user_id: str) -> None:
+        """
+        删除当前头像还原默认(用户名首字头像): 清理 avatar 模块条目并置空用户头像字段
+        :param user_id: 当前登录用户ID
+        :raises ValueError: 当前无上传头像(字段为空)
+        """
+        user = await self.user_dao.get(user_id)
+        if not user or not user.avatar:
+            raise ValueError("当前未设置头像")
+        # 清理 avatar 模块的头像文件条目(仅识别本服务写入的格式, 外部链接不动)
+        entry_id = self._extract_entry_id(user.avatar)
+        if entry_id:
+            entry = await self.file_service.get_file_entry(entry_id)
+            if entry and entry.source_module == AVATAR_MODULE_KEY:
+                try:
+                    await self.file_service.delete_file(entry_id)
+                except Exception as e:
+                    logger.warning(f"清理头像条目失败 {entry_id}: {e}")
+        # 置空头像字段, 前端回退为用户名首字默认头像
+        await self.user_dao.update(user_id, UserUpdate(avatar=None))

@@ -1,14 +1,14 @@
-from fastapi import FastAPI
 import logging
 
 from common.config.db import db_manager
 from common.config.lifespan import register_init_hook, register_startup_hook
 from common.config.server import app
+from common.utils.fastapiEX.exceptions import BizFastAPI
 
 logger = logging.getLogger(__name__)
 
 # 模块子应用(挂载到主应用 /geometry 路径下)
-module_app = FastAPI()
+module_app = BizFastAPI()
 app.mount("/geometry", module_app)
 
 # 导入权限声明(注册到权限中心, 幂等)

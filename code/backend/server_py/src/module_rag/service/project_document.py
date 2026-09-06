@@ -11,6 +11,7 @@ from langchain.chat_models import BaseChatModel
 from langchain_openai import OpenAIEmbeddings
 
 from common.config.db import db_vector
+from common.utils.fastapiEX.exceptions import NotFoundError
 from common.config.path import DIR_UPLOAD
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
 from module_ai.service.llm_base import LLMBaseService
@@ -111,13 +112,13 @@ class ProjectDocumentService:
         :param project_id: 项目ID
         :param filename: 文件名
         :return: 小写扩展名(不含点)
-        :raises LookupError: 项目不存在
+        :raises NotFoundError: 项目不存在
         :raises ValueError: 文件名非法/类型不允许
         """
         project = await self.project_dao.get(project_id)
         if not project:
             logger.error(f"项目 {project_id} 不存在")
-            raise LookupError(f"项目 {project_id} 不存在")
+            raise NotFoundError(f"项目 {project_id} 不存在")
         if not filename:
             raise ValueError("文件名不能为空")
         ext = Path(filename).suffix.lstrip(".").lower()
@@ -167,12 +168,12 @@ class ProjectDocumentService:
         :param root_entry: 项目根文件夹条目
         :param folder_id: 目标目录条目ID
         :return: 目标目录条目
-        :raises LookupError: 目录不存在
+        :raises NotFoundError: 目录不存在
         :raises ValueError: 目录不属于当前项目
         """
         entry = await self.file_service.get_file_entry(folder_id)
         if not entry or not entry.is_active or not entry.is_directory:
-            raise LookupError(f"目录不存在: {folder_id}")
+            raise NotFoundError(f"目录不存在: {folder_id}")
         if entry.id != root_entry.id and not entry.logical_path.startswith(
             root_entry.logical_path.rstrip("/") + "/"
         ):
@@ -415,7 +416,7 @@ class ProjectDocumentService:
         document = await self.document_dao.get(document_id)
         if not document:
             logger.error(f"文档 {document_id} 不存在")
-            raise LookupError(f"文档 {document_id} 不存在")
+            raise NotFoundError(f"文档 {document_id} 不存在")
 
         if document.entry_id:
             # 条目级新口径: 联查虚拟目录条目与内容记录(物理键位于内容表)
@@ -429,14 +430,14 @@ class ProjectDocumentService:
             content = await self.file_service.get_content(document.content_hash)
             if not content or not content.physical_storage:
                 logger.error(f"物理内容记录不存在: {document.content_hash}")
-                raise LookupError(f"物理内容记录不存在: {document.content_hash}")
+                raise NotFoundError(f"物理内容记录不存在: {document.content_hash}")
             return document.name, document.mime_type, content.physical_storage, True
 
         # 旧口径: 本地磁盘 DIR_UPLOAD/{physical_path}
         file_path = DIR_UPLOAD / document.physical_path
         if not file_path.exists():
             logger.error(f"物理文件 {file_path} 不存在")
-            raise LookupError(f"物理文件 {file_path} 不存在")
+            raise NotFoundError(f"物理文件 {file_path} 不存在")
 
         return document.name, document.mime_type, file_path, False
 
@@ -473,7 +474,7 @@ class ProjectDocumentService:
         """
         doc = await self.document_dao.get(document_id)
         if not doc:
-            raise LookupError(f"文档 {document_id} 不存在")
+            raise NotFoundError(f"文档 {document_id} 不存在")
         # 条目级: 名称/描述同步虚拟目录条目(重命名冲突直接抛错, 保持两边一致)
         if doc.entry_id and (document.name or document.description is not None):
             await self.file_service.update(
@@ -490,13 +491,13 @@ class ProjectDocumentService:
         document = await self.document_dao.get(document_id)
         if not document:
             logger.error(f"文档 {document_id} 不存在")
-            raise LookupError(f"文档 {document_id} 不存在")
+            raise NotFoundError(f"文档 {document_id} 不存在")
 
         if document.entry_id:
             # 条目级新口径: 删除虚拟目录条目(内容引用-1, 归零自动清理物理文件)
             try:
                 await self.file_service.delete_file(document.entry_id)
-            except ValueError as e:
+            except (ValueError, NotFoundError) as e:
                 # 条目已被删除(如项目级联清理)时容忍, 继续删文档记录
                 logger.warning(f"删除文件条目失败 {document.entry_id}: {e}")
         elif document.content_hash:
@@ -537,7 +538,7 @@ class ProjectDocumentService:
         document = await self.document_dao.get(document_id)
         if not document:
             logger.error(f"文档 {document_id} 不存在")
-            raise LookupError(f"文档 {document_id} 不存在")
+            raise NotFoundError(f"文档 {document_id} 不存在")
 
         # 模型预检(任务队列/直跑共用): 对话+向量化模型缺失时快速失败并记录明确原因
         missing_labels = await self.ensure_parse_models(user_id)
@@ -559,7 +560,7 @@ class ProjectDocumentService:
             content = await self.file_service.get_content(content_hash)
             if not content or not content.physical_storage:
                 logger.error(f"物理内容记录不存在: {content_hash}")
-                raise LookupError(f"物理内容记录不存在: {content_hash}")
+                raise NotFoundError(f"物理内容记录不存在: {content_hash}")
             temp_input_dir = Path(tempfile.mkdtemp(prefix="rag_parse_src_"))
             file_path = temp_input_dir / f"source.{document.file_extension or 'bin'}"
             async with aiofiles.open(file_path, "wb") as f:
@@ -571,7 +572,7 @@ class ProjectDocumentService:
             file_path = DIR_UPLOAD / document.physical_path
             if not file_path.exists():
                 logger.error(f"物理文件 {file_path} 不存在")
-                raise LookupError(f"物理文件 {file_path} 不存在")
+                raise NotFoundError(f"物理文件 {file_path} 不存在")
 
         # 获取当前用户绑定的向量化模型实例 # TODO改成 文件处理专用   ocr模型单独设置
         ocr_llm: BaseChatModel | None = await self.user_model_service.get_llm_by_user_id(user_id,False)

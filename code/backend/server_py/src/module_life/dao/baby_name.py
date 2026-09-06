@@ -6,6 +6,7 @@ from common.utils.db.schema.pagination import (
     ScrollDirection,
 )
 from common.config.db import DaoRel
+from common.utils.fastapiEX.exceptions import NotFoundError
 from module_life.do.baby_name import BabyName, BabyNameCreate, BabyNameUpdate, BabyNameBatchDelete
 
 
@@ -34,7 +35,7 @@ class BabyNameDao:
         """
         baby_name = await session.get(BabyName, id)
         if not baby_name:
-            raise ValueError(f"未找到ID为 {id} 的宝宝名字")
+            raise NotFoundError(f"未找到ID为 {id} 的宝宝名字")
         await session.delete(baby_name)
         await session.flush()
 
@@ -64,7 +65,7 @@ class BabyNameDao:
         """
         db_baby_name = await session.get(BabyName, name_id)
         if not db_baby_name:
-            raise ValueError(f"未找到ID为 {name_id} 的宝宝名字")
+            raise NotFoundError(f"未找到ID为 {name_id} 的宝宝名字")
         
         update_data = baby_name.model_dump(exclude_unset=True)
         for key, value in update_data.items():
@@ -122,7 +123,7 @@ class BabyNameDao:
         if params.last_id:
             anchor = await session.get(BabyName, params.last_id)
             if not anchor:
-                raise ValueError(f"未找到ID为 {params.last_id} 的宝宝名字")
+                raise NotFoundError(f"未找到ID为 {params.last_id} 的宝宝名字")
 
             sort_value = getattr(anchor, sort_by)
             search_value = getattr(BabyName, sort_by)

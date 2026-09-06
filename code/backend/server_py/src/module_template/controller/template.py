@@ -9,7 +9,8 @@ from common.utils.db.schema.pagination import (
     PaginationResponse,
 )
 
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, status, Depends
+from common.utils.fastapiEX.exceptions import NotFoundError
 
 router = APIRouter()
 
@@ -25,12 +26,7 @@ async def create_template(
     :param service: 模板服务依赖注入
     :return: 创建的模板ID
     """
-    try:
-        return await service.add(template)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.add(template)
 
 
 @router.get("/scroll", summary="滚动加载 考虑路由顺序")
@@ -44,13 +40,8 @@ async def infinite_scroll(
     :param service: 服务层依赖
     :return: 分页响应数据
     """
-    try:
-        infinite_scroll_response = await service.get_scroll(params)
-        return infinite_scroll_response
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    infinite_scroll_response = await service.get_scroll(params)
+    return infinite_scroll_response
 
 
 @router.get("/list", summary="分页查询模板列表", response_model=PaginationResponse)
@@ -59,18 +50,14 @@ async def list_templates(
     service: TemplateService = Depends(get_template_service),
 ) -> PaginationResponse:
     """
-    分页查询模板列表
+    按分页参数返回模板数据页, 不做任何条件过滤
+    total 为模板全表总数
     :param pagination: 分页参数 (通过查询参数传递)
     :param service: 模板服务依赖注入
     :return: 分页响应结果
     """
-    try:
-        pagination_response: PaginationResponse = await service.list_paged(pagination)
-        return pagination_response
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    pagination_response: PaginationResponse = await service.list_paged(pagination)
+    return pagination_response
 
 
 # 低优先级路由
@@ -85,19 +72,11 @@ async def get_template(
     :param service: 模板服务依赖注入
     :return: 模板详情
     """
-    try:
-        result = await service.get(template_id)
-        if not result:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Template not found"
-            )
-        return result
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    # 模板不存在时返回 404(由全局异常处理器统一响应)
+    result = await service.get(template_id)
+    if not result:
+        raise NotFoundError("模板不存在")
+    return result
 
 
 @router.delete(
@@ -108,16 +87,12 @@ async def delete_template(
     service: TemplateService = Depends(get_template_service),
 ) -> None:
     """
-    删除模板
+    按ID删除模板记录
+    ID不存在时返回 404(detail 为 "未找到ID为 xxx 的模板")
     :param template_id: 模板ID
     :param service: 模板服务依赖注入
     """
-    try:
-        await service.delete(template_id)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    await service.delete(template_id)
 
 
 @router.delete(
@@ -128,18 +103,14 @@ async def batch_delete_template(
     service: TemplateService = Depends(get_template_service),
 ) -> dict:
     """
-    批量删除模板
+    按ID列表批量删除模板
+    不存在的ID静默跳过, 返回实际删除数量 {deleted_count}
     :param batch_delete: 批量删除请求(包含ids列表)
     :param service: 模板服务依赖注入
     :return: 删除结果(包含实际删除数量)
     """
-    try:
-        deleted_count = await service.batch_delete(batch_delete)
-        return {"deleted_count": deleted_count}
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    deleted_count = await service.batch_delete(batch_delete)
+    return {"deleted_count": deleted_count}
 
 
 @router.put(
@@ -151,18 +122,14 @@ async def update_template(
     service: TemplateService = Depends(get_template_service),
 ) -> None:
     """
-    更新模板
+    按ID部分更新模板, 仅请求体中显式传入的字段生效
+    ID不存在时返回 404(detail 为 "未找到ID为 xxx 的模板")
     :param template_id: 模板ID
     :param template: 模板数据
     :param service: 模板服务依赖注入
     """
-    try:
-        # 确保更新的是指定ID的模板
-        await service.update(template_id, template)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    # 确保更新的是指定ID的模板
+    await service.update(template_id, template)
 
 
 module_app.include_router(router, prefix="/templates", tags=["基础模板"])

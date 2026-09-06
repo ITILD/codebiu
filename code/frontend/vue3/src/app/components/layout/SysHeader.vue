@@ -6,7 +6,7 @@
       <!-- 左侧: 移动端汉堡(仅后台路由, 打开模块列表抽屉) + Logo + 面包屑 -->
       <div flex items-center min-w-0 flex-1>
         <button
-          v-if="isAdmin && !sysSettingStore.sysStyle.isMd"
+          v-if="isAdmin && !isMd"
           ml-3
           rounded-full
           hover:bg-note-tint
@@ -98,6 +98,7 @@
 <script setup lang="ts">
 // 样式控制
 import { SysSettingStore } from '@/common/stores/sys'
+import { useResponsive } from '@/common/composables/useResponsive'
 import { Menu } from '@element-plus/icons-vue'
 // 面包屑(应用壳布局组件)
 import SysBreadcrumb from './SysBreadcrumb.vue'
@@ -111,6 +112,8 @@ const authStore = useAuthStore()
 const authState = authStore.authState
 const sysSettingStore = SysSettingStore()
 const sysStyle = sysSettingStore.sysStyle
+// 响应式断点: 汉堡按钮仅在 md 以下显示
+const { isMd } = useResponsive()
 const showLoginDialog = ref(false)
 const showRegisterDialog = ref(false)
 const TITLE = ref(import.meta.env.VITE_GLOB_APP_TITLE)

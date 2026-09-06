@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, status, Depends
+from common.utils.fastapiEX.exceptions import NotFoundError
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
 from pydantic import field_validator
 from module_rag.do.conversation import (
@@ -28,10 +29,7 @@ async def create_conversation(
     service: ConversationService = Depends(get_conversation_service),
 ):
     """创建新对话"""
-    try:
-        return await service.create(current_user_id, data)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return await service.create(current_user_id, data)
 
 
 @router.get("/my", summary="获取我的对话列表", response_model=PaginationResponse)
@@ -41,10 +39,7 @@ async def list_my_conversations(
     service: ConversationService = Depends(get_conversation_service),
 ):
     """分页获取当前用户的对话列表"""
-    try:
-        return await service.list_by_user(current_user_id, pagination)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return await service.list_by_user(current_user_id, pagination)
 
 
 @router.get("/{conversation_id}", summary="获取对话详情", response_model=Conversation)
@@ -52,16 +47,11 @@ async def get_conversation(
     conversation_id: str,
     service: ConversationService = Depends(get_conversation_service),
 ):
-    """获取对话详情"""
-    try:
-        result = await service.get(conversation_id)
-        if not result:
-            raise HTTPException(status_code=404, detail="对话未找到")
-        return result
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    """按ID查询对话详情, 对话不存在时返回404"""
+    result = await service.get(conversation_id)
+    if not result:
+        raise NotFoundError("对话未找到")
+    return result
 
 
 @router.put("/{conversation_id}", summary="更新对话", status_code=status.HTTP_204_NO_CONTENT)
@@ -71,10 +61,7 @@ async def update_conversation(
     service: ConversationService = Depends(get_conversation_service),
 ):
     """更新对话(标题/智能体/知识库)"""
-    try:
-        await service.update(conversation_id, data)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    await service.update(conversation_id, data)
 
 
 @router.delete("/{conversation_id}", summary="删除对话", status_code=status.HTTP_204_NO_CONTENT)
@@ -83,10 +70,7 @@ async def delete_conversation(
     service: ConversationService = Depends(get_conversation_service),
 ):
     """删除对话(同时删除关联消息)"""
-    try:
-        await service.delete(conversation_id)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    await service.delete(conversation_id)
 
 
 # ===================== 对话消息 =====================
@@ -116,10 +100,7 @@ async def list_messages(
     service: ChatMessageService = Depends(get_chat_message_service),
 ):
     """获取指定对话的聊天消息列表"""
-    try:
-        return await service.list_by_conversation(conversation_id, pagination)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return await service.list_by_conversation(conversation_id, pagination)
 
 
 # 注：流式聊天接口(SSE)已迁移至 module_rag.controller.rag_chat

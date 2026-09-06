@@ -36,6 +36,7 @@
           >
             {{ cell.date.getDate() }}
             <!-- 有备忘的日期显示角标点 -->
+            <!-- 角标点有意用 bg-white: today 格底为苔绿实底(bg-note-green), 白点才能与其形成对比; 白底格则用苔绿点 -->
             <i
               v-if="hasMemo(cell.date)"
               class="absolute bottom-0 h-1 w-1 rounded-full"

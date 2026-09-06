@@ -1,6 +1,7 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select, exists, update, func
 from common.config.db import DaoRel
+from common.utils.fastapiEX.exceptions import NotFoundError
 from module_file.do.filesystem import FileContent, FileContentCreate, FileContentUpdate
 from common.enum.task import TaskStatus
 
@@ -32,7 +33,7 @@ class FileContentDao:
         """
         file = await session.get(FileContent, content_hash)
         if not file:
-            raise ValueError(f"未找到hash值为 {content_hash} 的文件")
+            raise NotFoundError(f"未找到hash值为 {content_hash} 的文件")
         await session.delete(file)
         await session.flush()
 
@@ -65,7 +66,7 @@ class FileContentDao:
 
         # 检查是否实际更新了记录
         if result.rowcount == 0:
-            raise ValueError(f"未找到hash值为 {content_hash} 的文件")
+            raise NotFoundError(f"未找到hash值为 {content_hash} 的文件")
         await session.flush()
 
     @DaoRel
@@ -126,7 +127,7 @@ class FileContentDao:
         result = await session.exec(stmt)
 
         if result.rowcount == 0:
-            raise ValueError(f"未找到可引用的文件: {content_hash}")
+            raise NotFoundError(f"未找到可引用的文件: {content_hash}")
 
     @DaoRel
     async def replace_content_hash(
@@ -149,7 +150,7 @@ class FileContentDao:
         )
         result = await session.exec(stmt)
         if result.rowcount == 0:
-            raise ValueError(f"未找到hash值为 {old_hash} 的文件")
+            raise NotFoundError(f"未找到hash值为 {old_hash} 的文件")
         await session.flush()
 
     @DaoRel

@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException, status, Depends, Query
+from fastapi import APIRouter, status, Depends, Query
+from common.utils.fastapiEX.exceptions import NotFoundError
 from common.utils.db.schema.pagination import (
     InfiniteScrollParams,
     InfiniteScrollResponse,
@@ -23,12 +24,8 @@ async def create_dict_type(
     :param service: 字典类型服务依赖注入
     :return: 创建的字典类型ID
     """
-    try:
-        return await service.add(dict_type)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    # 编码重复等校验失败抛 ValueError, 由全局处理器映射为 400
+    return await service.add(dict_type)
 
 
 @router.get("/scroll", summary="滚动加载字典类型")
@@ -42,13 +39,7 @@ async def infinite_scroll(
     :param service: 服务层依赖
     :return: 分页响应数据
     """
-    try:
-        infinite_scroll_response = await service.get_scroll(params)
-        return infinite_scroll_response
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.get_scroll(params)
 
 
 @router.get("/list", summary="分页查询字典类型列表", response_model=PaginationResponse)
@@ -66,15 +57,9 @@ async def list_dict_types(
     :param service: 字典类型服务依赖注入
     :return: 分页响应结果
     """
-    try:
-        pagination_response: PaginationResponse = await service.list_paged(
-            pagination, keyword=keyword, is_active=is_active
-        )
-        return pagination_response
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.list_paged(
+        pagination, keyword=keyword, is_active=is_active
+    )
 
 
 @router.get("/code/{type_code}", summary="根据编码获取字典类型", response_model=DictType)
@@ -83,24 +68,15 @@ async def get_dict_type_by_code(
     service: DictTypeService = Depends(get_dict_type_service),
 ) -> DictType:
     """
-    根据编码获取字典类型详情
+    根据编码获取字典类型详情, 字典类型不存在时返回404
     :param type_code: 字典类型编码
     :param service: 字典类型服务依赖注入
     :return: 字典类型详情
     """
-    try:
-        result = await service.get_by_code(type_code)
-        if not result:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="DictType not found"
-            )
-        return result
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    result = await service.get_by_code(type_code)
+    if not result:
+        raise NotFoundError("字典类型不存在")
+    return result
 
 
 @router.get("/{dict_type_id}", summary="获取单个字典类型", response_model=DictType)
@@ -109,24 +85,15 @@ async def get_dict_type(
     service: DictTypeService = Depends(get_dict_type_service),
 ) -> DictType:
     """
-    获取单个字典类型详情
+    获取单个字典类型详情, 字典类型不存在时返回404
     :param dict_type_id: 字典类型ID
     :param service: 字典类型服务依赖注入
     :return: 字典类型详情
     """
-    try:
-        result = await service.get(dict_type_id)
-        if not result:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="DictType not found"
-            )
-        return result
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    result = await service.get(dict_type_id)
+    if not result:
+        raise NotFoundError("字典类型不存在")
+    return result
 
 
 @router.delete("/{dict_type_id}", summary="删除字典类型", status_code=status.HTTP_204_NO_CONTENT)
@@ -135,16 +102,12 @@ async def delete_dict_type(
     service: DictTypeService = Depends(get_dict_type_service),
 ) -> None:
     """
-    删除字典类型
+    按ID删除字典类型记录(仅删除类型本身, 不级联删除其下字典项)
+    ID不存在时返回 400 错误(dao 层 not-found 抛 ValueError, 由全局处理器映射)
     :param dict_type_id: 字典类型ID
     :param service: 字典类型服务依赖注入
     """
-    try:
-        await service.delete(dict_type_id)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    await service.delete(dict_type_id)
 
 
 @router.put("/{dict_type_id}", summary="更新字典类型", status_code=status.HTTP_204_NO_CONTENT)
@@ -154,17 +117,13 @@ async def update_dict_type(
     service: DictTypeService = Depends(get_dict_type_service),
 ) -> None:
     """
-    更新字典类型
+    按ID部分更新字典类型, 仅请求体中显式传入的字段生效
+    ID不存在时返回 400 错误(dao 层 not-found 抛 ValueError, 由全局处理器映射)
     :param dict_type_id: 字典类型ID
     :param dict_type: 字典类型数据
     :param service: 字典类型服务依赖注入
     """
-    try:
-        await service.update(dict_type_id, dict_type)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    await service.update(dict_type_id, dict_type)
 
 
 app.include_router(router, prefix="/dict_types", tags=["字典类型"])

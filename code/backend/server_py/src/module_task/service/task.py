@@ -9,6 +9,7 @@
 from datetime import datetime, timezone
 
 from common.config.tasks import app as celery_app
+from common.utils.fastapiEX.exceptions import NotFoundError
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
 from module_task.dao.task import TaskQueueDao
 from module_task.do.task import (
@@ -26,8 +27,8 @@ from module_task.tasks import TASK_TYPES, get_task_type
 TASK_QUEUE_NAME = "task_queue"
 
 
-class TaskNotFoundError(ValueError):
-    """任务不存在(控制器应映射为 404, 与其他状态冲突类 400 区分)"""
+class TaskNotFoundError(NotFoundError):
+    """任务不存在(继承 NotFoundError, 由全局异常处理器映射为 404)"""
 
 
 # Celery 状态 -> 本模块状态(校正用)
@@ -112,7 +113,7 @@ class TaskQueueService:
         """
         task = await self.dao.get(task_id)
         if not task:
-            raise ValueError(f"未找到ID为 {task_id} 的任务")
+            raise NotFoundError(f"未找到ID为 {task_id} 的任务")
         return _read_celery_state(task)
 
     async def stats(self) -> TaskStatsResponse:
@@ -186,7 +187,7 @@ class TaskQueueService:
         """
         task = await self.dao.get(task_id)
         if not task:
-            raise ValueError(f"未找到ID为 {task_id} 的任务")
+            raise NotFoundError(f"未找到ID为 {task_id} 的任务")
 
         if task.status in ACTIVE_STATUSES and task.celery_task_id:
             try:

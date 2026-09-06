@@ -27,6 +27,7 @@ from common.utils.db.schema.pagination import (
 )
 
 from fastapi import APIRouter, HTTPException, status, Depends
+from common.utils.fastapiEX.exceptions import NotFoundError
 from module_ai.utils.llm.response.sse import event_generator
 from sse_starlette import EventSourceResponse
 
@@ -46,17 +47,12 @@ async def predict_name_info_preference(
     service: BabyNameService = Depends(get_baby_name_service),
 ) -> NameInfoPreference:
     """
-    推测五行星座等偏好信息
-    :param name_info_base: 姓名信息基础数据
+    根据宝宝天生信息推测适合的五行、星座等名字偏好，用于缩小取名范围
+    :param name_info_base: 姓名信息基础数据(宝宝天生信息)
     :param service: 宝宝名字服务依赖注入
-    :return: 推测结果列表
+    :return: 推测的偏好信息(单个对象)
     """
-    try:
-        return await service.predict_name_info_preference_by_ai(name_info_base)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.predict_name_info_preference_by_ai(name_info_base)
 
 
 @router.post(
@@ -70,17 +66,12 @@ async def predict_baby_name(
     service: BabyNameService = Depends(get_baby_name_service),
 ) -> NameInfoResultList:
     """
-    推测宝宝名字
+    根据宝宝天生信息推测候选宝宝名字，返回名字结果列表
     :param name_info_base: 姓名信息基础数据
     :param service: 宝宝名字服务依赖注入
     :return: 推测结果列表
     """
-    try:
-        return await service.predict_name_by_ai(name_info_base)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.predict_name_by_ai(name_info_base)
 
 
 @router.post(
@@ -94,11 +85,12 @@ async def predict_baby_info_base(
     service: BabyNameService = Depends(get_baby_name_service),
 ) :
     """
-    推测宝宝五行星座名字的简易接口
-    :param name_info_predict_full: 姓名信息基础数据
+    根据宝宝完整基础信息推测名字，按请求中的 model_id 加载 LLM，以 SSE 事件流形式返回推测结果
+    :param request: 宝宝信息与 model_id 等推测参数
     :param service: 宝宝名字服务依赖注入
-    :return: 推测结果列表
+    :return: SSE 事件流
     """
+    # SSE 流式端点: 响应开始后无法再转 JSON, 端点体内的异常处理保留
     try:
         # 调用LLM服务
         responses = await service.predict_baby_info_base_by_ai(
@@ -126,17 +118,12 @@ async def predict_name_info_preference_meaning(
     service: BabyNameService = Depends(get_baby_name_service),
 ) -> NameInfoResultExplanation:
     """
-    推测五行星座等偏好信息和寓意
-    :param name_info_result_base: 宝宝完整名字
+    根据宝宝姓氏与名字反推五行、星座等偏好，并给出名字的寓意解释
+    :param name_info_result_base: 宝宝姓名基础信息(姓+名)
     :param service: 宝宝名字服务依赖注入
-    :return: 推测结果解释
+    :return: 偏好与寓意解释结果
     """
-    try:
-        return await service.predict_name_explanation_by_ai(name_info_result_base)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.predict_name_explanation_by_ai(name_info_result_base)
 
 
 @router.post(
@@ -151,12 +138,7 @@ async def create_baby_name(
     :param service: 宝宝名字服务依赖注入
     :return: 生成的名字ID
     """
-    try:
-        return await service.add(baby_name)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.add(baby_name)
 
 
 @router.get("", summary="获取宝宝名字列表")
@@ -165,17 +147,12 @@ async def list_baby_names(
     service: BabyNameService = Depends(get_baby_name_service),
 ) -> PaginationResponse:
     """
-    获取宝宝名字列表
+    分页查询已保存的宝宝名字列表
     :param params: 分页参数
     :param service: 服务层依赖
     :return: 分页响应数据
     """
-    try:
-        return await service.list_paged(params)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.list_paged(params)
 
 
 @router.get("/scroll", summary="滚动加载宝宝名字列表")
@@ -185,16 +162,11 @@ async def infinite_scroll(
 ) -> InfiniteScrollResponse:
     """
     无限滚动接口实现
-    :param params: 分页参数
+    :param params: 滚动分页参数
     :param service: 服务层依赖
     :return: 分页响应数据
     """
-    try:
-        return await service.get_scroll(params)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.get_scroll(params)
 
 
 @router.get("/{name_id}", summary="获取单个宝宝名字详情")
@@ -202,24 +174,16 @@ async def get_baby_name(
     name_id: str, service: BabyNameService = Depends(get_baby_name_service)
 ) -> BabyName:
     """
-    获取单个宝宝名字详情
+    按 ID 查询单个宝宝名字详情，名字不存在时返回 404
     :param name_id: 名字ID
     :param service: 服务层依赖
     :return: 宝宝名字详情
     """
-    try:
-        result = await service.get(name_id)
-        if not result:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="名字不存在"
-            )
-        return result
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    # 名字不存在时返回 404(由全局异常处理器统一响应)
+    result = await service.get(name_id)
+    if not result:
+        raise NotFoundError("名字不存在")
+    return result
 
 
 @router.put("/{name_id}", summary="更新宝宝名字")
@@ -238,11 +202,7 @@ async def update_baby_name(
         await service.update(name_id, baby_name)
     except ValueError as e:
         # 资源不存在 → 404(与 geometry 等模块错误映射保持一致)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+        raise NotFoundError(str(e))
 
 
 @router.delete("/{name_id}", summary="删除宝宝名字")
@@ -250,7 +210,7 @@ async def delete_baby_name(
     name_id: str, service: BabyNameService = Depends(get_baby_name_service)
 ):
     """
-    删除宝宝名字
+    按 ID 删除宝宝名字记录，名字不存在时返回 404
     :param name_id: 名字ID
     :param service: 服务层依赖
     """
@@ -258,11 +218,7 @@ async def delete_baby_name(
         await service.delete(name_id)
     except ValueError as e:
         # 资源不存在 → 404
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+        raise NotFoundError(str(e))
 
 
 @router.post("/batch-delete", summary="批量删除宝宝名字")
@@ -271,17 +227,12 @@ async def batch_delete_baby_names(
     service: BabyNameService = Depends(get_baby_name_service),
 ) -> int:
     """
-    批量删除宝宝名字
+    按 ID 列表批量删除宝宝名字记录，返回实际删除条数
     :param batch_delete: 批量删除请求
     :param service: 服务层依赖
     :return: 删除的记录数
     """
-    try:
-        return await service.batch_delete(batch_delete)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.batch_delete(batch_delete)
 
 
 # 将路由注册到模块应用

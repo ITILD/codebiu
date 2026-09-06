@@ -8,6 +8,7 @@ from module_file.service.filesystem import FileService, BusinessEntryError
 from module_file.do.filesystem import (
     FileEntry,
     FileEntryUpdate,
+    FileEntryDetail,
     MultipartInitRequest,
     MultipartInitResponse,
     MultipartPartInfo,
@@ -15,13 +16,15 @@ from module_file.do.filesystem import (
     EntryCreateRequest,
     UploadModeResponse,
     MigrateRequest,
+    BatchDeleteRequest,
+    BatchDeleteResult,
 )
 from module_authorization.dependencies.permission import require_permission
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
+from common.utils.fastapiEX.exceptions import BusinessError, NotFoundError
 
 from fastapi import (
     APIRouter,
-    HTTPException,
     status,
     Depends,
     UploadFile,
@@ -57,16 +60,9 @@ async def upload_file(
     :param service: 文件服务依赖注入
     :return: 上传的文件信息
     """
-    try:
-        return await service.upload_file(
-            file, description, pid, owner_user_id=current_user_id
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.upload_file(
+        file, description, pid, owner_user_id=current_user_id
+    )
 
 
 @router.get(
@@ -89,12 +85,7 @@ async def list_dir(
     :param service: 文件服务依赖注入
     :return: 分页响应结果
     """
-    try:
-        return await service.list_by_pid(pid, pagination, name)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.list_by_pid(pid, pagination, name)
 
 
 @router.get(
@@ -113,12 +104,7 @@ async def list_dirs(
     :param service: 文件服务依赖注入
     :return: 子目录列表
     """
-    try:
-        return await service.list_dirs(pid)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.list_dirs(pid)
 
 
 @router.post(
@@ -128,7 +114,7 @@ async def list_dirs(
     response_model=FileEntry,
 )
 async def create_folder(
-    name: str = Query(..., min_length=1, max_length=255),
+    name: str = Query(..., min_length=1, max_length=255, description="目录名称(1-255字符)"),
     pid: str | None = None,
     current_user_id: str = Depends(require_permission("main", "file", "create")),
     service: FileService = Depends(get_managed_file_service),
@@ -141,14 +127,7 @@ async def create_folder(
     :param service: 文件服务依赖注入
     :return: 新创建的目录信息
     """
-    try:
-        return await service.create_folder(name, pid, current_user_id)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.create_folder(name, pid, current_user_id)
 
 
 @router.put(
@@ -169,14 +148,7 @@ async def update_entry(
     :param service: 文件服务依赖注入
     :return: 更新后的条目信息
     """
-    try:
-        return await service.update(entry_id, entry_update)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.update(entry_id, entry_update)
 
 
 @router.put(
@@ -186,7 +158,7 @@ async def update_entry(
 )
 async def rename_entry(
     entry_id: str,
-    new_name: str = Query(..., min_length=1, max_length=255),
+    new_name: str = Query(..., min_length=1, max_length=255, description="条目新名称(1-255字符)"),
     current_user_id: str = Depends(require_permission("main", "file", "update")),
     service: FileService = Depends(get_managed_file_service),
 ) -> FileEntry:
@@ -197,14 +169,7 @@ async def rename_entry(
     :param service: 文件服务依赖注入
     :return: 更新后的条目信息
     """
-    try:
-        return await service.rename(entry_id, new_name)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.rename(entry_id, new_name)
 
 
 @router.put(
@@ -225,14 +190,7 @@ async def move_entry(
     :param service: 文件服务依赖注入
     :return: 更新后的条目信息
     """
-    try:
-        return await service.move(entry_id, target_pid)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.move(entry_id, target_pid)
 
 
 @router.get("/upload-mode", summary="查询上传模式(direct直传/proxy中转)", response_model=UploadModeResponse)
@@ -264,27 +222,20 @@ async def download_file(
     :param service: 文件服务依赖注入
     :return: 302重定向(直链) 或 文件数据流(代理)
     """
-    try:
-        file_name, mime_type, file_key = await service.get_file_info_for_download(
-            entry_id
-        )
-        # 直传存储: 预签名直链重定向(浏览器直连,服务端零流量)
-        url = await service.presign_download_url(file_key, file_name)
-        if url:
-            return RedirectResponse(url, status_code=status.HTTP_302_FOUND)
-        # 本地存储: 流式返回文件内容(分块读取,支持大文件)
-        iter_file = service.stream_file_content(file_key)
-        return StreamingResponse(
-            iter_file,
-            media_type=mime_type,
-            headers={"Content-Disposition": f'attachment; filename="{file_name}"'},
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    file_name, mime_type, file_key = await service.get_file_info_for_download(
+        entry_id
+    )
+    # 直传存储: 预签名直链重定向(浏览器直连,服务端零流量)
+    url = await service.presign_download_url(file_key, file_name)
+    if url:
+        return RedirectResponse(url, status_code=status.HTTP_302_FOUND)
+    # 本地存储: 流式返回文件内容(分块读取,支持大文件)
+    iter_file = service.stream_file_content(file_key)
+    return StreamingResponse(
+        iter_file,
+        media_type=mime_type,
+        headers={"Content-Disposition": f'attachment; filename="{file_name}"'},
+    )
 
 
 ######################################分片上传(multipart,大文件 >10MB 自动)######################################
@@ -306,14 +257,7 @@ async def init_multipart_upload(
     :param service: 文件服务依赖注入
     :return: 会话凭证与建议分片大小(is_existing=True 时直接调 /upload-complete 秒传)
     """
-    try:
-        return await service.init_multipart_upload(req, owner_user_id=current_user_id)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.init_multipart_upload(req, owner_user_id=current_user_id)
 
 
 @router.put(
@@ -337,19 +281,10 @@ async def upload_multipart_part(
     :param service: 文件服务依赖注入
     :return: 分片信息(part_number/etag/size)
     """
-    try:
-        content: bytes = await request.body()
-        if not content:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="分片内容不能为空"
-            )
-        return await service.upload_multipart_part(upload_id, part_number, content)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    content: bytes = await request.body()
+    if not content:
+        raise BusinessError("分片内容不能为空")
+    return await service.upload_multipart_part(upload_id, part_number, content)
 
 
 @router.get(
@@ -369,14 +304,7 @@ async def list_multipart_parts(
     :param service: 文件服务依赖注入
     :return: 分片信息列表
     """
-    try:
-        return await service.list_multipart_parts(upload_id)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.list_multipart_parts(upload_id)
 
 
 @router.post(
@@ -399,16 +327,9 @@ async def complete_multipart_upload(
     :param service: 文件服务依赖注入
     :return: 创建的文件条目
     """
-    try:
-        return await service.complete_multipart_upload(
-            upload_id, req, owner_user_id=current_user_id
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.complete_multipart_upload(
+        upload_id, req, owner_user_id=current_user_id
+    )
 
 
 @router.delete(
@@ -426,14 +347,7 @@ async def abort_multipart_upload(
     :param upload_id: 分片会话凭证
     :param service: 文件服务依赖注入
     """
-    try:
-        await service.abort_multipart_upload(upload_id)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    await service.abort_multipart_upload(upload_id)
 
 
 @router.post(
@@ -454,14 +368,7 @@ async def create_entry(
     :param service: 文件服务依赖注入
     :return: 创建的文件条目
     """
-    try:
-        return await service.create_entry(req, owner_user_id=current_user_id)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.create_entry(req, owner_user_id=current_user_id)
 
 
 ######################################删除逻辑######################################
@@ -483,13 +390,8 @@ async def delete_file(
     try:
         await service.delete_file(file_id)
     except BusinessEntryError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+        # 业务守卫异常(受保护条目禁止删除) -> 400, 与"不存在"的404区分
+        raise BusinessError(str(e))
 
 
 @router.delete(
@@ -510,13 +412,53 @@ async def delete_folder(
     try:
         await service.delete_folder(folder_id)
     except BusinessEntryError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+        # 业务守卫异常(受保护条目禁止删除) -> 400, 与"不存在"的404区分
+        raise BusinessError(str(e))
+
+
+######################################批量删除/条目详情######################################
+@router.post(
+    "/entries/batch-delete",
+    summary="批量删除条目(文件与目录混选,目录递归删除子树)",
+    response_model=BatchDeleteResult,
+    status_code=status.HTTP_200_OK,
+)
+async def batch_delete_entries(
+    req: BatchDeleteRequest,
+    current_user_id: str = Depends(require_permission("main", "file", "delete")),
+    service: FileService = Depends(get_managed_file_service),
+) -> BatchDeleteResult:
+    """
+    批量删除条目(逻辑删除,内容引用归零时清理物理文件)
+    单项失败不阻断其余项,返回成功数与失败明细
+    :param req: 批量删除请求(entry_ids 条目ID列表,文件/目录混合)
+    :param service: 文件服务依赖注入
+    :return: 批量删除结果 {deleted, failed}
+    """
+    return await service.batch_delete(req.entry_ids)
+
+
+@router.get(
+    "/entries/{file_entry_id}/detail",
+    summary="获取条目详情(元数据/物理存储位置/上传用户名/标签等)",
+    response_model=FileEntryDetail,
+    status_code=status.HTTP_200_OK,
+)
+async def get_file_entry_detail(
+    file_entry_id: str,
+    current_user_id: str = Depends(require_permission("main", "file", "read")),
+    service: FileService = Depends(get_file_service),
+) -> FileEntryDetail:
+    """
+    获取条目完整详情: 基础元数据+内容元数据(物理存储位置/引用计数/存储类型)+上传用户名
+    :param file_entry_id: 文件或目录的ID
+    :param service: 文件服务依赖注入
+    :return: 条目详情
+    """
+    result = await service.get_entry_detail(file_entry_id)
+    if not result:
+        raise NotFoundError("文件或目录不存在")
+    return result
 
 
 ######################################获取文件元数据######################################
@@ -532,24 +474,16 @@ async def get_file_entry_info(
     service: FileService = Depends(get_file_service),
 ) -> FileEntry:
     """
-    获取文件或文件夹元数据
+    按ID获取文件或目录的基础元数据(不含物理存储信息, 完整详情见 /detail 接口)
+    ID不存在时返回 404 错误(detail 为 "文件或目录不存在")
     :param file_entry_id: 文件或目录的ID
     :param service: 文件服务依赖注入
     :return: 文件或文件夹元数据
     """
-    try:
-        result = await service.get_file_entry(file_entry_id)
-        if not result:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="文件或目录不存在"
-            )
-        return result
-    except Exception as e:
-        if isinstance(e, HTTPException):
-            raise
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    result = await service.get_file_entry(file_entry_id)
+    if not result:
+        raise NotFoundError("文件或目录不存在")
+    return result
 
 
 ######################################路径操作/搜索/复制/统计/迁移######################################
@@ -572,9 +506,7 @@ async def get_entry_by_path(
     """
     result = await service.get_by_path(path)
     if not result:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"路径不存在: {path}"
-        )
+        raise NotFoundError(f"路径不存在: {path}")
     return result
 
 
@@ -598,14 +530,7 @@ async def list_by_path(
     :param service: 文件服务依赖注入
     :return: 分页响应结果
     """
-    try:
-        return await service.list_by_path(path, pagination, name)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.list_by_path(path, pagination, name)
 
 
 @router.post(
@@ -626,14 +551,7 @@ async def mkdir_p(
     :param service: 文件服务依赖注入
     :return: 最终层目录条目
     """
-    try:
-        return await service.mkdir_p(path, owner_user_id=current_user_id)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.mkdir_p(path, owner_user_id=current_user_id)
 
 
 @router.get(
@@ -654,12 +572,7 @@ async def search_entries(
     :param service: 文件服务依赖注入
     :return: 分页响应结果
     """
-    try:
-        return await service.search(keyword, pagination)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.search(keyword, pagination)
 
 
 @router.post(
@@ -682,14 +595,7 @@ async def copy_entry(
     :param service: 文件服务依赖注入
     :return: 复制出的新条目
     """
-    try:
-        return await service.copy_entry(entry_id, target_pid, current_user_id)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.copy_entry(entry_id, target_pid, current_user_id)
 
 
 @router.get(
@@ -707,12 +613,7 @@ async def get_stats(
     :param service: 文件服务依赖注入
     :return: 统计信息(StorageStats)
     """
-    try:
-        return (await service.get_stats()).model_dump()
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return (await service.get_stats()).model_dump()
 
 
 @router.post(
@@ -733,14 +634,7 @@ async def migrate_storage(
     :param service: 文件服务依赖注入
     :return: 迁移结果 {total, migrated, skipped, failed}
     """
-    try:
-        return await service.migrate_storage(req)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.migrate_storage(req)
 
 
 # 将路由注册到模块应用

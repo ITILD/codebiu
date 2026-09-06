@@ -33,14 +33,8 @@ async def check_config(
 
     - **model_config**: 模型配置对象，包含模型类型、服务类型、URL、API密钥等信息
     """
-    try:
-        result: ModelConfigCheckResponse = await llm_service.check_config(model_config)
-        return result
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(f"配置校验失败: {e}")
-        raise HTTPException(status_code=500, detail=f"配置校验失败: {str(e)}")
+    result: ModelConfigCheckResponse = await llm_service.check_config(model_config)
+    return result
 
 
 @router.post("/check-config-by-model-id", summary="配置校验")
@@ -53,14 +47,8 @@ async def check_config_by_model_id(
 
     - **model_id**: 模型配置ID或模型标识名称
     """
-    try:
-        result: bool = await llm_service.check_config_by_model_id(model_id)
-        return {"message": "配置校验通过" if result else "配置校验失败:智能程度低"}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(f"配置校验失败: {e}")
-        raise HTTPException(status_code=500, detail=f"配置校验失败: {str(e)}")
+    result: bool = await llm_service.check_config_by_model_id(model_id)
+    return {"message": "配置校验通过" if result else "配置校验失败:智能程度低"}
 
 
 @router.post("/chat", summary="聊天接口 支持流式SSE")
@@ -97,19 +85,15 @@ async def _test_cache_clear(
     model_id: str, llm_service: LLMBaseService = Depends(get_llm_base_service)
 ):
     """
-    清除模型缓存
+    按 model_id 前缀匹配清除已缓存的模型实例，使下次请求重新加载模型；model_id 为空时清空全部模型缓存
 
     - **model_id**: 模型配置ID或模型标识名称，为空则清除所有缓存
     """
-    try:
-        llm_service.clear_cache(model_id)
-        if model_id:
-            return {"message": f"模型 {model_id} 缓存已清除"}
-        else:
-            return {"message": "所有模型缓存已清除"}
-    except Exception as e:
-        logger.error(f"清除缓存失败: {e}")
-        raise HTTPException(status_code=500, detail=f"清除缓存失败: {str(e)}")
+    llm_service.clear_cache(model_id)
+    if model_id:
+        return {"message": f"模型 {model_id} 缓存已清除"}
+    else:
+        return {"message": "所有模型缓存已清除"}
 
 
 # 将路由注册到模块应用

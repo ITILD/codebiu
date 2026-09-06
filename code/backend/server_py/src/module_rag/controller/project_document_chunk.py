@@ -8,6 +8,7 @@ from fastapi import (
     Form,
 )
 from pydantic import BaseModel, Field
+from common.utils.fastapiEX.exceptions import NotFoundError
 from module_rag.config.server import module_app
 from module_rag.do.project_document_chunk import SearchRequest,ProjectDocumentChunkSearchResponse
 from module_authorization.dependencies.auth import get_current_user_id, get_current_user
@@ -61,11 +62,7 @@ async def chunks_by_question(
     """
     根据文本内容在指定项目中检索最相关的文档块 (逻辑内联版)
     """
-    try:
-        results:list[ProjectDocumentChunkSearchResponse] = await project_document_chunk_service.search(request, user_id)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    return results
+    return await project_document_chunk_service.search(request, user_id)
 
 
 # ############################# 全库重向量化(系统管理员) #############################
@@ -88,23 +85,15 @@ async def revectorize_chunks(
     """
     if not _is_admin(current_user.id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="仅系统管理员可执行全库重向量化")
-    try:
-        task = await task_service.create(
-            TaskQueueCreate(
-                name="全库重向量化",
-                task_type="rag_revectorize",
-                payload={"model_id": request.model_id},
-            ),
-            current_user.id,
-        )
-        return {"task_id": task.id, "message": "重向量化任务已提交"}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"重向量化任务提交失败: {e}",
-        )
+    task = await task_service.create(
+        TaskQueueCreate(
+            name="全库重向量化",
+            task_type="rag_revectorize",
+            payload={"model_id": request.model_id},
+        ),
+        current_user.id,
+    )
+    return {"task_id": task.id, "message": "重向量化任务已提交"}
 
 
 @router.get(
@@ -126,7 +115,8 @@ async def revectorize_status(
     try:
         resp = await task_service.get(task_id)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        # 任务不存在 -> 404(NotFoundError), 与参数错误的400区分
+        raise NotFoundError(str(e))
 
     # Celery 侧状态优先(实时), 库中状态兜底(结果后端不可用时)
     state = resp.celery_state or _DB_STATE_TO_CELERY.get(resp.status, "PENDING")

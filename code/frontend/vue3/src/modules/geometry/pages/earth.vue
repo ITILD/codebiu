@@ -311,7 +311,7 @@ import {
   type LngLat,
 } from '../types'
 import { useLayerStore } from '../stores/layer'
-import { SysSettingStore } from '@/common/stores/sys'
+import { useResponsive } from '@/common/composables/useResponsive'
 import { EarthScene, type DrawMode, type DrawEvent } from '../utils/EarthScene'
 
 // ################ 地球场景 ################
@@ -325,8 +325,8 @@ const draftPoints = ref<LngLat[]>([])
 /** 绘制模式下指针所指地表坐标(实时显示) */
 const hoverLngLat = ref<LngLat | null>(null)
 /** 图层面板收起状态(移动端默认收起, 避免遮挡三维视图) */
-const { sysStyle } = SysSettingStore()
-const panelCollapsed = ref(!sysStyle.isMd)
+const { isMd } = useResponsive()
+const panelCollapsed = ref(!isMd.value)
 
 /** 各模式操作提示 */
 const drawTips = computed(() => {

@@ -6,6 +6,7 @@ from common.utils.db.schema.pagination import (
     ScrollDirection,
 )
 from common.config.db import DaoRel
+from common.utils.fastapiEX.exceptions import NotFoundError
 from module_ai.do.model_config import (
     ModelConfig,
     ModelConfigCreate,
@@ -40,7 +41,7 @@ class ModelConfigDao:
         """
         model_config = await session.get(ModelConfig, id)
         if not model_config:
-            raise ValueError(f"未找到ID为 {id} 的模型配置")
+            raise NotFoundError(f"未找到ID为 {id} 的模型配置")
         await session.delete(model_config)
         await session.flush()
 
@@ -67,7 +68,7 @@ class ModelConfigDao:
 
         # 检查是否实际更新了记录
         if result.rowcount == 0:
-            raise ValueError(f"未找到ID为 {model_config_id} 的模板")
+            raise NotFoundError(f"未找到ID为 {model_config_id} 的模板")
         await session.flush()
 
     @DaoRel
@@ -308,7 +309,7 @@ class ModelConfigDao:
         if params.last_id:
             last_template = await session.get(ModelConfig, params.last_id)
             if not last_template:
-                raise ValueError(f"未找到ID为 {params.last_id} 的模板")
+                raise NotFoundError(f"未找到ID为 {params.last_id} 的模板")
 
             # 获取排序字段的值
             sort_value = getattr(last_template, sort_by)

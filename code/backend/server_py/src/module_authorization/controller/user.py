@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException, status, Depends, Query
+from fastapi import APIRouter, status, Depends, Query
+from common.utils.fastapiEX.exceptions import NotFoundError, UnauthorizedError
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
 from module_authorization.do.user import User, UserCreate, UserUpdate, UserResponse
 from module_authorization.service.user import UserService
@@ -22,14 +23,8 @@ async def create_user(
     :param service: 用户服务依赖注入
     :return: 创建的用户ID
     """
-    try:
-        return await service.add(user)
-    except Exception as e:
-        # 服务器内部错误
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
+    # 用户名重复等校验失败抛 ValueError, 由全局处理器映射为 400
+    return await service.add(user)
 
 @router.get(
     "/list", summary="分页查询用户列表", response_model=PaginationResponse,
@@ -51,14 +46,9 @@ async def list_users(
     :param service: 用户服务依赖注入
     :return: 分页响应结果
     """
-    try:
-        return await service.list_paged(
-            pagination, username=username, nickname=nickname, is_active=is_active
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.list_paged(
+        pagination, username=username, nickname=nickname, is_active=is_active
+    )
 
 @router.get("/{user_id}", summary="获取单个用户",
     dependencies=[Depends(require_permission("sys", "user", "read"))])
@@ -67,25 +57,15 @@ async def get_user(
     service: UserService = Depends(get_user_service)
 ):
     """
-    获取单个用户详情
+    获取单个用户详情, 用户不存在时返回404
     :param user_id: 用户ID
     :param service: 用户服务依赖注入
     :return: 用户详情
     """
-    try:
-        result = await service.get(user_id)
-        if not result:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-            )
-        return result
-    except HTTPException:
-        # 保留 404 语义,避免被包装成 500
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    result = await service.get(user_id)
+    if not result:
+        raise NotFoundError("用户不存在")
+    return result
 
 @router.delete(
     "/{user_id}", summary="删除用户", status_code=status.HTTP_204_NO_CONTENT,
@@ -96,16 +76,11 @@ async def delete_user(
     service: UserService = Depends(get_user_service)
 ):
     """
-    删除用户
+    按ID删除用户,用户不存在时报400(dao 层 not-found 抛 ValueError, 由全局处理器映射);成功返回204
     :param user_id: 用户ID
     :param service: 用户服务依赖注入
     """
-    try:
-        await service.delete(user_id)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    await service.delete(user_id)
 
 @router.put(
     "/{user_id}", summary="更新用户", status_code=status.HTTP_204_NO_CONTENT,
@@ -117,17 +92,13 @@ async def update_user(
     service: UserService = Depends(get_user_service)
 ):
     """
-    更新用户
+    按ID部分更新用户字段(仅传传入的字段),密码字段传入时自动哈希存储
+    用户不存在时报400,成功返回204
     :param user_id: 用户ID
     :param user: 用户数据
     :param service: 用户服务依赖注入
     """
-    try:
-        await service.update(user_id, user)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    await service.update(user_id, user)
 
 @router.post("/authenticate", summary="用户认证", response_model=User)
 async def authenticate_user(
@@ -136,25 +107,18 @@ async def authenticate_user(
     service: UserService = Depends(get_user_service)
 ):
     """
-    用户认证
+    校验用户名与密码哈希完成认证:凭据错误返回401,成功返回用户信息
+    注意用户名/密码经查询参数传递,请勿在日志或分享链接中泄露
     :param username: 用户名
     :param password: 密码
     :param service: 用户服务依赖注入
     :return: 认证成功的用户信息
     """
-    try:
-        user = await service.authenticate(username, password)
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
-            )
-        return user
-    except Exception as e:
-        if isinstance(e, HTTPException):
-            raise e
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    user = await service.authenticate(username, password)
+    if not user:
+        # 凭据错误 -> 401
+        raise UnauthorizedError("Invalid credentials")
+    return user
 
 # 注册路由
 module_app.include_router(router, prefix="/users", tags=["用户管理"])

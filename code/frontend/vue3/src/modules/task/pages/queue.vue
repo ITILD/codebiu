@@ -39,12 +39,12 @@
     <!-- 任务表格 -->
     <el-table :data="tableData" v-loading="loading" stripe w-full>
       <el-table-column prop="name" label="任务名称" min-width="130" show-overflow-tooltip />
-      <el-table-column label="类型" width="130" show-overflow-tooltip>
+      <el-table-column label="类型" min-width="130" show-overflow-tooltip>
         <template #default="{ row }">
           {{ typeName(row.task_type) }}
         </template>
       </el-table-column>
-      <el-table-column label="状态" width="90" align="center">
+      <el-table-column label="状态" min-width="90" align="center">
         <template #default="{ row }">
           <el-tag :type="statusTagTypes[row.status as TaskStatus] ?? 'info'" size="small" effect="light">
             {{ statusLabels[row.status as TaskStatus] ?? row.status }}
@@ -52,7 +52,7 @@
         </template>
       </el-table-column>
       <!-- 完成百分比(轮询实时推进) -->
-      <el-table-column label="进度" width="170">
+      <el-table-column label="进度" min-width="170">
         <template #default="{ row }">
           <div flex items-center gap-2>
             <el-progress
@@ -70,7 +70,7 @@
         </template>
       </el-table-column>
       <!-- Celery 侧状态对照(broker/backend 真实状态) -->
-      <el-table-column label="Celery" width="100" align="center">
+      <el-table-column label="Celery" min-width="100" align="center">
         <template #default="{ row }">
           <el-tooltip v-if="row.celery_progress != null" :content="`Celery 侧进度 ${row.celery_progress}%`" placement="top">
             <span text-xs>{{ row.celery_state ?? '-' }} {{ Math.round(row.celery_progress) }}%</span>
@@ -78,12 +78,13 @@
           <span v-else text-xs text-note-sub>{{ row.celery_state ?? '-' }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="创建时间" width="100" show-overflow-tooltip>
+      <el-table-column label="创建时间" min-width="100" show-overflow-tooltip>
         <template #default="{ row }">
           {{ formatTime(row.created_at) }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="190" align="center">
+      <!-- 操作列: 平板及以上固定右侧, 手机取消固定避免遮挡 -->
+      <el-table-column label="操作" min-width="190" align="center" :fixed="isMd ? 'right' : false">
         <template #default="{ row }">
           <el-button link type="primary" size="small" @click="openDetail(row)">详情</el-button>
           <el-button
@@ -153,8 +154,8 @@
       </template>
     </el-dialog>
 
-    <!-- 任务详情抽屉(参数/结果 JSON + Celery 对照) -->
-    <el-drawer v-model="detailVisible" title="任务详情" size="420px">
+    <!-- 任务详情抽屉(参数/结果 JSON + Celery 对照); 手机按屏宽自适应 -->
+    <el-drawer v-model="detailVisible" title="任务详情" :size="isMd ? '420px' : '92%'">
       <template v-if="detailTask">
         <el-descriptions :column="1" border size="small">
           <el-descriptions-item label="ID">
@@ -230,6 +231,10 @@ import {
   type TaskTypeDef,
 } from '../types'
 import type { PaginationParams, PaginationResponse } from '@/common/types/common'
+import { useResponsive } from '@/common/composables/useResponsive'
+
+// 响应式: 平板及以上操作列固定右侧
+const { isMd } = useResponsive()
 
 // ################ 统计概览 ################
 const stats = ref<TaskStats>({ total: 0, pending: 0, running: 0, success: 0, failed: 0, cancelled: 0 })

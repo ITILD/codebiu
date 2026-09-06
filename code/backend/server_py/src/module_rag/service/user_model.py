@@ -6,6 +6,7 @@ from module_ai.do.model_config import ModelScope
 from module_ai.utils.llm.do.llm_type import ModelType
 from module_authorization.config.casbin_rule import auth_manager
 from module_authorization.dao.user import UserDao
+from common.utils.fastapiEX.exceptions import NotFoundError
 import logging
 
 logger = logging.getLogger(__name__)
@@ -36,7 +37,7 @@ class UserModelService:
             return
         config = await self.llm_base_service.model_config_service.get(model_id)
         if config is None:
-            raise ValueError(f"模型配置不存在: {model_id}")
+            raise NotFoundError(f"模型配置不存在: {model_id}")
         # 公共模型放行
         if config.scope == ModelScope.PUBLIC:
             return

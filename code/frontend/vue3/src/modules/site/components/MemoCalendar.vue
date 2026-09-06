@@ -157,13 +157,12 @@ import {
 import CalendarYear from './calendar/CalendarYear.vue'
 import CalendarMonth from './calendar/CalendarMonth.vue'
 import CalendarWeek from './calendar/CalendarWeek.vue'
-import { SysSettingStore } from '@/common/stores/sys'
+import { useResponsive } from '@/common/composables/useResponsive'
 
 const router = useRouter()
 
 // 响应式断点(手机抽屉宽度自适应)
-const sysSettingStore = SysSettingStore()
-const isMd = computed(() => sysSettingStore.sysStyle.isMd)
+const { isMd } = useResponsive()
 
 /** 当前视图(缺省月视图) */
 const view = ref<CalendarView>('month')
@@ -295,8 +294,8 @@ async function toggleDayMemoStatus(memo: Todolist) {
 
 const statusLabel = (s: TodoStatus) =>
   ({ todo: '待办', done: '完成', pause: '暂停' })[s] ?? s
-const statusTagType = (s: TodoStatus) =>
-  ({ todo: 'warning', done: 'success', pause: 'info' })[s] ?? 'info'
+const statusTagType = (s: TodoStatus): 'warning' | 'success' | 'info' =>
+  ({ todo: 'warning', done: 'success', pause: 'info' } as const)[s] ?? 'info'
 
 /** 备忘时间(HH:mm) */
 const formatTime = (iso: string) =>

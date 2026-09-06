@@ -36,25 +36,20 @@ async def get_markdown_by_file(
     :param user_id: 当前登录用户的 ID
     :return: 解析后的Markdown内容列表
     """
-    try:
-        result = ""
-        # 临时存储
-        temp_file = DIR_TEMP / file.filename
-        # debug覆盖写入
-        temp_file.write_bytes(file.file.read())
-        logger.debug(f"测试_输入写入：{temp_file}")
-        # debug_end
+    # 临时存储
+    temp_file = DIR_TEMP / file.filename
+    # debug覆盖写入
+    temp_file.write_bytes(file.file.read())
+    logger.debug(f"测试_输入写入：{temp_file}")
+    # debug_end
 
-        result = await document_parse_service.file2markdown(temp_file)
+    result = await document_parse_service.file2markdown(temp_file)
 
-        # debug覆盖写入
-        temp_out_file = DIR_TEMP / f"{file.filename.split('.')[0]}.md"
-        temp_out_file.write_text(result)
-        logger.debug(f"测试写入：{temp_out_file}")
-        # debug_end
-    except ValueError as e:
-        logger.error(f"解析异常：{e}")
-        raise HTTPException(status_code=400, detail=str(e))
+    # debug覆盖写入
+    temp_out_file = DIR_TEMP / f"{file.filename.split('.')[0]}.md"
+    temp_out_file.write_text(result)
+    logger.debug(f"测试写入：{temp_out_file}")
+    # debug_end
     return result
 
 
@@ -64,7 +59,7 @@ async def get_markdown_by_file(
     response_model=list[Chunk],
 )
 async def split_code_file(
-    file: UploadFile = File(...),
+    file: UploadFile = File(..., description="Python/Java 代码文件(仅支持 .py/.java 后缀)"),
     user_id: str = Depends(get_current_user_id),
     document_parse_service: DocumentParseService = Depends(get_document_parse_service),
 ) -> list[Chunk]:
@@ -85,8 +80,6 @@ async def split_code_file(
             chunk.metadata = dict(chunk.metadata or {})
             chunk.metadata["source"] = file.filename or temp_file.name
         return chunks
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
     finally:
         await file.close()
         temp_file.unlink(missing_ok=True)

@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException, status, Depends, Query
+from fastapi import APIRouter, status, Depends, Query
+from common.utils.fastapiEX.exceptions import NotFoundError
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
 from module_rag.do.project_dept import (
     ProjectDeptCreate,
@@ -31,12 +32,7 @@ async def get_dept_tree_for_auth(
     与 /authorization/depts/tree 不同: 本端点仅需登录,不要求 sys:dept:read 权限码,
     使普通项目管理员(知识库创建者)也能按部门授权
     """
-    try:
-        return await service.get_tree()
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.get_tree()
 
 
 @router.post(
@@ -58,14 +54,7 @@ async def add_project_dept(
     await enforce_project_permission(
         current_user_id, dept_auth.project_id, "member", "invite"
     )
-    try:
-        return await service.add(dept_auth)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.add(dept_auth)
 
 
 @router.get(
@@ -87,12 +76,7 @@ async def list_project_depts(
     :param service: 部门授权服务依赖注入
     :return: 分页授权列表
     """
-    try:
-        return await service.list_by_project(project_id, pagination, role=role)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.list_by_project(project_id, pagination, role=role)
 
 
 @router.put(
@@ -115,21 +99,12 @@ async def update_project_dept(
     # 先查授权记录以获取 project_id 做权限校验
     auth_info = await service.get(id)
     if not auth_info:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="部门授权未找到"
-        )
+        raise NotFoundError("部门授权未找到")
     await enforce_project_permission(
         current_user_id, auth_info.project_id, "member", "update"
     )
-    try:
-        await service.update(id, dept_auth)
-        return await service.get(id)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    await service.update(id, dept_auth)
+    return await service.get(id)
 
 
 @router.delete(
@@ -149,18 +124,11 @@ async def remove_project_dept(
     # 先查授权记录以获取 project_id 做权限校验
     auth_info = await service.get(id)
     if not auth_info:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="部门授权未找到"
-        )
+        raise NotFoundError("部门授权未找到")
     await enforce_project_permission(
         current_user_id, auth_info.project_id, "member", "remove"
     )
-    try:
-        await service.delete(id)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    await service.delete(id)
 
 
 # 注册路由

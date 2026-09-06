@@ -1,6 +1,7 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select, func, update
 from common.config.db import DaoRel
+from common.utils.fastapiEX.exceptions import NotFoundError
 from module_authorization.do.dept import Dept, DeptCreate, DeptUpdate, DeptResponse
 
 
@@ -29,7 +30,7 @@ class DeptDao:
         """删除部门记录"""
         dept = await session.get(Dept, id)
         if not dept:
-            raise ValueError(f"未找到ID为 {id} 的部门")
+            raise NotFoundError(f"未找到ID为 {id} 的部门")
         await session.delete(dept)
         await session.flush()
 
@@ -56,7 +57,7 @@ class DeptDao:
         stmt = update(Dept).where(Dept.id == dept_id).values(**update_data)
         result = await session.exec(stmt)
         if result.rowcount == 0:
-            raise ValueError(f"未找到ID为 {dept_id} 的部门")
+            raise NotFoundError(f"未找到ID为 {dept_id} 的部门")
         await session.flush()
 
     @DaoRel
@@ -64,7 +65,7 @@ class DeptDao:
         """查询单个部门"""
         dept = await session.get(Dept, id)
         if not dept:
-            raise ValueError(f"未找到ID为 {id} 的部门")
+            raise NotFoundError(f"未找到ID为 {id} 的部门")
         return DeptResponse.model_validate(dept.model_dump())
 
     @DaoRel

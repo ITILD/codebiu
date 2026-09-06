@@ -1,6 +1,6 @@
 from common.config.server import app
 # lib
-from fastapi import FastAPI
+from common.utils.fastapiEX.exceptions import BizFastAPI
 import logging
 from sqlalchemy import inspect, text
 
@@ -17,7 +17,7 @@ from module_ai.utils.llm.do.llm_type import ModelType
 
 logger = logging.getLogger(__name__)
 
-module_app = FastAPI()
+module_app = BizFastAPI()
 
 app.mount("/ai", module_app)
 

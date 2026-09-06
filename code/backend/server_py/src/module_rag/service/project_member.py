@@ -1,4 +1,5 @@
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
+from common.utils.fastapiEX.exceptions import ConflictError
 from module_rag.do.project_member import (
     ProjectMember,
     ProjectMemberCreate,
@@ -27,7 +28,7 @@ class ProjectMemberService:
         """
         existing = await self.member_dao.get_by_user_and_project(member.user_id, member.project_id)
         if existing:
-            raise ValueError(f"用户 {member.user_id} 已是项目 {member.project_id} 的成员")
+            raise ConflictError(f"用户 {member.user_id} 已是项目 {member.project_id} 的成员")
         return await self.member_dao.add(member)
 
     async def delete(self, member_id: str):

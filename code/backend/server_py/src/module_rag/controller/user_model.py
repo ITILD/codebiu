@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, Depends
 from module_rag.do.user_model import UserModelUpdate, UserModelResponse
 from module_rag.service.user_model import UserModelService
 from module_rag.dependencies.user_model import get_user_model_service
@@ -21,23 +21,18 @@ async def get_my_model_binding(
     :param service: 用户-模型绑定服务依赖注入
     :return: 用户-模型绑定详情
     """
-    try:
-        result = await service.get_by_user(current_user_id)
-        if not result:
-            # 未绑定则返回空绑定
-            return UserModelResponse(
-                id="",
-                user_id=current_user_id,
-                chat_model_id=None,
-                embedding_model_id=None,
-                created_at=None,
-                updated_at=None,
-            )
-        return result
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+    result = await service.get_by_user(current_user_id)
+    if not result:
+        # 未绑定则返回空绑定
+        return UserModelResponse(
+            id="",
+            user_id=current_user_id,
+            chat_model_id=None,
+            embedding_model_id=None,
+            created_at=None,
+            updated_at=None,
         )
+    return result
 
 
 @router.put(
@@ -55,15 +50,7 @@ async def update_my_model_binding(
     :param service: 用户-模型绑定服务依赖注入
     :return: 更新后的用户-模型绑定详情
     """
-    try:
-        return await service.upsert(current_user_id, user_model)
-    except ValueError as e:
-        # 模型配置不存在/无权使用等业务校验失败
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.upsert(current_user_id, user_model)
 
 
 # 注册路由

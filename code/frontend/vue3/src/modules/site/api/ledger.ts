@@ -9,7 +9,8 @@ import type {
 } from '../types/ledger'
 
 /** 记账列表查询参数(分页 + 过滤) */
-export interface ListLedgerParams extends PaginationParams {
+// 用 type 交叉而非 interface: 接口缺隐式索引签名, 无法赋给 http 层 Record<string, QueryParamValue>
+export type ListLedgerParams = PaginationParams & {
   /** 按月过滤 YYYY-MM */
   month?: string
   /** 收支方向过滤(income/expense) */

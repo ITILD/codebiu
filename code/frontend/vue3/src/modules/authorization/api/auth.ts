@@ -123,3 +123,11 @@ export const uploadMyAvatar = (file: File) => {
     formData
   );
 };
+
+/**
+ * 删除当前用户头像(登录即可;后端清理头像文件条目并置空头像字段,
+ * 前端回退为用户名首字默认头像)
+ */
+export const deleteMyAvatar = () => {
+  return http_base_server.delete<null>('/authorization/auth/me/avatar');
+};

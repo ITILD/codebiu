@@ -18,7 +18,8 @@ from common.utils.db.schema.pagination import (
     PaginationResponse,
 )
 
-from fastapi import APIRouter, HTTPException, status, Depends, Query
+from fastapi import APIRouter, status, Depends, Query
+from common.utils.fastapiEX.exceptions import ForbiddenError, NotFoundError
 import logging
 
 logger = logging.getLogger(__name__)
@@ -72,23 +73,16 @@ async def create_model_config(
     }
     }
     """
-    try:
-        model_config_create = ModelConfigCreate(
-            **model_config.model_dump(),
-            user_id=current_user.id,  # 直接使用ID
-        )
-        # 部门模型: 归属当前用户所在部门(必须已有部门)
-        if model_config_create.scope == ModelScope.DEPT:
-            if not current_user.dept_id:
-                raise ValueError("创建部门模型需要先加入部门")
-            model_config_create.dept_id = current_user.dept_id
-        return await service.add(model_config_create)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    model_config_create = ModelConfigCreate(
+        **model_config.model_dump(),
+        user_id=current_user.id,  # 直接使用ID
+    )
+    # 部门模型: 归属当前用户所在部门(必须已有部门)
+    if model_config_create.scope == ModelScope.DEPT:
+        if not current_user.dept_id:
+            raise ValueError("创建部门模型需要先加入部门")
+        model_config_create.dept_id = current_user.dept_id
+    return await service.add(model_config_create)
 
 
 @router.get("/list", summary="分页获取模型配置列表", response_model=PaginationResponse)
@@ -106,32 +100,27 @@ async def list_model_configs(
     分页获取模型配置列表(支持多字段过滤; 按当前用户可见性返回公共/部门/本人模型;
     管理员可见全部并可通过 user 参数按所有者用户名过滤)
     """
-    try:
-        is_admin = _is_admin(current_user.id)
-        # 仅管理员支持按所有者用户名过滤(先解析为用户ID列表)
-        filter_user_ids: list[str] | None = None
-        if user and is_admin:
-            filter_user_ids = await UserDao().search_ids_by_username(user)
-            if not filter_user_ids:
-                return PaginationResponse.create([], 0, params)
-        result = await service.list_paged(
-            params,
-            model=model,
-            model_type=model_type,
-            server_type=server_type,
-            scope=scope,
-            user_id=current_user.id,
-            dept_id=current_user.dept_id,
-            is_admin=is_admin,
-            filter_user_ids=filter_user_ids,
-        )
-        # 非管理员脱敏非本人模型的 url/api_key
-        service.mask_secrets(result.items, current_user.id, is_admin)
-        return result
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    is_admin = _is_admin(current_user.id)
+    # 仅管理员支持按所有者用户名过滤(先解析为用户ID列表)
+    filter_user_ids: list[str] | None = None
+    if user and is_admin:
+        filter_user_ids = await UserDao().search_ids_by_username(user)
+        if not filter_user_ids:
+            return PaginationResponse.create([], 0, params)
+    result = await service.list_paged(
+        params,
+        model=model,
+        model_type=model_type,
+        server_type=server_type,
+        scope=scope,
+        user_id=current_user.id,
+        dept_id=current_user.dept_id,
+        is_admin=is_admin,
+        filter_user_ids=filter_user_ids,
+    )
+    # 非管理员脱敏非本人模型的 url/api_key
+    service.mask_secrets(result.items, current_user.id, is_admin)
+    return result
 
 
 @router.get("/scroll", summary="滚动加载模型配置列表")
@@ -146,21 +135,16 @@ async def infinite_scroll_model_configs(
     :param service: 模型配置服务依赖注入
     :return: 滚动响应数据
     """
-    try:
-        is_admin = _is_admin(current_user.id)
-        result = await service.get_scroll(
-            params,
-            user_id=current_user.id,
-            dept_id=current_user.dept_id,
-            is_admin=is_admin,
-        )
-        # 非管理员脱敏非本人模型的 url/api_key
-        service.mask_secrets(result.items, current_user.id, is_admin)
-        return result
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    is_admin = _is_admin(current_user.id)
+    result = await service.get_scroll(
+        params,
+        user_id=current_user.id,
+        dept_id=current_user.dept_id,
+        is_admin=is_admin,
+    )
+    # 非管理员脱敏非本人模型的 url/api_key
+    service.mask_secrets(result.items, current_user.id, is_admin)
+    return result
 
 
 @router.get("/{id}", summary="获取单个模型配置", response_model=ModelConfig)
@@ -172,22 +156,12 @@ async def get_model_config(
     """
     获取指定ID的模型配置(非管理员查看非本人模型时 url/api_key 被脱敏为空)
     """
-    try:
-        model_config = await service.get(id)
-        if not model_config:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"未找到ID为 {id} 的模型配置",
-            )
-        # 非管理员脱敏非本人模型的 url/api_key
-        service.mask_secrets(model_config, current_user.id, _is_admin(current_user.id))
-        return model_config
-    except HTTPException as e:
-        raise e
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    model_config = await service.get(id)
+    if not model_config:
+        raise NotFoundError(f"未找到ID为 {id} 的模型配置")
+    # 非管理员脱敏非本人模型的 url/api_key
+    service.mask_secrets(model_config, current_user.id, _is_admin(current_user.id))
+    return model_config
 
 
 @router.put("/{id}", summary="更新模型配置", status_code=status.HTTP_204_NO_CONTENT)
@@ -201,26 +175,12 @@ async def update_model_config(
     更新指定ID的模型配置(仅全局管理员或创建者本人可操作;
     公共模型包括启动 seed 的默认公共模型, 仅管理员可修改)
     """
-    try:
-        existing = await service.get(id)
-        if not existing:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"未找到ID为 {id} 的模型配置",
-            )
-        if not (_is_admin(current_user.id) or existing.user_id == current_user.id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="无权修改该模型配置(仅创建者本人或全局管理员)",
-            )
-        await service.update(id, model_config)
-    except HTTPException:
-        # 保留 404/403 语义, 避免被包装成 500
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    existing = await service.get(id)
+    if not existing:
+        raise NotFoundError(f"未找到ID为 {id} 的模型配置")
+    if not (_is_admin(current_user.id) or existing.user_id == current_user.id):
+        raise ForbiddenError("无权修改该模型配置(仅创建者本人或全局管理员)")
+    await service.update(id, model_config)
 
 
 @router.delete("/{id}", summary="删除模型配置", status_code=status.HTTP_204_NO_CONTENT)
@@ -232,26 +192,12 @@ async def delete_model_config(
     """
     删除指定ID的模型配置(仅全局管理员或创建者本人可操作)
     """
-    try:
-        existing = await service.get(id)
-        if not existing:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"未找到ID为 {id} 的模型配置",
-            )
-        if not (_is_admin(current_user.id) or existing.user_id == current_user.id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="无权删除该模型配置(仅创建者本人或全局管理员)",
-            )
-        await service.delete(id)
-    except HTTPException:
-        # 保留 404/403 语义, 避免被包装成 500
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    existing = await service.get(id)
+    if not existing:
+        raise NotFoundError(f"未找到ID为 {id} 的模型配置")
+    if not (_is_admin(current_user.id) or existing.user_id == current_user.id):
+        raise ForbiddenError("无权删除该模型配置(仅创建者本人或全局管理员)")
+    await service.delete(id)
 
 # 根据码表选取模型获取默认参数
 @router.get("/default-params/{model_name}", summary="获取默认模型参数kv")
@@ -265,23 +211,10 @@ async def get_default_model_params(
     :param service: 模型配置服务依赖注入
     :return: 模型默认参数
     """
-    try:
-        params = await service.get_default_params(model_name)
-        if not params:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"未找到模型 {model_name} 的默认参数",
-            )
-        return {"params": params}
-    except HTTPException:
-        # 保留 404 语义,避免被包装成 500
-        raise
-    except Exception as e:
-        logger.error(f"获取模型 {model_name} 默认参数失败: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取模型 {model_name} 默认参数失败: {str(e)}",
-        )
+    params = await service.get_default_params(model_name)
+    if not params:
+        raise NotFoundError(f"未找到模型 {model_name} 的默认参数")
+    return {"params": params}
 
 
 # 将路由注册到模块应用

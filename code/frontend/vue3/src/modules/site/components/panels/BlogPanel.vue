@@ -189,11 +189,10 @@ import {
 import type { BlogPost, BlogPostCreate, PostSource } from '../../types/blog'
 import MarkdownView from '../MarkdownView.vue'
 import type { SearchField } from '@/common/components/TableSearchBar.vue'
-import { SysSettingStore } from '@/common/stores/sys'
+import { useResponsive } from '@/common/composables/useResponsive'
 
 // 响应式断点(md 以下走移动端布局)
-const sysSettingStore = SysSettingStore()
-const isMd = computed(() => sysSettingStore.sysStyle.isMd)
+const { isMd } = useResponsive()
 
 // 搜索字段(标题/状态/来源)
 const searchFields: SearchField[] = [

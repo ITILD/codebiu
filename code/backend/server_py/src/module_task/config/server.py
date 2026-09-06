@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from common.utils.fastapiEX.exceptions import BizFastAPI
 import logging
 
 from common.config.server import app
@@ -6,7 +6,7 @@ from common.config.server import app
 logger = logging.getLogger(__name__)
 
 # 模块子应用(挂载到主应用 /task 路径下)
-module_app = FastAPI()
+module_app = BizFastAPI()
 app.mount("/task", module_app)
 
 # 导入权限声明(注册到权限中心, 幂等)

@@ -2,7 +2,7 @@
   <div w-full>
     <!-- 统计卡: 角色/模块域/策略/绑定 -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-      <div v-for="s in statCards" :key="s.label" class="bg-note-card rounded-lg shadow-note p-4">
+      <div v-for="s in statCards" :key="s.label" class="page-card">
         <div class="text-xs text-note-sub">{{ s.label }}</div>
         <div class="text-2xl font-bold text-note mt-1">{{ s.value }}</div>
       </div>

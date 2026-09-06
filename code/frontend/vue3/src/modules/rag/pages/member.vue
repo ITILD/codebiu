@@ -29,7 +29,7 @@
           <el-table-column label="成员" min-width="200">
             <template #default="{ row }">
               <div flex items-center gap-2>
-                <el-avatar :size="32" :icon="UserFilled" />
+                <UserAvatar :size="32" :name="userLabel(row.user_id)" />
                 <div>
                   <div>{{ userLabel(row.user_id) }}</div>
                   <div text-xs text-note-sub>{{ row.user_id }}</div>
@@ -37,14 +37,14 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="角色" width="180" align="center">
+          <el-table-column label="角色" min-width="180" align="center">
             <template #default="{ row }">
               <el-select :model-value="row.role" size="small" w-32 @change="(val: string) => handleRoleChange(row, val)">
                 <el-option v-for="opt in ragRoleOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
               </el-select>
             </template>
           </el-table-column>
-          <el-table-column label="加入时间" width="130" align="center">
+          <el-table-column label="加入时间" min-width="130" align="center">
             <template #default="{ row }">
               {{ formatDate(row.created_at) }}
             </template>
@@ -101,14 +101,14 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="授权档位" width="180" align="center">
+          <el-table-column label="授权档位" min-width="180" align="center">
             <template #default="{ row }">
               <el-select :model-value="row.role" size="small" w-32 @change="(val: string) => handleDeptRoleChange(row, val)">
                 <el-option v-for="opt in ragRoleOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
               </el-select>
             </template>
           </el-table-column>
-          <el-table-column label="授权时间" width="130" align="center">
+          <el-table-column label="授权时间" min-width="130" align="center">
             <template #default="{ row }">
               {{ formatDate(row.created_at) }}
             </template>
@@ -183,7 +183,7 @@ import { listRagProjects } from '../api/project'
 import { listUsers } from '@/modules/authorization/api/user'
 import { ragRoleOptions, type ProjectMember, type ProjectDept } from '../types'
 import TableSearchBar, { type SearchField } from '@/common/components/TableSearchBar.vue'
-import { SysSettingStore } from '@/common/stores/sys'
+import { useResponsive } from '@/common/composables/useResponsive'
 import type { User } from '@/modules/authorization/types/user'
 import type { DeptTree } from '@/modules/authorization/types/dept'
 import type { PaginationParams } from '@/common/types/common'
@@ -194,8 +194,7 @@ const route = useRoute()
 const router = useRouter()
 
 // 断点状态(操作列固定策略)
-const sysSettingStore = SysSettingStore()
-const isMd = computed(() => sysSettingStore.sysStyle.isMd)
+const { isMd } = useResponsive()
 
 // 路径参数中的项目ID
 const projectId = computed(() => (route.query.project_id as string) || '')

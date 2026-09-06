@@ -6,6 +6,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select, update
 from common.utils.db.schema.pagination import PaginationParams
 from common.config.db import DaoRel
+from common.utils.fastapiEX.exceptions import NotFoundError
 from module_site.do.ledger import LedgerFlow, LedgerRecord, LedgerRecordCreate, LedgerRecordUpdate
 
 
@@ -54,7 +55,7 @@ class LedgerRecordDao:
         )
         result = await session.exec(stmt)
         if result.rowcount == 0:
-            raise ValueError(f"未找到ID为 {record_id} 的记账记录")
+            raise NotFoundError(f"未找到ID为 {record_id} 的记账记录")
         await session.flush()
 
     @DaoRel
@@ -66,7 +67,7 @@ class LedgerRecordDao:
         """
         record = await session.get(LedgerRecord, record_id)
         if not record or record.user_id != user_id:
-            raise ValueError(f"未找到ID为 {record_id} 的记账记录")
+            raise NotFoundError(f"未找到ID为 {record_id} 的记账记录")
         await session.delete(record)
         await session.flush()
 

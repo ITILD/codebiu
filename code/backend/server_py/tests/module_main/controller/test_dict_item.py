@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """module_main/dict_item 字典项接口标准测试
 覆盖: 创建(字典类型+字典项)/单查/按code查/按类型查/计数/更新/删除 全流程
      + 分页列表 + 滚动加载 + 不存在类型/不存在ID场景
@@ -198,4 +198,4 @@ async def test_dict_item_get_not_found(client: httpx.AsyncClient):
     """查询单个不存在的字典项ID应 404"""
     fake_id = uuid.uuid4().hex
     resp = await client.get(f"{BASE}/{fake_id}")
-    assert resp.status_code in (404, 400, 500), f"应返回404: {resp.status_code} {resp.text}"
+    assert resp.status_code == 404, f"应返回404: {resp.status_code} {resp.text}"

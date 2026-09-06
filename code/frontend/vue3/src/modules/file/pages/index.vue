@@ -23,6 +23,9 @@
         @clear="handleSearchDebounced"
       />
       <el-button :icon="FolderAdd" @click="handleCreateFolder" :disabled="loading">新建目录</el-button>
+      <el-button type="danger" plain :icon="Delete" :disabled="!selectedEntries.length" @click="handleBatchDelete">
+        批量删除{{ selectedEntries.length ? `(${selectedEntries.length})` : '' }}
+      </el-button>
       <el-upload :show-file-list="false" :before-upload="handleUpload" :disabled="uploading" multiple>
         <el-button type="primary" :loading="uploading" :icon="Upload">
           {{ uploading ? '上传中' : '上传文件' }}
@@ -32,16 +35,20 @@
 
     <!-- 目录内容表格 -->
     <el-table
+      ref="tableRef"
       v-loading="loading"
       :data="entries"
       stripe
       flex-1
       @row-dblclick="handleOpen"
+      @selection-change="handleSelectionChange"
     >
+      <!-- 业务条目(rag/avatar等)由各业务模块自管, 禁止勾选批量删除 -->
+      <el-table-column type="selection" width="42" :selectable="(row: FileEntry) => !isBusinessEntry(row)" />
       <el-table-column label="名称" min-width="260" show-overflow-tooltip>
         <template #default="{ row }">
           <div flex items-center gap-2 cursor-pointer @click="handleOpen(row)">
-            <el-icon text-lg :class="row.is_directory ? 'text-amber-5' : fileIconClass(row.file_extension)">
+            <el-icon text-lg :class="row.is_directory ? 'text-amber-500' : fileIconClass(row.file_extension)">
               <Folder v-if="row.is_directory" />
               <Document v-else />
             </el-icon>
@@ -66,6 +73,15 @@
           </el-tag>
         </template>
       </el-table-column>
+      <el-table-column label="标签" min-width="140" show-overflow-tooltip>
+        <template #default="{ row }">
+          <template v-if="row.tags && row.tags.length">
+            <el-tag v-for="t in row.tags.slice(0, 2)" :key="t" size="small" effect="plain" mr-1>{{ t }}</el-tag>
+            <span v-if="row.tags.length > 2" text-note-sub text-xs>+{{ row.tags.length - 2 }}</span>
+          </template>
+          <span v-else text-note-sub>-</span>
+        </template>
+      </el-table-column>
       <el-table-column label="描述" min-width="160" show-overflow-tooltip>
         <template #default="{ row }">
           {{ row.description || '-' }}
@@ -77,9 +93,10 @@
         </template>
       </el-table-column>
       <!-- 操作列: 平板及以上固定右侧, 手机取消固定避免遮挡(表格自带横向滚动);
-           业务条目(rag/avatar等)只读, 仅保留下载 -->
-      <el-table-column label="操作" min-width="270" align="center" :fixed="isMd ? 'right' : false">
+           业务条目(rag/avatar等)只读, 仅保留详情/下载 -->
+      <el-table-column label="操作" min-width="320" align="center" :fixed="isMd ? 'right' : false">
         <template #default="{ row }">
+          <el-button size="small" plain @click="handleShowDetail(row)">详情</el-button>
           <template v-if="!isBusinessEntry(row)">
             <el-button v-if="!row.is_directory" size="small" type="primary" plain @click="handleDownload(row)">
               下载
@@ -133,6 +150,9 @@
         <el-form-item label="描述">
           <el-input v-model="editForm.description" type="textarea" :rows="3" placeholder="请输入描述" maxlength="500" />
         </el-form-item>
+        <el-form-item label="标签">
+          <el-input-tag v-model="editForm.tags" placeholder="输入关键词后回车添加,可多个" maxlength="20" />
+        </el-form-item>
       </el-form>
       <template #footer>
         <span>
@@ -166,7 +186,7 @@
       >
         <template #default="{ node, data }">
           <span flex items-center gap-1>
-            <el-icon text-amber-5><Folder /></el-icon>
+            <el-icon text-amber-500><Folder /></el-icon>
             <span>{{ node.label }}</span>
             <el-tag v-if="data.is_root" size="small" type="success" effect="plain">根目录</el-tag>
           </span>
@@ -181,6 +201,49 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 条目详情抽屉(元数据/物理存储/上传用户/标签等) -->
+    <el-drawer v-model="detailVisible" title="条目详情" size="420px" class="max-w-[92vw]">
+      <div v-loading="detailLoading">
+        <el-descriptions v-if="detailData" :column="1" border>
+          <el-descriptions-item label="名称">{{ detailData.name }}</el-descriptions-item>
+          <el-descriptions-item label="类型">
+            {{ detailData.is_directory ? '目录' : '文件' }}
+            <el-tag v-if="sourceLabel(detailData)" size="small" type="success" effect="plain" ml-1>
+              {{ sourceLabel(detailData) }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item v-if="!detailData.is_directory" label="大小">
+            {{ formatSize(detailData.file_size_bytes) }}
+          </el-descriptions-item>
+          <el-descriptions-item label="逻辑路径">{{ detailData.logical_path }}</el-descriptions-item>
+          <el-descriptions-item label="上传用户">{{ detailData.owner_name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="创建时间">{{ formatDateTime(detailData.created_at) }}</el-descriptions-item>
+          <el-descriptions-item label="更新时间">{{ formatDateTime(detailData.updated_at) }}</el-descriptions-item>
+          <el-descriptions-item label="标签">
+            <template v-if="detailData.tags && detailData.tags.length">
+              <el-tag v-for="t in detailData.tags" :key="t" size="small" effect="plain" mr-1>{{ t }}</el-tag>
+            </template>
+            <span v-else text-note-sub>-</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="描述">{{ detailData.description || '-' }}</el-descriptions-item>
+          <!-- 以下为文件专属内容元数据 -->
+          <template v-if="!detailData.is_directory">
+            <el-descriptions-item label="扩展名">{{ detailData.file_extension || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="MIME">{{ detailData.mime_type || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="存储类型">{{ detailData.storage_type || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="内容状态">{{ detailData.content_status || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="引用计数">{{ detailData.ref_count ?? '-' }}</el-descriptions-item>
+            <el-descriptions-item label="内容哈希">
+              <span break-all text-xs font-mono>{{ detailData.content_hash || '-' }}</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="物理存储位置">
+              <span break-all text-xs font-mono>{{ detailData.physical_storage || '-' }}</span>
+            </el-descriptions-item>
+          </template>
+        </el-descriptions>
+      </div>
+    </el-drawer>
   </div>
 </template>
 
@@ -193,6 +256,7 @@ import {
   Document,
   FolderOpened,
   Search,
+  Delete,
 } from '@element-plus/icons-vue'
 import {
   listDir,
@@ -200,19 +264,20 @@ import {
   uploadFile,
   createFolder,
   getFileDownloadUrl,
+  getFileEntryDetail,
   updateFileEntry,
   moveEntry,
   deleteFile,
   deleteFolder,
+  batchDeleteEntries,
 } from '../api/filesystem'
-import type { FileEntry } from '../types/file'
+import type { FileEntry, FileEntryDetail } from '../types/file'
 import type { PaginationParams } from '@/common/types/common'
-import { ElMessage, ElMessageBox, type FormInstance, type TreeInstance } from 'element-plus'
-import { SysSettingStore } from '@/common/stores/sys'
+import { ElMessage, ElMessageBox, type FormInstance, type TableInstance, type TreeInstance } from 'element-plus'
+import { useResponsive } from '@/common/composables/useResponsive'
 
 // 屏幕档位: 操作列在平板及以上才固定右侧
-const sysSettingStore = SysSettingStore()
-const isMd = computed(() => sysSettingStore.sysStyle.isMd)
+const { isMd } = useResponsive()
 
 // 面包屑目录栈(从根到当前目录)
 const breadcrumbs = ref<{ id: string; name: string }[]>([])
@@ -229,6 +294,13 @@ const submitting = ref(false)
 const searchQuery = ref('')
 const total = ref(0)
 const pagination = ref<PaginationParams>({ page: 1, size: 50 })
+
+// 多选条目(批量删除用)
+const tableRef = ref<TableInstance>()
+const selectedEntries = ref<FileEntry[]>([])
+const handleSelectionChange = (rows: FileEntry[]) => {
+  selectedEntries.value = rows
+}
 
 // 目录树节点(移动对话框用)
 type TreeNode = {
@@ -270,8 +342,8 @@ const sourceLabel = (row: FileEntry) =>
 // 业务条目只读(移动/编辑/删除入口隐藏, 由对应业务模块管理)
 const isBusinessEntry = (row: FileEntry) => !!sourceLabel(row)
 
-// 文件大小格式化
-const formatSize = (bytes: number) => {
+// 文件大小格式化(null/0 显示 '-')
+const formatSize = (bytes: number | null | undefined) => {
   if (!bytes) return '-'
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
@@ -282,6 +354,9 @@ const formatSize = (bytes: number) => {
 // 日期格式化
 const formatDate = (value: string) => new Date(value).toLocaleDateString()
 
+// 日期时间格式化(详情抽屉用,精确到秒)
+const formatDateTime = (value: string) => new Date(value).toLocaleString()
+
 // 获取当前目录内容(服务端名称过滤)
 const fetchData = async () => {
   try {
@@ -289,6 +364,9 @@ const fetchData = async () => {
     const res = await listDir(currentPid.value, pagination.value, searchQuery.value.trim() || undefined)
     entries.value = res.items
     total.value = res.total
+    // 数据刷新后清空多选状态
+    tableRef.value?.clearSelection()
+    selectedEntries.value = []
   } catch (error) {
     console.error('获取目录内容失败:', error)
     ElMessage.error('获取目录内容失败')
@@ -382,12 +460,20 @@ const handleFolderSubmit = async () => {
 // ---------------- 编辑条目 ----------------
 const editDialogVisible = ref(false)
 const editFormRef = ref<FormInstance>()
-const editForm = reactive({ name: '', description: '' })
+const editForm = reactive<{ name: string; description: string; tags: string[] }>({
+  name: '',
+  description: '',
+  tags: [],
+})
 const currentEntry = ref<FileEntry | null>(null)
 
 const handleEdit = (row: FileEntry) => {
   currentEntry.value = row
-  Object.assign(editForm, { name: row.name, description: row.description || '' })
+  Object.assign(editForm, {
+    name: row.name,
+    description: row.description || '',
+    tags: [...(row.tags || [])],
+  })
   editDialogVisible.value = true
 }
 
@@ -400,6 +486,7 @@ const handleEditSubmit = async () => {
     await updateFileEntry(currentEntry.value.id, {
       name: editForm.name.trim(),
       description: editForm.description,
+      tags: editForm.tags,
     })
     ElMessage.success('更新成功')
     editDialogVisible.value = false
@@ -409,6 +496,53 @@ const handleEditSubmit = async () => {
     ElMessage.error('更新失败')
   } finally {
     submitting.value = false
+  }
+}
+
+// ---------------- 批量删除 ----------------
+const handleBatchDelete = async () => {
+  // 双保险过滤: 业务条目不可批量删除(由各业务模块自管), 勾选框已禁用
+  const rows = selectedEntries.value.filter((r) => !isBusinessEntry(r))
+  if (!rows.length) return
+  const folderCount = rows.filter((r) => r.is_directory).length
+  const tip = folderCount
+    ? `确定删除选中的 ${rows.length} 项吗？其中包含 ${folderCount} 个目录，目录下全部内容将一并删除。`
+    : `确定删除选中的 ${rows.length} 项吗？`
+  try {
+    await ElMessageBox.confirm(tip, '批量删除', {
+      type: 'warning',
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+    })
+    const res = await batchDeleteEntries(rows.map((r) => r.id))
+    if (res.failed.length) {
+      ElMessage.warning(`成功删除 ${res.deleted} 项，${res.failed.length} 项失败`)
+    } else {
+      ElMessage.success(`成功删除 ${res.deleted} 项`)
+    }
+    fetchData()
+  } catch (error) {
+    console.log('取消批量删除或删除失败:', error)
+  }
+}
+
+// ---------------- 条目详情抽屉 ----------------
+const detailVisible = ref(false)
+const detailLoading = ref(false)
+const detailData = ref<FileEntryDetail | null>(null)
+
+const handleShowDetail = async (row: FileEntry) => {
+  detailData.value = null
+  detailVisible.value = true
+  detailLoading.value = true
+  try {
+    detailData.value = await getFileEntryDetail(row.id)
+  } catch (error) {
+    console.error('获取详情失败:', error)
+    ElMessage.error('获取详情失败')
+    detailVisible.value = false
+  } finally {
+    detailLoading.value = false
   }
 }
 

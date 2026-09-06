@@ -2,6 +2,7 @@ from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from common.config.db import DaoRel
+from common.utils.fastapiEX.exceptions import NotFoundError
 from common.utils.db.schema.pagination import PaginationParams
 from module_task.do.task import TaskQueue, TaskQueueResponse
 
@@ -43,7 +44,7 @@ class TaskQueueDao:
         """删除任务记录"""
         task = await session.get(TaskQueue, task_id)
         if not task:
-            raise ValueError(f"未找到ID为 {task_id} 的任务")
+            raise NotFoundError(f"未找到ID为 {task_id} 的任务")
         await session.delete(task)
         await session.flush()
 

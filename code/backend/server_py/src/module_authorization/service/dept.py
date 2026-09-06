@@ -1,5 +1,6 @@
 from module_authorization.do.dept import DeptCreate, DeptUpdate, DeptResponse, DeptTree, Dept
 from module_authorization.dao.dept import DeptDao
+from common.utils.fastapiEX.exceptions import ConflictError, NotFoundError
 
 
 class DeptService:
@@ -15,11 +16,11 @@ class DeptService:
         if dept.parent_id and dept.parent_id != "0":
             parent = await self.dept_dao.get_raw(dept.parent_id)
             if not parent:
-                raise ValueError(f"父部门ID {dept.parent_id} 不存在")
+                raise NotFoundError(f"父部门ID {dept.parent_id} 不存在")
         # 检查同级部门名称是否重复
         existing = await self.dept_dao.get_by_name(dept.name)
         if existing:
-            raise ValueError(f"部门名称 '{dept.name}' 已存在")
+            raise ConflictError(f"部门名称 '{dept.name}' 已存在")
         return await self.dept_dao.add(dept)
 
     async def delete(self, dept_id: str):

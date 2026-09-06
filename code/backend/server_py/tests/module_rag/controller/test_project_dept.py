@@ -122,7 +122,7 @@ async def test_add_dept_auth_invalid_role(client: httpx.AsyncClient):
 
 
 async def test_add_dept_auth_duplicate_rejected(client: httpx.AsyncClient):
-    """同一项目同一部门重复授权应 400"""
+    """同一项目同一部门重复授权应 409(重名冲突 ConflictError)"""
     project_id = await _create_project(client)
     dept_id = await _create_dept(client)
     auth_id = None
@@ -139,7 +139,7 @@ async def test_add_dept_auth_duplicate_rejected(client: httpx.AsyncClient):
             BASE,
             json={"project_id": project_id, "dept_id": dept_id, "role": "project_editor"},
         )
-        assert resp.status_code == 400, f"重复授权应 400: {resp.text}"
+        assert resp.status_code == 409, f"重复授权应 409: {resp.text}"
     finally:
         if auth_id:
             await client.delete(f"{BASE}/{auth_id}")
@@ -148,7 +148,7 @@ async def test_add_dept_auth_duplicate_rejected(client: httpx.AsyncClient):
 
 
 async def test_add_dept_auth_nonexistent_dept(client: httpx.AsyncClient):
-    """对不存在的部门授权应 400(存在性校验)"""
+    """对不存在的部门授权应 404(NotFoundError)"""
     project_id = await _create_project(client)
     try:
         resp = await client.post(
@@ -159,7 +159,7 @@ async def test_add_dept_auth_nonexistent_dept(client: httpx.AsyncClient):
                 "role": "project_reader",
             },
         )
-        assert resp.status_code == 400, f"部门不存在应 400: {resp.text}"
+        assert resp.status_code == 404, f"部门不存在应 404: {resp.text}"
     finally:
         await client.delete(f"{PROJECT_BASE}/{project_id}")
 

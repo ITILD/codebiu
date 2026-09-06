@@ -1,11 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
+from common.utils.fastapiEX.exceptions import NotFoundError
 from module_authorization.dependencies.permission import require_permission
 from module_task.config.server import module_app
 from module_task.dependencies.task import get_task_queue_service
 from module_task.do.task import TaskQueueCreate, TaskQueueResponse, TaskStatsResponse
-from module_task.service.task import TaskNotFoundError, TaskQueueService
+from module_task.service.task import TaskQueueService
 
 router = APIRouter()
 
@@ -22,15 +23,8 @@ async def create_task(
     :param current_user_id: 当前用户ID(权限依赖注入)
     :return: 任务ID
     """
-    try:
-        task = await service.create(data, current_user_id)
-        return task.id
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    task = await service.create(data, current_user_id)
+    return task.id
 
 
 @router.get("/registry", summary="查询任务类型注册表", response_model=list)
@@ -50,12 +44,7 @@ async def get_stats(
     service: TaskQueueService = Depends(get_task_queue_service),
 ) -> TaskStatsResponse:
     """任务状态统计(概览卡片, 供轮询刷新)"""
-    try:
-        return await service.stats()
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.stats()
 
 
 @router.get("/list", summary="分页查询任务列表", response_model=PaginationResponse)
@@ -70,16 +59,9 @@ async def list_tasks(
     """
     分页查询任务列表(列表项含 Celery 状态对照字段)
     """
-    try:
-        return await service.list_page(
-            pagination, keyword=keyword, status=task_status, task_type=task_type,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.list_page(
+        pagination, keyword=keyword, status=task_status, task_type=task_type,
+    )
 
 
 @router.get("/{task_id}", summary="查询任务详情", response_model=TaskQueueResponse)
@@ -92,11 +74,8 @@ async def get_task(
     try:
         return await service.get(task_id)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+        # 任务不存在 → 404
+        raise NotFoundError(str(e))
 
 
 @router.post("/{task_id}/sync", summary="从Celery同步任务状态", response_model=TaskQueueResponse)
@@ -111,11 +90,8 @@ async def sync_task(
     try:
         return await service.sync_from_celery(task_id)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+        # 任务不存在 → 404
+        raise NotFoundError(str(e))
 
 
 @router.post("/{task_id}/cancel", summary="取消任务", status_code=status.HTTP_204_NO_CONTENT)
@@ -127,17 +103,8 @@ async def cancel_task(
     """
     取消排队/执行中的任务(Celery revoke + 数据库置 cancelled)
     """
-    try:
-        await service.cancel(task_id)
-    except TaskNotFoundError as e:
-        # 任务不存在 → 404(与状态冲突的 400 区分)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    # 任务不存在 → 404(依赖 service 层 TaskNotFoundError 的异常继承关系), 状态冲突 ValueError → 400(全局处理器)
+    await service.cancel(task_id)
 
 
 @router.post("/{task_id}/retry", summary="重试任务", response_model=TaskQueueResponse)
@@ -149,17 +116,8 @@ async def retry_task(
     """
     重试已结束的任务(重置进度后重新投递队列)
     """
-    try:
-        return await service.retry(task_id)
-    except TaskNotFoundError as e:
-        # 任务不存在 → 404(与状态冲突的 400 区分)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    # 任务不存在 → 404(依赖 service 层 TaskNotFoundError 的异常继承关系), 状态冲突 ValueError → 400(全局处理器)
+    return await service.retry(task_id)
 
 
 @router.delete("/{task_id}", summary="删除任务", status_code=status.HTTP_204_NO_CONTENT)
@@ -172,11 +130,8 @@ async def delete_task(
     try:
         await service.delete(task_id)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+        # 任务不存在 → 404
+        raise NotFoundError(str(e))
 
 
 module_app.include_router(router, prefix="/tasks", tags=["任务队列"])

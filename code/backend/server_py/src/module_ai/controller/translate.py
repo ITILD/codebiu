@@ -26,9 +26,9 @@ async def translate_base(
 @router.post("/ocr", summary="图片识别结果翻译")
 async def translate_ocr(
     image: UploadFile,
-    model_id: str = Form(),
-    lang_ocr: Language = Form(),
-    lang_translate: Language = Form(),
+    model_id: str = Form(description="翻译使用的模型配置ID或标识名称"),
+    lang_ocr: Language = Form(description="图片文字识别语言"),
+    lang_translate: Language = Form(description="翻译目标语言"),
     translate_service: TranslateService = Depends(get_translate_service),
 ):
     """图片文字识别并翻译:先 OCR 识别图片文本,再将结果翻译为目标语言

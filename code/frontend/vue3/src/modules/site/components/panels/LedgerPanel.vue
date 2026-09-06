@@ -175,11 +175,10 @@ import {
 import { useChart } from '../../composables/useChart'
 import type { LedgerFlow, LedgerRecord, LedgerStats } from '../../types/ledger'
 import type { SearchField } from '@/common/components/TableSearchBar.vue'
-import { SysSettingStore } from '@/common/stores/sys'
+import { useResponsive } from '@/common/composables/useResponsive'
 
 // 响应式断点(md 以下操作列不固定, 靠横向滚动)
-const sysSettingStore = SysSettingStore()
-const isMd = computed(() => sysSettingStore.sysStyle.isMd)
+const { isMd } = useResponsive()
 
 // ---------- 月份导航 ----------
 const monthValue = ref(dayjs().format('YYYY-MM'))

@@ -10,6 +10,8 @@ import type { PaginationParams, PaginationResponse } from '@/common/types/common
 import type {
   FileEntry,
   FileEntryUpdate,
+  FileEntryDetail,
+  BatchDeleteResult,
   StorageStats,
   MigrateRequest,
   MigrateResult,
@@ -210,6 +212,16 @@ export const getFileEntry = (entryId: string) => {
 };
 
 /**
+ * 获取条目详情(元数据/物理存储位置/上传用户名/标签等)
+ * @param entryId 条目ID
+ */
+export const getFileEntryDetail = (entryId: string) => {
+  return http_base_server.get<FileEntryDetail>(
+    `/file/filesystem/entries/${entryId}/detail`
+  );
+};
+
+/**
  * 获取文件下载地址(相对后端路径)
  * @param entryId 文件ID
  */
@@ -269,6 +281,17 @@ export const deleteFile = (entryId: string) => {
  */
 export const deleteFolder = (folderId: string) => {
   return http_base_server.delete<void>(`/file/filesystem/folders/${folderId}`);
+};
+
+/**
+ * 批量删除条目(文件与目录混选,目录递归删除子树)
+ * @param entryIds 条目ID列表
+ */
+export const batchDeleteEntries = (entryIds: string[]) => {
+  return http_base_server.post<BatchDeleteResult>(
+    '/file/filesystem/entries/batch-delete',
+    { entry_ids: entryIds }
+  );
 };
 
 /**

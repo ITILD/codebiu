@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException, status, Depends, Query
+from fastapi import APIRouter, status, Depends, Query
+from common.utils.fastapiEX.exceptions import NotFoundError
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
 from module_authorization.do.role import Role, RoleCreate, RoleUpdate, RoleResponse
 from module_authorization.service.role import RoleService
@@ -22,12 +23,7 @@ async def create_role(
     :param service: 角色服务依赖注入
     :return: 创建的角色ID
     """
-    try:
-        return await service.add(role)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.add(role)
 
 @router.get(
     "/list", summary="分页查询角色列表", response_model=PaginationResponse,
@@ -47,14 +43,9 @@ async def list_roles(
     :param role_key: 权限字符模糊搜索
     :param is_active: 状态过滤(true=启用/false=禁用)
     """
-    try:
-        return await service.list_paged(
-            pagination, name=name, role_key=role_key, is_active=is_active
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.list_paged(
+        pagination, name=name, role_key=role_key, is_active=is_active
+    )
 
 @router.get("/all", summary="获取所有角色(不分页)",
     dependencies=[Depends(require_permission("sys", "role", "read"))])
@@ -62,12 +53,7 @@ async def list_all_roles(
     service: RoleService = Depends(get_role_service)
 ):
     """获取所有角色列表(不分页, 用于下拉选择)"""
-    try:
-        return await service.list_all()
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    return await service.list_all()
 
 @router.get("/{role_id}", summary="获取单个角色", response_model=Role,
     dependencies=[Depends(require_permission("sys", "role", "read"))])
@@ -76,24 +62,15 @@ async def get_role(
     service: RoleService = Depends(get_role_service)
 ):
     """
-    获取单个角色详情
+    获取单个角色详情, 角色不存在时返回404
     :param role_id: 角色ID
     :param service: 角色服务依赖注入
     :return: 角色详情
     """
-    try:
-        result = await service.get(role_id)
-        if not result:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Role not found"
-            )
-        return result
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    result = await service.get(role_id)
+    if not result:
+        raise NotFoundError("角色不存在")
+    return result
 
 @router.delete(
     "/{role_id}", summary="删除角色", status_code=status.HTTP_204_NO_CONTENT,
@@ -104,16 +81,11 @@ async def delete_role(
     service: RoleService = Depends(get_role_service)
 ):
     """
-    删除角色
+    按ID删除角色,角色不存在时报400(dao 层 not-found 抛 ValueError, 由全局处理器映射);成功返回204
     :param role_id: 角色ID
     :param service: 角色服务依赖注入
     """
-    try:
-        await service.delete(role_id)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    await service.delete(role_id)
 
 @router.put(
     "/{role_id}", summary="更新角色", status_code=status.HTTP_204_NO_CONTENT,
@@ -125,17 +97,12 @@ async def update_role(
     service: RoleService = Depends(get_role_service)
 ):
     """
-    更新角色
+    按ID部分更新角色字段(仅传传入的字段),角色不存在时报400;成功返回204
     :param role_id: 角色ID
     :param role: 角色数据
     :param service: 角色服务依赖注入
     """
-    try:
-        await service.update(role_id, role)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    await service.update(role_id, role)
 
 @router.get("/name/{name}", summary="通过名称获取角色", response_model=Role,
     dependencies=[Depends(require_permission("sys", "role", "read"))])
@@ -143,20 +110,11 @@ async def get_role_by_name(
     name: str,
     service: RoleService = Depends(get_role_service)
 ):
-    """通过名称获取角色"""
-    try:
-        result = await service.get_by_name(name)
-        if not result:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Role not found"
-            )
-        return result
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    """按角色名称精确匹配查询单个角色,不存在时返回404"""
+    result = await service.get_by_name(name)
+    if not result:
+        raise NotFoundError("角色不存在")
+    return result
 
 @router.get("/key/{role_key}", summary="通过权限字符串获取角色", response_model=Role,
     dependencies=[Depends(require_permission("sys", "role", "read"))])
@@ -164,20 +122,11 @@ async def get_role_by_key(
     role_key: str,
     service: RoleService = Depends(get_role_service)
 ):
-    """通过角色权限字符串获取角色"""
-    try:
-        result = await service.get_by_role_key(role_key)
-        if not result:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Role not found"
-            )
-        return result
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    """通过角色权限字符串获取角色, 不存在时返回404"""
+    result = await service.get_by_role_key(role_key)
+    if not result:
+        raise NotFoundError("角色不存在")
+    return result
 
 # 注册路由
 module_app.include_router(router, prefix="/roles", tags=["角色管理"])
