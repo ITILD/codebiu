@@ -73,7 +73,7 @@
     <!-- 结果展示 -->
     <el-card v-if="result !== null">
       <div font-bold mb-3>清 洗 结 果</div>
-      <div border rounded p-3 bg-gray-50>
+      <div border rounded p-3 bg-note-soft>
         <pre v-if="output_type === 'json'" text-sm whitespace-pre-wrap m-0>{{ resultText }}</pre>
         <div v-else text-sm whitespace-pre-wrap>{{ resultText }}</div>
       </div>

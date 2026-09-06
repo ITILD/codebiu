@@ -116,6 +116,7 @@ class ModelConfigService:
         dept_id: str | None = None,
         is_admin: bool = False,
         scope: str | None = None,
+        filter_user_ids: list[str] | None = None,
     ) -> PaginationResponse:
         """
         分页获取模型配置列表(支持多字段过滤 + 当前用户可见性)
@@ -127,6 +128,7 @@ class ModelConfigService:
         :param dept_id: 当前用户部门ID(可见性: 部门模型)
         :param is_admin: 管理员可见全部
         :param scope: 归属范围过滤
+        :param filter_user_ids: 按所有者ID列表过滤(管理员按用户名检索场景)
         :return: 分页响应数据
         """
         items = await self.model_config_dao.list_paged(
@@ -138,6 +140,7 @@ class ModelConfigService:
             dept_id=dept_id,
             is_admin=is_admin,
             scope=scope,
+            filter_user_ids=filter_user_ids,
         )
         total = await self.model_config_dao.count(
             model=model,
@@ -147,8 +150,27 @@ class ModelConfigService:
             dept_id=dept_id,
             is_admin=is_admin,
             scope=scope,
+            filter_user_ids=filter_user_ids,
         )
         return PaginationResponse.create(items, total, pagination)
+
+    def mask_secrets(
+        self, configs: ModelConfig | list[ModelConfig] | None, user_id: str, is_admin: bool
+    ) -> None:
+        """
+        敏感信息脱敏(就地修改): 非管理员查看"非本人创建"的模型时,
+        清空 url/api_key(key 是创建者资产, 公共/部门模型不暴露给其他人)
+        :param configs: 单个或多个模型配置对象(None 忽略)
+        :param user_id: 当前用户ID
+        :param is_admin: 是否全局管理员(管理员可见全部明文)
+        """
+        if configs is None or is_admin:
+            return
+        items = configs if isinstance(configs, list) else [configs]
+        for config in items:
+            if config is not None and config.user_id != user_id:
+                config.url = None
+                config.api_key = None
 
     async def get_scroll(
         self,

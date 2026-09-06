@@ -53,7 +53,7 @@
             </button>
             <!-- 删除 -->
             <button
-              op-0 group-hover:op-100 shrink-0 p-1 rounded-md class="hover:bg-red-4/15" hover:text-red-5 transition
+              op-0 group-hover:op-100 shrink-0 p-1 rounded-md class="hover:bg-red-500/15" hover:text-red-500 transition
               title="删除对话" @click.stop="handleDeleteConversation(conv)"
             >
               <el-icon :size="14"><Delete /></el-icon>

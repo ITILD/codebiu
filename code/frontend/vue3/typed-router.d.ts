@@ -25,6 +25,7 @@ declare module 'vue-router/auto-routes' {
     '/ai/model_config': RouteRecordInfo<'/ai/model_config', '/ai/model_config', Record<never, never>, Record<never, never>>,
     '/ai/ocr': RouteRecordInfo<'/ai/ocr', '/ai/ocr', Record<never, never>, Record<never, never>>,
     '/ai/voice': RouteRecordInfo<'/ai/voice', '/ai/voice', Record<never, never>, Record<never, never>>,
+    '/api_test/': RouteRecordInfo<'/api_test/', '/api_test', Record<never, never>, Record<never, never>>,
     '/authorization/casbin': RouteRecordInfo<'/authorization/casbin', '/authorization/casbin', Record<never, never>, Record<never, never>>,
     '/authorization/dept': RouteRecordInfo<'/authorization/dept', '/authorization/dept', Record<never, never>, Record<never, never>>,
     '/authorization/permission': RouteRecordInfo<'/authorization/permission', '/authorization/permission', Record<never, never>, Record<never, never>>,
@@ -50,6 +51,10 @@ declare module 'vue-router/auto-routes' {
     '/template/infoview': RouteRecordInfo<'/template/infoview', '/template/infoview', Record<never, never>, Record<never, never>>,
     '/template/mediapipe_face': RouteRecordInfo<'/template/mediapipe_face', '/template/mediapipe_face', Record<never, never>, Record<never, never>>,
     '/template/overview': RouteRecordInfo<'/template/overview', '/template/overview', Record<never, never>, Record<never, never>>,
+    '/template/playground': RouteRecordInfo<'/template/playground', '/template/playground', Record<never, never>, Record<never, never>, '/template/playground/' | '/template/playground/business' | '/template/playground/harry_potter'>,
+    '/template/playground/': RouteRecordInfo<'/template/playground/', '/template/playground', Record<never, never>, Record<never, never>>,
+    '/template/playground/business': RouteRecordInfo<'/template/playground/business', '/template/playground/business', Record<never, never>, Record<never, never>>,
+    '/template/playground/harry_potter': RouteRecordInfo<'/template/playground/harry_potter', '/template/playground/harry_potter', Record<never, never>, Record<never, never>>,
     '/template/template': RouteRecordInfo<'/template/template', '/template/template', Record<never, never>, Record<never, never>>,
   }
 
@@ -90,6 +95,10 @@ declare module 'vue-router/auto-routes' {
     }
     'src/modules/ai/pages/voice.vue': {
       routes: '/ai/voice'
+      views: never
+    }
+    'src/modules/api_test/pages/index.vue': {
+      routes: '/api_test/'
       views: never
     }
     'src/modules/authorization/pages/casbin.vue': {
@@ -190,6 +199,22 @@ declare module 'vue-router/auto-routes' {
     }
     'src/modules/template/pages/overview.vue': {
       routes: '/template/overview'
+      views: never
+    }
+    'src/modules/template/pages/playground.vue': {
+      routes: '/template/playground' | '/template/playground/' | '/template/playground/business' | '/template/playground/harry_potter'
+      views: 'default'
+    }
+    'src/modules/template/pages/playground/index.vue': {
+      routes: '/template/playground/'
+      views: never
+    }
+    'src/modules/template/pages/playground/business.vue': {
+      routes: '/template/playground/business'
+      views: never
+    }
+    'src/modules/template/pages/playground/harry_potter.vue': {
+      routes: '/template/playground/harry_potter'
       views: never
     }
     'src/modules/template/pages/template.vue': {

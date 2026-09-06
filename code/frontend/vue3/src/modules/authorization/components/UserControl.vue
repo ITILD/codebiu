@@ -9,7 +9,7 @@
             <UserLoginIcon m-2 w-8 h-8 />
             <div>
               <div text-lg font-5>{{ authState.user.username }}</div>
-              <div text-sm text-gray-500>{{ authState.user.email }}</div>
+              <div text-sm text-note-sub>{{ authState.user.email }}</div>
             </div>
           </div>
         </el-dropdown-item>

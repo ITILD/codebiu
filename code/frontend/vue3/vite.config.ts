@@ -43,7 +43,9 @@ export default defineConfig(
             'src/pages',
             {
               src: 'src/modules',
-              filePatterns: '**/pages/**',
+              // 匹配 pages 下任意层级页面(插件会追加 .vue 扩展名, 末段须为 *,
+              // 否则 **.vue 无法跨目录, pages 子文件夹内的页面不会被注册)
+              filePatterns: '**/pages/**/*',
               path: (file) => {
                 // D:/.../src/modules/<模块>/pages/<页面>.vue -> <模块>/<页面>.vue
                 const posixFile = file.replace(/\\/g, '/')

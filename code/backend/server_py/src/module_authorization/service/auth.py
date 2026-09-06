@@ -1,12 +1,13 @@
 from common.utils.security.token_util import TokenType
+from common.utils.security.password import verify_password
 from module_authorization.service.user import UserService
 from module_authorization.service.token import TokenService
-from module_authorization.do.user import UserCreate, UserResponse, User
+from module_authorization.do.user import UserCreate, UserResponse, User, UserUpdate
 from module_authorization.do.token import (
     TokenCreateRequest,
     TokenResponseFull,
 )
-from module_authorization.do.auth import AuthResponse, AuthLogoutRequest
+from module_authorization.do.auth import AuthResponse, AuthLogoutRequest, SelfProfileUpdate
 
 # db_cache redis客户端 用于存储已吊销的 access_token 的黑名单
 from common.config.db import db_cache 
@@ -218,6 +219,49 @@ class AuthService:
                 permissions.append(f"{dom}:{obj}:{act}")
         return {"roles": roles, "permissions": permissions}
 
+
+    async def update_my_profile(self, user_id: str, profile: SelfProfileUpdate) -> UserResponse:
+        """
+        自助更新个人资料(仅昵称/邮箱/电话/头像等展示类字段)
+        :param user_id: 当前登录用户ID
+        :param profile: 资料更新数据
+        :return: 更新后的用户信息
+        :raises: ValueError 如果用户不存在
+        """
+        user = await self.user_service.get(user_id)
+        if not user:
+            raise ValueError("用户不存在")
+        update = UserUpdate(
+            nickname=profile.nickname,
+            email=profile.email,
+            phone=profile.phone,
+            avatar=profile.avatar,
+        )
+        await self.user_service.update(user_id, update)
+        updated = await self.user_service.get(user_id)
+        return UserResponse.model_validate(updated)
+
+    async def change_my_password(self, user_id: str, old_password: str, new_password: str) -> None:
+        """
+        自助修改密码(需先验证旧密码)
+        :param user_id: 当前登录用户ID
+        :param old_password: 旧密码
+        :param new_password: 新密码
+        :raises: ValueError 如果用户不存在/旧密码错误/新旧密码相同
+        """
+        # get 返回 UserResponse(不含密码),需按用户名取完整 User 才能校验旧密码哈希
+        profile = await self.user_service.get(user_id)
+        if not profile:
+            raise ValueError("用户不存在")
+        user = await self.user_service.get_by_username(profile.username)
+        if not user:
+            raise ValueError("用户不存在")
+        if not verify_password(old_password, user.password):
+            raise ValueError("旧密码错误")
+        if old_password == new_password:
+            raise ValueError("新密码不能与旧密码相同")
+        # user_service.update 内部会做哈希处理
+        await self.user_service.update(user_id, UserUpdate(password=new_password))
 
     async def token_refresh(self, token_refresh: str) -> TokenResponseFull:
         """

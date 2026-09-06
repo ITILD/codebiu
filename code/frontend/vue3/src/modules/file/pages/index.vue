@@ -7,10 +7,10 @@
       </el-tooltip>
       <el-breadcrumb separator="/" flex-1 min-w-0>
         <el-breadcrumb-item>
-          <span cursor-pointer hover:text-blue-5 @click="handleGoto(-1)">根目录</span>
+          <span cursor-pointer hover:text-note-green @click="handleGoto(-1)">根目录</span>
         </el-breadcrumb-item>
         <el-breadcrumb-item v-for="(crumb, idx) in breadcrumbs" :key="crumb.id">
-          <span cursor-pointer hover:text-blue-5 @click="handleGoto(idx)">{{ crumb.name }}</span>
+          <span cursor-pointer hover:text-note-green @click="handleGoto(idx)">{{ crumb.name }}</span>
         </el-breadcrumb-item>
       </el-breadcrumb>
       <el-input
@@ -86,7 +86,7 @@
     </el-table>
 
     <!-- 空状态提示 -->
-    <div v-if="!loading && entries.length === 0" py-10 flex flex-col items-center text-gray-4>
+    <div v-if="!loading && entries.length === 0" py-10 flex flex-col items-center text-note-sub>
       <el-icon text-5xl mb-3><FolderOpened /></el-icon>
       <p m-0>{{ searchQuery ? '未找到匹配的条目' : '当前目录为空，可上传文件或新建目录' }}</p>
     </div>
@@ -238,13 +238,13 @@ const nameRules = {
 // 文件图标按扩展名着色
 const fileIconClass = (ext: string) => {
   const e = (ext || '').toLowerCase()
-  if (['pdf'].includes(e)) return 'text-red-5'
-  if (['doc', 'docx'].includes(e)) return 'text-blue-5'
-  if (['xls', 'xlsx', 'csv'].includes(e)) return 'text-green-5'
-  if (['ppt', 'pptx'].includes(e)) return 'text-orange-5'
-  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(e)) return 'text-purple-5'
-  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(e)) return 'text-yellow-6'
-  return 'text-gray-5'
+  if (['pdf'].includes(e)) return 'text-red-500'
+  if (['doc', 'docx'].includes(e)) return 'text-blue-500'
+  if (['xls', 'xlsx', 'csv'].includes(e)) return 'text-green-500'
+  if (['ppt', 'pptx'].includes(e)) return 'text-orange-500'
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(e)) return 'text-purple-500'
+  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(e)) return 'text-yellow-500'
+  return 'text-note-sub'
 }
 
 // 文件大小格式化

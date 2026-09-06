@@ -73,3 +73,32 @@ export const getCurrentUserId = () => {
 export const getUserPermissions = () => {
   return http_base_server.get<UserPermissionInfo>('/authorization/auth/me-permissions');
 };
+
+/** 自助资料更新请求(仅展示类字段) */
+export interface SelfProfileUpdate {
+  nickname?: string;
+  email?: string;
+  phone?: string;
+  avatar?: string;
+}
+
+/** 修改密码请求(需验证旧密码) */
+export interface PasswordChangeRequest {
+  old_password: string;
+  new_password: string;
+}
+
+/**
+ * 自助更新个人资料(昵称/邮箱/电话/头像,登录即可修改自己)
+ * @returns 更新后的用户信息
+ */
+export const updateMyProfile = (data: SelfProfileUpdate) => {
+  return http_base_server.put<AuthResponse['user']>('/authorization/auth/me', data);
+};
+
+/**
+ * 自助修改密码(需验证旧密码,成功返回204)
+ */
+export const changeMyPassword = (data: PasswordChangeRequest) => {
+  return http_base_server.put<null>('/authorization/auth/me/password', data);
+};

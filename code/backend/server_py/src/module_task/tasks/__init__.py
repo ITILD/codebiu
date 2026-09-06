@@ -47,12 +47,44 @@ TASK_TYPES: dict[str, TaskTypeDef] = {
             "duration": 16,
         },
     ),
+    "rag_document_parse": TaskTypeDef(
+        type="rag_document_parse",
+        name="知识库: 文档解析",
+        description="解析项目文档: OCR/解析 → 分块策略识别 → 重分块 → 向量化 → 写入向量库;"
+                    "以任务创建者绑定的模型执行(未绑定时回退默认公共模型)",
+        celery_task="module_rag.tasks.project_document.reparse_document_task",
+        default_payload={"document_id": "", "force_preset_id": None},
+    ),
+    "rag_revectorize": TaskTypeDef(
+        type="rag_revectorize",
+        name="知识库: 全库重向量化",
+        description="系统更换向量模型后, 以指定/当前生效的默认公共向量化模型"
+                    "重算 Milvus 中所有文档 chunk 向量(仅系统管理员)",
+        celery_task="module_rag.tasks.project_document_chunk.revectorize_chunks_task",
+        default_payload={"model_id": None},
+    ),
 }
 
 
 def get_task_type(task_type: str) -> TaskTypeDef | None:
     """按类型编码查询注册表条目"""
     return TASK_TYPES.get(task_type)
+
+
+async def load_task(task_id: str) -> tuple[dict, str]:
+    """
+    worker 侧读取任务参数与创建者(任务消息只传ID保持轻量, 参数从库中读)
+    :param task_id: task_queue 表主键
+    :return: (payload参数dict, 创建者user_id)
+    :raises ValueError: 任务不存在
+    """
+    from module_task.do.task import TaskQueue
+
+    async with db_manager.db_rel.session_factory() as session:
+        task = await session.get(TaskQueue, task_id)
+        if task is None:
+            raise ValueError(f"任务 {task_id} 不存在")
+        return dict(task.payload or {}), task.user_id
 
 
 # ################ worker 侧回写辅助 ################

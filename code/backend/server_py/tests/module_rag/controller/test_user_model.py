@@ -80,3 +80,42 @@ async def test_binding_upsert_flow(client: httpx.AsyncClient):
         # 清理: 删除测试模型配置
         resp = await client.delete(f"{AI_MODEL_BASE}/{model_id}")
         assert resp.status_code in (200, 204), resp.text
+
+
+async def test_embedding_fallback_to_default_public(client: httpx.AsyncClient):
+    """RAG 模型回退: 用户未绑定 embedding 模型时,
+    get_llm_by_user_id 应回退到当前生效的默认公共向量化模型(启动 seed 提供)"""
+    # 拿到当前登录用户(admin)的 user_id 并解绑 embedding
+    resp = await client.get(f"{BASE}/my")
+    assert resp.status_code == 200, resp.text
+    user_id = resp.json()["user_id"]
+    resp = await client.put(f"{BASE}/my", json={"embedding_model_id": None})
+    assert resp.status_code == 200, resp.text
+
+    from module_ai.utils.llm.do.llm_type import ModelType
+    from module_rag.service.user_model import UserModelService
+
+    service = UserModelService()
+    llm = await service.get_llm_by_user_id(user_id, False, ModelType.EMBEDDINGS)
+    # get_llm 仅加载配置构建实例, 不会真实调用外部 API
+    assert llm is not None, "未绑定向量化模型时应回退默认公共模型, 而不是返回 None"
+
+
+async def test_chat_fallback_returns_none_without_default(client: httpx.AsyncClient, monkeypatch):
+    """回退兜底: 用户未绑定且无生效默认公共模型时, get_llm_by_user_id 返回 None(不抛异常)"""
+    resp = await client.get(f"{BASE}/my")
+    assert resp.status_code == 200, resp.text
+    user_id = resp.json()["user_id"]
+    resp = await client.put(f"{BASE}/my", json={"chat_model_id": None})
+    assert resp.status_code == 200, resp.text
+
+    from module_ai.utils.llm.do.llm_type import ModelType
+    from module_rag.service import user_model as um
+
+    service = um.UserModelService()
+    # mock 掉 fallback 查询, 模拟"无生效默认公共模型"环境
+    async def _no_fallback(model_type):
+        return None
+    monkeypatch.setattr(service, "_get_fallback_model_id", _no_fallback)
+    llm = await service.get_llm_by_user_id(user_id, False, ModelType.CHAT)
+    assert llm is None, "无绑定且无回退模型时应返回 None"

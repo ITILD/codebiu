@@ -94,6 +94,20 @@ class UserDao:
         return result.first()
 
     @DaoRel
+    async def search_ids_by_username(
+        self, username: str, session: AsyncSession | None = None
+    ) -> list[str]:
+        """
+        按用户名模糊搜索用户ID列表(管理员按所有者过滤模型配置等场景使用)
+        :param username: 用户名模糊关键字
+        :param session: 可选数据库会话
+        :return: 匹配的用户ID列表
+        """
+        stmt = select(User.id).where(User.username.contains(username))
+        result = await session.exec(stmt)
+        return list(result.all())
+
+    @DaoRel
     async def list_paged(
         self,
         pagination: PaginationParams,

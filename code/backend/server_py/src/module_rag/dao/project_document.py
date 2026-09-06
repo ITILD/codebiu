@@ -80,6 +80,16 @@ class ProjectDocumentDao:
         return await session.get(ProjectDocument, id)
 
     @DaoRel
+    async def list_all_ids(self, session: AsyncSession | None = None) -> list[str]:
+        """
+        查询全部文档ID(全库重向量化等运维任务按文档遍历使用)
+        :param session: 可选数据库会话
+        :return: 文档ID列表
+        """
+        result = await session.exec(select(ProjectDocument.id))
+        return list(result.all())
+
+    @DaoRel
     async def list_by_project(
         self,
         project_id: str,

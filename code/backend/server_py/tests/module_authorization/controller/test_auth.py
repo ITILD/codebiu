@@ -123,3 +123,69 @@ async def test_logout_invalidates_token(client: httpx.AsyncClient):
     # 原访问令牌应已被拉黑
     resp_me = await client.get(f"{BASE}/me", headers=headers)
     assert resp_me.status_code == 401, "登出后原令牌应失效"
+
+
+async def test_update_my_profile(client: httpx.AsyncClient):
+    """自助更新个人资料(昵称/邮箱),无需管理员权限"""
+    resp = await client.put(
+        f"{BASE}/me",
+        json={"nickname": "自助昵称", "email": "self_profile@example.com"},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["nickname"] == "自助昵称"
+    assert body["email"] == "self_profile@example.com"
+
+
+async def test_update_my_profile_without_token(anon_client: httpx.AsyncClient):
+    """无令牌更新个人资料应 401"""
+    resp = await anon_client.put(f"{BASE}/me", json={"nickname": "x"})
+    assert resp.status_code == 401, resp.text
+
+
+async def test_change_my_password_flow(client: httpx.AsyncClient):
+    """自助修改密码全流程: 注册临时用户→改密→旧密码失效/新密码可登录→清理"""
+    username = f"test_pwd_{int(time.time() * 1000)}_{uuid.uuid4().hex[:6]}"
+    # 注册临时用户(注册响应携带该用户自己的令牌)
+    reg = (await client.post(
+        f"{BASE}/register", json={"username": username, "password": "Test@123456"}
+    )).json()
+    assert reg["user"]["username"] == username, resp_text_ok(reg)
+    user_headers = {"Authorization": f"Bearer {reg['tokens']['access']['token']}"}
+
+    try:
+        # 旧密码错误应 400
+        resp = await client.put(
+            f"{BASE}/me/password",
+            headers=user_headers,
+            json={"old_password": "WrongOld@123", "new_password": "NewPass@456"},
+        )
+        assert resp.status_code == 400, resp.text
+
+        # 正确修改密码(204)
+        resp = await client.put(
+            f"{BASE}/me/password",
+            headers=user_headers,
+            json={"old_password": "Test@123456", "new_password": "NewPass@456"},
+        )
+        assert resp.status_code == 204, resp.text
+
+        # 旧密码登录失败
+        resp = await client.post(
+            f"{BASE}/login", data={"username": username, "password": "Test@123456"}
+        )
+        assert resp.status_code == 401, resp.text
+
+        # 新密码登录成功
+        resp = await client.post(
+            f"{BASE}/login", data={"username": username, "password": "NewPass@456"}
+        )
+        assert resp.status_code == 200, resp.text
+    finally:
+        # 清理临时用户
+        await client.delete(f"/authorization/users/{reg['user']['id']}")
+
+
+def resp_text_ok(body: dict) -> str:
+    """注册响应断言辅助(失败时输出响应体)"""
+    return str(body)

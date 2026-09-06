@@ -16,6 +16,7 @@ from common.config.tasks import app as celery_app
 
 # 导入任务注册(Worker 进程必须导入任务模块, 否则对应任务无法被路由执行)
 from module_task.tasks import demo  # noqa: F401
+from module_rag.tasks import project_document, project_document_chunk  # noqa: F401
 
 logger = logging.getLogger(__name__)
 

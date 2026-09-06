@@ -13,14 +13,14 @@ from module_file.controller import filesystem
 from module_websearch.controller import websearch
 from module_authorization.controller import token, casbin_rule, permission, role, user,auth,dept
 # # 业务模块
-# from module_template.controller import static,template,template_ex,template_async_learn
-# from module_ai.controller import static as ai_static,model_config,llm_base,voice
+from module_template.controller import static,template,template_ex,template_async_learn
+from module_ai.controller import static as ai_static,model_config,llm_base,voice
 # # ,ocr 
-# from module_dev_tools.controller import template_string
-# from module_little_utils.controller import todolist
+from module_dev_tools.controller import template_string
+from module_little_utils.controller import todolist
 # # 语言模块
-# from module_nlp.controller import synonym
-# from module_life.controller import baby_name
+from module_nlp.controller import synonym
+from module_life.controller import baby_name
 # # 知识库模块(项目/文档/成员/部门授权/问答)
 from module_rag.controller import (
     conversation,

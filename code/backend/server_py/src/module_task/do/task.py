@@ -125,22 +125,25 @@ class TaskQueueCreate(SQLModel):
 
 
 class TaskQueueResponse(SQLModel):
-    """任务详情响应模型(含 Celery 侧状态对照)"""
+    """任务详情响应模型(含 Celery 侧状态对照)
+
+    纯任务管理约定: 响应不携带业务信息(payload 参数/result 结果留在库中由业务模块自用),
+    仅暴露执行情况(状态/进度/阶段描述/失败原因/时间线)
+    """
 
     id: str
     name: str
     task_type: str
-    payload: dict
     priority: int
     status: str
     progress: float
     message: str | None = None
-    result: dict | None = None
     error: str | None = None
     celery_task_id: str | None = None
     # ---- Celery 结果后端侧状态(可能为 None: 未入队/后端不可用) ----
     celery_state: str | None = None       # PENDING/STARTED/PROGRESS/SUCCESS/FAILURE/REVOKED
     celery_progress: float | None = None  # Celery 侧回传的百分比(worker update_state 写入)
+    celery_meta: dict | None = None       # PROGRESS 时的完整进度元数据(total/processed/chunks等)
     started_at: datetime | None = None
     finished_at: datetime | None = None
     created_at: datetime

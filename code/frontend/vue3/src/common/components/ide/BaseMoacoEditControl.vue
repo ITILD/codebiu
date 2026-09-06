@@ -1,5 +1,5 @@
 <template>
-  <div bg-gray-500>
+  <div bg-note-soft>
     <div flex gap-2>
       <!-- 语言选择 -->
       <select v-model="selectedLanguage">

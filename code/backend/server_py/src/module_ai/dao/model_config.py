@@ -12,6 +12,7 @@ from module_ai.do.model_config import (
     ModelConfigUpdate,
     ModelScope,
 )
+from module_ai.utils.llm.do.llm_type import ModelType
 
 
 class ModelConfigDao:
@@ -81,11 +82,17 @@ class ModelConfigDao:
 
     @DaoRel
     async def get_default_by_type(
-        self, model_type: str, session: AsyncSession | None = None
+        self,
+        model_type: str,
+        session: AsyncSession | None = None,
+        active_only: bool = False,
     ) -> ModelConfig | None:
         """
         获取指定类型的当前默认公共模型(同类型内唯一)
         :param model_type: 模型类型(chat/embeddings/asr/tts等)
+        :param session: 可选数据库会话
+        :param active_only: True 时仅返回生效(is_active)的默认公共模型(RAG 使用场景);
+                            False 时含未生效记录(seed 重置/唯一性校验场景)
         :return: 默认公共模型配置, 未找到返回None
         """
         statement = (
@@ -97,8 +104,28 @@ class ModelConfigDao:
             )
             .limit(1)
         )
+        if active_only:
+            statement = statement.where(ModelConfig.is_active == True)  # noqa: E712
         result = await session.exec(statement)
         return result.first()
+
+    @DaoRel
+    async def list_default_public_types(
+        self, session: AsyncSession | None = None
+    ) -> set[str]:
+        """
+        获取所有已存在公共默认模型(scope=public 且 is_default=True)的模型类型集合
+        :param session: 可选数据库会话
+        :return: 模型类型集合(如 {"chat", "embeddings"})
+        """
+        statement = select(ModelConfig.model_type).where(
+            ModelConfig.scope == ModelScope.PUBLIC,
+            ModelConfig.is_default == True,  # noqa: E712
+        )
+        result = await session.exec(statement)
+        return {
+            (t.value if isinstance(t, ModelType) else str(t)) for t in result.all()
+        }
 
     @DaoRel
     async def get_first_by_type(
@@ -170,6 +197,7 @@ class ModelConfigDao:
         dept_id: str | None = None,
         is_admin: bool = False,
         scope: str | None = None,
+        filter_user_ids: list[str] | None = None,
     ) -> list[ModelConfig]:
         """
         分页获取模型配置列表(支持多字段过滤 + 可见性控制)
@@ -182,6 +210,7 @@ class ModelConfigDao:
         :param dept_id: 当前用户部门ID(可见性: 所在部门模型)
         :param is_admin: 管理员可见全部
         :param scope: 归属范围过滤(public/dept/user)
+        :param filter_user_ids: 按所有者ID列表过滤(管理员按用户名检索场景)
         :return: 模型配置列表
         """
         conditions = []
@@ -193,6 +222,8 @@ class ModelConfigDao:
             conditions.append(ModelConfig.server_type == server_type)
         if scope:
             conditions.append(ModelConfig.scope == scope)
+        if filter_user_ids:
+            conditions.append(ModelConfig.user_id.in_(filter_user_ids))
 
         vis = self._visibility_condition(user_id, dept_id, is_admin)
         if vis is not None:
@@ -216,6 +247,7 @@ class ModelConfigDao:
         dept_id: str | None = None,
         is_admin: bool = False,
         scope: str | None = None,
+        filter_user_ids: list[str] | None = None,
     ) -> int:
         """
         获取模型配置总数(与列表过滤条件保持一致)
@@ -224,6 +256,7 @@ class ModelConfigDao:
         :param model_type: 模型类型精确过滤
         :param server_type: 服务类型精确过滤
         :param user_id/dept_id/is_admin/scope: 同 list_paged
+        :param filter_user_ids: 按所有者ID列表过滤(管理员按用户名检索场景)
         :return: 模型配置总数
         """
         conditions = []
@@ -235,6 +268,8 @@ class ModelConfigDao:
             conditions.append(ModelConfig.server_type == server_type)
         if scope:
             conditions.append(ModelConfig.scope == scope)
+        if filter_user_ids:
+            conditions.append(ModelConfig.user_id.in_(filter_user_ids))
 
         vis = self._visibility_condition(user_id, dept_id, is_admin)
         if vis is not None:

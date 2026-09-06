@@ -10,7 +10,7 @@ import {
   HomeFilled, UserFilled, Document,
   Monitor, ChatDotRound,
   Files, Collection, FolderOpened,
-  Location, Sunny, Timer, Brush,
+  Location, Sunny, Timer, Brush, Connection,
 } from '@element-plus/icons-vue'
 
 /** 菜单项定义(perm 为权限码:与后端模块权限声明一致;缺省表示登录即可见) */
@@ -141,12 +141,19 @@ export const menuItems: MenuItem[] = [
     ],
   },
   {
+    index: '/api_test',
+    icon: markRaw(Connection),
+    title: '接口测试',
+    desc: '前端全部接口连通性测试与结果查看。',
+  },
+  {
     index: '/template',
     icon: markRaw(Files),
     title: '模板示例',
     desc: '布局容器、3D 场景等前端范例。',
     children: [
       { index: '/template/overview', title: '模板概览' },
+      { index: '/template/playground', title: '组件选型' },
       { index: '/template/template', title: '模板管理' },
       { index: '/template/container', title: '布局容器' },
       { index: '/template/mediapipe_face', title: '人脸识别' },

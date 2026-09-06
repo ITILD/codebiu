@@ -17,7 +17,7 @@
             accept="image/*"
             @change="handleFileChange"
           />
-          <span v-if="targetFile" text-gray-600>{{ targetFile.name }}</span>
+          <span v-if="targetFile" text-note-sub>{{ targetFile.name }}</span>
         </div>
 
         <!-- 识别语言选择 -->
@@ -141,7 +141,7 @@
         alt="翻译背景图"
         w-full
         border
-        border-gray-300
+        border-note
         rounded
       />
     </el-card>

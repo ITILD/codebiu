@@ -1,88 +1,98 @@
 <template>
   <div p-4 md:p-6 w-full>
-    <!-- 统一搜索栏: 域下拉 + 关键字(客户端过滤全量策略) -->
-    <TableSearchBar
-      v-model="queryParams"
-      :fields="searchFields"
-      :collapse-count="2"
-      @search="handleSearch"
-      @reset="handleSearch"
-    >
-      <template #actions>
-        <el-button :icon="Refresh" @click="handleReload" :loading="reloading">重载策略</el-button>
-      </template>
-    </TableSearchBar>
-
-    <!-- 策略/绑定 双标签页 -->
+    <!-- 策略中心三视角: 权限矩阵(可视化) / 用户授权(卡片) / 高级规则(原始casbin表格) -->
     <el-tabs v-model="activeTab">
-      <!-- 策略规则 -->
-      <el-tab-pane label="策略规则" name="policy">
-        <div mb-3 flex justify-end>
-          <el-button type="primary" size="small" :icon="Plus" @click="openPolicyDialog">
-            新增策略
-          </el-button>
-        </div>
-        <el-table v-loading="policyLoading" :data="filteredPolicies" stripe w-full>
-          <el-table-column label="主体(角色)" min-width="140">
-            <template #default="{ row }">
-              <el-tag size="small" type="warning">{{ row.sub }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="域" min-width="120">
-            <template #default="{ row }">
-              <el-tag size="small" :type="row.dom === '*' ? 'danger' : 'primary'">{{ domLabel(row.dom) }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="obj" label="资源" min-width="120" />
-          <el-table-column label="动作" min-width="200">
-            <template #default="{ row }">
-              <div flex flex-wrap gap-1>
-                <el-tag v-for="act in row.act.split('|')" :key="act" size="small" type="info">
-                  {{ act }}
-                </el-tag>
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="90" align="center" fixed="right">
-            <template #default="{ row }">
-              <el-button size="small" type="danger" plain @click="handleDeletePolicy(row)">删除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+      <el-tab-pane label="权限矩阵" name="matrix">
+        <CasbinMatrix v-if="mountedTabs.has('matrix')" />
       </el-tab-pane>
 
-      <!-- 用户角色绑定 -->
-      <el-tab-pane label="用户角色绑定" name="grouping">
-        <div mb-3 flex justify-end>
-          <el-button type="primary" size="small" :icon="Plus" @click="openGroupingDialog">
-            新增绑定
-          </el-button>
-        </div>
-        <el-table v-loading="groupingLoading" :data="filteredGroupings" stripe w-full>
-          <el-table-column label="用户" min-width="200">
-            <template #default="{ row }">
-              <div>
-                <div>{{ userLabel(row.user_id) }}</div>
-                <div text-xs text-gray-4>{{ row.user_id }}</div>
+      <el-tab-pane label="用户授权" name="grants">
+        <CasbinUserGrants v-if="mountedTabs.has('grants')" />
+      </el-tab-pane>
+
+      <el-tab-pane label="高级规则" name="raw">
+        <div v-if="mountedTabs.has('raw')">
+          <!-- 统一搜索栏: 域下拉 + 关键字(客户端过滤全量策略) -->
+          <TableSearchBar v-model="queryParams" :fields="searchFields" :collapse-count="2" @search="handleSearch"
+            @reset="handleSearch">
+            <template #actions>
+              <el-button :icon="Refresh" @click="handleReload" :loading="reloading">重载策略</el-button>
+            </template>
+          </TableSearchBar>
+
+          <!-- 原始规则双标签页 -->
+          <el-tabs v-model="rawTab">
+            <!-- 策略规则 -->
+            <el-tab-pane label="策略规则" name="policy">
+              <div mb-3 flex justify-end>
+                <el-button type="primary" size="small" :icon="Plus" @click="openPolicyDialog">
+                  新增策略
+                </el-button>
               </div>
-            </template>
-          </el-table-column>
-          <el-table-column label="角色" min-width="140">
-            <template #default="{ row }">
-              <el-tag size="small" type="warning">{{ roleLabel(row.role_key) }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="域" min-width="120">
-            <template #default="{ row }">
-              <el-tag size="small" :type="row.dom === '*' ? 'danger' : 'primary'">{{ domLabel(row.dom) }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="90" align="center" fixed="right">
-            <template #default="{ row }">
-              <el-button size="small" type="danger" plain @click="handleDeleteGrouping(row)">移除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+              <el-table v-loading="policyLoading" :data="filteredPolicies" stripe w-full>
+                <el-table-column label="主体(角色)" min-width="140">
+                  <template #default="{ row }">
+                    <el-tag size="small" type="warning">{{ row.sub }}</el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="域" min-width="120">
+                  <template #default="{ row }">
+                    <el-tag size="small" :type="row.dom === '*' ? 'danger' : 'primary'">{{ row.dom }}</el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="obj" label="资源" min-width="120" />
+                <el-table-column label="动作" min-width="200">
+                  <template #default="{ row }">
+                    <div flex flex-wrap gap-1>
+                      <el-tag v-for="act in row.act.split('|')" :key="act" size="small" type="info">
+                        {{ act }}
+                      </el-tag>
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="90" align="center" :fixed="isMd ? 'right' : false">
+                  <template #default="{ row }">
+                    <el-button size="small" type="danger" plain @click="handleDeletePolicy(row)">删除</el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </el-tab-pane>
+
+            <!-- 用户角色绑定 -->
+            <el-tab-pane label="绑定关系" name="grouping">
+              <div mb-3 flex justify-end>
+                <el-button type="primary" size="small" :icon="Plus" @click="openGroupingDialog">
+                  新增绑定
+                </el-button>
+              </div>
+              <el-table v-loading="groupingLoading" :data="filteredGroupings" stripe w-full>
+                <el-table-column label="用户" min-width="200">
+                  <template #default="{ row }">
+                    <div>
+                      <div>{{ userLabel(row.user_id) }}</div>
+                      <div text-xs text-note-sub>{{ row.user_id }}</div>
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column label="角色" min-width="140">
+                  <template #default="{ row }">
+                    <el-tag size="small" type="warning">{{ row.role_key }}</el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="域" min-width="120">
+                  <template #default="{ row }">
+                    <el-tag size="small" :type="row.dom === '*' ? 'danger' : 'primary'">{{ row.dom }}</el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="90" align="center" :fixed="isMd ? 'right' : false">
+                  <template #default="{ row }">
+                    <el-button size="small" type="danger" plain @click="handleDeleteGrouping(row)">移除</el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </el-tab-pane>
+          </el-tabs>
+        </div>
       </el-tab-pane>
     </el-tabs>
 
@@ -129,8 +139,7 @@
         </el-form-item>
         <el-form-item label="角色" prop="role_key">
           <el-select v-model="groupingForm.role_key" filterable placeholder="选择角色" w-full>
-            <el-option v-for="r in roleOptions" :key="r.role_key" :label="roleLabel(r.role_key)"
-              :value="r.role_key" />
+            <el-option v-for="r in roleOptions" :key="r.role_key" :label="r.role_key" :value="r.role_key" />
           </el-select>
         </el-form-item>
         <el-form-item label="域" prop="dom">
@@ -151,6 +160,8 @@
 
 <script setup lang="ts">
 import { Refresh, Plus } from '@element-plus/icons-vue'
+import CasbinMatrix from '../components/CasbinMatrix.vue'
+import CasbinUserGrants from '../components/CasbinUserGrants.vue'
 import {
   getAllPolicies,
   getAllGroupingPolicies,
@@ -169,18 +180,25 @@ import type { PaginationResponse } from '@/common/types/common'
 import type { User } from '../types/user'
 import type { Role } from '../types/role'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
+import { SysSettingStore } from '@/common/stores/sys'
 
-// 标签页状态
-const activeTab = ref('policy')
+// ---------------- 顶部三视角标签页(懒加载, 首次进入挂载后缓存) ----------------
+const activeTab = ref('matrix')
+const mountedTabs = reactive(new Set<string>(['matrix']))
+watch(activeTab, (tab) => mountedTabs.add(tab))
 
-// 域选项(main/rag模块 + 全局)
+const { sysStyle } = SysSettingStore()
+const isMd = computed(() => sysStyle.isMd)
+
+// ---------------- 高级规则: 原始策略/绑定表格 ----------------
+const rawTab = ref('policy')
+
+// 域选项(全局)
 const domOptions = [
   { label: '全局(*)', value: '*' },
   { label: '主模块(main)', value: 'main' },
   { label: '知识库模块(rag)', value: 'rag' },
 ]
-const domLabel = (dom: string) =>
-  domOptions.find((o) => o.value === dom)?.label || dom
 
 // 搜索字段配置(域/关键字多字段筛选)
 const searchFields: SearchField[] = [
@@ -218,12 +236,6 @@ const userMap = ref<Map<string, User>>(new Map())
 const resourceOptions = ['*', 'project', 'doc', 'member', 'chat']
 const actionOptions = ['*', 'read', 'create', 'update', 'delete', 'manage',
   'upload', 'invite', 'remove', 'write', 'read|create', 'read|write']
-
-// 角色显示名(角色列表中无则原样展示)
-const roleLabel = (key: string) => {
-  const r = roleOptions.value.find((o) => o.role_key === key)
-  return r?.name ? `${r.name}(${key})` : key
-}
 
 // 用户显示名
 const userLabel = (userId: string) => {
@@ -322,7 +334,7 @@ const handleAddPolicy = async () => {
 const handleDeletePolicy = async (row: PolicyRow) => {
   try {
     await ElMessageBox.confirm(
-      `确定删除策略"${row.sub} / ${domLabel(row.dom)} / ${row.obj} / ${row.act}"吗？`,
+      `确定删除策略"${row.sub} / ${row.dom} / ${row.obj} / ${row.act}"吗？`,
       '警告',
       { type: 'warning', confirmButtonText: '确定', cancelButtonText: '取消' }
     )
@@ -376,7 +388,7 @@ const handleAddGrouping = async () => {
 const handleDeleteGrouping = async (row: GroupingPolicyRow) => {
   try {
     await ElMessageBox.confirm(
-      `确定移除用户"${userLabel(row.user_id)}"在${domLabel(row.dom)}域的角色"${row.role_key}"吗？`,
+      `确定移除用户"${userLabel(row.user_id)}在${row.dom}域的角色"${row.role_key}"吗？`,
       '警告',
       { type: 'warning', confirmButtonText: '确定', cancelButtonText: '取消' }
     )

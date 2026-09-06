@@ -53,7 +53,7 @@
       <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
         <el-form-item label="上级菜单" prop="parent_id">
           <el-tree-select v-model="form.parent_id" :data="parentTreeData"
-            :props="{ label: 'name', children: 'children' }" node-key="id" check-strictly default-expand-all
+            :props="{ label: 'name', children: 'children' }" node-key="id" check-strictly
             placeholder="请选择上级菜单" w-full />
         </el-form-item>
         <el-form-item label="菜单类型" prop="menu_type">

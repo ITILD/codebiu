@@ -78,6 +78,40 @@ interface ProjectDocumentUpdate {
   description?: string | null;
 }
 
+// 文档入库步骤执行状态
+enum IngestStepState {
+  PENDING = 'pending',
+  RUNNING = 'running',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+  SKIPPED = 'skipped',
+}
+
+// 单个入库步骤进度(后端流水线注册表 + 文档实际状态合并; graph/tag/web_merge 为预留步骤)
+interface IngestStepProgress {
+  /** 步骤编码 parse/chunk/embed/graph/tag/web_merge */
+  step: string;
+  name: string;
+  description: string;
+  /** 预留步骤为 false(灰色展示, 不计入总进度) */
+  enabled: boolean;
+  weight: number;
+  status: IngestStepState;
+  /** 步骤内完成百分比 0~100 */
+  progress: number;
+  message: string | null;
+  error: string | null;
+}
+
+// 文档入库步骤与进度(GET /rag/project-documents/{id}/progress)
+interface DocumentIngestProgress {
+  document_id: string;
+  parse_status: string;
+  /** 总进度 0~100(按启用步骤权重加权) */
+  progress: number;
+  steps: IngestStepProgress[];
+}
+
 // 支持的上传类型分组
 interface SupportedFileTypes {
   documents: string[];
@@ -192,6 +226,7 @@ export {
   KbCategory,
   RagRole,
   ParseStatus,
+  IngestStepState,
 };
 export type {
   Project,
@@ -199,6 +234,8 @@ export type {
   ProjectUpdate,
   ProjectDocument,
   ProjectDocumentUpdate,
+  IngestStepProgress,
+  DocumentIngestProgress,
   SupportedFileTypes,
   ProjectMember,
   ProjectMemberCreate,

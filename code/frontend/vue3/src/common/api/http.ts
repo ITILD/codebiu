@@ -237,6 +237,18 @@ class HttpClient {
     });
   }
 
+  /**
+   * PUT 原始二进制体(不经 JSON 序列化, 分片上传等场景)
+   * body 原样传给 fetch(ArrayBuffer/Blob 均为合法 BodyInit)
+   */
+  putRaw<T>(endpoint: string, body: BodyInit, config?: RequestConfig): Promise<T> {
+    return this.request(endpoint, {
+      method: 'PUT',
+      body,
+      ...config,
+    });
+  }
+
   delete<T>(endpoint: string, config?: RequestConfig): Promise<T> {
     return this.request(endpoint, { method: 'DELETE', ...config });
   }

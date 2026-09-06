@@ -39,19 +39,17 @@ interface TaskTypeDef {
   default_payload: Record<string, unknown>
 }
 
-/** 任务记录(后端返回, 含 Celery 侧状态对照) */
+/** 任务记录(后端返回, 含 Celery 侧状态对照; 纯任务管理: 不含业务参数/结果) */
 interface QueueTask {
   id: string
   name: string
   task_type: string
-  payload: Record<string, unknown>
   priority: number
   status: TaskStatus
   /** 完成百分比 0~100(worker 实时回写) */
   progress: number
   /** 当前执行阶段描述 */
   message: string | null
-  result: Record<string, unknown> | null
   error: string | null
   celery_task_id: string | null
   /** Celery 结果后端状态(PENDING/STARTED/PROGRESS/SUCCESS/FAILURE/REVOKED) */

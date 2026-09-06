@@ -1,13 +1,7 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlmodel import Column, DateTime, Field, SQLModel
 from uuid import uuid4
 from datetime import datetime, timezone
-from module_file.utils.multi_storage.do.storage_config import (
-    PresignedParamsBase,
-    GeneratePresignedUrlRequestBase,
-    GeneratePresignedResponseBase,
-    GeneratePresignedUploadResponseBase,
-)
 from module_file.utils.multi_storage.do.storage_config import StorageType
 from common.enum.task import TaskStatus
 
@@ -163,82 +157,73 @@ class FileEntryUpdate(FileEntryBase):
     )
 
 
-class FileEntryInfo(SQLModel):
-    """
-    文件系统条目信息响应模型
-    """
+# ==================== 分片上传(multipart)模型 ====================
+class MultipartInitRequest(BaseModel):
+    """初始化分片上传请求"""
 
-    id: str
-    name: str
-    logical_path: str
-    is_directory: bool
-    storage_type: str | None
-    file_size_bytes: int | None
-    file_extension: str | None
-    created_at: datetime
-    updated_at: datetime
-    owner_user_id: str | None
+    filename: str = Field(..., max_length=255, description="文件名")
+    content_type: str | None = Field(None, description="文件MIME类型")
+    file_size_bytes: int = Field(..., ge=1, description="文件总大小(字节)")
+    content_hash: str = Field(
+        ..., min_length=32, max_length=64, description="文件内容SHA-256(前端计算)"
+    )
+    pid: str | None = Field(None, description="父目录ID(为空上传到根目录)")
+    description: str | None = Field(None, max_length=500, description="文件描述")
 
 
-# 获取或插入多层 非Sqlmodel
+class MultipartPartInfo(BaseModel):
+    """分片信息"""
+
+    part_number: int = Field(..., ge=1, le=10000, description="分片号(从1开始)")
+    etag: str = Field("", description="分片ETag(S3返回,合并校验用)")
+    size: int = Field(0, ge=0, description="分片大小(字节)")
 
 
-class GeneratePresignedUrlRequest(GeneratePresignedUrlRequestBase):
-    """
-    生成预签名URL的请求模型
-    """
+class MultipartInitResponse(BaseModel):
+    """初始化分片上传响应"""
 
-    domain: str = Field("main", description="业务域")
-
-
-class GeneratePresignedUploadResponse(GeneratePresignedUploadResponseBase):
-    """
-    生成预签名上传的响应模型
-    """
-
-    content_status: TaskStatus | None = Field(
-        default=None,
-        max_length=50,
-        description="文件状态(仅文件) status: 进行中/完成/失败",
+    is_existing: bool = Field(False, description="内容已存在(秒传,直接建条目)")
+    upload_id: str | None = Field(
+        None, description="分片上传会话凭证(签名token,秒传时为None)"
+    )
+    part_size: int = Field(..., description="建议分片大小(字节,最后一片可小于该值)")
+    mode: str = Field(
+        "proxy",
+        description="上传模式: direct=预签名直传S3(前端直连) / proxy=服务端中转(local)",
+    )
+    part_urls: list[str] | None = Field(
+        None,
+        description="direct模式专用: 每片的预签名上传URL(下标=分片号-1);proxy模式为None",
     )
 
 
-class GeneratePresignedDownloadResponse(GeneratePresignedResponseBase):
-    """
-    生成预签名下载的响应模型
-    """
+class MultipartCompleteRequest(BaseModel):
+    """完成分片上传请求"""
 
-    pass
-
-
-class PresignedUploadParams(PresignedParamsBase):
-    """预签名上传的参数"""
-
-    pass
-class PresignedDownloadParams(PresignedParamsBase):
-    """预签名下载的参数"""
-
-    pass
+    filename: str = Field(..., max_length=255, description="文件名")
+    pid: str | None = Field(None, description="父目录ID(为空上传到根目录)")
+    description: str | None = Field(None, max_length=500, description="文件描述")
+    file_size_bytes: int | None = Field(None, description="文件总大小(完整性校验)")
+    parts: list[MultipartPartInfo] = Field(..., min_length=1, description="已上传分片列表")
 
 
-class UploadSuccessResponse(BaseModel):
-    file_id: str = Field(..., description="文件ID")
+class UploadModeResponse(BaseModel):
+    """上传模式查询响应(前端上传前获取,决定直传/中转策略)"""
+
+    mode: str = Field(..., description="上传模式: direct=预签名直传 / proxy=服务端中转")
+    part_size: int = Field(..., description="分片大小(字节)")
+    max_size: int = Field(..., description="proxy模式下小文件直传上限(MB)")
 
 
-# # 文件上传成功通知
-# class FileUploadSuccessNotificationRequest(BaseModel):
-#     """
-#     文件上传成功通知模型
-#     """
+class EntryCreateRequest(BaseModel):
+    """内容已存在(秒传)时创建文件条目请求"""
 
-#     pid: str | None = Field(default=None, description="父条目ID")
-#     name: str = Field(..., max_length=255, description="文件名")
-#     content_hash: str = Field(..., max_length=64, description="内容哈希")
-#     physical_storage: str = Field(..., max_length=500, description="物理存储相对位置")
-#     file_size_bytes: int = Field(..., description="文件大小(字节)")
-#     file_extension: str | None = Field(
-#         default=None, max_length=50, description="文件扩展名(不含点，仅文件)"
-#     )
+    name: str = Field(..., max_length=255, description="文件名")
+    pid: str | None = Field(None, description="父目录ID(为空上传到根目录)")
+    content_hash: str = Field(..., min_length=32, max_length=64, description="内容SHA-256")
+    file_size_bytes: int = Field(..., ge=1, description="文件大小(字节)")
+    mime_type: str | None = Field(None, max_length=100, description="MIME类型")
+    description: str | None = Field(None, max_length=500, description="文件描述")
 
 
 class FileEntryWithContent(BaseModel):

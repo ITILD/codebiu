@@ -1,59 +1,84 @@
-# src/module_rag/tasks/document_tasks.py
-import asyncio
+"""
+知识库文档解析任务(经 module_task 统一任务队列接入)
+
+架构约定:
+    - 各业务模块 controller/服务 通过 TaskQueueService.create() 创建任务并投递,
+      消息只传 task_queue 表主键(task_id), 业务参数从库中读取(payload)
+    - 任务函数仅是"异步启动器": 读参数 → 调用本模块功能服务(ProjectDocumentService) → 回写状态
+    - 进度双写: PostgreSQL task_queue 表(update_task_fields, 事实来源) + Celery 结果后端(update_state, 对照)
+    - worker 内禁止 asyncio.run(asyncpg 连接池与循环绑定), 统一使用 run_async 常驻循环
+"""
 import logging
 
-from celery import shared_task
-
-# 导入 Service 和它需要的依赖
-from module_rag.service.project_document import ProjectDocumentService
-from module_rag.dao.project_document import ProjectDocumentDao
-from module_rag.dao.project import ProjectDao
-from module_rag.service.user_model import UserModelService
-from module_ai.service.llm_base import LLMBaseService
-from module_ai.service.model_config import ModelConfigService
 from common.config.tasks import app as celery_app
+from module_task.do.task import QueueTaskStatus
+from module_task.tasks import load_task, run_async, update_task_fields
 
 logger = logging.getLogger(__name__)
 
-# @shared_task(bind=True, name="module_rag.tasks.project_document.reparse_document_task", max_retries=3)
+
 @celery_app.task(
     bind=True,
     name="module_rag.tasks.project_document.reparse_document_task",
-    max_retries=3
+    max_retries=3,
 )
-def reparse_document_task(self, document_id: str, user_id: str, force_preset_id: str | None = None):
+def reparse_document_task(self, task_id: str):
     """
-    Celery 异步任务：仅仅作为异步启动器，调用现有的 Service 逻辑
+    文档解析 Celery 任务(异步启动器)
+    :param task_id: task_queue 表主键(payload: document_id/force_preset_id; 创建者 user_id 用于取其绑定模型)
     """
+    # request 为线程本地对象, 必须在 Celery 工作线程内先捕获 ID
+    request_id = self.request.id
+    return run_async(_run_reparse(self, task_id, request_id))
+
+
+async def _run_reparse(celery_task, task_id: str, request_id: str | None) -> dict:
+    """解析任务主体: 读参数 → 调功能服务(带进度回调) → 双写进度状态"""
+    from module_rag.service.project_document import ProjectDocumentService
+
+    # 1. 读任务参数与创建者(模型按创建者绑定解析, worker 侧无法从请求上下文获取)
+    payload, user_id = await load_task(task_id)
+    document_id: str = str(payload.get("document_id") or "")
+    force_preset_id = payload.get("force_preset_id") or None
+    if not document_id:
+        raise ValueError(f"任务 {task_id} payload 缺少 document_id")
+
+    await update_task_fields(
+        task_id, status=QueueTaskStatus.RUNNING,
+        progress=0, message="开始解析文档", set_started=True,
+    )
+
+    # 2. 入库进度回调: 文档流水线步骤推进时, 把总进度/阶段描述双写到
+    #    task_queue 表与 Celery 结果后端(任务模块只收百分比与描述, 不感知业务步骤)
+    async def _on_ingest_progress(overall: float, message: str):
+        await update_task_fields(task_id, progress=overall, message=message)
+        celery_task.update_state(
+            task_id=request_id, state="PROGRESS",
+            meta={"progress": overall, "message": message},
+        )
+
     try:
-        logger.info(f"Celery 开始执行异步解析任务: {document_id}")
-        
-        # 定义一个内部的 async 函数，用于实例化依赖并调用 Service
-        async def _execute_service():
-            """在 Worker 进程中手动组装依赖并执行文档重解析逻辑"""
-            # 1. 在 Worker 进程中手动实例化依赖 (替代 FastAPI 的 Depends)
-            doc_dao = ProjectDocumentDao()
-            proj_dao = ProjectDao()
-            user_service = UserModelService()
-            llm_service = LLMBaseService()
-            model_service = ModelConfigService()
-            
-            # 2. 实例化你的 Service
-            service = ProjectDocumentService(
-                document_dao=doc_dao,
-                project_dao=proj_dao,
-                user_model_service=user_service,
-                llm_base_service=llm_service,
-                model_config_service=model_service
-            )
-            
-            # 3. 调用你写在 Service 里的核心逻辑！(代码零重复)
-            return await service.reparse_document(document_id, user_id, force_preset_id)
+        # 3. 调用功能服务执行核心逻辑(解析→分块→向量化→入库, 内部维护
+        #    document.parse_status 与 parse_steps 步骤进度)
+        result = await ProjectDocumentService().parse_document(
+            document_id, user_id, progress_callback=_on_ingest_progress
+        )
+        result_payload = {"document_id": document_id, "success": bool(result)}
 
-        # 在同步的 Celery Worker 中安全地运行异步代码
-        return asyncio.run(_execute_service())
-
-    except Exception as e:
-        logger.error(f"Celery 异步解析失败 document_id={document_id}: {e}", exc_info=True)
-        # 触发 Celery 的重试机制 (例如 60 秒后重试)
-        raise self.retry(exc=e, countdown=60)
+        # 4. 成功收尾(双写)
+        await update_task_fields(
+            task_id, status=QueueTaskStatus.SUCCESS, progress=100,
+            message="解析完成", result=result_payload, set_finished=True,
+        )
+        celery_task.update_state(
+            task_id=request_id, state="SUCCESS", meta={"progress": 100},
+        )
+        return result_payload
+    except Exception as exc:
+        # 失败收尾(parse_document 内部已把 document.parse_status 置 failed, 此处只管任务表)
+        logger.error(f"解析任务失败 task_id={task_id} document_id={document_id}: {exc}", exc_info=True)
+        await update_task_fields(
+            task_id, status=QueueTaskStatus.FAILED,
+            error=f"{type(exc).__name__}: {exc}", set_finished=True,
+        )
+        raise

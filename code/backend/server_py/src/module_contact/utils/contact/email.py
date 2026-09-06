@@ -1,14 +1,20 @@
 import asyncio
+import logging
 import smtplib
 import aiosmtplib
 from email.mime.text import MIMEText
 from email.utils import formataddr
 from module_contact.do.email import EmailConfig
+
+logger = logging.getLogger(__name__)
+
+
 class Email():
     # --------------------------
     # 异步邮件发送函数
     # --------------------------
     async def asend(
+        self,
         config: EmailConfig,
         receiver_email: str,
         receiver_name: str,
@@ -46,13 +52,14 @@ class Email():
             )
             return True
         except Exception as e:
-            print(f"异步邮件发送失败: {e}")
+            logger.error(f"异步邮件发送失败: {e}")
             return False
 
     # --------------------------
     # 同步邮件发送函数(保留原有实现)
     # --------------------------
     def send(
+        self,
         config: EmailConfig,
         receiver_email: str,
         receiver_name: str,
@@ -75,5 +82,5 @@ class Email():
                 server.sendmail(config.sender_email, [receiver_email], msg.as_string())
             return True
         except Exception as e:
-            print(f"同步邮件发送失败: {e}")
+            logger.error(f"同步邮件发送失败: {e}")
             return False

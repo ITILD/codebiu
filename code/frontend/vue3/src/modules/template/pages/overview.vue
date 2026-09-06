@@ -19,11 +19,12 @@
 
 <script setup lang="ts">
 import { markRaw } from 'vue'
-import { Files, Grid, Camera, Box } from '@element-plus/icons-vue'
+import { Files, Grid, Camera, Box, MagicStick } from '@element-plus/icons-vue'
 
 const router = useRouter()
 
 const templates = [
+  { path: '/template/playground', title: '组件选型', desc: '多主题皮肤示例', icon: markRaw(MagicStick), color: 'text-pink-500' },
   { path: '/template/template', title: '模板管理', desc: 'CRUD 表格示例', icon: markRaw(Files), color: 'text-blue-500' },
   { path: '/template/container', title: '布局容器', desc: 'Flex 布局示例', icon: markRaw(Grid), color: 'text-green-500' },
   { path: '/template/mediapipe_face', title: '人脸识别', desc: 'MediaPipe 视觉', icon: markRaw(Camera), color: 'text-orange-500' },

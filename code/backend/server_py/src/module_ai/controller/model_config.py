@@ -10,6 +10,7 @@ from module_ai.do.model_config import (
 )
 from module_authorization.dependencies.auth import get_current_user
 from module_authorization.config.casbin_rule import auth_manager
+from module_authorization.dao.user import UserDao
 from common.utils.db.schema.pagination import (
     InfiniteScrollParams,
     InfiniteScrollResponse,
@@ -97,21 +98,23 @@ async def list_model_configs(
     model_type: str | None = Query(None, description="模型类型过滤(chat/embedding/asr/tts等)"),
     server_type: str | None = Query(None, description="服务类型过滤(openai/dashscope/vllm/ollama/aws)"),
     scope: str | None = Query(None, description="归属范围过滤(public/dept/user)"),
+    user: str | None = Query(None, description="按所有者用户名模糊过滤(仅管理员生效)"),
     current_user=Depends(get_current_user),
     service: ModelConfigService = Depends(get_model_config_service),
 ) -> PaginationResponse:
     """
-    分页获取模型配置列表(支持多字段过滤; 按当前用户可见性返回公共/部门/本人模型)
-    :param params: 分页参数
-    :param model: 模型标识名称模糊搜索
-    :param model_type: 模型类型过滤(chat/embedding/asr/tts等)
-    :param server_type: 服务类型过滤(openai/dashscope/vllm/ollama/aws)
-    :param scope: 归属范围过滤(public/dept/user)
-    :param service: 模型配置服务依赖注入
-    :return: 分页响应数据
+    分页获取模型配置列表(支持多字段过滤; 按当前用户可见性返回公共/部门/本人模型;
+    管理员可见全部并可通过 user 参数按所有者用户名过滤)
     """
     try:
-        return await service.list_paged(
+        is_admin = _is_admin(current_user.id)
+        # 仅管理员支持按所有者用户名过滤(先解析为用户ID列表)
+        filter_user_ids: list[str] | None = None
+        if user and is_admin:
+            filter_user_ids = await UserDao().search_ids_by_username(user)
+            if not filter_user_ids:
+                return PaginationResponse.create([], 0, params)
+        result = await service.list_paged(
             params,
             model=model,
             model_type=model_type,
@@ -119,8 +122,12 @@ async def list_model_configs(
             scope=scope,
             user_id=current_user.id,
             dept_id=current_user.dept_id,
-            is_admin=_is_admin(current_user.id),
+            is_admin=is_admin,
+            filter_user_ids=filter_user_ids,
         )
+        # 非管理员脱敏非本人模型的 url/api_key
+        service.mask_secrets(result.items, current_user.id, is_admin)
+        return result
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -140,12 +147,16 @@ async def infinite_scroll_model_configs(
     :return: 滚动响应数据
     """
     try:
-        return await service.get_scroll(
+        is_admin = _is_admin(current_user.id)
+        result = await service.get_scroll(
             params,
             user_id=current_user.id,
             dept_id=current_user.dept_id,
-            is_admin=_is_admin(current_user.id),
+            is_admin=is_admin,
         )
+        # 非管理员脱敏非本人模型的 url/api_key
+        service.mask_secrets(result.items, current_user.id, is_admin)
+        return result
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -154,13 +165,12 @@ async def infinite_scroll_model_configs(
 
 @router.get("/{id}", summary="获取单个模型配置", response_model=ModelConfig)
 async def get_model_config(
-    id: str, service: ModelConfigService = Depends(get_model_config_service)
+    id: str,
+    current_user=Depends(get_current_user),
+    service: ModelConfigService = Depends(get_model_config_service),
 ) -> ModelConfig:
     """
-    获取指定ID的模型配置
-    :param id: 模型配置ID
-    :param service: 模型配置服务依赖注入
-    :return: 模型配置对象
+    获取指定ID的模型配置(非管理员查看非本人模型时 url/api_key 被脱敏为空)
     """
     try:
         model_config = await service.get(id)
@@ -169,6 +179,8 @@ async def get_model_config(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"未找到ID为 {id} 的模型配置",
             )
+        # 非管理员脱敏非本人模型的 url/api_key
+        service.mask_secrets(model_config, current_user.id, _is_admin(current_user.id))
         return model_config
     except HTTPException as e:
         raise e
@@ -182,16 +194,29 @@ async def get_model_config(
 async def update_model_config(
     id: str,
     model_config: ModelConfigUpdate,
+    current_user=Depends(get_current_user),
     service: ModelConfigService = Depends(get_model_config_service),
 ):
     """
-    更新指定ID的模型配置
-    :param id: 模型配置ID
-    :param model_config: 更新的模型配置数据
-    :param service: 模型配置服务依赖注入
+    更新指定ID的模型配置(仅全局管理员或创建者本人可操作;
+    公共模型包括启动 seed 的默认公共模型, 仅管理员可修改)
     """
     try:
+        existing = await service.get(id)
+        if not existing:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"未找到ID为 {id} 的模型配置",
+            )
+        if not (_is_admin(current_user.id) or existing.user_id == current_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="无权修改该模型配置(仅创建者本人或全局管理员)",
+            )
         await service.update(id, model_config)
+    except HTTPException:
+        # 保留 404/403 语义, 避免被包装成 500
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -200,15 +225,29 @@ async def update_model_config(
 
 @router.delete("/{id}", summary="删除模型配置", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_model_config(
-    id: str, service: ModelConfigService = Depends(get_model_config_service)
+    id: str,
+    current_user=Depends(get_current_user),
+    service: ModelConfigService = Depends(get_model_config_service),
 ):
     """
-    删除指定ID的模型配置
-    :param id: 模型配置ID
-    :param service: 模型配置服务依赖注入
+    删除指定ID的模型配置(仅全局管理员或创建者本人可操作)
     """
     try:
+        existing = await service.get(id)
+        if not existing:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"未找到ID为 {id} 的模型配置",
+            )
+        if not (_is_admin(current_user.id) or existing.user_id == current_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="无权删除该模型配置(仅创建者本人或全局管理员)",
+            )
         await service.delete(id)
+    except HTTPException:
+        # 保留 404/403 语义, 避免被包装成 500
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)

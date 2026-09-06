@@ -120,6 +120,8 @@ interface ModelConfigBase {
   dept_id?: string;
   /** 是否为该模型类型的默认公共模型(scope=public 且同类型唯一) */
   is_default?: boolean;
+  /** 是否生效: 不生效的模型(启动 seed 未启用/管理员停用)灰色显示且不可被使用 */
+  is_active?: boolean;
   /** 显示名称: 用于区分同名但来源/配置不同的模型(留空取 model) */
   display_name?: string;
   pay_in?: number;
@@ -156,6 +158,8 @@ interface ModelConfigUpdate {
   dept_id?: string;
   /** 是否为默认公共模型 */
   is_default?: boolean;
+  /** 是否生效(不生效时灰色显示且不可用) */
+  is_active?: boolean;
   /** 显示名称(区分同名模型) */
   display_name?: string;
   pay_in?: number;

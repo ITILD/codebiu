@@ -17,6 +17,7 @@ from module_rag.do.project_document import (
     ProjectDocument,
     ProjectDocumentUpdate,
     ProjectDocumentResponse,
+    DocumentIngestProgress,
 )
 from module_rag.service.project_document import ProjectDocumentService
 from module_rag.dependencies.project_document import get_project_document_service
@@ -27,9 +28,11 @@ from module_rag.dependencies.permission import (
 )
 from module_rag.config.server import module_app
 # 确保导入你修改后的 DocType
-from module_rag.do.project_document import DocType 
+from module_rag.do.project_document import DocType
 from module_file.utils.base.file_utils import FileUtils
-from module_rag.tasks.project_document import reparse_document_task
+from module_task.do.task import TaskQueueCreate
+from module_task.service.task import TaskQueueService
+from module_task.dependencies.task import get_task_queue_service
 
 router = APIRouter()
 
@@ -48,6 +51,7 @@ async def upload_project_document(
     description: str | None = Form(default=None),
     current_user_id: str = Depends(require_project_permission("doc", "upload")),
     service: ProjectDocumentService = Depends(get_project_document_service),
+    task_service: TaskQueueService = Depends(get_task_queue_service),
 ) -> ProjectDocumentResponse:
     """
     上传文档到指定项目(保存至 DIR_UPLOAD/{project_id}/{uuid_filename})
@@ -56,16 +60,25 @@ async def upload_project_document(
     :param description: 文档描述
     :param current_user_id: 当前登录用户ID(由 token 自动解析)
     :param service: 文档服务依赖注入
+    :param task_service: 统一任务队列服务依赖注入
     :return: 文档元数据
     """
     try:
         document = await service.upload_document(
             project_id, file, current_user_id, description
         )
-        # 上传成功后自动派发异步解析任务(对标主流知识库系统的"上传即解析")
+        # 上传成功后自动派发异步解析任务(对标主流知识库系统的"上传即解析");
+        # 经统一任务队列(task_queue 表可查/可取消/可重试), 任务以创建者绑定的模型执行
         # Celery 不可用时静默降级: 文档保持 pending, 可手动触发解析
         try:
-            reparse_document_task.delay(document.id, current_user_id)
+            await task_service.create(
+                TaskQueueCreate(
+                    name=f"解析文档: {document.name}",
+                    task_type="rag_document_parse",
+                    payload={"document_id": document.id},
+                ),
+                current_user_id,
+            )
         except Exception as e:
             logger.warning(f"自动派发解析任务失败(可手动解析) document_id={document.id}: {e}")
         return ProjectDocumentResponse.model_validate(document.model_dump())
@@ -157,6 +170,41 @@ async def get_project_document(
             current_user_id, document.project_id, "doc", "read"
         )
         return ProjectDocumentResponse.model_validate(document.model_dump())
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+
+@router.get(
+    "/{document_id}/progress",
+    summary="查询文档入库步骤与进度",
+    response_model=DocumentIngestProgress,
+)
+async def get_project_document_progress(
+    document_id: str,
+    current_user_id: str = Depends(get_current_user_id),
+    service: ProjectDocumentService = Depends(get_project_document_service),
+) -> DocumentIngestProgress:
+    """
+    查询文档入库流水线的步骤与进度(解析→拆分chunk→向量化, 预留图谱化/标签抽取/网络检索合并),
+    供前端轮询渲染步骤条; 步骤注册表扩展后本接口自动返回新步骤
+    :param document_id: 文档ID
+    :param current_user_id: 当前登录用户ID(由 token 自动解析)
+    :param service: 文档服务依赖注入
+    :return: 入库步骤明细与加权总进度
+    """
+    try:
+        document = await service.get_document(document_id)
+        if not document:
+            raise HTTPException(status_code=404, detail="文档不存在")
+        # 权限校验: 通过文档解析所属项目
+        await enforce_project_permission(
+            current_user_id, document.project_id, "doc", "read"
+        )
+        return service.build_ingest_progress(document)
     except HTTPException:
         raise
     except Exception as e:
@@ -325,13 +373,15 @@ async def reparse_project_document_task(
     document_id: str,
     current_user_id: str = Depends(get_current_user_id),
     service: ProjectDocumentService = Depends(get_project_document_service),
+    task_service: TaskQueueService = Depends(get_task_queue_service),
 ) -> dict:
     """
-    重新解析文档(异步任务队列版本)
+    重新解析文档(经统一任务队列异步执行; 直跑版本见 /{document_id}/reparse)
     :param document_id: 文档ID
-    :param current_user_id: 当前登录用户ID(由 token 自动解析)
+    :param current_user_id: 当前登录用户ID(任务以其绑定模型执行)
     :param service: 文档服务依赖注入
-    :return: 任务提交结果
+    :param task_service: 统一任务队列服务依赖注入
+    :return: 任务提交结果(含 task_queue 任务ID, 可在任务队列页跟踪)
     """
     try:
         # 权限校验: 通过文档解析所属项目
@@ -341,9 +391,20 @@ async def reparse_project_document_task(
         await enforce_project_permission(
             current_user_id, doc_info.project_id, "doc", "update"
         )
-        reparse_document_task.delay(document_id, current_user_id)
-        return {"message": "解析任务已提交至后台队列", "document_id": document_id}
-
+        # 经统一任务队列创建并投递(worker 从库读参数, 以创建者绑定模型执行)
+        task = await task_service.create(
+            TaskQueueCreate(
+                name=f"解析文档: {doc_info.name}",
+                task_type="rag_document_parse",
+                payload={"document_id": document_id},
+            ),
+            current_user_id,
+        )
+        return {
+            "message": "解析任务已提交至后台队列",
+            "document_id": document_id,
+            "task_id": task.id,
+        }
     except HTTPException:
         raise
     except Exception as e:

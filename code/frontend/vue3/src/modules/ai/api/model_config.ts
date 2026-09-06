@@ -62,3 +62,30 @@ export const infiniteScrollModelConfigs = (params: InfiniteScrollParams) => {
     params
   });
 };
+
+/**
+ * 提交全库 chunk 重向量化任务(系统管理员)
+ * 以指定/当前生效的默认公共向量化模型, 重算 Milvus 中所有 chunk 向量
+ * @param modelId 目标模型配置ID(留空使用当前生效的默认公共向量化模型)
+ * @returns Celery 任务ID
+ */
+export const revectorizeChunks = (modelId?: string) => {
+  return http_base_server.post<{ task_id: string; message: string }>(
+    '/rag/project-document-chunks/revectorize',
+    { model_id: modelId || null }
+  );
+};
+
+/**
+ * 查询全库重向量化任务进度(系统管理员)
+ * @param taskId POST /revectorize 返回的任务ID
+ * @returns state=PROGRESS 时 meta 含 total/processed/chunks/model
+ */
+export const getRevectorizeStatus = (taskId: string) => {
+  return http_base_server.get<{
+    task_id: string;
+    state: string;
+    meta?: { total: number; processed: number; chunks: number; model: string; dim_changed: boolean };
+    error?: string;
+  }>(`/rag/project-document-chunks/revectorize/status/${taskId}`);
+};

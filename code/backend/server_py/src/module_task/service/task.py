@@ -39,17 +39,15 @@ _CELERY_STATE_MAP = {
 
 
 def _to_response(task: TaskQueue) -> TaskQueueResponse:
-    """ORM 转 DTO(基础字段映射)"""
+    """ORM 转 DTO(纯任务管理: 不透出业务参数/结果, 仅映射执行情况字段)"""
     return TaskQueueResponse(
         id=task.id,
         name=task.name,
         task_type=task.task_type,
-        payload=task.payload or {},
         priority=task.priority,
         status=task.status,
         progress=task.progress,
         message=task.message,
-        result=task.result,
         error=task.error,
         celery_task_id=task.celery_task_id,
         started_at=task.started_at,
@@ -73,9 +71,8 @@ def _read_celery_state(task: TaskQueue) -> TaskQueueResponse:
         info = async_result.info
         # PROGRESS 状态下 info 为 worker update_state 写入的 meta
         if async_result.state == "PROGRESS" and isinstance(info, dict):
+            resp.celery_meta = dict(info)
             resp.celery_progress = info.get("progress")
-        elif async_result.state == "SUCCESS" and isinstance(async_result.result, dict):
-            resp.result = resp.result or async_result.result
         elif async_result.state == "FAILURE":
             resp.error = resp.error or str(async_result.result)
     except Exception:

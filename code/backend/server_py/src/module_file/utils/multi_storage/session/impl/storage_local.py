@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import hashlib
-import hmac
-import time
-import urllib.parse
+import shutil
+import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import AsyncIterator
 import aiofiles
@@ -9,18 +11,25 @@ import io
 from module_file.utils.multi_storage.session.interface.strorage_interface import (
     StorageInterface,
 )
-from module_file.utils.multi_storage.do.storage_config import (
-    LocalStorage,
-    PresignedType,
-    PresignedParamsBase,
-)
-from urllib.parse import urlencode
+from module_file.utils.multi_storage.do.storage_config import LocalStorage
 
 
 class LocalStorageInterface(StorageInterface):
+    """本地磁盘存储实现
+
+    物理键相对 base_dir 解析: base_dir/key
+    分片上传: 分片暂存 base_dir/.multipart/{upload_id}/{n},完成时合并并按内容哈希归位
+    """
+
     def __init__(self, config: LocalStorage):
         self.config = config
         self.base_dir = Path(config.base_dir).resolve()
+
+    def _multipart_dir(self, upload_id: str) -> Path:
+        """分片会话暂存目录(仅允许安全字符,防路径穿越)"""
+        if not upload_id or not upload_id.isalnum():
+            raise ValueError("非法的分片上传会话ID")
+        return self.base_dir / ".multipart" / upload_id
 
     async def save(
         self, key: str, data: bytes | io.IOBase | AsyncIterator[bytes]
@@ -82,101 +91,97 @@ class LocalStorageInterface(StorageInterface):
                 result.append(rel_path)
         return sorted(result)
 
-    async def generate_presigned_url(
-        self,
-        method: PresignedType,
-        # 文件路径
-        key: str,
-        content_type: str = "application/octet-stream",
-        expiration: int = 3600,
-    ) -> str | None:
-        """生成预签名URL，格式为"""
-        # 模拟真实s3格式
-        expire_time = int(time.time()) + expiration
-        # 使用HMAC SHA256生成签名
-        signature = await self.generate_signature(key, method.value, expire_time)
-        # 构建URL
-        params = urlencode(
-            {
-                "expires": expire_time,
-                "method": method.lower(),
-                "signature": signature,
-            }
-        )
-        url_path = f"/{key}?{params}"
-        return url_path
-
-    async def validate_presigned_params(
-        self,
-        file_path: str,
-        presigned_upload_params: PresignedParamsBase,
-    ) -> bool:
-        """验证预签名参数(过期与签名校验)"""
-        # 检查URL是否过期
-        if time.time() > presigned_upload_params.expires:
-            return False
-
-        # 验证签名
-        expected_signature = await self.generate_signature(
-            file_path, presigned_upload_params.method, presigned_upload_params.expires
-        )
-        # 验证签名是否匹配(等长字符串比较,防时序攻击)
-        return hmac.compare_digest(
-            presigned_upload_params.signature, expected_signature
-        )
-
-    # 生成验证签名
-    async def generate_signature(
-        self,
-        key: str,
-        method: str,
-        expires: int,
+    # ==================== 分片上传(multipart) ====================
+    async def create_multipart(
+        self, key: str, content_type: str = "application/octet-stream"
     ) -> str:
-        """生成验证签名(HMAC-SHA256)"""
-        sign_content = f"{key}:{method}:{expires}"
-        return hmac.new(
-            self.config.secret_key.encode("utf-8"),
-            sign_content.encode("utf-8"),
-            hashlib.sha256,
-        ).hexdigest()
+        upload_id = uuid.uuid4().hex
+        self._multipart_dir(upload_id).mkdir(parents=True, exist_ok=True)
+        return upload_id
 
-    async def upload_with_presigned_url(
+    async def upload_part(
+        self, key: str, upload_id: str, part_number: int, data: bytes
+    ) -> dict:
+        part_file = self._multipart_dir(upload_id) / str(part_number)
+        async with aiofiles.open(part_file, "wb") as f:
+            await f.write(data)
+        return {"part_number": part_number, "etag": str(len(data)), "size": len(data)}
+
+    async def list_parts(self, key: str, upload_id: str) -> list[dict]:
+        session_dir = self._multipart_dir(upload_id)
+        if not session_dir.exists():
+            return []
+        parts = []
+        for p in sorted(session_dir.iterdir(), key=lambda x: int(x.name)):
+            if p.is_file() and p.name.isdigit():
+                parts.append(
+                    {
+                        "part_number": int(p.name),
+                        "etag": str(p.stat().st_size),
+                        "size": p.stat().st_size,
+                    }
+                )
+        return parts
+
+    async def complete_multipart(
         self,
-        file_path: str,
-        presigned_upload_params: PresignedParamsBase,
-        content: bytes,
-    ) -> bool:
-        """使用预签名URL上传数据"""
-        try:
-            if await self.validate_presigned_params(
-                file_path, presigned_upload_params
-            ):
-                await self.save(file_path, content)
-                return True
-            raise ValueError("Invalid presigned upload params")
-        except Exception:
-            return False
+        key: str,
+        upload_id: str,
+        parts: list[dict],
+        expected_hash: str | None = None,
+    ) -> tuple[str, int, str]:
+        """按序合并分片,边合并边计算SHA-256,按内容哈希归位(去重)
 
-    async def download_with_presigned_url(
+        本地存储数据面本就在服务端,直接以合并时算出的真实哈希为准
+        (expected_hash 仅作对账参考,由 service 层处理不一致场景)
+        """
+        session_dir = self._multipart_dir(upload_id)
+        if not session_dir.exists():
+            raise FileNotFoundError(f"分片上传会话不存在: {upload_id}")
+        merged = session_dir / "merged"
+        hasher = hashlib.sha256()
+        total = 0
+        async with aiofiles.open(merged, "wb") as out:
+            for p in sorted(parts, key=lambda x: int(x["part_number"])):
+                part_file = session_dir / str(p["part_number"])
+                if not part_file.exists():
+                    raise FileNotFoundError(f"分片缺失: {p['part_number']}")
+                async with aiofiles.open(part_file, "rb") as f:
+                    while chunk := await f.read(1024 * 1024):
+                        hasher.update(chunk)
+                        total += len(chunk)
+                        await out.write(chunk)
+        # 按内容哈希生成最终物理键(与直传 uploads/{date}/{hash}{ext} 规则一致)
+        ext = Path(key).suffix
+        date_str = datetime.now().strftime("%Y%m%d")
+        final_key = f"uploads/{date_str}/{hasher.hexdigest()}{ext}"
+        final_path = self.base_dir / final_key
+        final_path.parent.mkdir(parents=True, exist_ok=True)
+        if final_path.exists():
+            # 相同内容已存在,复用物理文件(内容哈希去重)
+            merged.unlink()
+        else:
+            merged.replace(final_path)
+        shutil.rmtree(session_dir, ignore_errors=True)
+        return hasher.hexdigest(), total, final_key
+
+    async def abort_multipart(self, key: str, upload_id: str) -> None:
+        session_dir = self._multipart_dir(upload_id)
+        shutil.rmtree(session_dir, ignore_errors=True)
+
+    # ==================== 预签名直传(direct 模式) ====================
+    async def presign_put(
         self,
-        file_path: str,
-        presigned_params: PresignedParamsBase,
-    ) -> bytes | None:
-        """使用预签名URL下载数据"""
-        try:
-            if await self.validate_presigned_params(file_path, presigned_params):
-                return await self.load(file_path)
-            return None
-        except Exception:
-            return None
+        key: str,
+        upload_id: str | None = None,
+        part_number: int | None = None,
+        expires: int = 3600,
+    ) -> str | None:
+        """本地磁盘不支持浏览器直传(返回None,前端走服务端中转)"""
+        return None
 
-    async def delete_with_presigned_url(
-        self, file_path: str, presigned_params: PresignedParamsBase
-    ) -> bool:
-        """使用预签名URL删除数据"""
-        if not await self.validate_presigned_params(file_path, presigned_params):
-            return False
-        try:
-            return await self.delete(file_path)
-        except Exception:
-            return False
+    async def presign_get(
+        self, key: str, expires: int = 3600, download_filename: str | None = None
+    ) -> str | None:
+        """本地磁盘不支持浏览器直连下载(返回None,前端走服务端流式代理)"""
+        return None

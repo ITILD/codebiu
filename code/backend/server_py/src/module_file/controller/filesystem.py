@@ -2,25 +2,18 @@ from module_file.config.server import module_app
 from module_file.dependencies.filesystem import get_file_service
 from module_file.service.filesystem import FileService
 from module_file.do.filesystem import (
-    FileEntryCreate,
     FileEntry,
     FileEntryUpdate,
-    GeneratePresignedUrlRequest,
-    PresignedUploadParams,
-    PresignedDownloadParams,
-    GeneratePresignedUploadResponse,
-    GeneratePresignedDownloadResponse,
-    UploadSuccessResponse,
+    MultipartInitRequest,
+    MultipartInitResponse,
+    MultipartPartInfo,
+    MultipartCompleteRequest,
+    EntryCreateRequest,
+    UploadModeResponse,
     MigrateRequest,
 )
-from module_authorization.dependencies.auth import get_current_user_id
 from module_authorization.dependencies.permission import require_permission
-from common.utils.db.schema.pagination import (
-    InfiniteScrollParams,
-    InfiniteScrollResponse,
-    PaginationParams,
-    PaginationResponse,
-)
+from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
 
 from fastapi import (
     APIRouter,
@@ -33,18 +26,14 @@ from fastapi import (
     Request,
     Response,
 )
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, RedirectResponse
 
 router = APIRouter()
-
-# 预签名上传/下载代理端点路径(本地存储签名拼接用,与下方路由路径保持一致)
-PRESIGNED_UPLOAD_PROXY_PATH = "/filesystem/presigned/upload"
-PRESIGNED_DOWNLOAD_PROXY_PATH = "/filesystem/presigned/download"
 
 
 @router.post(
     "/upload",
-    summary="上传文件到指定目录(内容哈希去重)",
+    summary="上传文件到指定目录(小文件直传,内容哈希去重)",
     status_code=status.HTTP_201_CREATED,
     response_model=FileEntry,
 )
@@ -56,7 +45,7 @@ async def upload_file(
     service: FileService = Depends(get_file_service),
 ) -> FileEntry:
     """
-    上传文件到指定目录(虚拟文件系统)
+    上传文件到指定目录(虚拟文件系统,仅限小文件)
     :param file: 要上传的文件
     :param description: 文件描述
     :param pid: 父目录ID(为空上传到根目录)
@@ -144,7 +133,7 @@ async def create_folder(
     在指定目录下创建子目录
     :param name: 目录名称
     :param pid: 父目录ID(为空表示根目录)
-    :param current_user_id: 当前登录用户ID(权限依赖注入,目录归属者)
+    :param current_user_id: 当前登录用户ID(目录归属者)
     :param service: 文件服务依赖注入
     :return: 新创建的目录信息
     """
@@ -242,23 +231,44 @@ async def move_entry(
         )
 
 
-@router.get("/download/{entry_id}", summary="下载文件(流式)")
+@router.get("/upload-mode", summary="查询上传模式(direct直传/proxy中转)", response_model=UploadModeResponse)
+async def get_upload_mode(
+    current_user_id: str = Depends(require_permission("main", "file", "read")),
+    service: FileService = Depends(get_file_service),
+) -> UploadModeResponse:
+    """
+    查询当前存储的上传模式(前端启动时获取一次并缓存)
+    - direct: S3协议存储,前端预签名直传,数据面不经过服务端
+    - proxy: 本地磁盘存储,数据面经服务端中转
+    :param service: 文件服务依赖注入
+    :return: 上传模式/分片大小/小文件直传上限
+    """
+    return service.get_upload_mode()
+
+
+@router.get("/download/{entry_id}", summary="下载文件(s3直链302/local流式)")
 async def download_file(
     entry_id: str,
     current_user_id: str = Depends(require_permission("main", "file", "read")),
     service: FileService = Depends(get_file_service),
 ):
     """
-    流式下载文件
+    下载文件: 权限与元数据校验后按存储类型分流
+    - S3协议存储: 签发预签名GET直链,302重定向浏览器直连对象存储(数据面不经过服务端)
+    - 本地磁盘: 服务端流式代理(分块读取,支持大文件)
     :param entry_id: 文件条目ID
     :param service: 文件服务依赖注入
-    :return: 文件数据流
+    :return: 302重定向(直链) 或 文件数据流(代理)
     """
     try:
         file_name, mime_type, file_key = await service.get_file_info_for_download(
             entry_id
         )
-        # 流式返回文件内容(分块读取,支持大文件)
+        # 直传存储: 预签名直链重定向(浏览器直连,服务端零流量)
+        url = await service.presign_download_url(file_key, file_name)
+        if url:
+            return RedirectResponse(url, status_code=status.HTTP_302_FOUND)
+        # 本地存储: 流式返回文件内容(分块读取,支持大文件)
         iter_file = service.stream_file_content(file_key)
         return StreamingResponse(
             iter_file,
@@ -273,85 +283,29 @@ async def download_file(
         )
 
 
-@router.get("/scroll", summary="滚动加载文件列表")
-async def infinite_scroll(
-    params: InfiniteScrollParams = Depends(),
-    current_user_id: str = Depends(require_permission("main", "file", "read")),
-    service: FileService = Depends(get_file_service),
-) -> InfiniteScrollResponse:
-    """
-    无限滚动接口实现
-    :param params: 分页参数
-    :param service: 服务层依赖
-    :return: 分页响应数据
-    """
-    try:
-        infinite_scroll_response = await service.get_scroll(params)
-        return infinite_scroll_response
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
-
-
-@router.get("/list", summary="分页查询全部条目", response_model=PaginationResponse)
-async def list_files(
-    pagination: PaginationParams = Depends(),
-    current_user_id: str = Depends(require_permission("main", "file", "read")),
-    service: FileService = Depends(get_file_service),
-) -> PaginationResponse:
-    """
-    分页查询全部条目(管理视图)
-    :param pagination: 分页参数 (通过查询参数传递)
-    :param service: 文件服务依赖注入
-    :return: 分页响应结果
-    """
-    try:
-        pagination_response: PaginationResponse = await service.list_paged(pagination)
-        return pagination_response
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
-
-
-######################################兼容s3/minio/oss/rustfs对象存储 上传文件######################################
+######################################分片上传(multipart,大文件 >10MB 自动)######################################
 @router.post(
-    "/presigned/upload-url",
-    summary="生成预签名上传URL(兼容s3/minio/oss/rustfs对象存储)",
+    "/multipart/init",
+    summary="初始化分片上传(大文件,内容已存在时秒传)",
     status_code=status.HTTP_200_OK,
+    response_model=MultipartInitResponse,
 )
-async def generate_presigned_url_upload(
-    presigned_url_request: GeneratePresignedUrlRequest,
-    request: Request,
+async def init_multipart_upload(
+    req: MultipartInitRequest,
     current_user_id: str = Depends(require_permission("main", "file", "create")),
     service: FileService = Depends(get_file_service),
-) -> GeneratePresignedUploadResponse:
+) -> MultipartInitResponse:
     """
-    生成预签名URL用于上传文件
-    利用SHA-256 的Preimage Resistance达到文件去重妙传和安全性保证
-    (新文件要后校验hash值,因为无法确认新文件hash值与文件匹配,默认前端无准确性)
-    :param presigned_url_request: 生成预签名URL的请求参数
+    初始化分片上传会话(前端对 >10MB 文件自动分流调用)
+    :param req: 初始化请求(文件名/大小/SHA-256/父目录)
+    :param current_user_id: 当前登录用户ID(文件归属者)
     :param service: 文件服务依赖注入
-    :return: 预签名URL
+    :return: 会话凭证与建议分片大小(is_existing=True 时直接调 /upload-complete 秒传)
     """
     try:
-        # 直接使用预签名代理端点常量(本地签名拼接完整URL,保证前后端统一)
-        presigned_url_path = PRESIGNED_UPLOAD_PROXY_PATH
-        base_url = str(request.base_url).rstrip("/")
-        generate_presigned_upload_response = (
-            await service.generate_presigned_url_upload(
-                presigned_url_request, presigned_url_path, base_url
-            )
-        )
-        if generate_presigned_upload_response is None:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="生成预签名URL失败",
-            )
-        return generate_presigned_upload_response
-    except HTTPException:
-        raise
+        return await service.init_multipart_upload(req, owner_user_id=current_user_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -359,41 +313,62 @@ async def generate_presigned_url_upload(
 
 
 @router.put(
-    "/presigned/upload/{file_path:path}",
-    summary="使用预签名URL上传文件(签名即凭证,免token)",
+    "/multipart/{upload_id}/parts/{part_number}",
+    summary="上传分片(凭证即会话)",
     status_code=status.HTTP_200_OK,
+    response_model=MultipartPartInfo,
 )
-async def presigned_url_upload(
+async def upload_multipart_part(
+    upload_id: str,
+    part_number: int,
     request: Request,
-    response: Response,
-    file_path: str,
-    presigned_upload_params: PresignedUploadParams = Depends(),
+    current_user_id: str = Depends(require_permission("main", "file", "create")),
     service: FileService = Depends(get_file_service),
-):
+) -> MultipartPartInfo:
     """
-    使用预签名URL上传文件(签名参数即鉴权凭证,不依赖登录态)
-    :param file_path: 物理存储键(路径参数)
-    :param presigned_upload_params: 预签名上传参数
+    上传单个分片(最后一片可小于标准分片大小)
+    :param upload_id: 分片会话凭证(init 返回)
+    :param part_number: 分片号(从1开始)
+    :param request: 请求体为分片二进制内容
     :param service: 文件服务依赖注入
-    :return: 上传结果
+    :return: 分片信息(part_number/etag/size)
     """
     try:
-        # 文件头里读取类型
         content: bytes = await request.body()
-        success = await service.presigned_url_upload(
-            file_path, presigned_upload_params, content
-        )
-        if not success:
+        if not content:
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="file upload by presigned url failed",
+                status_code=status.HTTP_400_BAD_REQUEST, detail="分片内容不能为空"
             )
-        response.headers["ETag"] = (
-            "test_md5"  # TODO 用来校验文件是否上传成功 且防止下次重复
+        return await service.upload_multipart_part(upload_id, part_number, content)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
-        return {"success": True, "message": "file upload success"}
-    except HTTPException:
-        raise
+
+
+@router.get(
+    "/multipart/{upload_id}/parts",
+    summary="查询已上传分片(断点续传)",
+    status_code=status.HTTP_200_OK,
+    response_model=list[MultipartPartInfo],
+)
+async def list_multipart_parts(
+    upload_id: str,
+    current_user_id: str = Depends(require_permission("main", "file", "read")),
+    service: FileService = Depends(get_file_service),
+) -> list[MultipartPartInfo]:
+    """
+    查询会话中已上传的分片列表(上传中断后可续传)
+    :param upload_id: 分片会话凭证
+    :param service: 文件服务依赖注入
+    :return: 分片信息列表
+    """
+    try:
+        return await service.list_multipart_parts(upload_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -401,31 +376,91 @@ async def presigned_url_upload(
 
 
 @router.post(
-    "/presigned/upload-complete",
-    summary="上传成功通知,增加条目记录(兼容s3/minio/oss/rustfs对象存储)",
-    status_code=status.HTTP_200_OK,
+    "/multipart/{upload_id}/complete",
+    summary="完成分片上传(合并分片并创建条目)",
+    status_code=status.HTTP_201_CREATED,
+    response_model=FileEntry,
 )
-async def presigned_url_upload_success(
-    file: FileEntryCreate,
+async def complete_multipart_upload(
+    upload_id: str,
+    req: MultipartCompleteRequest,
     current_user_id: str = Depends(require_permission("main", "file", "create")),
     service: FileService = Depends(get_file_service),
-):
+) -> FileEntry:
     """
-    通知后端对象/本地存储完成,新增元数据   防止hash攻击,需要校验文件,符合s3对象存储的hash校验规则
-    :param file: 文件条目创建数据
+    通知后端合并分片并创建文件条目(服务端校验内容SHA-256防伪造)
+    :param upload_id: 分片会话凭证
+    :param req: 完成请求(文件名/分片列表)
+    :param current_user_id: 当前登录用户ID(文件归属者)
     :param service: 文件服务依赖注入
-    :return: 通知结果
+    :return: 创建的文件条目
     """
     try:
-        file_id = await service.presigned_url_upload_success(file)
-        return UploadSuccessResponse(file_id=file_id)
+        return await service.complete_multipart_upload(
+            upload_id, req, owner_user_id=current_user_id
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
 
-######################################兼容s3/minio/oss/rustfs对象存储 删除逻辑######################################
+@router.delete(
+    "/multipart/{upload_id}",
+    summary="取消分片上传(清理已上传分片)",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def abort_multipart_upload(
+    upload_id: str,
+    current_user_id: str = Depends(require_permission("main", "file", "delete")),
+    service: FileService = Depends(get_file_service),
+):
+    """
+    取消分片上传会话并清理存储侧已上传的分片
+    :param upload_id: 分片会话凭证
+    :param service: 文件服务依赖注入
+    """
+    try:
+        await service.abort_multipart_upload(upload_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+
+@router.post(
+    "/upload-complete",
+    summary="秒传建条目(内容已存在时直接创建文件记录)",
+    status_code=status.HTTP_201_CREATED,
+    response_model=FileEntry,
+)
+async def create_entry(
+    req: EntryCreateRequest,
+    current_user_id: str = Depends(require_permission("main", "file", "create")),
+    service: FileService = Depends(get_file_service),
+) -> FileEntry:
+    """
+    基于已完成的内容记录创建文件条目(multipart/init 返回 is_existing=True 后调用)
+    :param req: 条目创建请求(文件名/内容SHA-256)
+    :param current_user_id: 当前登录用户ID(文件归属者)
+    :param service: 文件服务依赖注入
+    :return: 创建的文件条目
+    """
+    try:
+        return await service.create_entry(req, owner_user_id=current_user_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+
+######################################删除逻辑######################################
 @router.delete(
     "/files/{file_id}",
     summary="逻辑删除文件(释放内容引用,归零清理物理文件)",
@@ -476,7 +511,7 @@ async def delete_folder(
         )
 
 
-######################################兼容s3/minio/oss/rustfs对象存储 获取文件######################################
+######################################获取文件元数据######################################
 @router.get(
     "/entries/{file_entry_id}",
     summary="获取文件或文件夹元数据",
@@ -504,84 +539,6 @@ async def get_file_entry_info(
     except Exception as e:
         if isinstance(e, HTTPException):
             raise
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
-
-
-@router.get(
-    "/presigned/download-url/{file_id}",
-    summary="生成预签名URL用于下载文件(兼容s3/minio/oss/rustfs对象存储)",
-    status_code=status.HTTP_200_OK,
-)
-async def generate_presigned_url_download(
-    file_id: str,
-    request: Request,
-    current_user_id: str = Depends(require_permission("main", "file", "read")),
-    service: FileService = Depends(get_file_service),
-) -> GeneratePresignedDownloadResponse:
-    """
-    生成预签名URL用于下载文件
-    :param file_id: 文件条目ID
-    :param service: 文件服务依赖注入
-    :return: 预签名URL
-    """
-    try:
-        # 直接使用预签名代理端点常量(本地签名拼接完整URL,保证前后端统一)
-        presigned_url_path = PRESIGNED_DOWNLOAD_PROXY_PATH
-        base_url = str(request.base_url).rstrip("/")
-        generate_presigned_download_response = (
-            await service.generate_presigned_url_download(
-                file_id, presigned_url_path, base_url
-            )
-        )
-        if generate_presigned_download_response is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="文件不存在或生成预签名URL失败",
-            )
-        return generate_presigned_download_response
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
-
-
-@router.get(
-    "/presigned/download/{file_path:path}",
-    summary="使用预签名URL下载文件(签名即凭证,免token)",
-    status_code=status.HTTP_200_OK,
-)
-async def download_with_presigned_url(
-    file_path: str,
-    presigned_download_params: PresignedDownloadParams = Depends(),
-    service: FileService = Depends(get_file_service),
-) -> Response:
-    """
-    使用预签名URL下载文件(签名参数即鉴权凭证,不依赖登录态)
-    :param file_path: 物理存储键(路径参数)
-    :param presigned_download_params: 预签名下载参数
-    :param service: 文件服务依赖注入
-    :return: 文件内容
-    """
-    try:
-        content = await service.presigned_url_download(
-            file_path, presigned_download_params
-        )
-        if content is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="使用预签名URL下载失败或文件不存在",
-            )
-        return Response(
-            content=content,
-            media_type="application/octet-stream",  # 关键：强制二进制流，禁用自动序列化
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
@@ -752,7 +709,7 @@ async def get_stats(
 
 @router.post(
     "/migrate",
-    summary="存储迁移(local<->rustfs/s3 物理内容搬运,切换配置前调用)",
+    summary="存储迁移(local<->s3 物理内容搬运,切换配置前调用)",
     response_model=dict,
     status_code=status.HTTP_200_OK,
 )

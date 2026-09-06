@@ -132,3 +132,116 @@ async def test_model_config_default_params(client: httpx.AsyncClient):
     params = resp.json()["params"]
     assert params.get("temperature") == 0.7, f"默认温度应为 0.7: {params}"
     assert params.get("timeout") == 60, f"默认超时应为 60: {params}"
+
+
+async def test_public_model_permission_and_masking(client: httpx.AsyncClient, user_client: httpx.AsyncClient):
+    """公共模型权限与脱敏: 管理员创建公共模型后,
+    非管理员可见但 url/api_key 被脱敏且不可修改/删除(403), 管理员可正常修改"""
+    data = _make_config()
+    data["scope"] = "public"
+    model_id: str | None = None
+    try:
+        resp = await client.post(BASE, json=data)
+        assert resp.status_code == 201, resp.text
+        model_id = resp.json()
+
+        # 非管理员单个获取: url/api_key 脱敏
+        resp = await user_client.get(f"{BASE}/{model_id}")
+        assert resp.status_code == 200, resp.text
+        got = resp.json()
+        assert got["url"] is None and got["api_key"] is None, f"非管理员查看公共模型应脱敏: {got}"
+
+        # 非管理员列表: 同样脱敏
+        resp = await user_client.get(f"{BASE}/list", params={"page": 1, "size": 10, "model": data["model"]})
+        assert resp.status_code == 200, resp.text
+        items = resp.json()["items"]
+        target = next((i for i in items if i["id"] == model_id), None)
+        assert target is not None, "公共模型应出现在普通用户可见列表中"
+        assert target["url"] is None and target["api_key"] is None, "列表中公共模型应脱敏"
+
+        # 非管理员修改/删除公共模型 → 403
+        resp = await user_client.put(f"{BASE}/{model_id}", json={"temperature": 0.1})
+        assert resp.status_code == 403, f"非管理员修改公共模型应 403: {resp.text}"
+        resp = await user_client.delete(f"{BASE}/{model_id}")
+        assert resp.status_code == 403, f"非管理员删除公共模型应 403: {resp.text}"
+
+        # 管理员查看不脱敏、修改放行
+        resp = await client.get(f"{BASE}/{model_id}")
+        assert resp.status_code == 200, resp.text
+        got = resp.json()
+        assert got["url"] == "https://api.openai.com/v1", "管理员应看到明文 url"
+        assert got["api_key"] == "test-key-not-real", "管理员应看到明文 api_key"
+        resp = await client.put(f"{BASE}/{model_id}", json={"temperature": 0.8})
+        assert resp.status_code in (200, 204), resp.text
+    finally:
+        if model_id:
+            resp = await client.delete(f"{BASE}/{model_id}")
+            assert resp.status_code in (200, 204, 404), resp.text
+
+
+async def test_owner_filter_and_self_manage(client: httpx.AsyncClient, user_client: httpx.AsyncClient, normal_user: dict):
+    """自建模型管理权: 普通用户可修改/删除自己的模型(明文可见);
+    管理员可按所有者用户名过滤检索所有人的模型"""
+    data = _make_config()
+    model_id: str | None = None
+    try:
+        # 普通用户创建自己的模型
+        resp = await user_client.post(BASE, json=data)
+        assert resp.status_code == 201, resp.text
+        model_id = resp.json()
+
+        # 本人查看: 不脱敏
+        resp = await user_client.get(f"{BASE}/{model_id}")
+        assert resp.status_code == 200, resp.text
+        got = resp.json()
+        assert got["url"] == "https://api.openai.com/v1", "本人查看自建模型应看到明文 url"
+        assert got["api_key"] == "test-key-not-real", "本人查看自建模型应看到明文 api_key"
+
+        # 本人修改/删除放行(204)
+        resp = await user_client.put(f"{BASE}/{model_id}", json={"temperature": 0.5})
+        assert resp.status_code in (200, 204), resp.text
+
+        # 管理员按所有者用户名过滤: 应能检索到该模型(管理员可见所有人模型)
+        resp = await client.get(
+            f"{BASE}/list",
+            params={"page": 1, "size": 10, "model": data["model"], "user": normal_user["username"]},
+        )
+        assert resp.status_code == 200, resp.text
+        items = resp.json()["items"]
+        assert any(i["id"] == model_id for i in items), "管理员按所有者过滤应检索到该模型"
+
+        # 管理员按不存在的用户名过滤 → 空结果
+        resp = await client.get(
+            f"{BASE}/list",
+            params={"page": 1, "size": 10, "model": data["model"], "user": f"no_such_user_{int(time.time() * 1000)}"},
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["total"] == 0, "不存在的所有者应返回空结果"
+
+        # 普通用户删除自己的模型 → 204
+        resp = await user_client.delete(f"{BASE}/{model_id}")
+        assert resp.status_code in (200, 204), resp.text
+        model_id = None
+    finally:
+        if model_id:
+            resp = await client.delete(f"{BASE}/{model_id}")
+            assert resp.status_code in (200, 204, 404), resp.text
+
+
+async def test_seed_default_models_hook():
+    """启动 seed 钩子幂等: 再次执行 ensure_default_models 不报错,
+    且配置启用的类型(chat)存在生效的公共默认模型"""
+    from module_ai.config.server import ensure_default_models
+    from module_ai.dao.model_config import ModelConfigDao
+    from module_ai.do.model_config import ModelScope
+
+    # lifespan 已执行过一次, 此处再次执行验证幂等
+    await ensure_default_models()
+
+    cfg = await ModelConfigDao().get_default_by_type("chat", active_only=True)
+    if cfg is None:
+        # 环境未启用 chat 默认模型配置时跳过(不视为失败)
+        return
+    assert cfg.scope == ModelScope.PUBLIC, "seed 模型应为公共范围"
+    assert cfg.is_default is True, "seed 模型应为默认公共模型"
+    assert cfg.is_active is True, "seed 启用配置下模型应为生效状态"

@@ -129,6 +129,30 @@ class FileContentDao:
             raise ValueError(f"未找到可引用的文件: {content_hash}")
 
     @DaoRel
+    async def replace_content_hash(
+        self,
+        old_hash: str,
+        new_hash: str,
+        physical_storage: str,
+        session: AsyncSession | None = None,
+    ) -> None:
+        """
+        替换内容记录主键哈希(分片上传完成时临时标识->真实SHA-256)
+        :param old_hash: 临时内容标识
+        :param new_hash: 真实内容SHA-256
+        :param physical_storage: 归位后的物理存储键
+        """
+        stmt = (
+            update(FileContent)
+            .where(FileContent.content_hash == old_hash)
+            .values(content_hash=new_hash, physical_storage=physical_storage)
+        )
+        result = await session.exec(stmt)
+        if result.rowcount == 0:
+            raise ValueError(f"未找到hash值为 {old_hash} 的文件")
+        await session.flush()
+
+    @DaoRel
     async def list_all(
         self, session: AsyncSession | None = None
     ) -> list[FileContent]:

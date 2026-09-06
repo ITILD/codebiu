@@ -1,6 +1,6 @@
 <template>
   <div flex items-center gap-2>
-    <span text-sm font-medium text-gray-600>模型:</span>
+    <span text-sm font-medium text-note-sub>模型:</span>
     <el-select
       v-model="selectedModelId"
       placeholder="选择模型"

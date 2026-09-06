@@ -1,4 +1,5 @@
 from sqlmodel import Column, DateTime, Field, SQLModel, JSON
+from sqlalchemy import Enum as SAEnum
 from uuid import uuid4
 from datetime import datetime, timezone
 from enum import StrEnum
@@ -19,21 +20,35 @@ class ModelConfigBase(SQLModel):
     模型配置基础模型
     """
 
-    model_type: ModelType = Field(ModelType.CHAT, description="模型类型")
+    # 枚举字段以 VARCHAR(native_enum=False) 存储(存量库列为 varchar, 避免 PG enum 类型不匹配),
+    # values_callable 按枚举 value 存取, 读取时自动转回枚举实例
+    model_type: ModelType = Field(
+        ModelType.CHAT,
+        sa_type=SAEnum(ModelType, native_enum=False, length=20, values_callable=lambda e: [m.value for m in e]),
+        description="模型类型",
+    )
     # type openai  vllm 枚举
     server_type: ModelServerType = Field(
-        ModelServerType.OPENAI, description="模型服务类型"
+        ModelServerType.OPENAI,
+        sa_type=SAEnum(ModelServerType, native_enum=False, length=30, values_callable=lambda e: [m.value for m in e]),
+        description="模型服务类型",
     )
     # 模型标识
     model: str = Field(..., description="模型标识名称")
     url: str | None = Field(None, description="API基础URL")
     api_key: str | None = Field(None, description="API访问密钥")
     # 归属范围: public=所有人可看/可用, dept=所属部门及以下可见, user=仅本人可见
-    scope: ModelScope = Field(ModelScope.USER, description="归属范围(public/dept/user)")
+    scope: ModelScope = Field(
+        ModelScope.USER,
+        sa_type=SAEnum(ModelScope, native_enum=False, length=20, values_callable=lambda e: [m.value for m in e]),
+        description="归属范围(public/dept/user)",
+    )
     # 归属部门ID(scope=dept 时必填)
     dept_id: str | None = Field(None, description="归属部门ID(scope=dept 时使用)")
     # 是否为该模型类型的默认公共模型(scope=public 且同类型唯一)
     is_default: bool = Field(default=False, description="是否为该类型默认公共模型")
+    # 是否生效: 不生效的模型(如启动 seed 未启用/管理员手动停用)前端灰色显示且不可被使用
+    is_active: bool = Field(default=True, description="是否生效(不生效时灰色显示且不可用)")
     # 显示名称: 用于区分同名但来源/配置不同的模型(留空取 model)
     display_name: str | None = Field(None, max_length=100, description="显示名称(区分同名模型)")
 
@@ -140,6 +155,7 @@ class ModelConfigUpdate(SQLModel):
     scope: ModelScope | None = None
     dept_id: str | None = None
     is_default: bool | None = None
+    is_active: bool | None = None
     display_name: str | None = None
 
     # 成本

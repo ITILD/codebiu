@@ -1,14 +1,24 @@
+from __future__ import annotations
+
 import aioboto3
 from typing import AsyncIterator
+import inspect
 import io
+import hashlib
 import logging
+from datetime import datetime
+from pathlib import Path
+from urllib.parse import quote
 from module_file.utils.multi_storage.session.interface.strorage_interface import (
     StorageInterface,
 )
-from module_file.utils.multi_storage.do.storage_config import S3Storage, PresignedType
+from module_file.utils.multi_storage.do.storage_config import S3Storage
 from botocore.config import Config as async_config
 
 logger = logging.getLogger(__name__)
+
+# 预签名URL默认有效期(秒)
+_PRESIGN_EXPIRES = 3600
 
 class S3StorageInterface(StorageInterface):
     """S3存储实现(rustfs/minio/oss 等S3兼容存储共用)"""
@@ -43,15 +53,17 @@ class S3StorageInterface(StorageInterface):
 
     async def ensure_bucket(self) -> None:
         """
-        启动时确保桶存在(不存在自动创建,rustfs/minio 零配置接入)
+        启动时确保桶存在(不存在自动创建)并配置CORS(浏览器直传/直连下载必需)
         :raises: 创建失败时抛出异常(调用方可捕获降级为警告)
         """
         async with self._get_client() as client:
             try:
                 await client.head_bucket(Bucket=self.bucket)
-                return
             except Exception:
                 pass
+            else:
+                await self._ensure_cors(client)
+                return
         # head 失败(通常 404)再尝试创建
         async with self._get_client() as client:
             kwargs = {"Bucket": self.bucket}
@@ -62,6 +74,30 @@ class S3StorageInterface(StorageInterface):
                 }
             await client.create_bucket(**kwargs)
             logger.info(f"存储桶不存在,已自动创建: {self.bucket}")
+            await self._ensure_cors(client)
+
+    async def _ensure_cors(self, client) -> None:
+        """配置桶CORS: 允许浏览器预签名直传(PUT)/直连下载(GET)并暴露ETag头"""
+        try:
+            await client.put_bucket_cors(
+                Bucket=self.bucket,
+                CORSConfiguration={
+                    "CORSRules": [
+                        {
+                            "AllowedMethods": ["GET", "PUT", "HEAD"],
+                            "AllowedOrigins": ["*"],
+                            "AllowedHeaders": ["*"],
+                            # 前端直传分片后需读取响应ETag做完成对账
+                            "ExposeHeaders": ["ETag"],
+                            "MaxAgeSeconds": 3600,
+                        }
+                    ]
+                },
+            )
+            logger.info(f"存储桶CORS已配置(直传/直连下载就绪): {self.bucket}")
+        except Exception as e:
+            # CORS 配置失败不阻断启动,直传时浏览器会暴露具体错误
+            logger.warning(f"存储桶CORS配置失败(直传可能不可用): {e}")
 
     async def save(
         self, key: str, data: bytes | io.IOBase | AsyncIterator[bytes]
@@ -159,29 +195,158 @@ class S3StorageInterface(StorageInterface):
             except Exception as e:
                 raise e
 
-    async def generate_presigned_url(
+    # ==================== 分片上传(S3 Multipart Upload) ====================
+    async def create_multipart(
+        self, key: str, content_type: str = "application/octet-stream"
+    ) -> str:
+        """初始化S3分片上传会话"""
+        async with self._get_client() as client:
+            resp = await client.create_multipart_upload(
+                Bucket=self.bucket, Key=key, ContentType=content_type
+            )
+            return resp["UploadId"]
+
+    async def upload_part(
+        self, key: str, upload_id: str, part_number: int, data: bytes
+    ) -> dict:
+        """上传单个分片(返回S3 ETag用于完成校验)"""
+        async with self._get_client() as client:
+            resp = await client.upload_part(
+                Bucket=self.bucket,
+                Key=key,
+                UploadId=upload_id,
+                PartNumber=part_number,
+                Body=data,
+            )
+            return {"part_number": part_number, "etag": resp["ETag"], "size": len(data)}
+
+    async def list_parts(self, key: str, upload_id: str) -> list[dict]:
+        """查询会话中已上传的分片(断点续传)"""
+        async with self._get_client() as client:
+            resp = await client.list_parts(
+                Bucket=self.bucket, Key=key, UploadId=upload_id
+            )
+            return [
+                {
+                    "part_number": p["PartNumber"],
+                    "etag": p["ETag"],
+                    "size": p["Size"],
+                }
+                for p in resp.get("Parts", [])
+            ]
+
+    async def complete_multipart(
         self,
-        method: PresignedType,
         key: str,
-        content_type: str = "application/octet-stream",
-        expiration: int = 3600,
-    ) -> str | None:
-        """生成预签名URL"""
+        upload_id: str,
+        parts: list[dict],
+        expected_hash: str | None = None,
+    ) -> tuple[str, int, str]:
+        """合并分片并按内容哈希归位
+
+        流程: complete -> head 元数据取大小 -> 按哈希归位(copy+delete,存储端内部复制零流量)
+        - expected_hash 提供时直接信任并归位(前端直传场景,服务端不回读数据)
+        - 未提供时退化为流式回读计算真实SHA-256(服务端中转场景兜底)
+        """
+        sorted_parts = sorted(parts, key=lambda p: int(p["part_number"]))
+        async with self._get_client() as client:
+            await client.complete_multipart_upload(
+                Bucket=self.bucket,
+                Key=key,
+                UploadId=upload_id,
+                MultipartUpload={
+                    "Parts": [
+                        {"PartNumber": p["part_number"], "ETag": p["etag"]}
+                        for p in sorted_parts
+                    ]
+                },
+            )
+            # 仅元数据请求获取大小(不回读内容,保持直传零流量)
+            head = await client.head_object(Bucket=self.bucket, Key=key)
+            total = head["ContentLength"]
+
+        if expected_hash:
+            # 直传场景: 信任前端声明的SHA-256(完整性由分片对账+S3 ETag保证)
+            real_hash, ext_src = expected_hash, key
+        else:
+            # 兜底: 流式回读计算真实内容哈希
+            hasher = hashlib.sha256()
+            async with self._get_client() as client:
+                resp = await client.get_object(Bucket=self.bucket, Key=key)
+                async for chunk in resp["Body"].iter_chunks(1024 * 1024):
+                    hasher.update(chunk)
+            real_hash, ext_src = hasher.hexdigest(), key
+        # 按内容哈希生成最终物理键(与直传 uploads/{date}/{hash}{ext} 规则一致)
+        ext = Path(ext_src).suffix
+        date_str = datetime.now().strftime("%Y%m%d")
+        final_key = f"uploads/{date_str}/{real_hash}{ext}"
+        if final_key != key:
+            async with self._get_client() as client:
+                if await self.exists(final_key):
+                    # 相同内容已存在,删除临时对象(内容哈希去重)
+                    await client.delete_object(Bucket=self.bucket, Key=key)
+                else:
+                    await client.copy_object(
+                        Bucket=self.bucket,
+                        Key=final_key,
+                        CopySource={"Bucket": self.bucket, "Key": key},
+                    )
+                    await client.delete_object(Bucket=self.bucket, Key=key)
+        return real_hash, total, final_key
+
+    async def abort_multipart(self, key: str, upload_id: str) -> None:
+        """取消分片上传会话(S3侧自动清理已上传分片)"""
         async with self._get_client() as client:
             try:
-                params = {"Bucket": self.bucket, "Key": key}
-                if method == PresignedType.PUT:
-                    # 下载时需要指定Content-Type
-                    params.update({"ContentType": content_type})
-                    http_method = "put_object"
-                elif method == PresignedType.GET:
-                    http_method = "get_object"
-                elif method == PresignedType.DELETE:
-                    http_method = "delete_object"
-                # 生成预签名URL
-                presigned_url = await client.generate_presigned_url(
-                    http_method, Params=params, ExpiresIn=expiration
+                await client.abort_multipart_upload(
+                    Bucket=self.bucket, Key=key, UploadId=upload_id
                 )
-                return presigned_url
-            except Exception as e:
-                raise e
+            except Exception:
+                pass
+
+    # ==================== 预签名直传(direct 模式) ====================
+    async def presign_put(
+        self,
+        key: str,
+        upload_id: str | None = None,
+        part_number: int | None = None,
+        expires: int = _PRESIGN_EXPIRES,
+    ) -> str | None:
+        """生成预签名上传URL(浏览器直传S3,不经过服务端)"""
+        async with self._get_client() as client:
+            if upload_id and part_number:
+                # 分片直传
+                method, params = "upload_part", {
+                    "Bucket": self.bucket,
+                    "Key": key,
+                    "UploadId": upload_id,
+                    "PartNumber": part_number,
+                }
+            else:
+                # 整对象直传(小文件单片场景)
+                method, params = "put_object", {"Bucket": self.bucket, "Key": key}
+            url = client.generate_presigned_url(method, Params=params, ExpiresIn=expires)
+            if inspect.iscoroutine(url):
+                url = await url
+            return url
+
+    async def presign_get(
+        self,
+        key: str,
+        expires: int = _PRESIGN_EXPIRES,
+        download_filename: str | None = None,
+    ) -> str | None:
+        """生成预签名下载URL(浏览器直连S3下载,不经过服务端)"""
+        params: dict = {"Bucket": self.bucket, "Key": key}
+        if download_filename:
+            # RFC 5987 编码文件名,兼容中文/特殊字符
+            params["ResponseContentDisposition"] = (
+                f"attachment; filename*=UTF-8''{quote(download_filename)}"
+            )
+        async with self._get_client() as client:
+            url = client.generate_presigned_url(
+                "get_object", Params=params, ExpiresIn=expires
+            )
+            if inspect.iscoroutine(url):
+                url = await url
+            return url

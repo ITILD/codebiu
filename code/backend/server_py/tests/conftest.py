@@ -14,6 +14,8 @@
 
 import logging
 import sys
+import time
+import uuid
 
 from httpx import ASGITransport, AsyncClient
 import pytest_asyncio
@@ -77,6 +79,29 @@ async def admin_token() -> str:
 async def admin_headers(admin_token: str) -> dict:
     """带管理员 Bearer 鉴权头的请求头"""
     return {"Authorization": f"Bearer {admin_token}"}
+
+
+@pytest_asyncio.fixture(scope="session")
+async def normal_user() -> dict:
+    """注册一个普通(非管理员)用户, 返回 {username, headers}(测权限收紧/脱敏场景)"""
+    suffix = f"{int(time.time() * 1000)}_{uuid.uuid4().hex[:6]}"
+    username = f"u_{suffix}"
+    password = "Test123456"
+    async with _make_client() as ac:
+        resp = await ac.post(
+            "/authorization/auth/register",
+            json={"username": username, "password": password, "nickname": "测试普通用户"},
+        )
+    assert resp.status_code == 200, f"普通用户注册失败: {resp.status_code} {resp.text}"
+    token = resp.json()["tokens"]["access"]["token"]
+    return {"username": username, "headers": {"Authorization": f"Bearer {token}"}}
+
+
+@pytest_asyncio.fixture
+async def user_client(normal_user: dict) -> AsyncClient:
+    """带普通用户鉴权的异步测试客户端(非管理员, 每用例独立实例)"""
+    async with _make_client(normal_user["headers"]) as ac:
+        yield ac
 
 
 @pytest_asyncio.fixture

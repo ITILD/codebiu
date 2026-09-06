@@ -30,7 +30,7 @@ app = Celery(
     broker=BROKER_URL,
     backend=RESULT_BACKEND,
     # 导入各模块注册的任务(按需追加)
-    include=["module_task.tasks.demo"],
+    include=["module_task.tasks.demo", "module_rag.tasks.project_document", "module_rag.tasks.project_document_chunk"],
 )
 
 # 序列化与结果过期配置

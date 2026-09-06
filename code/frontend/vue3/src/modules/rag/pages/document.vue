@@ -38,8 +38,9 @@
           <el-tag size="small" type="info">{{ (row.file_extension || '').toUpperCase() }}</el-tag>
         </template>
       </el-table-column>
-      <!-- 解析状态: pending/parsing/completed/failed, 完成显示分块数, 失败悬浮原因 -->
-      <el-table-column label="解析状态" width="130" align="center">
+      <!-- 解析状态: pending/parsing/completed/failed, 完成显示分块数, 失败悬浮原因;
+           解析中/待解析时展示入库步骤进度(解析→拆分chunk→向量化) -->
+      <el-table-column label="解析状态" width="150" align="center">
         <template #default="{ row }">
           <el-tooltip
             v-if="row.parse_status === ParseStatus.FAILED && row.error_message"
@@ -49,15 +50,25 @@
               {{ parseStatusOptions[row.parse_status]?.label ?? row.parse_status }}
             </el-tag>
           </el-tooltip>
-          <el-tag v-else size="small" :type="parseStatusOptions[row.parse_status]?.tag ?? 'info'">
-            <el-icon v-if="row.parse_status === ParseStatus.PARSING" class="is-loading" :size="12" mr-0.5>
-              <Loading />
-            </el-icon>
-            {{ parseStatusOptions[row.parse_status]?.label ?? row.parse_status }}
-            <span v-if="row.parse_status === ParseStatus.COMPLETED && row.chunk_count">
-              ({{ row.chunk_count }}块)
-            </span>
-          </el-tag>
+          <div v-else flex flex-col items-center gap-1>
+            <el-tag size="small" :type="parseStatusOptions[row.parse_status]?.tag ?? 'info'">
+              <el-icon v-if="row.parse_status === ParseStatus.PARSING" class="is-loading" :size="12" mr-0.5>
+                <Loading />
+              </el-icon>
+              {{ parseStatusOptions[row.parse_status]?.label ?? row.parse_status }}
+              <span v-if="row.parse_status === ParseStatus.COMPLETED && row.chunk_count">
+                ({{ row.chunk_count }}块)
+              </span>
+            </el-tag>
+            <!-- 入库步骤进度(待解析/解析中实时展示) -->
+            <template v-if="row.parse_status !== ParseStatus.COMPLETED && ingestProgressMap[row.id]">
+              <el-progress
+                :percentage="Math.round(ingestProgressMap[row.id]!.progress)"
+                :stroke-width="6" :show-text="false" w-full
+              />
+              <span text-2xs text-note-sub>{{ progressHint(ingestProgressMap[row.id]!) }}</span>
+            </template>
+          </div>
         </template>
       </el-table-column>
       <el-table-column label="大小" width="100" align="center">
@@ -87,7 +98,7 @@
     </el-table>
 
     <!-- 空状态提示 -->
-    <div v-if="!loading && documents.length === 0" py-16 flex flex-col items-center text-gray-4>
+    <div v-if="!loading && documents.length === 0" py-16 flex flex-col items-center text-note-sub>
       <el-icon text-5xl mb-3><FolderOpened /></el-icon>
       <p m-0 v-if="projectId">暂无文档，点击右上角"上传文档"开始</p>
       <p m-0 v-else>缺少项目参数，请从知识库页面进入</p>
@@ -126,13 +137,14 @@ import {
   uploadRagDocument,
   listRagProjectDocuments,
   getRagDocumentDownloadUrl,
+  getRagDocumentIngestProgress,
   updateRagDocument,
   deleteRagDocument,
   reparseRagDocument,
 } from '../api/document'
 import { listRagProjects } from '../api/project'
-import { ParseStatus, parseStatusOptions } from '../types'
-import type { ProjectDocument } from '../types'
+import { ParseStatus, IngestStepState, parseStatusOptions } from '../types'
+import type { ProjectDocument, DocumentIngestProgress } from '../types'
 import TableSearchBar, { type SearchField } from '@/common/components/TableSearchBar.vue'
 import type { PaginationParams } from '@/common/types/common'
 import { SysSettingStore } from '@/common/stores/sys'
@@ -189,11 +201,11 @@ const rules = {
 // 文件图标按扩展名着色
 const fileIconClass = (ext: string) => {
   const e = ext.toLowerCase()
-  if (['pdf'].includes(e)) return 'text-red-5'
-  if (['doc', 'docx'].includes(e)) return 'text-blue-5'
-  if (['xls', 'xlsx', 'csv'].includes(e)) return 'text-green-5'
-  if (['ppt', 'pptx'].includes(e)) return 'text-orange-5'
-  return 'text-gray-5'
+  if (['pdf'].includes(e)) return 'text-red-500'
+  if (['doc', 'docx'].includes(e)) return 'text-blue-500'
+  if (['xls', 'xlsx', 'csv'].includes(e)) return 'text-green-500'
+  if (['ppt', 'pptx'].includes(e)) return 'text-orange-500'
+  return 'text-note-sub'
 }
 
 // 文件大小格式化
@@ -233,12 +245,46 @@ const fetchData = async (silent = false) => {
     })
     documents.value = res.items
     total.value = res.total
+    // 拉取待解析/解析中文档的入库步骤进度(与列表同频刷新)
+    await fetchIngestProgress()
   } catch (error) {
     console.error('获取文档列表失败:', error)
     if (!silent) ElMessage.error('获取文档列表失败')
   } finally {
     if (!silent) loading.value = false
   }
+}
+
+// 入库步骤进度缓存(仅待解析/解析中的文档, 键为文档ID)
+const ingestProgressMap = ref<Record<string, DocumentIngestProgress>>({})
+
+/** 拉取活跃文档的入库步骤进度(单个失败静默, 不影响列表展示) */
+const fetchIngestProgress = async () => {
+  const activeIds = documents.value
+    .filter((d) => d.parse_status === ParseStatus.PENDING || d.parse_status === ParseStatus.PARSING)
+    .map((d) => d.id)
+  // 清理已完成/已删除文档的进度缓存
+  for (const key of Object.keys(ingestProgressMap.value)) {
+    if (!activeIds.includes(key)) delete ingestProgressMap.value[key]
+  }
+  await Promise.all(
+    activeIds.map(async (id) => {
+      try {
+        ingestProgressMap.value[id] = await getRagDocumentIngestProgress(id)
+      } catch {
+        // 进度获取失败不影响列表
+      }
+    })
+  )
+}
+
+/** 进度提示文案: 优先当前执行中步骤的描述, 否则取最近的阶段描述 */
+const progressHint = (p: DocumentIngestProgress) => {
+  const running = p.steps.find((s) => s.status === IngestStepState.RUNNING)
+  if (running?.message) return running.message
+  if (p.parse_status === ParseStatus.PENDING) return '等待调度'
+  const last = [...p.steps].reverse().find((s) => s.enabled && s.message)
+  return last?.message ?? ''
 }
 
 /** 搜索/重置: 回到第一页后重新查询 */

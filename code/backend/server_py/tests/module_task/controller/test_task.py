@@ -1,12 +1,15 @@
 # -*- coding: utf-8 -*-
 """module_task 任务队列接口标准测试
-覆盖: 创建/详情/分页列表(含状态过滤)/统计/注册表/取消/同步/重试/删除/参数校验/404
+覆盖: 创建/详情/分页列表(含状态过滤)/统计/注册表/取消/同步/重试/删除/参数校验/404/
+      纯任务管理契约(响应不携带业务信息)
 
 约定:
 - 不依赖 Celery worker 是否运行: 创建后任务可能停留 pending, 也可能被(共享 broker 上的)
   worker 立即取走转 running, 断言不等待 success、不针对瞬时活跃状态做过滤断言;
   排队中任务的取消正是本模块核心用途
 - 每个用例内完成 创建→验证→取消/删除→清理, try/finally 保证不残留数据, 不依赖执行顺序
+- module_task 是纯任务管理模块: 响应只含执行情况(状态/进度/阶段/失败原因/时间线),
+  不透出业务参数(payload)与业务结果(result)
 """
 
 import time
@@ -61,16 +64,18 @@ async def test_task_full_lifecycle(client: httpx.AsyncClient):
     data = _make_task_data(suffix)
     task_id = await _create_task(client, data)
     try:
-        # 1. 详情: 字段应与创建数据一致, 初始为活跃态(无 worker 时停留 pending)
+        # 1. 详情: 执行字段与创建数据一致, 初始为活跃态(无 worker 时停留 pending);
+        #    纯任务管理: 详情不应携带业务参数/结果
         resp = await client.get(f"{BASE}/{task_id}")
         assert resp.status_code == 200, resp.text
         detail = resp.json()
         assert detail["id"] == task_id
         assert detail["name"] == data["name"]
         assert detail["task_type"] == TASK_TYPE
-        assert detail["payload"] == data["payload"]
         assert detail["status"] in ("pending", "running"), f"初始应为活跃态: {detail}"
         assert detail["progress"] == 0
+        assert "payload" not in detail, "任务详情不应携带业务参数 payload"
+        assert "result" not in detail, "任务详情不应携带业务结果 result"
 
         # 2. 列表: keyword 唯一后缀精确命中本次任务
         resp = await client.get(
@@ -211,6 +216,39 @@ async def test_task_list_structure(client: httpx.AsyncClient):
     assert page["page"] == 1 and page["size"] == 5
     if page["items"]:
         assert "celery_state" in page["items"][0], "列表项应含 Celery 状态对照字段"
+
+
+async def test_task_response_pure_management(client: httpx.AsyncClient):
+    """纯任务管理契约: 详情/列表响应不含业务信息(payload/result), 只保留执行情况字段
+
+    module_task 是通用任务管理模块, 展示所有任务的完成情况即可;
+    业务参数/结果留在 task_queue 表内由业务模块(worker)自用, 不对外透出。
+    """
+    suffix = _suffix()
+    task_id = await _create_task(client, _make_task_data(suffix))
+    try:
+        # 详情: 不含业务字段, 执行情况字段齐全
+        resp = await client.get(f"{BASE}/{task_id}")
+        assert resp.status_code == 200, resp.text
+        detail = resp.json()
+        for forbidden in ("payload", "result"):
+            assert forbidden not in detail, f"详情响应不应包含业务字段 {forbidden}: {detail.keys()}"
+        for expected in ("status", "progress", "message", "error",
+                         "started_at", "finished_at", "celery_state"):
+            assert expected in detail, f"详情响应缺少执行情况字段 {expected}"
+
+        # 列表项同样不含业务字段
+        resp = await client.get(
+            f"{BASE}/list", params={"page": 1, "size": 10, "keyword": suffix}
+        )
+        assert resp.status_code == 200, resp.text
+        items = resp.json()["items"]
+        assert items, "keyword 过滤应命中本次任务"
+        for item in items:
+            assert "payload" not in item, "列表项不应携带业务参数 payload"
+            assert "result" not in item, "列表项不应携带业务结果 result"
+    finally:
+        await _cleanup_task(client, task_id)
 
 
 async def test_task_create_invalid_type(client: httpx.AsyncClient):

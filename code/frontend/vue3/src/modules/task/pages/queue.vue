@@ -199,22 +199,6 @@
             从 Celery 同步状态
           </el-button>
         </div>
-
-        <!-- 参数 / 结果 JSON -->
-        <div mt-3 flex flex-col gap-2>
-          <div text-sm text-note>任务参数</div>
-          <pre
-            max-h-48 overflow-auto rounded-md p-2 text-xs font-mono leading-5
-            bg-note-tint border border-note
-          >{{ pretty(detailTask.payload) }}</pre>
-          <template v-if="detailTask.result">
-            <div text-sm text-note>执行结果</div>
-            <pre
-              max-h-48 overflow-auto rounded-md p-2 text-xs font-mono leading-5
-              bg-note-tint border border-note
-            >{{ pretty(detailTask.result) }}</pre>
-          </template>
-        </div>
       </template>
     </el-drawer>
   </div>
@@ -484,9 +468,6 @@ const formatTime = (value: string | null | undefined, withDate = false) => {
     : { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }
   return new Date(value).toLocaleString('zh-CN', opt)
 }
-
-/** JSON 美化(详情展示用) */
-const pretty = (value: unknown) => JSON.stringify(value, null, 2)
 
 // ################ 详情抽屉 ################
 const detailVisible = ref(false)

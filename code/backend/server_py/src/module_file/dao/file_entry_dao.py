@@ -1,11 +1,7 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
 from common.config.db import DaoRel
 from sqlmodel import select, func, update, delete, text
-from common.utils.db.schema.pagination import (
-    InfiniteScrollParams,
-    PaginationParams,
-    ScrollDirection,
-)
+from common.utils.db.schema.pagination import PaginationParams
 from module_file.do.filesystem import (
     FileEntry,
     FileEntryCreate,
@@ -93,20 +89,6 @@ class FileEntryDao:
         :return: 文件对象，未找到返回None
         """
         return await session.get(FileEntry, id)
-
-    @DaoRel
-    async def list_paged(
-        self, pagination: PaginationParams, session: AsyncSession | None = None
-    ) -> list:
-        """
-        分页查询文件列表
-        :param pagination: 分页参数
-        :param session: 可选数据库会话
-        :return: 文件列表
-        """
-        statement = select(FileEntry).offset(pagination.offset).limit(pagination.limit)
-        result = await session.exec(statement)
-        return result.all()
 
     @DaoRel
     async def list_by_pid(
@@ -256,47 +238,6 @@ class FileEntryDao:
         session.add_all(rows)
         await session.flush()
         return len(rows)
-
-    @DaoRel
-    async def get_scroll(
-        self, params: InfiniteScrollParams, session: AsyncSession | None = None
-    ) -> list:
-        """
-        滚动加载文件列表
-        :param params: 滚动参数
-        :param session: 可选数据库会话
-        :return: 文件列表
-        """
-        statement = select(FileEntry)
-        # 设置默认排序字段为 created_at
-        sort_by = params.sort_by if params.sort_by else "created_at"
-        # 根据游标
-        if params.last_id:
-            last_file = await session.get(FileEntry, params.last_id)
-            if not last_file:
-                raise ValueError(f"未找到ID为 {params.last_id} 的文件")
-
-            # 获取排序字段的值
-            sort_value = getattr(last_file, sort_by)
-            search_value = getattr(FileEntry, sort_by)
-            condition = None
-            if params.direction == ScrollDirection.UP:
-                condition = search_value > sort_value
-            else:
-                condition = search_value < sort_value
-            statement = statement.where(condition)
-        # 正反排序
-        order = None
-        if params.direction == ScrollDirection.UP:
-            # 升序：从小到大，从早到晚
-            order = getattr(FileEntry, sort_by).asc()
-        else:
-            order = getattr(FileEntry, sort_by).desc()
-        statement = statement.order_by(order)
-        # 限制结果数量  实际查询 limit + 1 条
-        statement = statement.limit(params.limit + 1)
-        result = await session.exec(statement)
-        return result.all()
 
     @DaoRel
     async def count(self, session: AsyncSession | None = None) -> int:

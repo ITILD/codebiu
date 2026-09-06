@@ -94,30 +94,63 @@ class UserModelService:
         # 重新查询以确保返回数据库生成的字段(id/created_at/updated_at)
         return await self.user_model_dao.get_by_user(user_id)
 
+    async def _get_fallback_model_id(self, model_type: ModelType) -> str | None:
+        """
+        获取回退使用的默认公共模型ID(用户未绑定或绑定失效时使用)
+        :param model_type: 模型类型
+        :return: 生效的默认公共模型ID, 未找到返回None
+        """
+        try:
+            fallback = await self.llm_base_service.model_config_service.model_config_dao.get_default_by_type(
+                model_type.value, active_only=True
+            )
+            if fallback is not None:
+                logger.info(
+                    f"用户未绑定/绑定失效 {model_type.value} 模型, 回退使用默认公共模型: "
+                    f"{fallback.display_name or fallback.model}"
+                )
+                return fallback.id
+        except Exception as e:
+            logger.warning(f"获取默认公共模型回退失败[{model_type.value}]: {e}")
+        return None
+
     async def get_llm_by_user_id(
         self, user_id: str, streaming: bool = True, model_type: ModelType = ModelType.CHAT
     ) -> BaseChatModel | None:
-        """根据用户ID获取用户绑定的模型(使用前校验归属/共享权限)"""
+        """根据用户ID获取用户绑定的模型(使用前校验归属/共享权限);
+        未绑定或绑定失效时回退到系统默认公共模型(启动 seed 配置)"""
+        # 解析用户绑定的模型ID
+        model_id: str | None = None
         try:
             binding = await self.get_by_user(user_id)
-            model_id: str | None = None
-            match model_type:
-                case ModelType.CHAT:
-                    model_id = binding.chat_model_id
-                case ModelType.EMBEDDINGS:
-                    model_id = binding.embedding_model_id
-                case ModelType.RERANK:
-                    model_id = binding.rerank_model_id
+            if binding is not None:
+                match model_type:
+                    case ModelType.CHAT:
+                        model_id = binding.chat_model_id
+                    case ModelType.EMBEDDINGS:
+                        model_id = binding.embedding_model_id
+                    case ModelType.RERANK:
+                        model_id = binding.rerank_model_id
             # 使用时兜底校验(绑定后配置被转手/取消共享的场景)
             await self._validate_model_access(model_id, user_id)
+        except ValueError as e:
+            logger.warning(f"用户 {user_id} 模型绑定校验失败, 尝试默认公共模型回退: {e}")
+            model_id = None
+        except Exception as e:
+            logger.warning(f"获取用户绑定模型失败, 尝试默认公共模型回退: {e}")
+            model_id = None
+        # 未绑定/校验失败: 回退默认公共模型
+        if not model_id:
+            model_id = await self._get_fallback_model_id(model_type)
+        if not model_id:
+            logger.warning(f"用户 {user_id} 无可用 {model_type.value} 模型(未绑定且无生效的默认公共模型)")
+            return None
+        try:
             match model_type:
                 case ModelType.CHAT:
                     return await self.llm_base_service.get_llm(model_id, streaming=streaming)
                 case _:
                     return await self.llm_base_service.get_llm(model_id, False)
-        except ValueError as e:
-            logger.error(f"用户 {user_id} 模型使用校验失败: {e}")
-            return None
         except Exception as e:
-            logger.error(f"获取用户绑定对话模型失败: {e}")
+            logger.error(f"获取模型实例失败 model_id={model_id}: {e}")
             return None

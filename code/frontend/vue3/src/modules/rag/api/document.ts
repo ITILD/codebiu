@@ -2,7 +2,7 @@
 // 知识库项目文档 API
 import { http_base_server } from '@/common/api/http';
 import type { PaginationParams, PaginationResponse } from '@/common/types/common';
-import type { ProjectDocument, ProjectDocumentUpdate, SupportedFileTypes } from '../types';
+import type { ProjectDocument, ProjectDocumentUpdate, SupportedFileTypes, DocumentIngestProgress } from '../types';
 
 /**
  * 上传文档到指定项目
@@ -54,6 +54,16 @@ export const listRagProjectDocuments = (
 export const getRagDocument = (documentId: string) => {
   return http_base_server.get<ProjectDocument>(
     `/rag/project-documents/${documentId}`
+  );
+};
+
+/**
+ * 获取文档入库步骤与进度(解析→拆分chunk→向量化, 含预留步骤占位)
+ * @param documentId 文档ID
+ */
+export const getRagDocumentIngestProgress = (documentId: string) => {
+  return http_base_server.get<DocumentIngestProgress>(
+    `/rag/project-documents/${documentId}/progress`
   );
 };
 

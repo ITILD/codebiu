@@ -32,7 +32,7 @@
                 <el-avatar :size="32" :icon="UserFilled" />
                 <div>
                   <div>{{ userLabel(row.user_id) }}</div>
-                  <div text-xs text-gray-4>{{ row.user_id }}</div>
+                  <div text-xs text-note-sub>{{ row.user_id }}</div>
                 </div>
               </div>
             </template>
@@ -58,7 +58,7 @@
         </el-table>
 
         <!-- 空状态提示 -->
-        <div v-if="!loading && members.length === 0" py-16 flex flex-col items-center text-gray-4>
+        <div v-if="!loading && members.length === 0" py-16 flex flex-col items-center text-note-sub>
           <el-icon text-5xl mb-3><UserFilled /></el-icon>
           <p m-0 v-if="projectId">暂无成员，点击右上角"添加成员"开始</p>
           <p m-0 v-else>缺少项目参数，请从知识库页面进入</p>
@@ -96,7 +96,7 @@
                 <el-avatar :size="32" :icon="OfficeBuilding" />
                 <div>
                   <div>{{ deptLabel(row.dept_id) }}</div>
-                  <div text-xs text-gray-4>含子部门</div>
+                  <div text-xs text-note-sub>含子部门</div>
                 </div>
               </div>
             </template>
@@ -143,7 +143,7 @@
               :value="u.id">
               <div flex items-center justify-between>
                 <span>{{ u.nickname || u.username }}</span>
-                <span text-xs text-gray-4>{{ u.username }}</span>
+                <span text-xs text-note-sub>{{ u.username }}</span>
               </div>
             </el-option>
           </el-select>

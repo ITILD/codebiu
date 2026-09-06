@@ -13,7 +13,7 @@ from module_authorization.dependencies.auth import (
     get_current_user_id
 )
 from module_authorization.do.user import UserCreate,User
-from module_authorization.do.auth import AuthResponse,AuthLogoutRequest
+from module_authorization.do.auth import AuthResponse,AuthLogoutRequest,SelfProfileUpdate,PasswordChange
 
 # 创建路由器
 router = APIRouter()
@@ -28,6 +28,38 @@ async def get_me(current_user: User = Depends(get_current_user)):
 async def get_me_id(current_user_id: str = Depends(get_current_user_id)):
     """根据访问令牌返回当前登录用户的ID(轻量级身份校验)"""
     return current_user_id
+
+
+@router.put("/me", summary="自助更新个人资料")
+async def update_my_profile(
+    profile: SelfProfileUpdate,
+    current_user: User = Depends(get_current_user),
+    auth_service: AuthService = Depends(get_auth_service),
+):
+    """当前登录用户修改自己的昵称/邮箱/电话/头像(无需管理员权限)"""
+    try:
+        return await auth_service.update_my_profile(current_user.id, profile)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.put(
+    "/me/password", summary="自助修改密码", status_code=status.HTTP_204_NO_CONTENT
+)
+async def change_my_password(
+    password_change: PasswordChange,
+    current_user: User = Depends(get_current_user),
+    auth_service: AuthService = Depends(get_auth_service),
+):
+    """当前登录用户修改自己的密码(需验证旧密码,成功后返回204)"""
+    try:
+        await auth_service.change_my_password(
+            current_user.id,
+            password_change.old_password,
+            password_change.new_password,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 @router.get("/me-permissions", summary="获取当前用户的角色与权限码")
 async def get_my_permissions(

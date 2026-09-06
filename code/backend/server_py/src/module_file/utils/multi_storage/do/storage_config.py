@@ -11,13 +11,6 @@ class StorageType(StrEnum):
     # ALIYUN_OSS = "aliyun_oss"
 
 
-# 枚举预签名类型
-class PresignedType(StrEnum):
-    PUT = "put"
-    GET = "get"
-    DELETE = "delete"
-
-
 _STORAGE_REGISTRY: dict[str, type["StorageConfig"]] = {}
 
 
@@ -62,9 +55,6 @@ class StorageConfig(BaseModel):
 
 class LocalStorage(StorageConfig, config_type=StorageType.LOCAL):
     base_dir: str | None = Field(None, description="本地存储根目录路径")
-    secret_key: str = Field(
-        "12345678", description="本地加密密钥，默认值为，默认12345678"
-    )
 
 
 class S3Storage(StorageConfig, config_type=StorageType.S3):
@@ -90,40 +80,3 @@ class StorageConfigFactory:
         if not cls:
             raise ValueError(f"Unknown storage config type: {config_type}")
         return cls.model_validate(config)  # 自动验证 + 实例化
-
-
-#  预签名相关配置
-class GeneratePresignedUrlRequestBase(BaseModel):
-    """
-    生成预签名URL的请求模型
-    """
-
-    filename: str = Field(..., description="文件名")
-    content_type: str = Field(..., description="文件MIME类型")
-    # 大小和md5 综合重复校验
-    file_size_bytes: int = Field(
-        ..., description="Byte 文件字节大小，用于校验文件大小和是否重复上传"
-    )
-    content_hash: str | None = Field(
-        None, description="文件hash校验值，用于校验文件是否重复上传"
-    )
-
-
-class GeneratePresignedResponseBase(BaseModel):
-    presigned_url: str | None = Field(None, description="预签名URL")
-
-
-class GeneratePresignedUploadResponseBase(GeneratePresignedResponseBase):
-    """
-    生成预签名上传的响应模型
-    """
-
-    # 已存在
-    is_existing_file: bool = Field(False, description="是否已存在文件")
-
-
-# 构造的url组成
-class PresignedParamsBase(BaseModel):
-    expires: int = Field(...)
-    method: str = Field(...)
-    signature: str = Field(..., min_length=1,description="防伪签名")

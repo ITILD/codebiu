@@ -1,9 +1,7 @@
 # src/models/schemas.py
 from enum import Enum
-from typing import  Optional, Dict, Any, Literal
+from typing import Any, Literal
 from pydantic import BaseModel, Field
-from annotated_types import MaxLen
-from typing import Annotated
 
 
 class ProcessingStatus(str, Enum):
@@ -82,7 +80,7 @@ class FileType(str, Enum):
 class ContentBlock(BaseModel):
     block_type: Literal["text", "heading", "table", "image", "audio", "video"]
     content: str = Field(..., description="核心内容：文本/表格Markdown，图片则为Base64编码")
-    metadata: Dict[str, Any] = Field(
+    metadata: dict[str, Any] = Field(
         default_factory=dict, description="附加信息，如图片路径(path)、表格行列数等"
     )
 
@@ -94,7 +92,7 @@ class TextExtractionResult(BaseModel):
     status: ProcessingStatus
     blocks: list[ContentBlock] = Field(default_factory=list, description="解析出的内容块列表")
     error_message: str | None = None
-    processing_time: Optional[float] = None
+    processing_time: float | None = None
 
 
 class ImageExtractionResult(BaseModel):
@@ -119,8 +117,8 @@ class FileProcessingResult(BaseModel):
     file_type: str
     file_size: int
     text_result: TextExtractionResult | None = Field(default=None, description="文本提取结果")
-    image_result: Optional[ImageExtractionResult] = None
-    av_result: Optional[AudioVideoResult] = None
+    image_result: ImageExtractionResult | None = None
+    av_result: AudioVideoResult | None = None
     overall_status: ProcessingStatus = ProcessingStatus.PENDING
 
 
@@ -136,7 +134,7 @@ class TextChunk(BaseModel):
 
     chunk_id: str = Field(..., description="分块唯一标识，格式：文件名_block索引_chunk序号")
     content: str = Field(..., description="分块文本内容")
-    metadata: Dict[str, Any] = Field(
+    metadata: dict[str, Any] = Field(
         default_factory=dict, description="来源文件、页码、块类型等元数据"
     )
     # 可选：直接携带向量化所需信息
@@ -168,4 +166,4 @@ class MilvusRecord(BaseModel):
     chunk_id: str
     content: str
     embedding: list[float]
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]

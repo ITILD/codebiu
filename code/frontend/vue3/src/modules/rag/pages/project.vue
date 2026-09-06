@@ -21,7 +21,7 @@
         <!-- 标题行 -->
         <div flex items-center justify-between gap-2>
           <div flex items-center gap-2 min-w-0>
-            <el-icon text-xl text-blue-5><Collection /></el-icon>
+            <el-icon text-xl text-note-green><Collection /></el-icon>
             <span font-bold truncate :title="item.name">{{ item.name }}</span>
           </div>
           <el-tag size="small" :type="categoryTagType(item.kb_category)">
@@ -29,11 +29,11 @@
           </el-tag>
         </div>
         <!-- 描述 -->
-        <p text-sm text-gray-5 h-10 m-0 line-clamp-2 :title="item.description ?? undefined">
+        <p text-sm text-note-sub h-10 m-0 line-clamp-2 :title="item.description ?? undefined">
           {{ item.description || '暂无描述' }}
         </p>
         <!-- 元信息 -->
-        <div flex items-center gap-3 text-xs text-gray-4>
+        <div flex items-center gap-3 text-xs text-note-sub>
           <span flex items-center gap-1>
             <el-icon><Lock v-if="item.is_private" /><Unlock v-else /></el-icon>
             {{ item.is_private ? '私有' : '公开' }}
@@ -63,7 +63,7 @@
       </div>
       <!-- 空状态 -->
       <div v-if="!loading && projects.length === 0" col-span-full py-16 flex flex-col items-center
-        text-gray-4>
+        text-note-sub>
         <el-icon text-5xl mb-3><FolderOpened /></el-icon>
         <p m-0>暂无知识库，点击右上角"新建知识库"开始</p>
       </div>
