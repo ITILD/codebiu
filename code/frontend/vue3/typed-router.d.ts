@@ -35,7 +35,6 @@ declare module 'vue-router/auto-routes' {
     '/file/': RouteRecordInfo<'/file/', '/file', Record<never, never>, Record<never, never>>,
     '/geometry/earth': RouteRecordInfo<'/geometry/earth', '/geometry/earth', Record<never, never>, Record<never, never>>,
     '/life/baby_name': RouteRecordInfo<'/life/baby_name', '/life/baby_name', Record<never, never>, Record<never, never>>,
-    '/little_utils/todolist': RouteRecordInfo<'/little_utils/todolist', '/little_utils/todolist', Record<never, never>, Record<never, never>>,
     '/main/dict': RouteRecordInfo<'/main/dict', '/main/dict', Record<never, never>, Record<never, never>>,
     '/main/overview': RouteRecordInfo<'/main/overview', '/main/overview', Record<never, never>, Record<never, never>>,
     '/monitor/server_status': RouteRecordInfo<'/monitor/server_status', '/monitor/server_status', Record<never, never>, Record<never, never>>,
@@ -45,6 +44,8 @@ declare module 'vue-router/auto-routes' {
     '/rag/member': RouteRecordInfo<'/rag/member', '/rag/member', Record<never, never>, Record<never, never>>,
     '/rag/project': RouteRecordInfo<'/rag/project', '/rag/project', Record<never, never>, Record<never, never>>,
     '/setting': RouteRecordInfo<'/setting', '/setting', Record<never, never>, Record<never, never>>,
+    '/site/': RouteRecordInfo<'/site/', '/site', Record<never, never>, Record<never, never>>,
+    '/site/blog_view': RouteRecordInfo<'/site/blog_view', '/site/blog_view', Record<never, never>, Record<never, never>>,
     '/task/queue': RouteRecordInfo<'/task/queue', '/task/queue', Record<never, never>, Record<never, never>>,
     '/template/babylon': RouteRecordInfo<'/template/babylon', '/template/babylon', Record<never, never>, Record<never, never>>,
     '/template/container': RouteRecordInfo<'/template/container', '/template/container', Record<never, never>, Record<never, never>>,
@@ -137,10 +138,6 @@ declare module 'vue-router/auto-routes' {
       routes: '/life/baby_name'
       views: never
     }
-    'src/modules/little_utils/pages/todolist.vue': {
-      routes: '/little_utils/todolist'
-      views: never
-    }
     'src/modules/main/pages/dict.vue': {
       routes: '/main/dict'
       views: never
@@ -175,6 +172,14 @@ declare module 'vue-router/auto-routes' {
     }
     'src/pages/setting.vue': {
       routes: '/setting'
+      views: never
+    }
+    'src/modules/site/pages/index.vue': {
+      routes: '/site/'
+      views: never
+    }
+    'src/modules/site/pages/blog_view.vue': {
+      routes: '/site/blog_view'
       views: never
     }
     'src/modules/task/pages/queue.vue': {

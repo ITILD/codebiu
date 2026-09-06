@@ -180,7 +180,7 @@ const SHORTCUT_PATHS = [
   '/rag/project',
   '/ai/chat',
   '/file',
-  '/little_utils/todolist',
+  '/site',
   '/monitor/server_status',
 ] as const
 

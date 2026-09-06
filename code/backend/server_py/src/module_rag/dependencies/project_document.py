@@ -8,6 +8,7 @@ from module_ai.dependencies.model_config import get_model_config_service
 from module_office.dependencies.document_parse import get_document_parse_service
 from module_office.dependencies.document_chunk import get_document_chunk_service
 from module_rag.dependencies.project_document_chunk import get_project_document_chunk_service
+from module_file.dependencies.filesystem import get_file_service
 async def get_project_document_dao():
     """DAO工厂"""
     return ProjectDocumentDao()
@@ -22,6 +23,7 @@ async def get_project_document_service(
     document_parse_service=Depends(get_document_parse_service),
     document_chunk_service=Depends(get_document_chunk_service),
     project_document_chunk_service=Depends(get_project_document_chunk_service),
+    file_service=Depends(get_file_service),
 ):
     """Service工厂"""
     return ProjectDocumentService(
@@ -32,5 +34,6 @@ async def get_project_document_service(
         model_config_service,
         document_parse_service,
         document_chunk_service,
-        project_document_chunk_service
+        project_document_chunk_service,
+        file_service
     )

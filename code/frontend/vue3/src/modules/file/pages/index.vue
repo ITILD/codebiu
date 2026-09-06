@@ -47,6 +47,10 @@
             </el-icon>
             <span>{{ row.name }}</span>
             <el-tag v-if="row.is_directory" size="small" type="warning" effect="plain">目录</el-tag>
+            <!-- 来源模块标记: 业务条目(rag/avatar等)在虚拟树中独立成模块大文件夹 -->
+            <el-tag v-if="sourceLabel(row)" size="small" type="success" effect="plain">
+              {{ sourceLabel(row) }}
+            </el-tag>
           </div>
         </template>
       </el-table-column>
@@ -72,15 +76,22 @@
           {{ formatDate(row.updated_at) }}
         </template>
       </el-table-column>
-      <!-- 操作列: 平板及以上固定右侧, 手机取消固定避免遮挡(表格自带横向滚动) -->
+      <!-- 操作列: 平板及以上固定右侧, 手机取消固定避免遮挡(表格自带横向滚动);
+           业务条目(rag/avatar等)只读, 仅保留下载 -->
       <el-table-column label="操作" min-width="270" align="center" :fixed="isMd ? 'right' : false">
         <template #default="{ row }">
-          <el-button v-if="!row.is_directory" size="small" type="primary" plain @click="handleDownload(row)">
+          <template v-if="!isBusinessEntry(row)">
+            <el-button v-if="!row.is_directory" size="small" type="primary" plain @click="handleDownload(row)">
+              下载
+            </el-button>
+            <el-button size="small" type="success" plain @click="handleMove(row)">移动</el-button>
+            <el-button size="small" type="warning" plain @click="handleEdit(row)">编辑</el-button>
+            <el-button size="small" type="danger" plain @click="handleDelete(row)">删除</el-button>
+          </template>
+          <el-button v-else-if="!row.is_directory" size="small" type="primary" plain @click="handleDownload(row)">
             下载
           </el-button>
-          <el-button size="small" type="success" plain @click="handleMove(row)">移动</el-button>
-          <el-button size="small" type="warning" plain @click="handleEdit(row)">编辑</el-button>
-          <el-button size="small" type="danger" plain @click="handleDelete(row)">删除</el-button>
+          <span v-else text-note-sub text-xs>业务模块管理</span>
         </template>
       </el-table-column>
     </el-table>
@@ -246,6 +257,18 @@ const fileIconClass = (ext: string) => {
   if (['zip', 'rar', '7z', 'tar', 'gz'].includes(e)) return 'text-yellow-500'
   return 'text-note-sub'
 }
+
+// 业务来源模块的展示名(NULL/'file' 表示文件管理自有条目)
+const SOURCE_MODULE_LABELS: Record<string, string> = {
+  rag: '知识库',
+  avatar: '用户头像',
+}
+const sourceLabel = (row: FileEntry) =>
+  row.source_module && row.source_module !== 'file'
+    ? SOURCE_MODULE_LABELS[row.source_module] || row.source_module
+    : ''
+// 业务条目只读(移动/编辑/删除入口隐藏, 由对应业务模块管理)
+const isBusinessEntry = (row: FileEntry) => !!sourceLabel(row)
 
 // 文件大小格式化
 const formatSize = (bytes: number) => {

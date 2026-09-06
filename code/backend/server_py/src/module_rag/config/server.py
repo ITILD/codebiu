@@ -36,3 +36,35 @@ async def ensure_project_document_parse_steps():
                      "ADD COLUMN parse_steps JSONB NOT NULL DEFAULT '{}'")
             )
             logger.info("project_document.parse_steps 步骤进度列已补齐")
+        # content_hash: 统一存储口径关联列(旧数据 NULL 走本地路径, 幂等补列)
+        if "content_hash" not in cols:
+            await conn.execute(
+                text("ALTER TABLE project_document "
+                     "ADD COLUMN content_hash VARCHAR(64) DEFAULT NULL")
+            )
+            await conn.execute(
+                text("CREATE INDEX IF NOT EXISTS ix_project_document_content_hash "
+                     "ON project_document (content_hash)")
+            )
+            logger.info("project_document.content_hash 内容哈希列已补齐")
+        # entry_id: 条目级口径关联列(文档位于虚拟目录 /rag/<项目名>/ 下, 旧数据 NULL)
+        if "entry_id" not in cols:
+            await conn.execute(
+                text("ALTER TABLE project_document "
+                     "ADD COLUMN entry_id VARCHAR(50) DEFAULT NULL")
+            )
+            await conn.execute(
+                text("CREATE INDEX IF NOT EXISTS ix_project_document_entry_id "
+                     "ON project_document (entry_id)")
+            )
+            logger.info("project_document.entry_id 条目关联列已补齐")
+        # project.root_entry_id: 项目根文件夹条目ID(惰性补建, 旧项目 NULL)
+        pcols = await conn.run_sync(
+            lambda sc: {c["name"] for c in inspect(sc).get_columns("project")}
+        )
+        if "root_entry_id" not in pcols:
+            await conn.execute(
+                text("ALTER TABLE project "
+                     "ADD COLUMN root_entry_id VARCHAR(50) DEFAULT NULL")
+            )
+            logger.info("project.root_entry_id 项目根目录列已补齐")

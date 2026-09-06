@@ -1,6 +1,10 @@
 from module_file.config.server import module_app
-from module_file.dependencies.filesystem import get_file_service
-from module_file.service.filesystem import FileService
+from module_file.dependencies.filesystem import (
+    get_file_service,
+    get_managed_file_service,
+    get_download_user_id,
+)
+from module_file.service.filesystem import FileService, BusinessEntryError
 from module_file.do.filesystem import (
     FileEntry,
     FileEntryUpdate,
@@ -42,7 +46,7 @@ async def upload_file(
     description: str = None,
     pid: str = None,
     current_user_id: str = Depends(require_permission("main", "file", "create")),
-    service: FileService = Depends(get_file_service),
+    service: FileService = Depends(get_managed_file_service),
 ) -> FileEntry:
     """
     上传文件到指定目录(虚拟文件系统,仅限小文件)
@@ -127,7 +131,7 @@ async def create_folder(
     name: str = Query(..., min_length=1, max_length=255),
     pid: str | None = None,
     current_user_id: str = Depends(require_permission("main", "file", "create")),
-    service: FileService = Depends(get_file_service),
+    service: FileService = Depends(get_managed_file_service),
 ) -> FileEntry:
     """
     在指定目录下创建子目录
@@ -156,7 +160,7 @@ async def update_entry(
     entry_id: str,
     entry_update: FileEntryUpdate,
     current_user_id: str = Depends(require_permission("main", "file", "update")),
-    service: FileService = Depends(get_file_service),
+    service: FileService = Depends(get_managed_file_service),
 ) -> FileEntry:
     """
     更新条目描述/名称(名称变更内部走重命名逻辑,保证路径一致)
@@ -184,7 +188,7 @@ async def rename_entry(
     entry_id: str,
     new_name: str = Query(..., min_length=1, max_length=255),
     current_user_id: str = Depends(require_permission("main", "file", "update")),
-    service: FileService = Depends(get_file_service),
+    service: FileService = Depends(get_managed_file_service),
 ) -> FileEntry:
     """
     重命名文件或目录(目录重命名时同步更新子树逻辑路径)
@@ -212,7 +216,7 @@ async def move_entry(
     entry_id: str,
     target_pid: str | None = Query(None, description="目标父目录ID(为空表示根目录)"),
     current_user_id: str = Depends(require_permission("main", "file", "update")),
-    service: FileService = Depends(get_file_service),
+    service: FileService = Depends(get_managed_file_service),
 ) -> FileEntry:
     """
     移动文件或目录到目标目录(含环形引用与同名冲突防护)
@@ -249,7 +253,7 @@ async def get_upload_mode(
 @router.get("/download/{entry_id}", summary="下载文件(s3直链302/local流式)")
 async def download_file(
     entry_id: str,
-    current_user_id: str = Depends(require_permission("main", "file", "read")),
+    current_user_id: str | None = Depends(get_download_user_id),
     service: FileService = Depends(get_file_service),
 ):
     """
@@ -293,7 +297,7 @@ async def download_file(
 async def init_multipart_upload(
     req: MultipartInitRequest,
     current_user_id: str = Depends(require_permission("main", "file", "create")),
-    service: FileService = Depends(get_file_service),
+    service: FileService = Depends(get_managed_file_service),
 ) -> MultipartInitResponse:
     """
     初始化分片上传会话(前端对 >10MB 文件自动分流调用)
@@ -323,7 +327,7 @@ async def upload_multipart_part(
     part_number: int,
     request: Request,
     current_user_id: str = Depends(require_permission("main", "file", "create")),
-    service: FileService = Depends(get_file_service),
+    service: FileService = Depends(get_managed_file_service),
 ) -> MultipartPartInfo:
     """
     上传单个分片(最后一片可小于标准分片大小)
@@ -385,7 +389,7 @@ async def complete_multipart_upload(
     upload_id: str,
     req: MultipartCompleteRequest,
     current_user_id: str = Depends(require_permission("main", "file", "create")),
-    service: FileService = Depends(get_file_service),
+    service: FileService = Depends(get_managed_file_service),
 ) -> FileEntry:
     """
     通知后端合并分片并创建文件条目(服务端校验内容SHA-256防伪造)
@@ -415,7 +419,7 @@ async def complete_multipart_upload(
 async def abort_multipart_upload(
     upload_id: str,
     current_user_id: str = Depends(require_permission("main", "file", "delete")),
-    service: FileService = Depends(get_file_service),
+    service: FileService = Depends(get_managed_file_service),
 ):
     """
     取消分片上传会话并清理存储侧已上传的分片
@@ -441,7 +445,7 @@ async def abort_multipart_upload(
 async def create_entry(
     req: EntryCreateRequest,
     current_user_id: str = Depends(require_permission("main", "file", "create")),
-    service: FileService = Depends(get_file_service),
+    service: FileService = Depends(get_managed_file_service),
 ) -> FileEntry:
     """
     基于已完成的内容记录创建文件条目(multipart/init 返回 is_existing=True 后调用)
@@ -469,7 +473,7 @@ async def create_entry(
 async def delete_file(
     file_id: str,
     current_user_id: str = Depends(require_permission("main", "file", "delete")),
-    service: FileService = Depends(get_file_service),
+    service: FileService = Depends(get_managed_file_service),
 ):
     """
     删除文件(逻辑删除条目,内容引用计数-1,归零时清理物理文件)
@@ -478,6 +482,8 @@ async def delete_file(
     """
     try:
         await service.delete_file(file_id)
+    except BusinessEntryError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except Exception as e:
@@ -494,7 +500,7 @@ async def delete_file(
 async def delete_folder(
     folder_id: str,
     current_user_id: str = Depends(require_permission("main", "file", "delete")),
-    service: FileService = Depends(get_file_service),
+    service: FileService = Depends(get_managed_file_service),
 ):
     """
     递归删除目录及其全部子项(逻辑删除,内容引用归零时清理物理文件)
@@ -503,6 +509,8 @@ async def delete_folder(
     """
     try:
         await service.delete_folder(folder_id)
+    except BusinessEntryError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except Exception as e:
@@ -609,7 +617,7 @@ async def list_by_path(
 async def mkdir_p(
     path: str = Query(..., min_length=1, max_length=2000, description="目录路径(如 /docs/images,多级一次创建)"),
     current_user_id: str = Depends(require_permission("main", "file", "create")),
-    service: FileService = Depends(get_file_service),
+    service: FileService = Depends(get_managed_file_service),
 ) -> FileEntry:
     """
     递归创建目录层级,中间层已存在则复用
@@ -664,7 +672,7 @@ async def copy_entry(
     entry_id: str = Query(..., description="源条目ID"),
     target_pid: str | None = Query(None, description="目标父目录ID(为空表示根目录)"),
     current_user_id: str = Depends(require_permission("main", "file", "create")),
-    service: FileService = Depends(get_file_service),
+    service: FileService = Depends(get_managed_file_service),
 ) -> FileEntry:
     """
     复制文件或目录到目标目录(内容哈希去重,物理文件不重复占用存储)
@@ -716,7 +724,7 @@ async def get_stats(
 async def migrate_storage(
     req: MigrateRequest,
     current_user_id: str = Depends(require_permission("main", "file", "migrate")),
-    service: FileService = Depends(get_file_service),
+    service: FileService = Depends(get_managed_file_service),
 ) -> dict:
     """
     把源存储的全部物理内容搬运到目标存储(逻辑条目不变,支持断点续迁)

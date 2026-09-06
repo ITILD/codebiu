@@ -114,12 +114,13 @@ class UserModelService:
             logger.warning(f"获取默认公共模型回退失败[{model_type.value}]: {e}")
         return None
 
-    async def get_llm_by_user_id(
-        self, user_id: str, streaming: bool = True, model_type: ModelType = ModelType.CHAT
-    ) -> BaseChatModel | None:
-        """根据用户ID获取用户绑定的模型(使用前校验归属/共享权限);
-        未绑定或绑定失效时回退到系统默认公共模型(启动 seed 配置)"""
-        # 解析用户绑定的模型ID
+    async def resolve_model_id(self, user_id: str, model_type: ModelType) -> str | None:
+        """解析用户可用的模型ID(绑定→归属校验→默认公共模型回退), 不构建实例;
+        供模型存在性预检与实例构建共用
+        :param user_id: 用户ID
+        :param model_type: 模型类型
+        :return: 可用的模型配置ID, 无可用返回None
+        """
         model_id: str | None = None
         try:
             binding = await self.get_by_user(user_id)
@@ -142,6 +143,28 @@ class UserModelService:
         # 未绑定/校验失败: 回退默认公共模型
         if not model_id:
             model_id = await self._get_fallback_model_id(model_type)
+        return model_id
+
+    async def get_missing_model_types(
+        self, user_id: str, model_types: tuple[ModelType, ...] | list[ModelType]
+    ) -> list[ModelType]:
+        """检查用户可用的模型类型清单(任务派发前预检用)
+        :param user_id: 用户ID
+        :param model_types: 需要校验的模型类型列表
+        :return: 缺失(未绑定且无生效默认公共模型)的类型列表
+        """
+        missing: list[ModelType] = []
+        for model_type in model_types:
+            if await self.resolve_model_id(user_id, model_type) is None:
+                missing.append(model_type)
+        return missing
+
+    async def get_llm_by_user_id(
+        self, user_id: str, streaming: bool = True, model_type: ModelType = ModelType.CHAT
+    ) -> BaseChatModel | None:
+        """根据用户ID获取用户绑定的模型(使用前校验归属/共享权限);
+        未绑定或绑定失效时回退到系统默认公共模型(启动 seed 配置)"""
+        model_id = await self.resolve_model_id(user_id, model_type)
         if not model_id:
             logger.warning(f"用户 {user_id} 无可用 {model_type.value} 模型(未绑定且无生效的默认公共模型)")
             return None

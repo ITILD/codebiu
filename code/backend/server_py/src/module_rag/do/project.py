@@ -40,6 +40,12 @@ class Project(ProjectBase, table=True):
         description="唯一标识符",
     )
     created_by: str = Field(..., max_length=50, description="创建者用户ID")
+    root_entry_id: str | None = Field(
+        default=None,
+        max_length=50,
+        index=True,
+        description="项目根文件夹条目ID(虚拟目录 /rag/<项目名>/ 的 file_entry id, 惰性补建)",
+    )
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True)),
@@ -87,5 +93,8 @@ class ProjectResponse(SQLModel):
         description=f"知识库分类({'/'.join(KbCategory.values())})",
     )
     created_by: str = Field(..., description="创建者用户ID")
+    root_entry_id: str | None = Field(
+        default=None, description="项目根文件夹条目ID(虚拟目录 /rag/<项目名>/)"
+    )
     created_at: datetime = Field(..., description="创建时间")
     updated_at: datetime = Field(..., description="最后更新时间")

@@ -4,20 +4,27 @@ import logging
 import shutil
 import tempfile
 from pathlib import Path
-from uuid import uuid4
 
 import aiofiles
-from fastapi import HTTPException, UploadFile
+from fastapi import HTTPException
 from langchain.chat_models import BaseChatModel
 from langchain_openai import OpenAIEmbeddings
 
 from common.config.db import db_vector
 from common.config.path import DIR_UPLOAD
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
-from common.utils.path.dir import Dir
 from module_ai.service.llm_base import LLMBaseService
 from module_ai.service.model_config import ModelConfigService
 from module_ai.utils.llm.do.llm_type import ModelType
+from module_file.do.filesystem import (
+    EntryCreateRequest,
+    FileEntry,
+    FileEntryUpdate,
+    MultipartCompleteRequest,
+    MultipartInitRequest,
+    MultipartInitResponse,
+)
+from module_file.service.filesystem import FileService
 from module_office.service.document_chunk import DocumentChunkService
 from module_office.service.document_parse import DocumentParseService
 from module_office.utils.document_chunk.do.chunk import (
@@ -41,6 +48,7 @@ from module_rag.do.project_document import (
     compute_ingest_progress,
 )
 from module_rag.do.project_document_chunk import ProjectDocumentChunk
+from module_rag.service.project import ensure_project_folder
 from module_rag.service.project_document_chunk import ProjectDocumentChunkService
 from module_rag.service.user_model import UserModelService
 
@@ -49,9 +57,16 @@ logger = logging.getLogger(__name__)
 # 单块读取大小(64KB)
 _CHUNK_SIZE = 1024 * 64
 
+# 解析所需模型类型的中文名(预检告警文案用)
+_MODEL_TYPE_LABELS: dict[ModelType, str] = {
+    ModelType.CHAT: "对话(LLM)",
+    ModelType.EMBEDDINGS: "向量化(Embedding)",
+}
+
 
 class ProjectDocumentService:
-    """项目文档服务：处理文件上传/下载/删除及元数据管理"""
+    """项目文档服务：文件经统一文件存储流程上传(内容哈希去重/分片/预签名直传),
+    project_document 作为知识库独立口径记录; 处理下载/删除/解析及元数据管理"""
     # service 需要对接task任务队列，不要抛http的错
 
     def __init__(
@@ -64,6 +79,7 @@ class ProjectDocumentService:
         document_parse_service: DocumentParseService | None = None,
         document_chunk_service: DocumentChunkService | None = None,
         project_document_chunk_service: ProjectDocumentChunkService | None = None,
+        file_service: FileService | None = None,
     ):
         """依赖注入构造器:初始化所需的数据访问对象"""
         self.document_dao = document_dao or ProjectDocumentDao()
@@ -77,75 +93,310 @@ class ProjectDocumentService:
 
         self.project_document_chunk_service = project_document_chunk_service or ProjectDocumentChunkService()
 
-    async def upload_document(
-        self,
-        project_id: str,
-        file: UploadFile,
-        current_user_id: str,
-        description: str | None = None,
-    ) -> ProjectDocument:
+        # 统一文件存储服务(内容去重/分片会话/预签名/引用计数, 与文件管理共用一套存储)
+        self.file_service = file_service or FileService()
+
+    async def ensure_parse_models(self, user_id: str) -> list[str]:
+        """校验文档解析所需模型(对话+向量化)是否可用(任务派发前预检)
+        :param user_id: 当前用户ID(以其绑定的模型执行)
+        :return: 缺失模型中文名列表(为空表示全部可用)
         """
-        上传文档到项目(保存至 DIR_UPLOAD/{project_id}/{uuid_filename})
-        :param project_id: 项目ID(作为文件夹名)
-        :param file: 上传的文件对象
-        :param current_user_id: 当前登录用户ID
-        :param description: 文档描述
-        :return: 创建的文档记录
+        missing = await self.user_model_service.get_missing_model_types(
+            user_id, (ModelType.CHAT, ModelType.EMBEDDINGS)
+        )
+        return [_MODEL_TYPE_LABELS[t] for t in missing]
+
+    async def validate_upload(self, project_id: str, filename: str) -> str:
+        """上传前置校验(直传/分片/秒传共用): 项目存在 + 文件类型允许
+        :param project_id: 项目ID
+        :param filename: 文件名
+        :return: 小写扩展名(不含点)
+        :raises LookupError: 项目不存在
+        :raises ValueError: 文件名非法/类型不允许
         """
-        # 校验项目存在
         project = await self.project_dao.get(project_id)
         if not project:
             logger.error(f"项目 {project_id} 不存在")
             raise LookupError(f"项目 {project_id} 不存在")
-        ext = Path(file.filename).suffix.lstrip(".").lower() if file.filename else ""
-        # 校验文件名与扩展名
-        if not file.filename:
-            raise LookupError("文件名不能为空")
+        if not filename:
+            raise ValueError("文件名不能为空")
+        ext = Path(filename).suffix.lstrip(".").lower()
         if not DocType.is_allowed_extension(ext):
-            raise LookupError(f"不支持的文件类型 '{ext}'，允许: {'/'.join(DocType.ALLOWED_EXTENSIONS)}")
+            raise ValueError(
+                f"不支持的文件类型 '{ext}'，允许: {'/'.join(DocType.ALLOWED_EXTENSIONS)}"
+            )
+        return ext
 
-        # 确保项目目录存在(以 project_id 作为文件夹名)
-        project_dir = Dir.ensure_dir(DIR_UPLOAD / project_id)
-
-        # 生成唯一文件名，避免冲突与编码问题
-        document_id = uuid4().hex
-        unique_filename = f"{document_id}.{ext}"
-        save_path = project_dir / unique_filename
-
-        # 流式写入磁盘
-        file_size = 0
-        try:
-            async with aiofiles.open(save_path, "wb") as f:
-                while True:
-                    chunk = await file.read(_CHUNK_SIZE)
-                    if not chunk:
-                        break
-                    await f.write(chunk)
-                    file_size += len(chunk)
-        except Exception as e:
-            logger.error(f"写入文件失败: {e}")
-            # 清理可能写入的残留文件
-            if save_path.exists():
-                save_path.unlink()
-            raise LookupError("文件上传失败")
-
-        # 相对 DIR_UPLOAD 的物理路径(便于迁移)
-        physical_path = f"{project_id}/{unique_filename}"
-
-        # 构造文档记录
+    async def _register_document_from_entry(
+        self,
+        *,
+        project_id: str,
+        entry: FileEntry,
+        description: str | None,
+        uploaded_by: str,
+    ) -> ProjectDocument:
+        """条目级落库: 统一文件服务已创建 file_entry(内容引用由条目维护),
+        project_document 仅记录知识库口径元数据并关联 entry_id"""
         document_create = ProjectDocumentCreate(
-            id=document_id,
             project_id=project_id,
-            name=file.filename,
-            file_extension=ext,
-            mime_type=file.content_type,
-            file_size_bytes=file_size,
-            physical_path=physical_path,
+            name=entry.name,
+            file_extension=entry.file_extension or "",
+            mime_type=entry.mime_type,
+            file_size_bytes=entry.file_size_bytes or 0,
+            physical_path=entry.logical_path,
+            content_hash=entry.content_hash,
+            entry_id=entry.id,
+            description=description,
+            uploaded_by=uploaded_by,
+        )
+        return await self.document_dao.add(document_create)
+
+    async def _ensure_project_folder(
+        self, project_id: str, owner_user_id: str | None = None
+    ) -> str:
+        """确保项目根文件夹存在(虚拟目录 /知识库/<项目名>/)并返回条目ID"""
+        return await ensure_project_folder(
+            self.project_dao, self.file_service, project_id,
+            owner_user_id=owner_user_id,
+        )
+
+    async def _validate_folder_in_project(
+        self, root_entry: FileEntry, folder_id: str
+    ) -> FileEntry:
+        """校验目标目录属于当前项目子树(防跨项目/跨模块越权操作)
+        :param root_entry: 项目根文件夹条目
+        :param folder_id: 目标目录条目ID
+        :return: 目标目录条目
+        :raises LookupError: 目录不存在
+        :raises ValueError: 目录不属于当前项目
+        """
+        entry = await self.file_service.get_file_entry(folder_id)
+        if not entry or not entry.is_active or not entry.is_directory:
+            raise LookupError(f"目录不存在: {folder_id}")
+        if entry.id != root_entry.id and not entry.logical_path.startswith(
+            root_entry.logical_path.rstrip("/") + "/"
+        ):
+            raise ValueError("目标目录不属于当前项目")
+        return entry
+
+    async def upload_document(
+        self,
+        project_id: str,
+        file,
+        current_user_id: str,
+        description: str | None = None,
+        pid: str | None = None,
+    ) -> ProjectDocument:
+        """
+        上传文档到项目(条目级口径): 经统一文件服务在虚拟目录 /知识库/<项目名>/[子目录]下
+        创建文件条目, project_document 记录知识库口径元数据并关联 entry_id
+        :param project_id: 项目ID
+        :param file: 上传的文件对象
+        :param current_user_id: 当前登录用户ID
+        :param description: 文档描述
+        :param pid: 可选父目录ID(为空上传到项目根文件夹, 须属于项目子树)
+        :return: 创建的文档记录
+        """
+        # 校验项目存在与文件类型
+        await self.validate_upload(project_id, file.filename or "")
+        # 确保项目根文件夹并解析目标父目录(防越权到项目子树之外)
+        root_id = await self._ensure_project_folder(project_id, current_user_id)
+        target_pid = pid or root_id
+        root_entry = await self.file_service.get_file_entry(root_id)
+        await self._validate_folder_in_project(root_entry, target_pid)
+
+        # 统一文件服务建条目(内容哈希去重 + 引用计数由条目维护)
+        entry = await self.file_service.upload_file(
+            file, description, target_pid, owner_user_id=current_user_id
+        )
+        return await self._register_document_from_entry(
+            project_id=project_id,
+            entry=entry,
             description=description,
             uploaded_by=current_user_id,
         )
-        document = await self.document_dao.add(document_create)
-        return document
+
+    async def init_multipart_upload(
+        self,
+        project_id: str,
+        req: MultipartInitRequest,
+        owner_user_id: str | None = None,
+    ) -> MultipartInitResponse:
+        """
+        初始化分片上传(大文件/直传口径): 校验后委托统一文件服务签发凭证
+        凭证签发阶段强制绑定项目根文件夹/指定子目录(忽略前端传入的 pid)
+        :param project_id: 项目ID
+        :param req: 初始化请求(文件名/大小/SHA-256)
+        :param owner_user_id: 当前登录用户ID(目标目录归属校验用)
+        :return: 会话凭证与上传模式(is_existing=True 时直接走秒传登记)
+        """
+        await self.validate_upload(project_id, req.filename)
+        root_id = await self._ensure_project_folder(project_id, owner_user_id)
+        target_pid = req.pid or root_id
+        root_entry = await self.file_service.get_file_entry(root_id)
+        await self._validate_folder_in_project(root_entry, target_pid)
+        req.pid = target_pid
+        return await self.file_service.init_multipart_upload(
+            req, owner_user_id=owner_user_id
+        )
+
+    async def complete_multipart_upload(
+        self,
+        project_id: str,
+        upload_id: str,
+        req: MultipartCompleteRequest,
+        current_user_id: str,
+    ) -> ProjectDocument:
+        """
+        完成分片上传: 统一文件服务对账合并并在虚拟目录中建条目 → 按知识库口径登记
+        :param project_id: 项目ID
+        :param upload_id: 分片会话凭证
+        :param req: 完成请求(文件名/分片清单/描述/父目录)
+        :param current_user_id: 当前登录用户ID
+        :return: 创建的文档记录
+        """
+        await self.validate_upload(project_id, req.filename)
+        root_id = await self._ensure_project_folder(project_id, current_user_id)
+        target_pid = req.pid or root_id
+        root_entry = await self.file_service.get_file_entry(root_id)
+        await self._validate_folder_in_project(root_entry, target_pid)
+        req.pid = target_pid
+        entry = await self.file_service.complete_multipart_upload(
+            upload_id, req, owner_user_id=current_user_id
+        )
+        return await self._register_document_from_entry(
+            project_id=project_id,
+            entry=entry,
+            description=req.description,
+            uploaded_by=current_user_id,
+        )
+
+    async def create_document_from_content(
+        self,
+        project_id: str,
+        req: EntryCreateRequest,
+        current_user_id: str,
+    ) -> ProjectDocument:
+        """
+        秒传登记(内容已存在时经统一文件服务在虚拟目录中建条目并登记知识库记录)
+        :param project_id: 项目ID
+        :param req: 条目创建请求(文件名/内容SHA-256/大小/父目录)
+        :param current_user_id: 当前登录用户ID
+        :return: 创建的文档记录
+        :raises ValueError: 内容不存在或未完成上传
+        """
+        await self.validate_upload(project_id, req.name)
+        root_id = await self._ensure_project_folder(project_id, current_user_id)
+        target_pid = req.pid or root_id
+        root_entry = await self.file_service.get_file_entry(root_id)
+        await self._validate_folder_in_project(root_entry, target_pid)
+        req.pid = target_pid
+        entry = await self.file_service.create_entry(req, owner_user_id=current_user_id)
+        return await self._register_document_from_entry(
+            project_id=project_id,
+            entry=entry,
+            description=req.description,
+            uploaded_by=current_user_id,
+        )
+
+    ######################################知识库文件夹管理(虚拟目录条目级)######################################
+    async def create_folder(
+        self,
+        project_id: str,
+        name: str,
+        current_user_id: str,
+        pid: str | None = None,
+    ) -> FileEntry:
+        """
+        在项目内创建子文件夹(虚拟目录 /知识库/<项目名>/... 下)
+        :param project_id: 项目ID
+        :param name: 文件夹名称
+        :param current_user_id: 当前登录用户ID(条目归属者)
+        :param pid: 可选父目录ID(为空创建到项目根文件夹, 须属于项目子树)
+        :return: 新创建的文件夹条目
+        """
+        root_id = await self._ensure_project_folder(project_id, current_user_id)
+        target_pid = pid or root_id
+        root_entry = await self.file_service.get_file_entry(root_id)
+        await self._validate_folder_in_project(root_entry, target_pid)
+        return await self.file_service.create_folder(
+            name, target_pid, current_user_id
+        )
+
+    async def list_entries(
+        self,
+        project_id: str,
+        pagination: PaginationParams,
+        pid: str | None = None,
+        name: str | None = None,
+    ) -> PaginationResponse:
+        """
+        分页浏览项目内文件夹与文件(目录排前,名称排序; 条目级新口径)
+        :param project_id: 项目ID
+        :param pagination: 分页参数
+        :param pid: 可选父目录ID(为空浏览项目根文件夹, 须属于项目子树)
+        :param name: 名称模糊过滤(为空不过滤)
+        :return: 分页条目列表(FileEntry)
+        """
+        root_id = await self._ensure_project_folder(project_id)
+        target_pid = pid or root_id
+        root_entry = await self.file_service.get_file_entry(root_id)
+        await self._validate_folder_in_project(root_entry, target_pid)
+        response = await self.file_service.list_by_pid(target_pid, pagination, name)
+        # 联查文档口径信息: 文件条目补充 document_id/解析状态(目录条目无文档记录)
+        file_ids = [
+            item.id for item in response.items if not item.is_directory
+        ]
+        doc_map: dict[str, ProjectDocument] = {}
+        if file_ids:
+            docs = await self.document_dao.list_by_entry_ids(file_ids)
+            doc_map = {d.entry_id: d for d in docs if d.entry_id}
+        enriched: list[dict] = []
+        for item in response.items:
+            data = item.model_dump()
+            doc = doc_map.get(item.id)
+            if doc:
+                data.update(
+                    {
+                        "document_id": doc.id,
+                        "parse_status": doc.parse_status,
+                        "chunk_count": doc.chunk_count,
+                        "error_message": doc.error_message,
+                    }
+                )
+            enriched.append(data)
+        response.items = enriched
+        return response
+
+    async def rename_folder(
+        self, project_id: str, folder_id: str, new_name: str
+    ) -> FileEntry:
+        """
+        重命名项目内子文件夹(同步更新子树逻辑路径; 不允许改项目根文件夹名, 请改项目名)
+        :param project_id: 项目ID
+        :param folder_id: 文件夹条目ID
+        :param new_name: 新名称
+        :return: 更新后的文件夹条目
+        """
+        root_id = await self._ensure_project_folder(project_id)
+        if folder_id == root_id:
+            raise ValueError("项目根文件夹名称请通过修改项目名称变更")
+        root_entry = await self.file_service.get_file_entry(root_id)
+        await self._validate_folder_in_project(root_entry, folder_id)
+        return await self.file_service.rename(folder_id, new_name)
+
+    async def delete_folder(self, project_id: str, folder_id: str) -> None:
+        """
+        删除项目内子文件夹(递归删除条目并释放内容引用; 不允许删项目根文件夹)
+        :param project_id: 项目ID
+        :param folder_id: 文件夹条目ID
+        """
+        root_id = await self._ensure_project_folder(project_id)
+        if folder_id == root_id:
+            raise ValueError("不能删除项目根文件夹")
+        root_entry = await self.file_service.get_file_entry(root_id)
+        await self._validate_folder_in_project(root_entry, folder_id)
+        await self.file_service.delete_folder(folder_id)
 
     async def get_document(self, document_id: str) -> ProjectDocument | None:
         """
@@ -155,23 +406,39 @@ class ProjectDocumentService:
         """
         return await self.document_dao.get(document_id)
 
-    async def get_file_for_download(self, document_id: str) -> tuple[str, str | None, Path]:
+    async def get_file_for_download(self, document_id: str) -> tuple[str, str | None, str | Path, bool]:
         """
-        获取文件下载所需信息
+        获取文件下载所需信息(三口径兼容: 条目级/内容级/本地旧数据)
         :param document_id: 文档ID
-        :return: (原始文件名, MIME类型, 物理文件绝对路径)
+        :return: (原始文件名, MIME类型, 物理存储键或本地绝对路径, 是否统一存储口径)
         """
         document = await self.document_dao.get(document_id)
         if not document:
             logger.error(f"文档 {document_id} 不存在")
             raise LookupError(f"文档 {document_id} 不存在")
 
+        if document.entry_id:
+            # 条目级新口径: 联查虚拟目录条目与内容记录(物理键位于内容表)
+            file_name, mime_type, file_key = (
+                await self.file_service.get_file_info_for_download(document.entry_id)
+            )
+            return file_name, mime_type, file_key, True
+
+        if document.content_hash:
+            # 内容级旧口径: 统一存储(物理键相对存储根, 支持 local/S3)
+            content = await self.file_service.get_content(document.content_hash)
+            if not content or not content.physical_storage:
+                logger.error(f"物理内容记录不存在: {document.content_hash}")
+                raise LookupError(f"物理内容记录不存在: {document.content_hash}")
+            return document.name, document.mime_type, content.physical_storage, True
+
+        # 旧口径: 本地磁盘 DIR_UPLOAD/{physical_path}
         file_path = DIR_UPLOAD / document.physical_path
         if not file_path.exists():
             logger.error(f"物理文件 {file_path} 不存在")
             raise LookupError(f"物理文件 {file_path} 不存在")
 
-        return document.name, document.mime_type, file_path
+        return document.name, document.mime_type, file_path, False
 
     async def list_by_project(
         self,
@@ -200,15 +467,24 @@ class ProjectDocumentService:
         self, document_id: str, document: ProjectDocumentUpdate
     ):
         """
-        更新文档元数据(仅 name/description)
+        更新文档元数据(仅 name/description; 条目级文档同步更新虚拟目录条目)
         :param document_id: 文档ID
         :param document: 更新数据
         """
+        doc = await self.document_dao.get(document_id)
+        if not doc:
+            raise LookupError(f"文档 {document_id} 不存在")
+        # 条目级: 名称/描述同步虚拟目录条目(重命名冲突直接抛错, 保持两边一致)
+        if doc.entry_id and (document.name or document.description is not None):
+            await self.file_service.update(
+                doc.entry_id,
+                FileEntryUpdate(name=document.name, description=document.description),
+            )
         await self.document_dao.update(document_id, document)
 
     async def delete_document(self, document_id: str):
         """
-        删除文档: 同时删除物理文件与数据库记录
+        删除文档: 释放物理内容(条目级/内容级引用计数/旧口径本地文件)与数据库记录
         :param document_id: 文档ID
         """
         document = await self.document_dao.get(document_id)
@@ -216,13 +492,27 @@ class ProjectDocumentService:
             logger.error(f"文档 {document_id} 不存在")
             raise LookupError(f"文档 {document_id} 不存在")
 
-        # 删除物理文件(容忍文件已不存在的情形)
-        file_path = DIR_UPLOAD / document.physical_path
-        try:
-            if file_path.exists():
-                file_path.unlink()
-        except Exception as e:
-            logger.warning(f"删除物理文件失败 {file_path}: {e}")
+        if document.entry_id:
+            # 条目级新口径: 删除虚拟目录条目(内容引用-1, 归零自动清理物理文件)
+            try:
+                await self.file_service.delete_file(document.entry_id)
+            except ValueError as e:
+                # 条目已被删除(如项目级联清理)时容忍, 继续删文档记录
+                logger.warning(f"删除文件条目失败 {document.entry_id}: {e}")
+        elif document.content_hash:
+            # 新口径: 释放统一存储内容引用(计数归零时自动清理物理文件与内容记录)
+            try:
+                await self.file_service.release_content(document.content_hash)
+            except Exception as e:
+                logger.warning(f"释放内容引用失败 {document.content_hash}: {e}")
+        else:
+            # 旧口径: 直接删除本地物理文件(容忍文件已不存在的情形)
+            file_path = DIR_UPLOAD / document.physical_path
+            try:
+                if file_path.exists():
+                    file_path.unlink()
+            except Exception as e:
+                logger.warning(f"删除物理文件失败 {file_path}: {e}")
 
         # 删除数据库记录
         await self.document_dao.delete(document_id)
@@ -249,17 +539,45 @@ class ProjectDocumentService:
             logger.error(f"文档 {document_id} 不存在")
             raise LookupError(f"文档 {document_id} 不存在")
 
-        file_path = DIR_UPLOAD / document.physical_path
-        if not file_path.exists():
-            logger.error(f"物理文件 {file_path} 不存在")
-            raise LookupError(f"物理文件 {file_path} 不存在")
+        # 模型预检(任务队列/直跑共用): 对话+向量化模型缺失时快速失败并记录明确原因
+        missing_labels = await self.ensure_parse_models(user_id)
+        if missing_labels:
+            raise ValueError(
+                f"未配置可用的{'、'.join(missing_labels)}模型, 无法解析文档; "
+                "请先在模型管理中绑定或由管理员配置默认公共模型"
+            )
+
+        # 三口径定位本地可读文件: 条目级/内容级从统一存储流式落临时文件, 旧口径读 DIR_UPLOAD
+        content_hash = document.content_hash
+        if not content_hash and document.entry_id:
+            # 条目级兜底: 从虚拟目录条目解析内容哈希(登记时已冗余, 此处防御缺失)
+            entry = await self.file_service.get_file_entry(document.entry_id)
+            content_hash = entry.content_hash if entry and entry.is_active else None
+        temp_input_dir: Path | None = None
+        temp_output_dir: Path | None = None
+        if content_hash:
+            content = await self.file_service.get_content(content_hash)
+            if not content or not content.physical_storage:
+                logger.error(f"物理内容记录不存在: {content_hash}")
+                raise LookupError(f"物理内容记录不存在: {content_hash}")
+            temp_input_dir = Path(tempfile.mkdtemp(prefix="rag_parse_src_"))
+            file_path = temp_input_dir / f"source.{document.file_extension or 'bin'}"
+            async with aiofiles.open(file_path, "wb") as f:
+                async for chunk in self.file_service.stream_file_content(
+                    content.physical_storage, _CHUNK_SIZE
+                ):
+                    await f.write(chunk)
+        else:
+            file_path = DIR_UPLOAD / document.physical_path
+            if not file_path.exists():
+                logger.error(f"物理文件 {file_path} 不存在")
+                raise LookupError(f"物理文件 {file_path} 不存在")
 
         # 获取当前用户绑定的向量化模型实例 # TODO改成 文件处理专用   ocr模型单独设置
         ocr_llm: BaseChatModel | None = await self.user_model_service.get_llm_by_user_id(user_id,False)
         chat_llm: BaseChatModel | None = await self.user_model_service.get_llm_by_user_id(user_id,False,ModelType.CHAT)
         embedding_llm: BaseChatModel | None = await self.user_model_service.get_llm_by_user_id(user_id,False,ModelType.EMBEDDINGS)
 
-        temp_output_dir = None
         # 步骤进度快照(流水线推进时整体回写 document.parse_steps)
         steps_snapshot: dict = {}
         # 当前执行中的步骤(失败时用于定位标记)
@@ -396,7 +714,9 @@ class ProjectDocumentService:
             )
             raise HTTPException(status_code=500, detail=f"重新解析失败: {e}")
         finally:
-            # 清理临时文件
+            # 清理临时文件(解析输出目录 + 新口径落盘的源文件目录)
+            if temp_input_dir and temp_input_dir.exists():
+                shutil.rmtree(temp_input_dir, ignore_errors=True)
             if temp_output_dir and temp_output_dir.exists():
                 shutil.rmtree(temp_output_dir, ignore_errors=True)
 

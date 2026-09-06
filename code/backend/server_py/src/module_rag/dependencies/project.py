@@ -6,6 +6,7 @@ from module_rag.service.project import ProjectService
 from module_rag.dependencies.project_member import get_project_member_dao
 from module_rag.dao.project_document_chunk import ProjectDocumentChunkDao
 from module_rag.dependencies.project_document_chunk import get_project_document_chunk_dao
+from module_file.dependencies.filesystem import get_file_service
 
 
 async def get_project_dao():
@@ -23,6 +24,8 @@ async def get_project_service(
     member_dao: ProjectMemberDao = Depends(get_project_member_dao),
     document_dao: ProjectDocumentDao = Depends(get_project_document_dao_for_project),
     project_document_chunk_dao: ProjectDocumentChunkDao = Depends(get_project_document_chunk_dao),
+    file_service=Depends(get_file_service),
 ):
     """Service工厂"""
-    return ProjectService(project_dao, member_dao, document_dao,project_document_chunk_dao)
+    return ProjectService(project_dao, member_dao, document_dao, project_document_chunk_dao,
+                          file_service=file_service)

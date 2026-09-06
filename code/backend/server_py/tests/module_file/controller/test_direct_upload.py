@@ -131,17 +131,24 @@ class FakeS3Storage(S3StorageInterface):
 def direct_env(client):
     """direct 模式环境: FakeS3Storage 注入 FileService(继承S3接口,isinstance判定为direct)
 
-    注意: module_file 是 mount 的子应用(FastAPI实例),依赖覆盖必须注册在 module_app 上
+    注意: module_file 是 mount 的子应用(FastAPI实例),依赖覆盖必须注册在 module_app 上;
+    需同时覆盖 get_file_service 与 get_managed_file_service(写端点/分片端点注入的是后者)
     """
     fake = FakeS3Storage()
     from module_file.config.server import module_app
+    from module_file.dependencies.filesystem import get_managed_file_service
 
-    async def _override():
+    def _make() -> FileService:
         return FileService(storage_interface=fake)
 
+    async def _override():
+        return _make()
+
     module_app.dependency_overrides[get_file_service] = _override
+    module_app.dependency_overrides[get_managed_file_service] = _override
     yield fake
     module_app.dependency_overrides.pop(get_file_service, None)
+    module_app.dependency_overrides.pop(get_managed_file_service, None)
 
 
 @pytest.mark.asyncio

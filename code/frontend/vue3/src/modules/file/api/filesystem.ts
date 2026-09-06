@@ -1,9 +1,11 @@
 // src/modules/file/api/filesystem.ts
 // 文件模块 API(虚拟文件系统,后端存储可配置切换本地/S3对象存储)
-// 上传模式由后端 /upload-mode 决定:
+// 上传链路复用公共统一存储流程(common/utils/storageUpload),本模块仅提供端点适配器:
 // - direct(s3): 凭证签发(init)后前端预签名直传对象存储,数据面不经过服务端
 // - proxy(local): 小文件 FormData 中转 /upload,大文件分片中转
 import { http_base_server } from '@/common/api/http';
+import { createStorageUploader } from '@/common/utils/storageUpload';
+import type { MultipartPart } from '@/common/utils/storageUpload';
 import type { PaginationParams, PaginationResponse } from '@/common/types/common';
 import type {
   FileEntry,
@@ -12,9 +14,6 @@ import type {
   MigrateRequest,
   MigrateResult,
 } from '../types/file';
-
-/** 大文件分片上传阈值(字节,与后端 file_system.max_size 保持一致) */
-const MULTIPART_THRESHOLD = 10 * 1024 * 1024;
 
 /** 上传模式缓存(direct=预签名直传 / proxy=服务端中转) */
 interface UploadMode {
@@ -71,52 +70,11 @@ export const listDirs = (pid?: string) => {
  * @param pid 父目录ID(为空上传到根目录)
  * @param description 文件描述
  */
-export const uploadFile = async (
-  file: File,
-  pid?: string,
-  description?: string
-): Promise<FileEntry> => {
-  const mode = await getUploadMode();
-  if (mode.mode === 'direct') {
-    return uploadFileDirectS3(file, pid, description);
-  }
-  if (file.size <= MULTIPART_THRESHOLD) {
-    return uploadFileDirect(file, pid, description);
-  }
-  return uploadFileProxyMultipart(file, pid, description);
+export const uploadFile = (file: File, pid?: string, description?: string) => {
+  return fileStorageUploader(file, { pid, description });
 };
 
-/**
- * 计算文件 SHA-256(十六进制)
- * @param file 文件对象
- */
-const sha256Hex = async (file: Blob): Promise<string> => {
-  const buf = await file.arrayBuffer();
-  const digest = await crypto.subtle.digest('SHA-256', buf);
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-};
-
-/** 分片信息 */
-export interface MultipartPart {
-  part_number: number;
-  etag: string;
-  size: number;
-}
-
-/** 分片上传初始化响应(mode=direct 时 part_urls 与分片号一一对应) */
-interface MultipartInitResponse {
-  is_existing: boolean;
-  upload_id: string | null;
-  part_size: number;
-  mode: 'direct' | 'proxy';
-  part_urls: string[] | null;
-}
-
-/**
- * 初始化上传(凭证签发阶段完成秒传/去重/校验)
- */
+/** 分片上传初始化(凭证签发阶段完成秒传/去重/校验) */
 const initMultipart = (data: {
   filename: string;
   file_size_bytes: number;
@@ -131,28 +89,20 @@ const initMultipart = (data: {
   );
 };
 
-/**
- * 预签名URL直传分片到对象存储(原生 fetch,不经过服务端;返回响应ETag)
- */
-const putToPresignedUrl = async (
-  url: string,
+/** proxy 模式分片中转(分片二进制经服务端保存;返回分片信息) */
+const uploadMultipartPart = (
+  uploadId: string,
+  partNumber: number,
   content: ArrayBuffer
-): Promise<string> => {
-  const resp = await fetch(url, {
-    method: 'PUT',
-    body: content,
-    headers: { 'Content-Type': 'application/octet-stream' },
-  });
-  if (!resp.ok) {
-    throw new Error(`直传分片失败: HTTP ${resp.status}`);
-  }
-  // ETag 需要对象存储桶 CORS 配置 ExposeHeaders 才可读取;拿不到时由服务端对账阶段补齐
-  return resp.headers.get('ETag') || '';
+) => {
+  return http_base_server.putRaw<MultipartPart>(
+    `/file/filesystem/multipart/${encodeURIComponent(uploadId)}/parts/${partNumber}`,
+    content,
+    { headers: { 'Content-Type': 'application/octet-stream' } }
+  );
 };
 
-/**
- * 完成分片上传(服务端对账分片清单并创建条目)
- */
+/** 完成分片上传(服务端对账分片清单并创建条目) */
 const completeMultipart = (
   uploadId: string,
   data: {
@@ -169,27 +119,7 @@ const completeMultipart = (
   );
 };
 
-/**
- * proxy 模式分片中转(分片二进制经服务端保存;返回分片信息)
- * @param uploadId 分片会话凭证(init 返回)
- * @param partNumber 分片号(从1开始)
- * @param content 分片二进制内容
- */
-const uploadMultipartPart = (
-  uploadId: string,
-  partNumber: number,
-  content: ArrayBuffer
-) => {
-  return http_base_server.putRaw<MultipartPart>(
-    `/file/filesystem/multipart/${encodeURIComponent(uploadId)}/parts/${partNumber}`,
-    content,
-    { headers: { 'Content-Type': 'application/octet-stream' } }
-  );
-};
-
-/**
- * 秒传建条目(内容已存在时直接创建文件记录)
- */
+/** 秒传建条目(内容已存在时直接创建文件记录) */
 const completeEntry = (data: {
   name: string;
   pid?: string;
@@ -201,105 +131,8 @@ const completeEntry = (data: {
   return http_base_server.post<FileEntry>('/file/filesystem/upload-complete', data);
 };
 
-/**
- * direct 模式上传全流程: init(凭证+预签名URL) -> 浏览器逐片直传S3 -> complete 对账建条目
- * 数据面完全不经服务端,秒传(is_existing)时直接建条目
- */
-const uploadFileDirectS3 = async (
-  file: File,
-  pid?: string,
-  description?: string
-): Promise<FileEntry> => {
-  const contentHash = await sha256Hex(file);
-  const init = await initMultipart({
-    filename: file.name,
-    file_size_bytes: file.size,
-    content_hash: contentHash,
-    content_type: file.type || undefined,
-    pid,
-    description,
-  });
-  // 秒传: 相同内容已存在,直接创建条目
-  if (init.is_existing) {
-    return completeEntry({
-      name: file.name,
-      pid,
-      content_hash: contentHash,
-      file_size_bytes: file.size,
-      mime_type: file.type || undefined,
-      description,
-    });
-  }
-  const partSize = init.part_size;
-  const urls = init.part_urls || [];
-  const parts: MultipartPart[] = [];
-  const total = Math.ceil(file.size / partSize);
-  for (let i = 0; i < total; i++) {
-    const blob = file.slice(i * partSize, Math.min((i + 1) * partSize, file.size));
-    const etag = await putToPresignedUrl(urls[i], await blob.arrayBuffer());
-    parts.push({ part_number: i + 1, etag, size: blob.size });
-  }
-  return completeMultipart(init.upload_id!, {
-    filename: file.name,
-    pid,
-    description,
-    file_size_bytes: file.size,
-    parts,
-  });
-};
-
-/**
- * proxy 模式大文件分片中转: init(秒传判断) -> 逐片经服务端中转 -> complete
- */
-const uploadFileProxyMultipart = async (
-  file: File,
-  pid?: string,
-  description?: string
-): Promise<FileEntry> => {
-  const contentHash = await sha256Hex(file);
-  const init = await initMultipart({
-    filename: file.name,
-    file_size_bytes: file.size,
-    content_hash: contentHash,
-    content_type: file.type || undefined,
-    pid,
-    description,
-  });
-  if (init.is_existing) {
-    return completeEntry({
-      name: file.name,
-      pid,
-      content_hash: contentHash,
-      file_size_bytes: file.size,
-      mime_type: file.type || undefined,
-      description,
-    });
-  }
-  const partSize = init.part_size;
-  const parts: MultipartPart[] = [];
-  const total = Math.ceil(file.size / partSize);
-  for (let i = 0; i < total; i++) {
-    const blob = file.slice(i * partSize, Math.min((i + 1) * partSize, file.size));
-    const part = await uploadMultipartPart(init.upload_id!, i + 1, await blob.arrayBuffer());
-    parts.push(part);
-  }
-  return completeMultipart(init.upload_id!, {
-    filename: file.name,
-    pid,
-    description,
-    file_size_bytes: file.size,
-    parts,
-  });
-};
-
-/**
- * proxy 模式小文件中转(multipart 表单)
- */
-const uploadFileDirect = (
-  file: File,
-  pid?: string,
-  description?: string
-) => {
+/** proxy 模式小文件 FormData 中转(≤max_size) */
+const uploadFileDirect = (file: File, pid?: string, description?: string) => {
   const formData = new FormData();
   formData.append('file', file);
   if (description) formData.append('description', description);
@@ -309,6 +142,51 @@ const uploadFileDirect = (
     { params: { pid: pid || undefined } }
   );
 };
+
+/** 分片上传初始化响应(mode=direct 时 part_urls 与分片号一一对应) */
+interface MultipartInitResponse {
+  is_existing: boolean;
+  upload_id: string | null;
+  part_size: number;
+  mode: 'direct' | 'proxy';
+  part_urls: string[] | null;
+}
+
+/** 文件管理统一存储上传器(端点适配器: 记录口径为虚拟文件系统条目) */
+const fileStorageUploader = createStorageUploader<
+  { pid?: string; description?: string },
+  FileEntry
+>({
+  getMode: getUploadMode,
+  init: (file, contentHash, ctx) =>
+    initMultipart({
+      filename: file.name,
+      file_size_bytes: file.size,
+      content_hash: contentHash,
+      content_type: file.type || undefined,
+      pid: ctx?.pid,
+      description: ctx?.description,
+    }),
+  uploadPart: uploadMultipartPart,
+  complete: (file, uploadId, parts, ctx) =>
+    completeMultipart(uploadId, {
+      filename: file.name,
+      pid: ctx?.pid,
+      description: ctx?.description,
+      file_size_bytes: file.size,
+      parts,
+    }),
+  instant: (file, contentHash, ctx) =>
+    completeEntry({
+      name: file.name,
+      pid: ctx?.pid,
+      content_hash: contentHash,
+      file_size_bytes: file.size,
+      mime_type: file.type || undefined,
+      description: ctx?.description,
+    }),
+  smallDirect: (file, ctx) => uploadFileDirect(file, ctx?.pid, ctx?.description),
+});
 
 /**
  * 创建目录

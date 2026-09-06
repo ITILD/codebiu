@@ -93,6 +93,11 @@ class FileEntryBase(SQLModel):
     description: str | None = Field(
         default=None, max_length=500, description="条目描述"
     )
+    source_module: str | None = Field(
+        default=None,
+        max_length=50,
+        description="来源模块key(rag/avatar等业务模块标记, NULL=文件管理自有条目); 创建时从父目录继承",
+    )
     is_active: bool = Field(default=True, description="是否有效(软删除标志)")
     user_id: str | None = Field(default=None, description="拥有者用户ID")
     group_id: str | None = Field(default=None, description="拥有者组ID")
@@ -155,6 +160,8 @@ class FileEntryUpdate(FileEntryBase):
     logical_path: str | None = Field(
         default=None, max_length=2000, description="逻辑路径(重命名/移动时同步)"
     )
+    # 来源模块仅由服务层在创建时从父目录继承,不对前端开放
+    source_module: str | None = Field(default=None, max_length=50)
 
 
 # ==================== 分片上传(multipart)模型 ====================
@@ -245,6 +252,7 @@ class FileEntryWithContent(BaseModel):
     user_id: str | None = None
     group_id: str | None = None
     entry_status: TaskStatus | None = None
+    source_module: str | None = None
     created_at: datetime
     updated_at: datetime
 

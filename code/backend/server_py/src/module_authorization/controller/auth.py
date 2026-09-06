@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from fastapi.security import OAuth2PasswordRequestForm
 from module_authorization.do.token import (
     RefreshTokenRequest,
@@ -7,11 +7,13 @@ from module_authorization.do.token import (
 )
 from module_authorization.config.server import module_app
 from module_authorization.service.auth import AuthService
+from module_authorization.service.avatar import AvatarService
 from module_authorization.dependencies.auth import (
     get_auth_service,
     get_current_user,
     get_current_user_id
 )
+from module_authorization.dependencies.avatar import get_avatar_service
 from module_authorization.do.user import UserCreate,User
 from module_authorization.do.auth import AuthResponse,AuthLogoutRequest,SelfProfileUpdate,PasswordChange
 
@@ -58,6 +60,25 @@ async def change_my_password(
             password_change.old_password,
             password_change.new_password,
         )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.post("/me/avatar", summary="上传当前用户头像")
+async def upload_my_avatar(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    avatar_service: AvatarService = Depends(get_avatar_service),
+):
+    """
+    上传当前登录用户的头像(登录即可,无需权限码)
+    头像经统一文件服务存入虚拟目录 /用户头像/<用户ID>/ 下, 并自动清理旧头像条目;
+    下载走 /file/filesystem/download/{entry_id}(avatar 来源允许匿名访问)
+    :param file: 图片文件(png/jpg/jpeg/gif/webp/svg/bmp)
+    :return: {"avatar": 下载路径, "entry_id": 文件条目ID}
+    """
+    try:
+        return await avatar_service.upload_avatar(current_user.id, file)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 

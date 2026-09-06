@@ -102,3 +102,24 @@ export const updateMyProfile = (data: SelfProfileUpdate) => {
 export const changeMyPassword = (data: PasswordChangeRequest) => {
   return http_base_server.put<null>('/authorization/auth/me/password', data);
 };
+
+/** 头像上传响应 */
+export interface AvatarUploadResponse {
+  /** 头像下载路径(/base_server/file/filesystem/download/{entry_id}, <img> 直接可用) */
+  avatar: string;
+  /** 虚拟目录文件条目ID */
+  entry_id: string;
+}
+
+/**
+ * 上传当前用户头像(登录即可;后端经统一文件服务存入 /用户头像/<用户ID>/ 并清理旧头像)
+ * @param file 图片文件(png/jpg/jpeg/gif/webp/svg/bmp)
+ */
+export const uploadMyAvatar = (file: File) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return http_base_server.post<AvatarUploadResponse>(
+    '/authorization/auth/me/avatar',
+    formData
+  );
+};

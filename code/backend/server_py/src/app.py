@@ -17,7 +17,9 @@ from module_template.controller import static,template,template_ex,template_asyn
 from module_ai.controller import static as ai_static,model_config,llm_base,voice
 # # ,ocr 
 from module_dev_tools.controller import template_string
-from module_little_utils.controller import todolist
+# # 个人小站模块(博客/备忘/记账 三条业务线, 由原 module_blog + module_little_utils 合并)
+from module_site.controller import blog, todolist, ledger
+from module_site.config import permissions as site_permissions  # noqa: F401
 # # 语言模块
 from module_nlp.controller import synonym
 from module_life.controller import baby_name
@@ -34,8 +36,6 @@ from module_rag.controller import (
 )
 # # 知识库模块: 权限声明注册保持权限表与声明一致
 from module_rag.config import permissions as rag_permissions  # noqa: F401
-# # 博客模块: 目前仅注册权限声明(域 blog),控制器待业务开发后在此导入
-from module_blog.config import permissions as blog_permissions  # noqa: F401
 # # 地理空间模块(Babylon 地球绘制 + PostGIS 点线面存储)
 from module_geometry.controller import feature
 from module_geometry.config import permissions as geometry_permissions  # noqa: F401

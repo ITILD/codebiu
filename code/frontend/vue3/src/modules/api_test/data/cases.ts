@@ -79,6 +79,7 @@ export const API_CASES: ApiCase[] = [
   c('authorization', 'auth.ts', 'getUserPermissions', 'GET', '/authorization/auth/me-permissions'),
   c('authorization', 'auth.ts', 'updateMyProfile', 'PUT', '/authorization/auth/me', { note: '自助更新个人资料' }),
   c('authorization', 'auth.ts', 'changeMyPassword', 'PUT', '/authorization/auth/me/password', { note: '自助修改密码(需旧密码)' }),
+  c('authorization', 'auth.ts', 'uploadMyAvatar', 'POST', '/authorization/auth/me/avatar', { note: '上传当前用户头像(需图片文件, 经统一文件服务存储)' }),
   // 用户
   c('authorization', 'user.ts', 'createUser', 'POST', '/authorization/users', { note: '创建用户' }),
   c('authorization', 'user.ts', 'deleteUser', 'DELETE', '/authorization/users/{userId}', { allow404: true }),
@@ -169,13 +170,28 @@ export const API_CASES: ApiCase[] = [
   // ==================== 生活工具(后端模块未启用) ====================
   c('life', 'baby_name.ts', 'predictBabyNameStream', 'POST', '/life/baby-names/predict-baby-info-base', { skip: true, note: 'SSE 流式, 后端模块未启用' }),
 
-  // ==================== 待办事项(后端模块未启用) ====================
-  c('little_utils', 'todolist.ts', 'createTodolist', 'POST', '/little-utils/todolists', { skip: true, note: '后端模块未启用' }),
-  c('little_utils', 'todolist.ts', 'deleteTodolist', 'DELETE', '/little-utils/todolists/{id}', { skip: true, note: '后端模块未启用' }),
-  c('little_utils', 'todolist.ts', 'updateTodolist', 'PUT', '/little-utils/todolists/{id}', { skip: true, note: '后端模块未启用' }),
-  c('little_utils', 'todolist.ts', 'getTodolist', 'GET', '/little-utils/todolists/{id}', { skip: true, note: '后端模块未启用' }),
-  c('little_utils', 'todolist.ts', 'listTodolists', 'GET', '/little-utils/todolists/list', { skip: true, note: '后端模块未启用' }),
-  c('little_utils', 'todolist.ts', 'infiniteScrollTodolists', 'GET', '/little-utils/todolists/scroll', { skip: true, note: '后端模块未启用' }),
+  // ==================== 个人小站(博客/备忘/记账 三条业务线) ====================
+  // 博客(markdown 在线编辑 / 关联 URL 发布展示)
+  c('site', 'blog.ts', 'listPublishedPosts', 'GET', '/site/blog/posts/view/list'),
+  c('site', 'blog.ts', 'listMyPosts', 'GET', '/site/blog/posts/list'),
+  c('site', 'blog.ts', 'getBlogPost', 'GET', '/site/blog/posts/{postId}', { allow404: true }),
+  c('site', 'blog.ts', 'createBlogPost', 'POST', '/site/blog/posts', { note: '发布文章' }),
+  c('site', 'blog.ts', 'updateBlogPost', 'PUT', '/site/blog/posts/{postId}', { allow404: true }),
+  c('site', 'blog.ts', 'deleteBlogPost', 'DELETE', '/site/blog/posts/{postId}', { allow404: true }),
+  // 备忘(编辑管理 + 日历 年/月/周 展示数据源)
+  c('site', 'todolist.ts', 'listTodolists', 'GET', '/site/todolists/list'),
+  c('site', 'todolist.ts', 'listMemosByRange', 'GET', '/site/todolists/range', { auto: false, note: '需 start/end 查询参数' }),
+  c('site', 'todolist.ts', 'getTodolist', 'GET', '/site/todolists/{todolistId}', { allow404: true }),
+  c('site', 'todolist.ts', 'createTodolist', 'POST', '/site/todolists', { note: '创建备忘' }),
+  c('site', 'todolist.ts', 'updateTodolist', 'PUT', '/site/todolists/{todolistId}', { allow404: true }),
+  c('site', 'todolist.ts', 'deleteTodolist', 'DELETE', '/site/todolists/{todolistId}', { allow404: true }),
+  // 记账本(收支记录 + 月度图表统计)
+  c('site', 'ledger.ts', 'listLedgerRecords', 'GET', '/site/ledger/records/list'),
+  c('site', 'ledger.ts', 'getLedgerStats', 'GET', '/site/ledger/records/stats', { auto: false, note: '需 month 查询参数(YYYY-MM)' }),
+  c('site', 'ledger.ts', 'getLedgerRecord', 'GET', '/site/ledger/records/{recordId}', { allow404: true }),
+  c('site', 'ledger.ts', 'createLedgerRecord', 'POST', '/site/ledger/records', { note: '记一笔' }),
+  c('site', 'ledger.ts', 'updateLedgerRecord', 'PUT', '/site/ledger/records/{recordId}', { allow404: true }),
+  c('site', 'ledger.ts', 'deleteLedgerRecord', 'DELETE', '/site/ledger/records/{recordId}', { allow404: true }),
 
   // ==================== 数据管理 ====================
   // 字典
@@ -225,6 +241,12 @@ export const API_CASES: ApiCase[] = [
   c('rag', 'document.ts', 'reparseRagDocument', 'POST', '/rag/project-documents/{documentId}/reparse', { allow404: true, note: '触发重新解析' }),
   c('rag', 'document.ts', 'reparseRagDocumentTask', 'POST', '/rag/project-documents/{documentId}/reparse-task', { allow404: true, note: '触发异步重新解析' }),
   c('rag', 'document.ts', 'getSupportedFileTypes', 'GET', '/rag/project-documents/supported-types'),
+  c('rag', 'document.ts', 'getRagUploadMode', 'GET', '/rag/project-documents/upload-mode'),
+  c('rag', 'document.ts', 'checkRagParseModels', 'GET', '/rag/project-documents/model-check'),
+  c('rag', 'document.ts', 'listRagEntries', 'GET', '/rag/project-documents/{projectId}/entries', { allow404: true, note: '条目级浏览(目录+文件), 需真实项目ID' }),
+  c('rag', 'document.ts', 'createRagFolder', 'POST', '/rag/project-documents/{projectId}/folders', { allow404: true, note: '项目内创建文件夹(名称query)' }),
+  c('rag', 'document.ts', 'renameRagFolder', 'PUT', '/rag/project-documents/{projectId}/folders/{folderId}', { allow404: true }),
+  c('rag', 'document.ts', 'deleteRagFolder', 'DELETE', '/rag/project-documents/{projectId}/folders/{folderId}', { allow404: true, note: '递归删除项目内文件夹' }),
   // 部门授权
   c('rag', 'deptAuth.ts', 'addProjectDept', 'POST', '/rag/project-depts', { note: '写入部门授权' }),
   c('rag', 'deptAuth.ts', 'getAuthDeptTree', 'GET', '/rag/project-depts/dept-tree'),

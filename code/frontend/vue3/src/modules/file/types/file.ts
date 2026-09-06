@@ -20,6 +20,8 @@ type FileEntry = {
   is_directory: boolean;
   /** 内容哈希(仅文件) */
   content_hash: string | null;
+  /** 来源模块标记(rag/avatar 等业务条目; NULL=文件管理自有条目, 业务条目只读) */
+  source_module: string | null;
   file_size_bytes: number | null;
   file_extension: string | null;
   mime_type: string | null;

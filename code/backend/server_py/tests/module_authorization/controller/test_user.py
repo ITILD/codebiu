@@ -58,8 +58,12 @@ async def test_user_crud_flow(client: httpx.AsyncClient):
 
 
 async def test_user_list(client: httpx.AsyncClient):
-    """分页列表应返回分页结构且包含 admin"""
-    resp = await client.get(f"{BASE}/list", params={"page": 1, "size": 10})
+    """分页列表应返回分页结构且包含 admin
+
+    注: 用大页长(500, 分页参数上限) —— 默认按创建时间倒序, 测试用户累积后
+    admin(最早创建)会掉出 size=10 的第一页
+    """
+    resp = await client.get(f"{BASE}/list", params={"page": 1, "size": 500})
     assert resp.status_code == 200, resp.text
     body = resp.json()
     items = body.get("items") or body.get("list") or []

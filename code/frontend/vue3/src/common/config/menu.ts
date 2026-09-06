@@ -1,8 +1,8 @@
 /**
  * 全局模块菜单配置(RuoYi 式左侧目录)
  * 共用方: SysSidebar(侧边栏/抽屉) / SysBreadcrumb(面包屑) / 主页模块入口卡
- * 分组与后端 module_* 一一对应: authorization/rag/ai/file/geometry/main,
- * 生活工具组跨 module_life + module_little_utils 两个后端模块
+ * 分组与后端 module_* 一一对应: authorization/rag/ai/file/geometry/site/main,
+ * 生活工具组对应 module_life
  */
 import { markRaw } from 'vue'
 import type { Component } from 'vue'
@@ -10,7 +10,7 @@ import {
   HomeFilled, UserFilled, Document,
   Monitor, ChatDotRound,
   Files, Collection, FolderOpened,
-  Location, Sunny, Timer, Brush, Connection,
+  Location, Sunny, Timer, Brush, Connection, Notebook,
 } from '@element-plus/icons-vue'
 
 /** 菜单项定义(perm 为权限码:与后端模块权限声明一致;缺省表示登录即可见) */
@@ -111,13 +111,23 @@ export const menuItems: MenuItem[] = [
     ],
   },
   {
+    index: '/site',
+    icon: markRaw(Notebook),
+    title: '个人小站',
+    perm: 'site',
+    desc: '博客、备忘与记账的一站式工作台。',
+    children: [
+      { index: '/site', title: '工作台', perm: 'site' },
+      { index: '/site/blog_view', title: '博客展示', perm: 'site:blog' },
+    ],
+  },
+  {
     index: '/life',
     icon: markRaw(Sunny),
     title: '生活工具',
-    desc: '宝宝取名与待办事项等轻量工具。',
+    desc: '宝宝取名等轻量生活工具。',
     children: [
       { index: '/life/baby_name', title: '宝宝取名' },
-      { index: '/little_utils/todolist', title: '待办事项' },
     ],
   },
   {

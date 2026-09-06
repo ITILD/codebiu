@@ -54,6 +54,45 @@ async def _app_lifespan():
     logger.info("app lifespan closed")
 
 
+@pytest_asyncio.fixture(scope="session", autouse=True)
+async def local_storage_override(tmp_path_factory):
+    """session 级: 全局存储替换为临时本地目录(local 实现),保证全部模块测试零外部依赖
+
+    凡经统一文件服务(module_file)读写的测试(文件管理/知识库文档/用户头像等)都不依赖
+    config.dev.yaml 的 storage_type(local/s3/rustfs)与外部对象存储; 测试完清理临时目录。
+    注: 直传(direct)模式测试用 FakeS3Storage 经依赖覆盖自行注入,不受本覆盖影响。
+    """
+    import shutil
+
+    import module_file.config.filesystem as fs_config
+    import module_file.service.filesystem as fs_service
+    from module_file.utils.multi_storage.do.storage_config import (
+        StorageConfigFactory,
+    )
+    from module_file.utils.multi_storage.storage_factory import StorageFactory
+
+    base_dir = tmp_path_factory.mktemp("file_storage")
+    cfg = StorageConfigFactory.create(
+        "local", {"max_size": 10, "allowed_extensions": []}
+    )
+    cfg.base_dir = str(base_dir)
+    local_storage = StorageFactory.create(cfg)
+
+    original_storage = fs_config.storage
+    original_config = fs_config.storage_config
+    fs_config.storage = local_storage
+    fs_config.storage_config = cfg
+    # service/filesystem.py 通过 from ... import 持有独立引用,同步替换
+    fs_service.storage = local_storage
+    fs_service.storage_config = cfg
+    yield
+    fs_config.storage = original_storage
+    fs_config.storage_config = original_config
+    fs_service.storage = original_storage
+    fs_service.storage_config = original_config
+    shutil.rmtree(base_dir, ignore_errors=True)
+
+
 def _make_client(headers: dict | None = None) -> AsyncClient:
     """构造 ASGI 直连客户端(每次请求独立,避免状态串扰)"""
     from app import app

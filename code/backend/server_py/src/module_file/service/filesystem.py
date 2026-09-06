@@ -45,6 +45,13 @@ _MULTIPART_TOKEN_TTL = 24 * 3600  # 分片会话凭证有效期 24h
 _PRESIGN_EXPIRES = 3600  # 预签名URL有效期 1h
 
 
+class BusinessEntryError(ValueError):
+    """业务条目守卫异常(source_module 标记的 rag/avatar 等条目禁止在文件管理中变更)
+
+    继承 ValueError 便于旧调用方兼容; 控制器层单独捕获映射为 400(而非资源不存在的404)
+    """
+
+
 def build_storage(storage_type: StorageType | str):
     """
     按类型构建存储实例(存储迁移/双存储搬运用,与全局单例互不影响)
@@ -71,15 +78,30 @@ class FileService:
         file_entry_dao: FileEntryDao | None = None,
         file_content_dao: FileContentDao | None = None,
         storage_interface=None,
+        strict_business_guard: bool = False,
     ):
         """
         初始化文件服务
         :param file_entry_dao: 文件数据访问对象，可选
         :param storage_interface: 存储接口实现，可选
+        :param strict_business_guard: 业务条目只读拦截开关(仅文件管理HTTP层开启;
+            业务模块注入 get_file_service 的实例不受限, 可自由管理自己的条目)
         """
         self.file_entry_dao = file_entry_dao or FileEntryDao()
         self.file_content_dao = file_content_dao or FileContentDao()
         self.storage = storage_interface or storage
+        self.strict_business_guard = strict_business_guard
+
+    def _ensure_module_writable(self, entry: FileEntry | None) -> None:
+        """
+        业务条目只读拦截: source_module 标记的业务条目(rag/avatar等)禁止在文件管理中变更
+        :param entry: 待校验条目(None 放行)
+        :raises: BusinessEntryError 业务条目时抛出
+        """
+        if not self.strict_business_guard or entry is None:
+            return
+        if entry.source_module and entry.source_module != "file":
+            raise BusinessEntryError("该条目由业务模块管理, 请到对应业务模块操作")
 
     async def _release_content(
         self, content_hash: str | None, session: AsyncSession
@@ -114,6 +136,7 @@ class FileService:
         entry = await self.file_entry_dao.get(entry_id, session)
         if not entry or not entry.is_active:
             raise ValueError(f"未找到ID为 {entry_id} 的文件")
+        self._ensure_module_writable(entry)
         if entry.is_directory:
             raise ValueError("目录请使用目录删除接口")
         await self.file_entry_dao.soft_delete(entry_id, session)
@@ -128,6 +151,8 @@ class FileService:
         :param folder_id: 目录ID
         """
         try:
+            folder = await self.file_entry_dao.get(folder_id, session)
+            self._ensure_module_writable(folder)
             # 递归 CTE 获取子树全部条目ID(含目录自身)
             subtree_ids = await self.file_entry_dao.get_subtree_ids(
                 folder_id, session
@@ -163,6 +188,7 @@ class FileService:
         entry = await self.file_entry_dao.get(file_id, session)
         if not entry or not entry.is_active:
             raise ValueError("条目不存在或已被删除")
+        self._ensure_module_writable(entry)
         # 拆分更新数据(路径字段不对外暴露,仅内部方法维护)
         data = file_update.model_dump(exclude_unset=True)
         new_name = data.get("name")
@@ -190,6 +216,7 @@ class FileService:
         entry = await self.file_entry_dao.get(entry_id, session)
         if not entry or not entry.is_active:
             raise ValueError("条目不存在或已被删除")
+        self._ensure_module_writable(entry)
         new_name = new_name.strip()
         if not new_name:
             raise ValueError("名称不能为空")
@@ -230,6 +257,7 @@ class FileService:
         entry = await self.file_entry_dao.get(entry_id, session)
         if not entry or not entry.is_active:
             raise ValueError("条目不存在或已被删除")
+        self._ensure_module_writable(entry)
         target_pid = target_pid or None
         if target_pid:
             target = await self.file_entry_dao.get(target_pid, session)
@@ -237,6 +265,7 @@ class FileService:
                 raise ValueError("目标目录不存在或已被删除")
             if not target.is_directory:
                 raise ValueError("目标条目不是目录")
+            self._ensure_module_writable(target)
             # 环形引用防护: 目标不能是自身或自身的子孙目录
             if target.logical_path == entry.logical_path or target.logical_path.startswith(
                 entry.logical_path + "/"
@@ -303,6 +332,7 @@ class FileService:
         name: str,
         pid: str | None = None,
         owner_user_id: str | None = None,
+        source_module: str | None = None,
         session: AsyncSession | None = None,
     ) -> FileEntry:
         """
@@ -310,6 +340,7 @@ class FileService:
         :param name: 目录名称
         :param pid: 父目录ID(为空表示根目录)
         :param owner_user_id: 拥有者用户ID
+        :param source_module: 来源模块key(顶层模块根专用; pid 有值时自动从父目录继承)
         :return: 新创建的目录信息
         :raises: ValueError 如果父目录不存在或同名条目已存在
         """
@@ -320,7 +351,10 @@ class FileService:
                 raise ValueError("父目录不存在或已被删除")
             if not parent.is_directory:
                 raise ValueError("父级条目不是目录")
+            self._ensure_module_writable(parent)
             logical_path = f"{parent.logical_path.rstrip('/')}/{name}"
+            # 来源标记继承: 业务模块子目录自动携带父目录的模块标记
+            source_module = source_module or parent.source_module
         else:
             logical_path = f"/{name}"
 
@@ -333,29 +367,79 @@ class FileService:
             pid=pid,
             logical_path=logical_path,
             is_directory=True,
+            source_module=source_module,
             user_id=owner_user_id,
         )
         folder_id = await self.file_entry_dao.add(folder, session)
         return await self.file_entry_dao.get(folder_id, session)
 
-    ####################################通用上传/下载(本地/对象存储由配置切换)##############################################
-    async def _validate_parent_dir(
-        self, pid: str | None, session: AsyncSession | None
-    ) -> str:
+    @DaoRel
+    async def ensure_folder(
+        self,
+        name: str,
+        pid: str | None = None,
+        owner_user_id: str | None = None,
+        session: AsyncSession | None = None,
+    ) -> FileEntry:
         """
-        校验父目录有效性,返回其逻辑路径(根目录返回空串,上传/秒传/分片共用)
+        幂等创建目录: 已存在同名目录直接返回(业务模块根/项目文件夹补建用)
+        :param name: 目录名称
+        :param pid: 父目录ID(为空表示根目录)
+        :param owner_user_id: 拥有者用户ID
+        :return: 已有或新建的目录条目
+        :raises: ValueError 同名为文件/父目录无效
+        """
+        existing = await self.file_entry_dao.get_by_pid_name(pid, name, session)
+        if existing and existing.is_directory:
+            return existing
+        # 同名为文件或不存在 → 交给 create_folder(内部有冲突与父目录校验)
+        return await self.create_folder(
+            name, pid, owner_user_id, session=session
+        )
+
+    @DaoRel
+    async def ensure_module_root(
+        self,
+        module_key: str,
+        label: str,
+        owner_user_id: str | None = None,
+        session: AsyncSession | None = None,
+    ) -> FileEntry:
+        """
+        获取或创建业务模块的顶层根目录(幂等, 虚拟树中的模块大文件夹)
+        按 source_module 匹配(名称可改), 不存在时创建 /<label> 顶层目录并打模块标记
+        :param module_key: 模块标识(rag/avatar等)
+        :param label: 模块根目录显示名(如 "知识库"/"用户头像")
+        :param owner_user_id: 创建者用户ID
+        :return: 模块根目录条目
+        """
+        root = await self.file_entry_dao.get_module_root(module_key, session)
+        if root:
+            return root
+        return await self.create_folder(
+            label, None, owner_user_id, source_module=module_key, session=session
+        )
+
+    ####################################通用上传/下载(本地/对象存储由配置切换)##############################################
+    async def _get_parent_dir(
+        self, pid: str | None, session: AsyncSession | None
+    ) -> tuple[str, FileEntry | None]:
+        """
+        校验父目录有效性,返回逻辑路径与父条目(上传/秒传/分片共用)
         :param pid: 父目录ID
         :param session: 数据库会话
-        :return: 父目录逻辑路径(已去尾部斜杠)
+        :return: (父目录逻辑路径(已去尾部斜杠), 父目录条目(根目录为None))
         """
         if not pid:
-            return ""
+            return "", None
         parent = await self.file_entry_dao.get(pid, session)
         if not parent or not parent.is_active:
             raise ValueError("父目录不存在或已被删除")
+        # 与 create_folder 一致: 文件管理口径(managed实例)禁止向业务条目目录内上传
+        self._ensure_module_writable(parent)
         if not parent.is_directory:
             raise ValueError("父级条目不是目录")
-        return parent.logical_path.rstrip("/")
+        return parent.logical_path.rstrip("/"), parent
 
     async def _create_entry_from_content(
         self,
@@ -368,6 +452,7 @@ class FileService:
         description: str | None,
         owner_user_id: str | None,
         session: AsyncSession | None,
+        source_module: str | None = None,
     ) -> FileEntry:
         """
         基于已完成的内容记录创建虚拟文件条目(直传/分片/秒传共用收尾逻辑)
@@ -383,6 +468,7 @@ class FileService:
             mime_type=mime_type or "application/octet-stream",
             content_hash=content_hash,
             description=description,
+            source_module=source_module,
             user_id=owner_user_id,
             is_active=True,
         )
@@ -412,8 +498,8 @@ class FileService:
         :return: 文件信息对象
         :raises: ValueError 父目录无效/同名冲突/大小或类型超限
         """
-        # 校验父目录
-        dir_path = await self._validate_parent_dir(pid, session)
+        # 校验父目录(同时拿到父条目以继承来源模块标记)
+        dir_path, parent = await self._get_parent_dir(pid, session)
 
         # 大小与MIME类型校验(依据 file_system 配置,直传仅服务小文件)
         if len(content) > storage_config.max_size_bytes:
@@ -431,6 +517,34 @@ class FileService:
             raise ValueError(f"当前目录下已存在同名文件: {filename}")
 
         # 内容哈希去重: 已存在且完成的内容直接复用(秒传)
+        content_meta = await self.upload_content_bytes(content, filename, session)
+        return await self._create_entry_from_content(
+            filename, pid, dir_path, content_meta["content_hash"], len(content),
+            mime_type, description, owner_user_id, session,
+            source_module=parent.source_module if parent else None,
+        )
+
+    ####################################内容级复用方法(无条目口径,供跨模块共用一套存储流程)##############################################
+    @DaoRel
+    async def upload_content_bytes(
+        self,
+        content: bytes,
+        filename: str,
+        session: AsyncSession | None = None,
+    ) -> dict:
+        """
+        字节级内容存储(内容级口径): 大小校验+SHA-256去重+内容记录置SUCCESS
+        不创建 file_entry、不变更引用计数(由落库方按业务口径 acquire/release)
+        :param content: 文件字节内容
+        :param filename: 文件名(推断扩展名与MIME)
+        :return: {"content_hash", "physical_storage", "file_size_bytes", "mime_type"}
+        :raises: ValueError 超过直传大小限制
+        """
+        if len(content) > storage_config.max_size_bytes:
+            raise ValueError(
+                f"文件大小超过直传限制: {storage_config.max_size}MB, 请使用分片上传"
+            )
+        mime_type = self._guess_mime(filename)
         content_hash = hashlib.sha256(content).hexdigest()
         file_content = await self.file_content_dao.get_by_content_hash(
             content_hash, session
@@ -453,11 +567,184 @@ class FileService:
                     ),
                     session,
                 )
+            elif file_content.physical_storage != physical_storage:
+                # 中断记录的旧物理键与新键不一致时校正(避免引用悬空)
+                await self.file_content_dao.update(
+                    content_hash,
+                    FileContentUpdate(
+                        physical_storage=physical_storage, file_size_bytes=len(content)
+                    ),
+                    session,
+                )
+        return {
+            "content_hash": content_hash,
+            "physical_storage": physical_storage,
+            "file_size_bytes": len(content),
+            "mime_type": mime_type,
+        }
 
-        return await self._create_entry_from_content(
-            filename, pid, dir_path, content_hash, len(content),
-            mime_type, description, owner_user_id, session,
+    @DaoRel
+    async def init_multipart_session(
+        self,
+        req: MultipartInitRequest,
+        session: AsyncSession | None = None,
+    ) -> MultipartInitResponse:
+        """
+        内容级分片上传初始化(无目录/同名校验): 秒传判断+内容记录+凭证签发
+        供虚拟文件系统与业务模块(如知识库)共用同一套直传/中转流程
+        :param req: 初始化请求(文件名/大小/SHA-256)
+        :return: 会话凭证与上传模式(is_existing=True 时直接走秒传建记录)
+        """
+        # 秒传判断: 相同内容已完成上传
+        existing = await self.file_content_dao.get_by_content_hash(
+            req.content_hash, session
         )
+        if existing and existing.content_status == TaskStatus.SUCCESS:
+            return MultipartInitResponse(is_existing=True, part_size=MULTIPART_PART_SIZE)
+
+        # 内容记录: 直接以前端SHA-256建PENDING记录(复用未完成记录;完成时按存储侧归位结果校正)
+        if existing:
+            physical_key = existing.physical_storage
+        else:
+            physical_key = (
+                f"uploads/{datetime.now().strftime('%Y%m%d')}/{uuid.uuid4().hex}"
+                f"{Path(req.filename).suffix}"
+            )
+            await self.file_content_dao.add(
+                FileContentCreate(
+                    content_hash=req.content_hash,
+                    physical_storage=physical_key,
+                    file_size_bytes=req.file_size_bytes,
+                    storage_type=conf.file_system.storage_type,
+                ),
+                session,
+            )
+
+        # 凭证签发: 按存储能力决定 direct(预签名直传) / proxy(服务端中转)
+        storage_upload_id = await self.storage.create_multipart(physical_key, self._guess_mime(req.filename) or req.content_type or "application/octet-stream")
+        if self._supports_presign():
+            try:
+                part_count = -(-req.file_size_bytes // MULTIPART_PART_SIZE)
+                part_urls = [
+                    await self.storage.presign_put(
+                        physical_key, storage_upload_id, n + 1, _PRESIGN_EXPIRES
+                    )
+                    for n in range(part_count)
+                ]
+                if all(part_urls):
+                    token = self._make_multipart_token(
+                        physical_key, storage_upload_id, req.content_hash, "direct"
+                    )
+                    logger.info(
+                        f"直传初始化(内容级): {req.filename} ({req.file_size_bytes}B, {part_count}片)"
+                    )
+                    return MultipartInitResponse(
+                        is_existing=False,
+                        upload_id=token,
+                        part_size=MULTIPART_PART_SIZE,
+                        mode="direct",
+                        part_urls=part_urls,
+                    )
+            except Exception as e:
+                # 签名失败降级为中转,不阻断上传
+                logger.warning(f"预签名生成失败,降级为中转模式: {e}")
+        token = self._make_multipart_token(
+            physical_key, storage_upload_id, req.content_hash, "proxy"
+        )
+        logger.info(f"中转初始化(内容级): {req.filename} ({req.file_size_bytes}B)")
+        return MultipartInitResponse(
+            is_existing=False, upload_id=token, part_size=MULTIPART_PART_SIZE, mode="proxy"
+        )
+
+    @DaoRel
+    async def complete_multipart_session(
+        self,
+        upload_id: str,
+        parts: list[MultipartPartInfo],
+        file_size_bytes: int | None = None,
+        session: AsyncSession | None = None,
+    ) -> dict:
+        """
+        内容级分片完成: 分片对账 -> 存储侧合并归位 -> 内容记录哈希校正
+        不创建 file_entry、不变更引用计数(由落库方按业务口径处理)
+        :param upload_id: 分片会话凭证(init 返回)
+        :param parts: 前端提交的分片清单
+        :param file_size_bytes: 声明的文件总大小(可选完整性校验)
+        :return: {"content_hash", "physical_storage", "file_size_bytes"}
+        """
+        data = self._parse_multipart_token(upload_id)
+        if data.get("mode") == "direct":
+            # 直传: 先与存储侧对账(防伪造清单),归位信任前端SHA-256(凭证签发阶段已校验)
+            parts = await self._reconcile_parts(data, parts)
+            real_hash, size, final_key = await self.storage.complete_multipart(
+                data["key"], data["uid"], parts, expected_hash=data["hash"]
+            )
+        else:
+            # 中转: 分片完整性预校验(连续性/单片大小),存储侧合并时算真实SHA-256
+            parts = sorted(parts, key=lambda p: p.part_number)
+            for i, p in enumerate(parts):
+                if p.part_number != i + 1:
+                    raise ValueError(f"分片不连续: 缺少第 {i + 1} 片")
+                if i < len(parts) - 1 and p.size and p.size != MULTIPART_PART_SIZE:
+                    raise ValueError(f"分片 {p.part_number} 大小不合法")
+            real_hash, size, final_key = await self.storage.complete_multipart(
+                data["key"], data["uid"], [p.model_dump() for p in parts]
+            )
+
+        if file_size_bytes and file_size_bytes != size:
+            raise ValueError(
+                f"合并后大小({size}B)与声明大小({file_size_bytes}B)不一致"
+            )
+        # 内容记录归位: 前端SHA-256与存储侧实际哈希不一致时(仅中转可能出现)校正记录
+        claimed_hash = data["hash"]
+        if claimed_hash != real_hash:
+            dup = await self.file_content_dao.get_by_content_hash(real_hash, session)
+            if dup:
+                await self.file_content_dao.delete(claimed_hash, session)
+            else:
+                await self.file_content_dao.replace_content_hash(
+                    claimed_hash, real_hash, final_key, session
+                )
+        else:
+            await self.file_content_dao.update(
+                claimed_hash,
+                FileContentUpdate(physical_storage=final_key, file_size_bytes=size),
+                session,
+            )
+        return {
+            "content_hash": real_hash,
+            "physical_storage": final_key,
+            "file_size_bytes": size,
+        }
+
+    async def get_content(self, content_hash: str):
+        """
+        按内容哈希查询物理内容记录
+        :param content_hash: 内容SHA-256
+        :return: FileContent 记录,不存在返回None
+        """
+        return await self.file_content_dao.get_by_content_hash(content_hash)
+
+    @DaoRel
+    async def acquire_content(
+        self, content_hash: str, session: AsyncSession | None = None
+    ) -> None:
+        """
+        内容引用计数+1(业务口径落库后调用,同时将内容状态置为SUCCESS)
+        :param content_hash: 内容SHA-256
+        :raises: ValueError 内容记录不存在
+        """
+        await self.file_content_dao.ref_count_change(content_hash, 1, session)
+
+    @DaoRel
+    async def release_content(
+        self, content_hash: str | None, session: AsyncSession | None = None
+    ) -> None:
+        """
+        释放内容引用(计数-1,归零时清理物理文件与内容记录;公开口径供业务模块删除时调用)
+        :param content_hash: 内容SHA-256(为空直接跳过)
+        """
+        await self._release_content(content_hash, session)
 
     @staticmethod
     def _guess_mime(filename: str) -> str | None:
@@ -576,7 +863,7 @@ class FileService:
                  - mode=proxy: 前端经服务端中转上传分片(local 存储)
         """
         # ===== 校验阶段(get 凭证时完成) =====
-        dir_path = await self._validate_parent_dir(req.pid, session)
+        dir_path, _parent = await self._get_parent_dir(req.pid, session)
         if await self.file_entry_dao.exists_by_pid_name(
             req.pid, req.filename, session=session
         ):
@@ -585,69 +872,9 @@ class FileService:
         if not storage_config.is_mime_allowed(mime_type):
             raise ValueError(f"不支持的文件类型: {mime_type}")
 
-        # ===== 秒传判断: 相同内容已完成上传,直接建条目即可 =====
-        existing = await self.file_content_dao.get_by_content_hash(
-            req.content_hash, session
-        )
-        if existing and existing.content_status == TaskStatus.SUCCESS:
-            return MultipartInitResponse(is_existing=True, part_size=MULTIPART_PART_SIZE)
-
-        # 内容记录: 直接以前端SHA-256建PENDING记录(复用未完成记录;完成时按存储侧归位结果校正)
-        if existing:
-            physical_key = existing.physical_storage
-        else:
-            physical_key = (
-                f"uploads/{datetime.now().strftime('%Y%m%d')}/{uuid.uuid4().hex}"
-                f"{Path(req.filename).suffix}"
-            )
-            await self.file_content_dao.add(
-                FileContentCreate(
-                    content_hash=req.content_hash,
-                    physical_storage=physical_key,
-                    file_size_bytes=req.file_size_bytes,
-                    storage_type=conf.file_system.storage_type,
-                ),
-                session,
-            )
-
-        # ===== 凭证签发阶段: 按存储能力决定 direct(直传) / proxy(中转) =====
-        storage_upload_id = await self.storage.create_multipart(physical_key, mime_type)
-        if self._supports_presign():
-            try:
-                part_count = -(-req.file_size_bytes // MULTIPART_PART_SIZE)
-                part_urls = [
-                    await self.storage.presign_put(
-                        physical_key, storage_upload_id, n + 1, _PRESIGN_EXPIRES
-                    )
-                    for n in range(part_count)
-                ]
-                if all(part_urls):
-                    token = self._make_multipart_token(
-                        physical_key, storage_upload_id, req.content_hash, "direct"
-                    )
-                    logger.info(
-                        f"直传初始化: {req.filename} ({req.file_size_bytes}B, "
-                        f"{part_count}片) dir={dir_path or '/'}"
-                    )
-                    return MultipartInitResponse(
-                        is_existing=False,
-                        upload_id=token,
-                        part_size=MULTIPART_PART_SIZE,
-                        mode="direct",
-                        part_urls=part_urls,
-                    )
-            except Exception as e:
-                # 签名失败降级为中转,不阻断上传
-                logger.warning(f"预签名生成失败,降级为中转模式: {e}")
-        token = self._make_multipart_token(
-            physical_key, storage_upload_id, req.content_hash, "proxy"
-        )
-        logger.info(
-            f"中转初始化: {req.filename} ({req.file_size_bytes}B) dir={dir_path or '/'}"
-        )
-        return MultipartInitResponse(
-            is_existing=False, upload_id=token, part_size=MULTIPART_PART_SIZE, mode="proxy"
-        )
+        # ===== 内容级复用逻辑: 秒传判断/内容记录/凭证签发 =====
+        logger.info(f"中转初始化: {req.filename} ({req.file_size_bytes}B) dir={dir_path or '/'}")
+        return await self.init_multipart_session(req, session)
 
     async def upload_multipart_part(
         self, upload_id: str, part_number: int, content: bytes
@@ -736,56 +963,23 @@ class FileService:
         :return: 新建的文件条目
         """
         data = self._parse_multipart_token(upload_id)
-        dir_path = await self._validate_parent_dir(req.pid, session)
+        dir_path, parent = await self._get_parent_dir(req.pid, session)
         if await self.file_entry_dao.exists_by_pid_name(
             req.pid, req.filename, session=session
         ):
             raise ValueError(f"当前目录下已存在同名文件: {req.filename}")
 
-        if data.get("mode") == "direct":
-            # 直传: 先与存储侧对账(防伪造清单),归位信任前端SHA-256(凭证签发阶段已校验)
-            parts = await self._reconcile_parts(data, req.parts)
-            real_hash, size, final_key = await self.storage.complete_multipart(
-                data["key"], data["uid"], parts, expected_hash=data["hash"]
-            )
-        else:
-            # 中转: 分片完整性预校验(连续性/单片大小),存储侧合并时算真实SHA-256
-            parts = sorted(req.parts, key=lambda p: p.part_number)
-            for i, p in enumerate(parts):
-                if p.part_number != i + 1:
-                    raise ValueError(f"分片不连续: 缺少第 {i + 1} 片")
-                if i < len(parts) - 1 and p.size and p.size != MULTIPART_PART_SIZE:
-                    raise ValueError(f"分片 {p.part_number} 大小不合法")
-            real_hash, size, final_key = await self.storage.complete_multipart(
-                data["key"], data["uid"], [p.model_dump() for p in parts]
-            )
-
-        if req.file_size_bytes and req.file_size_bytes != size:
-            raise ValueError(
-                f"合并后大小({size}B)与声明大小({req.file_size_bytes}B)不一致"
-            )
-        # 内容记录归位: 前端SHA-256与存储侧实际哈希不一致时(仅中转可能出现)校正记录
-        claimed_hash = data["hash"]
-        if claimed_hash != real_hash:
-            dup = await self.file_content_dao.get_by_content_hash(real_hash, session)
-            if dup:
-                await self.file_content_dao.delete(claimed_hash, session)
-            else:
-                await self.file_content_dao.replace_content_hash(
-                    claimed_hash, real_hash, final_key, session
-                )
-        else:
-            await self.file_content_dao.update(
-                claimed_hash,
-                FileContentUpdate(physical_storage=final_key, file_size_bytes=size),
-                session,
-            )
+        # ===== 内容级复用逻辑: 分片对账/合并归位/哈希校正 =====
+        meta = await self.complete_multipart_session(
+            upload_id, req.parts, req.file_size_bytes, session
+        )
         mime_type = self._guess_mime(req.filename) or "application/octet-stream"
         entry = await self._create_entry_from_content(
-            req.filename, req.pid, dir_path, real_hash, size,
+            req.filename, req.pid, dir_path, meta["content_hash"], meta["file_size_bytes"],
             mime_type, req.description, owner_user_id, session,
+            source_module=parent.source_module if parent else None,
         )
-        logger.info(f"上传完成({data.get('mode')}): {req.filename} -> {entry.logical_path} ({size}B)")
+        logger.info(f"上传完成({data.get('mode')}): {req.filename} -> {entry.logical_path} ({meta['file_size_bytes']}B)")
         return entry
 
     async def abort_multipart_upload(self, upload_id: str) -> None:
@@ -815,7 +1009,7 @@ class FileService:
         )
         if not content or content.content_status != TaskStatus.SUCCESS:
             raise ValueError("文件内容不存在或未完成上传,无法创建条目")
-        dir_path = await self._validate_parent_dir(req.pid, session)
+        dir_path, parent = await self._get_parent_dir(req.pid, session)
         if await self.file_entry_dao.exists_by_pid_name(
             req.pid, req.name, session=session
         ):
@@ -823,6 +1017,7 @@ class FileService:
         return await self._create_entry_from_content(
             req.name, req.pid, dir_path, req.content_hash, req.file_size_bytes,
             req.mime_type, req.description, owner_user_id, session,
+            source_module=parent.source_module if parent else None,
         )
 
     def get_upload_mode(self) -> UploadModeResponse:
@@ -1006,6 +1201,7 @@ class FileService:
         entry = await self.file_entry_dao.get(entry_id, session)
         if not entry or not entry.is_active:
             raise ValueError("条目不存在或已被删除")
+        self._ensure_module_writable(entry)
         # 校验目标目录
         if target_pid:
             target = await self.file_entry_dao.get(target_pid, session)
@@ -1013,6 +1209,7 @@ class FileService:
                 raise ValueError("目标目录不存在或已被删除")
             if not target.is_directory:
                 raise ValueError("目标条目不是目录")
+            self._ensure_module_writable(target)
             # 环形防护: 目录不能复制到自身子树内
             if entry.is_directory and (
                 target.logical_path == entry.logical_path
@@ -1057,6 +1254,7 @@ class FileService:
                     logical_path=new_path,
                     is_directory=True,
                     description=entry.description,
+                    source_module=entry.source_module,
                     user_id=owner_user_id or entry.user_id,
                 ),
                 session,
@@ -1080,6 +1278,7 @@ class FileService:
                 file_extension=entry.file_extension,
                 mime_type=entry.mime_type,
                 description=entry.description,
+                source_module=entry.source_module,
                 user_id=owner_user_id or entry.user_id,
             ),
             session,

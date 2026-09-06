@@ -189,3 +189,111 @@ async def test_change_my_password_flow(client: httpx.AsyncClient):
 def resp_text_ok(body: dict) -> str:
     """注册响应断言辅助(失败时输出响应体)"""
     return str(body)
+
+# ==================== 头像上传(统一文件服务存储) ====================
+# 头像经 FileService 存入虚拟目录 /用户头像/<用户ID>/(source_module='avatar',
+# 文件管理可见但只读), 下载走 /file/filesystem/download/{entry_id} 且允许匿名访问
+# 注: 内容每次运行唯一 —— 统一存储按内容哈希去重, 固定内容会命中持久库中
+# 历史运行的内容记录(其物理文件已随临时存储清理)导致下载404假失败
+
+import uuid as _uuid
+
+PNG_BYTES = b"\x89PNG\r\n\x1a\n" + f"fake-png-{_uuid.uuid4().hex}".encode()
+
+
+def _assert_avatar_downloadable(resp: httpx.Response, content: bytes, label: str):
+    """下载断言(存储类型无关): local流式返回200且内容一致; S3协议返回302预签名直链"""
+    assert resp.status_code in (200, 302), f"{label}: {resp.status_code} {resp.text}"
+    if resp.status_code == 200:
+        assert resp.content == content, f"{label}: 下载内容应与上传一致"
+
+
+async def test_upload_my_avatar_ok(client: httpx.AsyncClient, anon_client: httpx.AsyncClient):
+    """上传头像成功: 返回下载路径与条目ID, me 同步更新, 匿名可下载"""
+    content = PNG_BYTES + b"-ok"
+    resp = await client.post(
+        f"{BASE}/me/avatar",
+        files={"file": (f"avatar_{uuid.uuid4().hex[:6]}.png", content, "image/png")},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    entry_id = body["entry_id"]
+    assert entry_id, "应返回文件条目ID"
+    assert body["avatar"].endswith(f"/file/filesystem/download/{entry_id}"), "头像字段应为下载路径"
+
+    # me 已同步新头像
+    me = (await client.get(f"{BASE}/me")).json()
+    assert me["avatar"] == body["avatar"], "用户头像字段应回写为下载路径"
+
+    # 匿名下载放行(avatar 来源条目)
+    resp_dl = await anon_client.get(f"/file/filesystem/download/{entry_id}")
+    _assert_avatar_downloadable(resp_dl, content, "avatar 条目应允许匿名下载")
+
+
+async def test_upload_my_avatar_reupload_cleans_old(client: httpx.AsyncClient, anon_client: httpx.AsyncClient):
+    """重复上传: 新头像生效, 旧头像条目被清理(下载404)"""
+    resp_first = await client.post(
+        f"{BASE}/me/avatar",
+        files={"file": (f"avatar_first_{uuid.uuid4().hex[:6]}.png", PNG_BYTES + b"-v1", "image/png")},
+    )
+    assert resp_first.status_code == 200, resp_first.text
+    first = resp_first.json()
+    resp_second = await client.post(
+        f"{BASE}/me/avatar",
+        files={"file": (f"avatar_second_{uuid.uuid4().hex[:6]}.png", PNG_BYTES + b"-v2", "image/png")},
+    )
+    assert resp_second.status_code == 200, resp_second.text
+    second = resp_second.json()
+    assert second["entry_id"] != first["entry_id"], "两次上传应生成不同条目"
+
+    resp_old = await anon_client.get(f"/file/filesystem/download/{first['entry_id']}")
+    assert resp_old.status_code == 404, "旧头像条目应被清理(404)"
+    resp_new = await anon_client.get(f"/file/filesystem/download/{second['entry_id']}")
+    _assert_avatar_downloadable(resp_new, PNG_BYTES + b"-v2", "新头像条目应可下载")
+
+
+async def test_upload_my_avatar_invalid_ext(client: httpx.AsyncClient):
+    """非图片格式应 400"""
+    resp = await client.post(
+        f"{BASE}/me/avatar",
+        files={"file": ("avatar_fake.txt", b"plain text", "text/plain")},
+    )
+    assert resp.status_code == 400, resp.text
+    assert "格式" in resp.json()["detail"], "错误信息应提示格式不允许"
+
+
+async def test_upload_my_avatar_requires_login(anon_client: httpx.AsyncClient):
+    """未登录上传头像应 401"""
+    resp = await anon_client.post(
+        f"{BASE}/me/avatar",
+        files={"file": ("avatar.png", PNG_BYTES, "image/png")},
+    )
+    assert resp.status_code == 401, resp.text
+
+async def test_avatar_entry_readonly_in_file_module(client: httpx.AsyncClient):
+    """业务条目只读守卫: avatar 条目在文件管理模块中不可改/删(400), 下载不受影响
+
+    头像等业务条目由业务模块管理, 文件管理端点注入 strict_business_guard 服务拦截写操作
+    """
+    content = PNG_BYTES + b"-guard"
+    resp_guard = await client.post(
+        f"{BASE}/me/avatar",
+        files={"file": (f"guard_{uuid.uuid4().hex[:6]}.png", content, "image/png")},
+    )
+    assert resp_guard.status_code == 200, resp_guard.text
+    entry_id = resp_guard.json()["entry_id"]
+
+    # 文件管理更新条目 → 拦截(400, 提示业务模块管理)
+    resp = await client.put(
+        f"/file/filesystem/entries/{entry_id}", json={"name": "renamed.png"}
+    )
+    assert resp.status_code == 400, resp.text
+    assert "业务模块" in resp.json()["detail"], "拦截信息应提示到业务模块操作"
+
+    # 文件管理删除文件 → 拦截(400)
+    resp = await client.delete(f"/file/filesystem/files/{entry_id}")
+    assert resp.status_code == 400, resp.text
+
+    # 下载不受守卫影响
+    resp = await client.get(f"/file/filesystem/download/{entry_id}")
+    _assert_avatar_downloadable(resp, content, "守卫不影响正常下载")

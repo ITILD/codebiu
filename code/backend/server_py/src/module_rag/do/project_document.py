@@ -188,7 +188,19 @@ class ProjectDocumentBase(SQLModel):
     mime_type: str | None = Field(default=None, max_length=100, description="MIME类型")
     file_size_bytes: int = Field(..., description="文件大小(字节)")
     physical_path: str = Field(
-        ..., max_length=500, description="物理存储相对路径(相对 DIR_UPLOAD)"
+        ..., max_length=500, description="物理存储键: 新口径为统一存储的物理键(相对存储根), 旧数据为相对 DIR_UPLOAD 的路径"
+    )
+    content_hash: str | None = Field(
+        default=None,
+        max_length=64,
+        index=True,
+        description="内容SHA-256(新口径关联统一存储 file_content, 引用计数管理); 旧数据为 NULL 走本地路径",
+    )
+    entry_id: str | None = Field(
+        default=None,
+        max_length=50,
+        index=True,
+        description="关联文件条目ID(条目级新口径, 文档位于虚拟目录 /rag/<项目名>/ 下); 内容级旧数据为 NULL",
     )
     description: str | None = Field(
         default=None, max_length=500, description="文档描述"
@@ -253,7 +265,17 @@ class ProjectDocumentCreate(SQLModel):
     mime_type: str | None = Field(default=None, max_length=100, description="MIME类型")
     file_size_bytes: int = Field(..., description="文件大小(字节)")
     physical_path: str = Field(
-        ..., max_length=500, description="物理存储相对路径(相对 DIR_UPLOAD)"
+        ..., max_length=500, description="物理存储键: 新口径为统一存储的物理键(相对存储根), 旧数据为相对 DIR_UPLOAD 的路径"
+    )
+    content_hash: str | None = Field(
+        default=None,
+        max_length=64,
+        description="内容SHA-256(新口径关联统一存储 file_content); 旧数据为 NULL 走本地路径",
+    )
+    entry_id: str | None = Field(
+        default=None,
+        max_length=50,
+        description="关联文件条目ID(条目级新口径); 内容级旧数据为 NULL",
     )
     description: str | None = Field(
         default=None, max_length=500, description="文档描述"
@@ -288,13 +310,23 @@ class ProjectDocumentResponse(SQLModel):
     file_extension: str = Field(..., description="文件扩展名(不含点)")
     mime_type: str | None = Field(default=None, description="MIME类型")
     file_size_bytes: int = Field(..., description="文件大小(字节)")
-    physical_path: str = Field(..., description="物理存储相对路径")
+    physical_path: str = Field(..., description="物理存储键")
+    content_hash: str | None = Field(
+        default=None, description="内容SHA-256(新口径关联统一存储; 旧数据为 NULL)"
+    )
+    entry_id: str | None = Field(
+        default=None, description="关联文件条目ID(条目级新口径; 内容级旧数据为 NULL)"
+    )
     description: str | None = Field(default=None, description="文档描述")
     parse_status: str = Field(default=ParseStatus.PENDING, description="解析状态")
     chunk_count: int = Field(default=0, description="解析生成的分块数量")
     error_message: str | None = Field(default=None, description="解析失败原因")
     parse_steps: dict = Field(
         default_factory=dict, description="入库步骤进度 JSONB(详见 GET /{id}/progress)"
+    )
+    parse_task_warning: str | None = Field(
+        default=None,
+        description="上传后自动解析任务派发警告(如所需模型未配置/队列不可用), 仅上传接口返回",
     )
     uploaded_by: str = Field(..., description="上传者用户ID")
     created_at: datetime = Field(..., description="创建时间")

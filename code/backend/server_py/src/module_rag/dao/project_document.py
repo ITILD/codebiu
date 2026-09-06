@@ -90,6 +90,24 @@ class ProjectDocumentDao:
         return list(result.all())
 
     @DaoRel
+    async def list_by_entry_ids(
+        self,
+        entry_ids: list[str],
+        session: AsyncSession | None = None,
+    ) -> list[ProjectDocument]:
+        """
+        按文件条目ID批量查询文档(条目级浏览时联查文档口径信息)
+        :param entry_ids: 文件条目ID列表
+        :param session: 可选数据库会话
+        :return: 匹配的文档列表
+        """
+        if not entry_ids:
+            return []
+        statement = select(ProjectDocument).where(ProjectDocument.entry_id.in_(entry_ids))
+        result = await session.exec(statement)
+        return list(result.all())
+
+    @DaoRel
     async def list_by_project(
         self,
         project_id: str,

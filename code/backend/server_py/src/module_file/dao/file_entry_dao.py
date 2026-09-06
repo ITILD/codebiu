@@ -184,6 +184,33 @@ class FileEntryDao:
         return result.one() > 0
 
     @DaoRel
+    async def get_by_pid_name(
+        self,
+        pid: str | None,
+        name: str,
+        session: AsyncSession | None = None,
+    ) -> FileEntry | None:
+        """
+        按父目录与名称精确查询活跃条目(幂等建目录场景)
+        :param pid: 父目录ID(为空表示根目录)
+        :param name: 条目名称
+        :param session: 可选数据库会话
+        :return: 条目对象,不存在返回None
+        """
+        pid_condition = (
+            FileEntry.pid == pid if pid else FileEntry.pid.is_(None) | (
+                FileEntry.pid == ""
+            )
+        )
+        statement = select(FileEntry).where(
+            FileEntry.is_active == True,  # noqa: E712
+            pid_condition,
+            FileEntry.name == name,
+        )
+        result = await session.exec(statement)
+        return result.first()
+
+    @DaoRel
     async def list_dirs_by_pid(
         self, pid: str | None, session: AsyncSession | None = None
     ) -> list[FileEntry]:
@@ -315,6 +342,25 @@ class FileEntryDao:
         if not row or not row[0]:
             return None
         return FileEntryWithContent.from_models(entry=row[0], content=row[1])
+
+    @DaoRel
+    async def get_module_root(
+        self, module_key: str, session: AsyncSession | None = None
+    ) -> FileEntry | None:
+        """
+        查询业务模块的顶层根目录(顶层条目且 source_module 精确匹配)
+        按 source_module 而非名称匹配, 目录被改名后仍能找到
+        :param module_key: 模块标识(rag/avatar等)
+        :param session: 可选数据库会话
+        :return: 模块根目录条目, 不存在返回None
+        """
+        statement = select(FileEntry).where(
+            FileEntry.is_active == True,  # noqa: E712
+            FileEntry.pid.is_(None) | (FileEntry.pid == ""),
+            FileEntry.source_module == module_key,
+        )
+        result = await session.exec(statement)
+        return result.first()
 
     @DaoRel
     async def get_by_logical_path(

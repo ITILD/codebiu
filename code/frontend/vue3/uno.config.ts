@@ -5,8 +5,14 @@ import {
   presetTypography,      // 排版预设：提供文章友好的默认文本样式（如 .prose）
   presetWind3,           // Tailwind 风格预设：模拟 Tailwind CSS v3 的原子类名系统
   transformerDirectives, // 转换器：支持在 CSS 中使用 /* @apply */ 指令
-  transformerVariantGroup, // 转换器：支持组合变体语法，如 hover:(bg-blue text-white)
+  transformerVariantGroup, // 转换器：支持在模板中写 hover:(bg-blue text-white) 分组变体
 } from 'unocss'
+import { createRequire } from 'node:module'
+
+// CJS require 读取图标集合 JSON: Node 22 下 ESM JSON import 必须携带
+// `with { type: 'json' }` 属性, 而 presetIcons 默认加载器未携带, 会导致
+// 全站 i-ep-* 图标静默失效(不生成任何 CSS), 故显式指定集合加载器
+const require = createRequire(import.meta.url)
 
 // 导出 UnoCSS 配置
 export default defineConfig({
@@ -17,6 +23,11 @@ export default defineConfig({
     presetIcons({ // 图标预设
       scale: 3, // 图标缩放比例
       warn: true, // 控制台输出警告信息
+      // 显式集合加载器(见文件头注释): ep 为 Element Plus 图标集
+      collections: {
+        ep: () => require('@iconify-json/ep/icons.json'),
+        'vscode-icons': () => require('@iconify-json/vscode-icons/icons.json'),
+      },
     }),           // 启用图标支持，自动将 i-xxx-xxx 转换为 SVG 或 background 图标
     presetTypography(),      // 启用排版样式，为 <article> 等内容区域提供美观的默认样式
   ],

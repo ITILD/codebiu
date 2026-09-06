@@ -61,6 +61,8 @@ interface ProjectDocument {
   mime_type?: string | null;
   file_size_bytes: number;
   physical_path: string;
+  /** 内容SHA-256(新口径关联统一存储; 旧数据为 null) */
+  content_hash?: string | null;
   description?: string | null;
   uploaded_by: string;
   created_at: string;
@@ -71,6 +73,8 @@ interface ProjectDocument {
   chunk_count?: number;
   /** 解析失败原因 */
   error_message?: string | null;
+  /** 上传后自动解析任务派发警告(如所需模型未配置/队列不可用), 仅上传接口返回 */
+  parse_task_warning?: string | null;
 }
 
 interface ProjectDocumentUpdate {

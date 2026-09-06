@@ -42,3 +42,18 @@ async def get_current_user_id(
     except Exception as e:
         # 捕获所有其他异常，确保错误信息能够传递给前端
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
+
+
+async def get_current_user_id_optional(
+    token: str | None = Depends(
+        OAuth2PasswordBearer(tokenUrl="/authorization/auth/token", auto_error=False)
+    ),
+    auth_service: AuthService = Depends(get_auth_service),
+) -> str | None:
+    """获取当前用户ID(可选登录: 未携带或无效Token返回None,由调用方决定匿名策略)"""
+    if not token:
+        return None
+    try:
+        return await auth_service.get_current_user_id(token)
+    except Exception:
+        return None
