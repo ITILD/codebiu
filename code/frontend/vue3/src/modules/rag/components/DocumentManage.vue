@@ -1,8 +1,8 @@
 <template>
-  <div p-2 w-full flex flex-col h-app>
-    <!-- 页头: 返回 + 面包屑(项目名=项目根文件夹) + 搜索 + 新建文件夹 + 上传 -->
+  <!-- 文档管理面板(目录浏览/上传/文件夹/文档操作): 由 project.vue 编辑抽屉内嵌使用 -->
+  <div flex flex-col min-h-0>
+    <!-- 工具行: 面包屑(项目名=项目根文件夹) + 搜索 + 新建文件夹 + 上传 -->
     <div mb-3 flex flex-wrap items-center gap-2>
-      <el-button :icon="Back" @click="router.push('/rag/project')" />
       <el-breadcrumb separator="/" flex-1 min-w-0>
         <el-breadcrumb-item>
           <span cursor-pointer hover:text-note-green @click="handleGoto(-1)">{{ projectName }}</span>
@@ -30,7 +30,7 @@
     </div>
 
     <!-- 条目表格(目录+文件混合, 目录排前; 文件行携带文档级联查字段) -->
-    <el-table v-loading="loading" :data="entries" stripe w-full flex-1 @row-dblclick="handleOpen">
+    <el-table v-loading="loading" :data="entries" stripe w-full @row-dblclick="handleOpen">
       <el-table-column label="名称" min-width="240" show-overflow-tooltip>
         <template #default="{ row }">
           <div flex items-center gap-2 cursor-pointer @click="handleOpen(row)">
@@ -101,7 +101,7 @@
         </template>
       </el-table-column>
       <!-- 操作列: 目录行=打开/重命名/删除; 文件行=文档操作(需 document_id, 旧数据未登记时仅展示提示) -->
-      <el-table-column label="操作" min-width="280" align="center" :fixed="isMd ? 'right' : false">
+      <el-table-column label="操作" min-width="280" align="center">
         <template #default="{ row }">
           <template v-if="row.is_directory">
             <el-button size="small" type="primary" plain @click="handleOpen(row)">打开</el-button>
@@ -120,14 +120,13 @@
     </el-table>
 
     <!-- 空状态提示 -->
-    <div v-if="!loading && entries.length === 0" py-16 flex flex-col items-center text-note-sub>
-      <el-icon text-5xl mb-3><FolderOpened /></el-icon>
-      <p m-0 v-if="projectId">当前文件夹为空，可上传文档或新建文件夹</p>
-      <p m-0 v-else>缺少项目参数，请从知识库页面进入</p>
+    <div v-if="!loading && entries.length === 0" py-10 flex flex-col items-center text-note-sub>
+      <el-icon text-4xl mb-2><FolderOpened /></el-icon>
+      <p m-0>当前文件夹为空，可上传文档或新建文件夹</p>
     </div>
 
     <!-- 分页(手机居中, 桌面靠右) -->
-    <div mt-4 flex flex-wrap justify-center sm:justify-end>
+    <div mt-3 flex flex-wrap justify-center sm:justify-end>
       <el-pagination v-model:current-page="pagination.page" v-model:page-size="pagination.size"
         :total="total" layout="total, prev, pager, next"
         @size-change="() => fetchData()" @current-change="() => fetchData()" />
@@ -171,7 +170,7 @@
 
 <script setup lang="ts">
 import {
-  Back, Upload, Document, Folder, FolderOpened, FolderAdd, Loading, Search,
+  Upload, Document, Folder, FolderOpened, FolderAdd, Loading, Search,
 } from '@element-plus/icons-vue'
 import {
   uploadRagDocument,
@@ -191,19 +190,10 @@ import { listRagProjects } from '../api/project'
 import { ParseStatus, IngestStepState, parseStatusOptions } from '../types'
 import type { DocumentIngestProgress } from '../types'
 import type { PaginationParams } from '@/common/types/common'
-import { useResponsive } from '@/common/composables/useResponsive'
-import RagPageNav from '../components/RagPageNav.vue'
 import { ElMessage, ElMessageBox, type FormInstance, type UploadRawFile } from 'element-plus'
-import { useRoute, useRouter } from 'vue-router'
 
-const route = useRoute()
-const router = useRouter()
+const props = defineProps<{ /** 所属知识库项目ID */ projectId: string }>()
 
-// 断点状态(操作列固定策略)
-const { isMd } = useResponsive()
-
-// 路径参数中的项目ID
-const projectId = computed(() => (route.query.project_id as string) || '')
 const projectName = ref('知识库文档')
 
 // 面包屑目录栈(项目根=根节点, 子目录逐级入栈)
@@ -259,10 +249,10 @@ const formatDate = (value: string) => {
 
 // 加载项目名称(面包屑根节点展示)
 const loadProjectName = async () => {
-  if (!projectId.value) return
+  if (!props.projectId) return
   try {
     const res = await listRagProjects({ page: 1, size: 200 })
-    const found = res.items.find((p) => p.id === projectId.value)
+    const found = res.items.find((p) => p.id === props.projectId)
     if (found) projectName.value = found.name
   } catch {
     // 名称加载失败不影响列表展示
@@ -271,10 +261,10 @@ const loadProjectName = async () => {
 
 // 获取当前目录条目列表(服务端名称过滤; 静默模式供轮询使用)
 const fetchData = async (silent = false) => {
-  if (!projectId.value) return
+  if (!props.projectId) return
   try {
     if (!silent) loading.value = true
-    const res = await listRagEntries(projectId.value, {
+    const res = await listRagEntries(props.projectId, {
       ...pagination.value,
       pid: currentPid.value,
       name: searchQuery.value.trim() || undefined,
@@ -384,13 +374,13 @@ const handleGoto = (idx: number) => {
 
 // 上传文档到当前文件夹(统一存储上传流程; 返回 false 阻止 el-upload 默认行为)
 const handleUpload = async (file: UploadRawFile) => {
-  if (!projectId.value) {
-    ElMessage.warning('缺少项目参数，请从知识库页面进入')
+  if (!props.projectId) {
+    ElMessage.warning('缺少项目参数')
     return false
   }
   try {
     uploading.value = true
-    const doc = await uploadRagDocument(projectId.value, file, undefined, currentPid.value)
+    const doc = await uploadRagDocument(props.projectId, file, undefined, currentPid.value)
     ElMessage.success(`文档"${file.name}"上传成功`)
     // 上传即解析: 后端推送解析任务前已校验模型, 缺失时通过 parse_task_warning 弹窗警告
     if (doc.parse_task_warning) {
@@ -420,12 +410,12 @@ const handleCreateFolder = () => {
 }
 
 const handleFolderSubmit = async () => {
-  if (!folderFormRef.value || !projectId.value) return
+  if (!folderFormRef.value || !props.projectId) return
   const valid = await folderFormRef.value.validate().catch(() => false)
   if (!valid) return
   try {
     submitting.value = true
-    await createRagFolder(projectId.value, folderForm.name.trim(), currentPid.value)
+    await createRagFolder(props.projectId, folderForm.name.trim(), currentPid.value)
     ElMessage.success('文件夹创建成功')
     folderDialogVisible.value = false
     fetchData()
@@ -439,14 +429,14 @@ const handleFolderSubmit = async () => {
 
 // ---------------- 删除文件夹 ----------------
 const handleDeleteFolder = async (row: RagFileEntry) => {
-  if (!projectId.value) return
+  if (!props.projectId) return
   try {
     await ElMessageBox.confirm(
       `确定删除文件夹"${row.name}"吗？文件夹下全部内容将一并删除。`,
       '警告',
       { type: 'warning', confirmButtonText: '确定', cancelButtonText: '取消' }
     )
-    await deleteRagFolder(projectId.value, row.id)
+    await deleteRagFolder(props.projectId, row.id)
     ElMessage.success('删除成功')
     fetchData()
   } catch (error) {
@@ -476,13 +466,13 @@ const handleRenameFolder = (row: RagFileEntry) => {
 }
 
 const handleSubmit = async () => {
-  if (!formRef.value || !currentEntry.value || !projectId.value) return
+  if (!formRef.value || !currentEntry.value || !props.projectId) return
   const valid = await formRef.value.validate().catch(() => false)
   if (!valid) return
   try {
     submitting.value = true
     if (editMode.value === 'folder') {
-      await renameRagFolder(projectId.value, currentEntry.value.id, form.name.trim())
+      await renameRagFolder(props.projectId, currentEntry.value.id, form.name.trim())
     } else if (currentEntry.value.document_id) {
       await updateRagDocument(currentEntry.value.document_id, {
         name: form.name.trim(),
@@ -557,8 +547,8 @@ onMounted(() => {
   fetchData()
 })
 
-// 项目参数变化时刷新
-watch(projectId, () => {
+// 项目变化时重置目录栈并刷新
+watch(() => props.projectId, () => {
   pagination.value.page = 1
   breadcrumbs.value = []
   loadProjectName()

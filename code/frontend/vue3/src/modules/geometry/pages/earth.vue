@@ -6,8 +6,21 @@
       <canvas id="earthDom" w-full h-full></canvas>
     </div>
 
-    <!-- 顶部悬浮: 浏览/绘制工具栏 -->
-    <div absolute top-3 left-3 right-3 z-20 flex justify-center pointer-events-none>
+    <!-- 编辑开关: 默认纯浏览只看地球, 点击后滑出绘制工具栏与图层面板 -->
+    <Transition name="fade">
+      <div v-if="!editing" class="absolute top-3 left-1/2 z-20 -translate-x-1/2">
+        <el-button type="primary" class="shadow-note" :icon="EditPen" @click="editing = true">
+          编辑
+        </el-button>
+      </div>
+    </Transition>
+
+    <!-- 顶部悬浮: 浏览/绘制工具栏(编辑模式下自上而下滑入) -->
+    <Transition name="slide-down">
+      <div
+        v-if="editing"
+        absolute top-3 left-3 right-3 z-20 flex justify-center pointer-events-none
+      >
       <div
         pointer-events-auto
         class="flex flex-wrap items-center justify-center gap-2 rounded-lg border border-note bg-note-glass px-3 py-2 shadow-note backdrop-blur-md"
@@ -46,12 +59,17 @@
         <el-tag v-if="drawMode !== 'none'" type="warning" effect="plain" size="small">
           {{ toolbarTips }}
         </el-tag>
-      </div>
-    </div>
 
-    <!-- 左侧悬浮: 图层面板 + 各图层要素列表 -->
+        <!-- 退出编辑: 收回工具栏与图层面板, 回到纯浏览 -->
+        <el-button size="small" type="danger" plain @click="exitEdit">退出编辑</el-button>
+      </div>
+      </div>
+    </Transition>
+
+    <!-- 左侧悬浮: 图层面板 + 各图层要素列表(编辑模式下自左滑入) -->
+    <Transition name="slide-left">
     <div
-      v-if="!panelCollapsed"
+      v-if="editing && !panelCollapsed"
       class="absolute bottom-3 left-3 top-16 z-10 flex w-64 md:w-72 flex-col rounded-lg border border-note bg-note-glass shadow-note backdrop-blur-md"
     >
       <!-- 面板头: 标题 + 新增图层 + 收起 -->
@@ -149,17 +167,18 @@
         绘制目标: {{ activeLayerName }} · 显隐设置自动保存
       </p>
     </div>
-    <!-- 面板收起时的展开按钮 -->
+    </Transition>
+    <!-- 编辑模式下面板收起时的展开按钮 -->
     <el-button
-      v-else
+      v-if="editing && panelCollapsed"
       class="absolute left-3 top-16 z-10"
       circle :icon="Expand" title="展开图层面板"
       @click="panelCollapsed = false"
     />
 
-    <!-- 指针所指地表坐标(绘制模式下实时显示) -->
+    <!-- 指针所指地表坐标(仅编辑模式实时显示) -->
     <div
-      v-if="hoverLngLat"
+      v-if="editing && hoverLngLat"
       class="absolute bottom-3 right-3 z-10 rounded-full border border-note bg-note-glass px-3 py-1.5 text-xs text-note-sub shadow-note backdrop-blur-md"
     >
       经度 {{ hoverLngLat.lon.toFixed(2) }}° · 纬度 {{ hoverLngLat.lat.toFixed(2) }}°
@@ -285,7 +304,7 @@
 
 <script setup lang="ts">
 import {
-  Aim, Box, Brush, CaretRight, Delete, Edit, Expand, Fold,
+  Aim, Box, Brush, CaretRight, Delete, Edit, EditPen, Expand, Fold,
   Grid, Location, Plus, Pointer, Search, Share,
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
@@ -311,6 +330,7 @@ import {
   type LngLat,
 } from '../types'
 import { useLayerStore } from '../stores/layer'
+import { SysSettingStore } from '@/common/stores/sys'
 import { useResponsive } from '@/common/composables/useResponsive'
 import { EarthScene, type DrawMode, type DrawEvent } from '../utils/EarthScene'
 
@@ -318,6 +338,10 @@ import { EarthScene, type DrawMode, type DrawEvent } from '../utils/EarthScene'
 let earthScene: EarthScene | undefined
 /** 图层设置 store(显隐/激活图层持久化) */
 const layerStore = useLayerStore()
+/** 系统设置 store(网站明暗主题) */
+const sysSettingStore = SysSettingStore()
+/** 编辑模式开关(默认纯浏览只看地球, 开启后滑出绘制工具栏与图层面板) */
+const editing = ref(false)
 /** 当前绘制模式 */
 const drawMode = ref<DrawMode>('none')
 /** 绘制中已收集的点(用于完成按钮禁用判断) */
@@ -349,6 +373,8 @@ const toolbarTips = computed(() => {
 const initScene = () => {
   earthScene = new EarthScene('earthDom')
   earthScene.observeResize('earthCanvasP')
+  // 空间背景跟随网站明暗主题
+  earthScene.setTheme(sysSettingStore.sysStyle.theme.isDark)
   // 初始同步图层显隐(持久化恢复的设置要立即作用于渲染, watch 仅监听后续变化)
   for (const l of layerStore.layers) {
     earthScene.setLayerVisible(l.id, layerStore.isVisible(l.id))
@@ -363,6 +389,15 @@ const initScene = () => {
 const handleModeChange = (mode: string | number | boolean | undefined) => {
   draftPoints.value = []
   earthScene?.setDrawMode(mode as DrawMode, handleDrawEvent)
+}
+
+/** 退出编辑模式: 清理绘制状态, 收回工具栏与图层面板回到纯浏览 */
+const exitEdit = () => {
+  editing.value = false
+  drawMode.value = 'none'
+  draftPoints.value = []
+  hoverLngLat.value = null
+  earthScene?.setDrawMode('none', handleDrawEvent)
 }
 
 /** 绘制事件回调(点=单击完成, 线/面/立体=双击或按钮完成) */
@@ -489,6 +524,12 @@ const handleRemoveLayer = (id: string) => {
   }
   layerStore.removeLayer(id, true)
 }
+
+// 网站明暗主题切换时同步三维场景空间背景
+watch(
+  () => sysSettingStore.sysStyle.theme.isDark,
+  isDark => earthScene?.setTheme(isDark),
+)
 
 // 图层显隐变化同步到地球渲染
 watch(
@@ -724,3 +765,38 @@ onBeforeUnmount(() => {
   earthScene = undefined
 })
 </script>
+
+<style scoped>
+/* 编辑功能滑入/滑出: 工具栏自上而下, 图层面板自左而右, 开关按钮淡入淡出 */
+.slide-down-enter-active,
+.slide-down-leave-active {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.slide-down-enter-from,
+.slide-down-leave-to {
+  opacity: 0;
+  transform: translateY(-12px);
+}
+
+.slide-left-enter-active,
+.slide-left-leave-active {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.slide-left-enter-from,
+.slide-left-leave-to {
+  opacity: 0;
+  transform: translateX(-16px);
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>

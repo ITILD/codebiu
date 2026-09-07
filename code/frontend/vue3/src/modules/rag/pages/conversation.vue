@@ -16,8 +16,18 @@
       transition-transform duration-300 md:translate-x-0
       :class="drawerOpen ? 'translate-x-0' : '-translate-x-full'"
     >
-      <!-- 新建 + 搜索 -->
+      <!-- 知识库管理入口(侧栏最顶部) + 新建 + 搜索 -->
       <div p-3 space-y-2.5>
+        <button
+          v-if="canManage"
+          class="active:scale-[0.98]"
+          flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl border border-note bg-note-card text-note text-sm font-medium
+          shadow-note hover:border-note-green hover:text-note-green transition-all
+          @click="router.push('/rag/project')"
+        >
+          <el-icon :size="16"><Collection /></el-icon>
+          知识库管理
+        </button>
         <button
           class="active:scale-[0.98]"
           flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl bg-note-green text-white text-sm font-medium
@@ -165,10 +175,12 @@
 <script setup lang="ts">
 import {
   Plus, Search, Delete, Menu, MagicStick, ChatDotRound,
-  EditPen, Document, List, DataAnalysis,
+  EditPen, Document, List, DataAnalysis, Collection,
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import RagPageNav from '../components/RagPageNav.vue'
+import { useRouter } from 'vue-router'
+import { usePermission } from '@/common/composables/usePermission'
 import {
   createConversation,
   listMyConversations,
@@ -184,6 +196,11 @@ import ChatComposer from '@/common/components/chat/ChatComposer.vue'
 import { StreamEventType } from '@/common/types/chat'
 import type { MessageBlock } from '@/common/types/chat'
 import type { Conversation, ChatMessage, MyProject } from '../types'
+
+const router = useRouter()
+const { hasPerm } = usePermission()
+// 知识库管理入口权限(与菜单配置一致)
+const canManage = computed(() => hasPerm('rag:project'))
 
 // ===== 会话列表 =====
 const conversations = ref<Conversation[]>([])

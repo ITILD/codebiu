@@ -48,7 +48,7 @@ const defaultExtrudeStyle: Required<GeoFeatureStyle> = {
 /** 取要素样式(合并默认值, 兼容无 style 的历史数据) */
 const resolveStyle = (featureType: string, style?: GeoFeatureStyle | null): Required<GeoFeatureStyle> => {
   const base = defaultFeatureStyles[featureType as FeatureType] ?? defaultFeatureStyles[FeatureType.POINT]
-  return { ...base, ...(style ?? {}) }
+  return { ...base, ...style }
 }
 
 /** GeoJSON 几何体(点/线/面) */

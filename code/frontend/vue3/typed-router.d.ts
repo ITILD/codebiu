@@ -40,8 +40,6 @@ declare module 'vue-router/auto-routes' {
     '/monitor/server_status': RouteRecordInfo<'/monitor/server_status', '/monitor/server_status', Record<never, never>, Record<never, never>>,
     '/monitor/uistore': RouteRecordInfo<'/monitor/uistore', '/monitor/uistore', Record<never, never>, Record<never, never>>,
     '/rag/conversation': RouteRecordInfo<'/rag/conversation', '/rag/conversation', Record<never, never>, Record<never, never>>,
-    '/rag/document': RouteRecordInfo<'/rag/document', '/rag/document', Record<never, never>, Record<never, never>>,
-    '/rag/member': RouteRecordInfo<'/rag/member', '/rag/member', Record<never, never>, Record<never, never>>,
     '/rag/project': RouteRecordInfo<'/rag/project', '/rag/project', Record<never, never>, Record<never, never>>,
     '/setting': RouteRecordInfo<'/setting', '/setting', Record<never, never>, Record<never, never>>,
     '/site/': RouteRecordInfo<'/site/', '/site', Record<never, never>, Record<never, never>>,
@@ -157,14 +155,6 @@ declare module 'vue-router/auto-routes' {
     }
     'src/modules/rag/pages/conversation.vue': {
       routes: '/rag/conversation'
-      views: never
-    }
-    'src/modules/rag/pages/document.vue': {
-      routes: '/rag/document'
-      views: never
-    }
-    'src/modules/rag/pages/member.vue': {
-      routes: '/rag/member'
       views: never
     }
     'src/modules/rag/pages/project.vue': {

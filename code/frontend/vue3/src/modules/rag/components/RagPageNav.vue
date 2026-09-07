@@ -28,15 +28,13 @@
 <script setup lang="ts">
 import { markRaw, computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { Collection, Document, User, ChatDotRound } from '@element-plus/icons-vue'
+import { Collection, ChatDotRound } from '@element-plus/icons-vue'
 import { usePermission } from '@/common/composables/usePermission'
 
-/** 知识库模块孙页面定义(perm 与菜单配置一致, 无权限不显示入口) */
+/** 知识库模块孙页面定义(perm 与菜单配置一致, 无权限不显示入口; 文档/成员管理内嵌于知识库设置抽屉) */
 const tabs = [
-  { index: '/rag/project', title: '知识库管理', icon: markRaw(Collection), perm: 'rag:project' },
-  { index: '/rag/document', title: '文档管理', icon: markRaw(Document), perm: 'rag:doc' },
-  { index: '/rag/member', title: '成员管理', icon: markRaw(User), perm: 'rag:member' },
   { index: '/rag/conversation', title: '知识库问答', icon: markRaw(ChatDotRound), perm: 'rag:chat' },
+  { index: '/rag/project', title: '知识库管理', icon: markRaw(Collection), perm: 'rag:project' },
 ]
 
 const route = useRoute()

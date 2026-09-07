@@ -69,6 +69,7 @@
 import { markRaw } from 'vue'
 import dayjs from 'dayjs'
 import { EditPen, Bell, Wallet } from '@element-plus/icons-vue'
+import SitePageNav from '../components/SitePageNav.vue'
 import BlogPanel from '../components/panels/BlogPanel.vue'
 import MemoPanel from '../components/panels/MemoPanel.vue'
 import LedgerPanel from '../components/panels/LedgerPanel.vue'

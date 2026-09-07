@@ -1,5 +1,8 @@
 <template>
   <div class="p-4 md:p-6 w-full">
+    <!-- 模块内页导航(应用页无侧边栏, 孙页面切换在此) -->
+    <SitePageNav class="mb-4" />
+
     <div class="flex flex-col lg:flex-row gap-4 items-start">
       <!-- 主内容区: 文章列表 / 阅读视图 -->
       <div class="w-full min-w-0 flex-1">

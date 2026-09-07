@@ -66,10 +66,9 @@ export const menuItems: MenuItem[] = [
     mainApp: true,
     desc: '项目、文档、成员与问答,一处管理。',
     children: [
-      { index: '/rag/project', title: '知识库管理', perm: 'rag:project' },
-      { index: '/rag/document', title: '文档管理', perm: 'rag:doc' },
-      { index: '/rag/member', title: '成员管理', perm: 'rag:member' },
+      // 首页入口卡取 children[0] 跳转, 问答页为主入口(管理入口在问答页侧栏)
       { index: '/rag/conversation', title: '知识库问答', perm: 'rag:chat' },
+      { index: '/rag/project', title: '知识库管理', perm: 'rag:project' },
     ],
   },
   {

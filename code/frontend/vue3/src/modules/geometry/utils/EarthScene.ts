@@ -62,6 +62,10 @@ const SUBDIV_MAX_DEPTH = 4
 const WALL_SEGMENTS = 12
 /** 面边界大圆弧加密段数(与描边管线路径一致, 保证面边界与边线重合无缝隙) */
 const RING_DENSE_SEGMENTS = 16
+/** 空间背景色(暗色主题: 深墨绿星空) */
+const SPACE_BG_DARK = new Color4(0.04, 0.09, 0.08, 1)
+/** 空间背景色(亮色主题: 浅灰蓝太空) */
+const SPACE_BG_LIGHT = new Color4(0.91, 0.94, 0.96, 1)
 
 /** 归一化陆地多边形(外环+洞; 经度连续化后的 [lon,lat] 环 + 包围盒) */
 interface LandPolygon {
@@ -119,7 +123,7 @@ class EarthScene {
       stencil: true,
     })
     this.scene = new Scene(this.engine)
-    this.scene.clearColor = new Color4(0.04, 0.09, 0.08, 1) // 深墨绿背景
+    this.scene.clearColor = SPACE_BG_DARK // 空间背景(默认暗色, 页面按网站主题调 setTheme)
     this.engine.runRenderLoop(() => this.scene.render())
 
     this.camera = this._initCamera()
@@ -142,6 +146,11 @@ class EarthScene {
   }
 
   // ################ 基础场景 ################
+
+  /** 空间背景色跟随网站明暗主题 */
+  setTheme(isDark: boolean): void {
+    this.scene.clearColor = isDark ? SPACE_BG_DARK : SPACE_BG_LIGHT
+  }
 
   /** 轨道相机(绕地球旋转/缩放) */
   private _initCamera(): ArcRotateCamera {
