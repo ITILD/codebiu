@@ -144,7 +144,7 @@ class LLMBaseService:
             return None
 
         # 转换为LLM配置
-        llm_chain = self._llm_by_config(config)
+        llm_chain = self._llm_by_config(config, streaming)
         
         # 缓存模型
         self._model_cache[cache_key] = llm_chain

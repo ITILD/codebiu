@@ -70,16 +70,18 @@ class DBVectorMilvus(DBVectorInterface):
             if self.milvus_config.token:
                 self.async_vector = AsyncMilvusClient(
                     uri=uri,
+                    db_name=self.milvus_config.database,
                     token=self.milvus_config.token,
                 )
             elif self.milvus_config.user and self.milvus_config.password:
                 self.async_vector = AsyncMilvusClient(
                     uri=uri,
+                    db_name=self.milvus_config.database,
                     user=self.milvus_config.user,
                     password=self.milvus_config.password,
                 )
             else:
-                self.async_vector = AsyncMilvusClient(uri=uri)
+                self.async_vector = AsyncMilvusClient(uri=uri, db_name=self.milvus_config.database)
 
             if log_bool:
                 logger.info(
