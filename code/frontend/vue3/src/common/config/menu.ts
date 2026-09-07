@@ -1,6 +1,10 @@
 /**
- * 全局模块菜单配置(RuoYi 式左侧目录)
- * 共用方: SysSidebar(侧边栏/抽屉) / SysBreadcrumb(面包屑) / 主页模块入口卡
+ * 全局菜单配置(RuoYi 式目录)
+ * 共用方: SysSidebar(后台侧边栏) / SysBreadcrumb(面包屑) / 主页主应用入口卡 / 头像下拉
+ * 菜单分两类:
+ * - 主应用(mainApp: true): 个人小站/知识库/地球绘制, 从首页直接进入, 无侧边栏,
+ *   模块内孙页面导航由各模块页面自行承担
+ * - 后台管理(其余): 仅经头像下拉"后台管理"入口进入, 显示侧边栏
  * 分组与后端 module_* 一一对应: authorization/rag/ai/file/geometry/site/main,
  * 生活工具组对应 module_life
  */
@@ -23,6 +27,8 @@ export interface MenuItem {
   perm?: string
   /** 主页模块入口卡的描述文案(菜单不渲染) */
   desc?: string
+  /** 主应用标记: 从首页直接进入的前台应用, 不进后台侧边栏 */
+  mainApp?: boolean
   children?: { index: string; title: string; perm?: string }[]
 }
 
@@ -57,6 +63,7 @@ export const menuItems: MenuItem[] = [
     icon: markRaw(Collection),
     title: '知识库',
     perm: 'rag',
+    mainApp: true,
     desc: '项目、文档、成员与问答,一处管理。',
     children: [
       { index: '/rag/project', title: '知识库管理', perm: 'rag:project' },
@@ -93,8 +100,9 @@ export const menuItems: MenuItem[] = [
   {
     index: '/geometry',
     icon: markRaw(Location),
-    title: '地理空间',
+    title: '地球绘制',
     perm: 'geometry',
+    mainApp: true,
     desc: '卡通风格地球绘制与三维要素编辑。',
     children: [
       { index: '/geometry/earth', title: '地球绘制', perm: 'geometry:feature' },
@@ -115,6 +123,7 @@ export const menuItems: MenuItem[] = [
     icon: markRaw(Notebook),
     title: '个人小站',
     perm: 'site',
+    mainApp: true,
     desc: '博客、备忘与记账的一站式工作台。',
     children: [
       { index: '/site', title: '工作台', perm: 'site' },
@@ -171,6 +180,12 @@ export const menuItems: MenuItem[] = [
     ],
   },
 ]
+
+/** 后台管理菜单(供侧边栏/头像下拉使用): 全量树剔除主应用分组 */
+export const adminMenuItems: MenuItem[] = menuItems.filter((item) => !item.mainApp)
+
+/** 主应用入口(供首页入口卡使用): 保持配置顺序展示 */
+export const mainApps: MenuItem[] = menuItems.filter((item) => item.mainApp)
 
 /**
  * 按路由路径精确匹配菜单树,返回面包屑轨迹 ['首页','分组','当前页']

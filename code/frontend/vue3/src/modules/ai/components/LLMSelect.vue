@@ -5,6 +5,7 @@
       v-model="selectedModelId"
       placeholder="选择模型"
       w-60
+      :size="size"
       :disabled="disabled"
       @change="handleModelChange"
     >
@@ -38,6 +39,8 @@ interface Props {
   modelId?: string
   /** 是否禁用选择器 */
   disabled?: boolean
+  /** 选择器尺寸 */
+  size?: 'small' | 'default' | 'large'
 }
 
 // 组件事件定义
@@ -52,7 +55,8 @@ interface Emits {
 const props = withDefaults(defineProps<Props>(), {
   modelList: () => [],
   modelId: '',
-  disabled: false
+  disabled: false,
+  size: 'default'
 })
 
 const emit = defineEmits<Emits>()

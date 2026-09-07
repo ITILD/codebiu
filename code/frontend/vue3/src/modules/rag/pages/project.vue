@@ -119,6 +119,7 @@ import {
   type ProjectCreate,
 } from '../types'
 import TableSearchBar, { type SearchField } from '@/common/components/TableSearchBar.vue'
+import RagPageNav from '../components/RagPageNav.vue'
 import type { PaginationParams } from '@/common/types/common'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
 import { useRouter } from 'vue-router'

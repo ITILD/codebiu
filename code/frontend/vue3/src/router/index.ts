@@ -28,10 +28,10 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   const routerStore = RouterStore()
   routerStore.setRouterPath(to.path)
-  // 后台管理需要登录: 未登录访问后台路由(meta.admin)时回到首页并引导登录
+  // 登录拦截: 前台应用(app)与后台管理(admin)均需登录, 未登录回首页并引导登录
   const authStore = useAuthStore()
-  if (to.meta.admin && !authStore.authState.user.id) {
-    ElMessage.warning('请先登录后再访问后台管理')
+  if ((to.meta.admin || to.meta.app) && !authStore.authState.user.id) {
+    ElMessage.warning('请先登录后再访问')
     next({ path: '/', query: { login: '1' } })
     return
   }

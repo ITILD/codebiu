@@ -176,13 +176,11 @@ async function loadStatus() {
   }
 }
 
-// ===== 快捷入口: 从菜单树按路径挑选(自动带权限过滤, 未授权自动隐藏), 图标取父分组 =====
+// ===== 快捷入口: 从后台菜单树按路径挑选(自动带权限过滤, 未授权自动隐藏), 图标取父分组 =====
 const SHORTCUT_PATHS = [
   '/authorization/user',
-  '/rag/project',
   '/ai/chat',
   '/file',
-  '/site',
   '/monitor/server_status',
 ] as const
 

@@ -11,12 +11,12 @@ const isAdmin = computed(() => Boolean(route.meta.admin))
 // 全屏页面(如三维地球): 锁定文档滚动(滚轮留给场景缩放), 页脚隐藏
 const isFullpage = computed(() => Boolean(route.meta.fullpage))
 
-// 最近访问采集: 仅记录后台路由(登录后才有意义), 标题取菜单树末级
+// 最近访问采集: 记录前台应用(app)与后台(admin)路由, 标题取菜单树末级
 const { pushRecent } = useRecentPages()
 watch(
   () => route.path,
   (path) => {
-    if (!route.meta.admin) return
+    if (!route.meta.admin && !route.meta.app) return
     // 兼容 es2020 lib: 用索引取末级而非 Array.prototype.at
     const trail = findMenuTrail(path)
     const title = trail.length > 0 ? trail[trail.length - 1].title : path

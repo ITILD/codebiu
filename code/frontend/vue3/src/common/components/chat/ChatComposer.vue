@@ -81,6 +81,7 @@ const onInput = (value: string) => emit('update:modelValue', value)
 <style scoped>
 /* 悬浮纸片输入卡 */
 .cc-card {
+  position: relative;
   border-radius: 1rem;
   background: var(--el-bg-color, #fff);
   border: 1px solid var(--note-border, #e2e8e3);
@@ -90,6 +91,43 @@ const onInput = (value: string) => emit('update:modelValue', value)
 
 .cc-card:focus-within {
   border-color: var(--note-green, #6cbf8f);
+}
+
+/* 聚焦时的淡渐变光晕: 几乎不可见的流动微光, 表示正在输入 */
+.cc-card::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    120deg,
+    rgba(108, 191, 143, 0) 0%,
+    rgba(108, 191, 143, 0.1) 25%,
+    rgba(160, 214, 183, 0.14) 50%,
+    rgba(108, 191, 143, 0.1) 75%,
+    rgba(108, 191, 143, 0) 100%
+  );
+  background-size: 250% 100%;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  animation: cc-glow-flow 4s linear infinite;
+  z-index: 0;
+}
+
+.cc-card:focus-within::before {
+  opacity: 1;
+}
+
+/* 光晕之上内容保持可交互 */
+.cc-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes cc-glow-flow {
+  0% { background-position: 100% 0; }
+  100% { background-position: -150% 0; }
 }
 
 /* textarea 无边框融入卡片 */

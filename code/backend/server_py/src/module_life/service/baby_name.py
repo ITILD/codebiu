@@ -26,7 +26,7 @@ from module_life.dao.baby_name import BabyNameDao
 from module_ai.service.llm_base import LLMBaseService
 # lib
 # from config.db import async_transaction
-from src.module_life.utils.baby_name.baby_name import baby_name_generator
+from module_life.utils.baby_name.baby_name import baby_name_generator
 
 class BabyNameService:
     """宝宝名字服务"""

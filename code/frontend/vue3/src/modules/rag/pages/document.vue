@@ -192,6 +192,7 @@ import { ParseStatus, IngestStepState, parseStatusOptions } from '../types'
 import type { DocumentIngestProgress } from '../types'
 import type { PaginationParams } from '@/common/types/common'
 import { useResponsive } from '@/common/composables/useResponsive'
+import RagPageNav from '../components/RagPageNav.vue'
 import { ElMessage, ElMessageBox, type FormInstance, type UploadRawFile } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 

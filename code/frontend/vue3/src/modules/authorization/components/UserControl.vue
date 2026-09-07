@@ -27,15 +27,20 @@
 </template>
 
 <script setup lang="ts">
-import { markRaw } from 'vue'
+import { markRaw, computed } from 'vue'
 import { Monitor, Setting, SwitchButton } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/common/stores/auth'
+import { useVisibleMenu } from '@/common/composables/useMenu'
 import UserLoginIcon from './UserLoginIcon.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const authState = authStore.authState
 const initAuthState = authStore.initAuthState
+// 后台入口权限门禁: 至少持有一个声明权限的后台分组(如 sys/task/main:file)才显示
+// "后台管理", 普通用户(无任何后台权限)完全看不到该入口
+const { visibleMenuItems } = useVisibleMenu()
+const canEnterAdmin = computed(() => visibleMenuItems.value.some((g) => Boolean(g.perm)))
 
 interface MenuItem {
   command: string
@@ -45,7 +50,7 @@ interface MenuItem {
   action?: () => void
 }
 
-const menuItems: MenuItem[] = [
+const allMenuItems: MenuItem[] = [
   {
     command: 'admin',
     label: '后台管理',
@@ -75,8 +80,13 @@ const menuItems: MenuItem[] = [
   },
 ]
 
+// 无任何后台菜单权限时剔除"后台管理"入口
+const menuItems = computed<MenuItem[]>(() =>
+  allMenuItems.filter((item) => item.command !== 'admin' || canEnterAdmin.value)
+)
+
 const handleCommand = (command: string) => {
-  const item = menuItems.find((item) => item.command === command)
+  const item = menuItems.value.find((item) => item.command === command)
   if (item?.action) {
     item.action()
   }

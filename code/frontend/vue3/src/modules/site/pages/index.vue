@@ -1,5 +1,8 @@
 <template>
   <div class="p-4 md:p-6 w-full">
+    <!-- 模块内页导航(应用页无侧边栏, 孙页面切换在此) -->
+    <SitePageNav class="mb-4" />
+
     <!-- 顶部概览条: 三业务线速览(点击切换面板) -->
     <div class="mb-4 grid grid-cols-3 gap-2 md:gap-4">
       <button

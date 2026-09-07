@@ -1,5 +1,9 @@
 <template>
-  <div flex h-app w-full bg-note-paper overflow-hidden>
+  <div flex flex-col h-app w-full bg-note-paper overflow-hidden>
+    <!-- 模块内页导航(应用页无侧边栏, 孙页面切换在此) -->
+    <RagPageNav class="shrink-0 px-4 pt-3" />
+
+    <div flex flex-1 min-h-0 w-full>
     <!-- 知识库问答: 左侧会话列表 + 居中消息流(过程区块/引用溯源) + 悬浮输入卡 -->
     <!-- 移动端抽屉遮罩 -->
     <Transition name="fade">
@@ -154,6 +158,7 @@
         <p text-center text-xs text-note-sub mt-2>内容由 AI 基于知识库生成，请注意甄别</p>
       </div>
     </section>
+    </div>
   </div>
 </template>
 
@@ -163,6 +168,7 @@ import {
   EditPen, Document, List, DataAnalysis,
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import RagPageNav from '../components/RagPageNav.vue'
 import {
   createConversation,
   listMyConversations,

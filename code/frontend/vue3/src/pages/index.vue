@@ -17,7 +17,7 @@
       <div absolute top-4 right-6 text-4xl md:text-5xl opacity-70 dark:opacity-90 select-none>🌿</div>
 
       <div relative>
-        <!-- 已登录: 时段问候 + 实时状态徽章 + 最近访问 -->
+        <!-- 已登录: 时段问候 + 最近访问(仅前台应用页) -->
         <template v-if="isLoggedIn">
           <h1 font-serif text-3xl md:text-5xl font-bold text-note-green mb-3>
             {{ greeting }}，{{ displayName }}
@@ -26,25 +26,12 @@
             像打理一页自然笔记一样，安放你的数据与灵感。
           </p>
 
-          <!-- 服务器实时状态徽章(获取失败时整行隐藏, 静默降级) -->
-          <div v-if="hardware" flex flex-wrap items-center gap-2 mb-6>
-            <span
-              v-for="badge in statusBadges"
-              :key="badge.label"
-              inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-note-card border border-note text-xs md:text-sm text-note shadow-note
-            >
-              <i w-2 h-2 rounded-full inline-block class="bg-note-green" />
-              {{ badge.label }}
-              <b text-note-green>{{ badge.value }}</b>
-            </span>
-          </div>
-
-          <!-- 最近访问快捷入口 -->
-          <div v-if="recentPages.length" mb-7>
+          <!-- 最近访问快捷入口(过滤后台路由, 首页不出现后台相关内容) -->
+          <div v-if="recentAppPages.length" mb-2>
             <p text-xs text-note-sub mb-2>最近访问</p>
             <div flex flex-wrap gap-2>
               <RouterLink
-                v-for="item in recentPages.slice(0, 6)"
+                v-for="item in recentAppPages.slice(0, 6)"
                 :key="item.path"
                 :to="item.path"
                 px-3 py-1.5 rounded-full bg-note-card border border-note text-xs md:text-sm text-note hover:border-note-green hover:text-note-green transition-colors
@@ -53,27 +40,6 @@
               </RouterLink>
             </div>
           </div>
-
-          <RouterLink
-            to="/admin"
-            inline-flex
-            items-center
-            gap-2
-            px-6
-            py-2.5
-            rounded-full
-            bg-note-green
-            text-white
-            font-medium
-            transition-all
-            duration-300
-            hover:opacity-90
-            hover:-translate-y-0.5
-            hover:shadow-note
-          >
-            <el-icon><Promotion /></el-icon>
-            进入工作台
-          </RouterLink>
         </template>
 
         <!-- 未登录: 品牌引导 -->
@@ -84,51 +50,31 @@
           <p text-base md:text-lg text-note-sub mb-2 max-w-xl leading-relaxed>
             像打理一页自然笔记一样，安放你的数据与灵感。
           </p>
-          <p text-sm md:text-base text-note-sub mb-8 max-w-xl>
-            登录后点击右上角头像，即可进入后台管理工作台。
+          <p text-sm md:text-base text-note-sub mb-2 max-w-xl>
+            登录后即可使用个人小站、知识库等应用。
           </p>
-          <RouterLink
-            to="/admin"
-            inline-flex
-            items-center
-            gap-2
-            px-6
-            py-2.5
-            rounded-full
-            bg-note-green
-            text-white
-            font-medium
-            transition-all
-            duration-300
-            hover:opacity-90
-            hover:-translate-y-0.5
-            hover:shadow-note
-          >
-            <el-icon><Promotion /></el-icon>
-            进入工作台
-          </RouterLink>
         </template>
       </div>
     </section>
 
-    <!-- 功能模块入口卡片(数据源与侧边栏菜单一致, 含权限过滤) -->
+    <!-- 主应用入口卡(仅前台应用, 从这里直接进入各自页面; 后台管理经头像下拉进入) -->
     <section>
       <div flex items-center gap-2 mb-6>
-        <span text-xl>📖</span>
-        <h2 font-serif text-2xl font-semibold text-note>功能模块</h2>
+        <span text-xl>🧭</span>
+        <h2 font-serif text-2xl font-semibold text-note>应用</h2>
         <div flex-1 border-b border-dashed border-note />
       </div>
 
       <div grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5>
         <RouterLink
-          v-for="module in moduleCards"
-          :key="module.index"
-          :to="module.target"
+          v-for="app in visibleApps"
+          :key="app.index"
+          :to="app.children?.length ? app.children[0].index : app.index"
           bg-note-card
           border
           border-note
-          rounded-xl
-          p-6
+          rounded-2xl
+          p-7
           transition-all
           duration-300
           hover:-translate-y-1
@@ -140,20 +86,30 @@
             flex
             items-center
             justify-center
-            w-11
-            h-11
-            rounded-full
+            w-14
+            h-14
+            rounded-2xl
             bg-note-tint
             text-note-green
-            mb-4
+            mb-5
             transition-transform
             duration-300
             group-hover:scale-110
           >
-            <el-icon :size="22"><component :is="module.icon" /></el-icon>
+            <el-icon :size="28"><component :is="app.icon" /></el-icon>
           </div>
-          <h3 text-lg font-semibold text-note mb-2>{{ module.title }}</h3>
-          <p text-sm text-note-sub leading-relaxed>{{ module.desc }}</p>
+          <h3 text-xl font-semibold text-note mb-2>{{ app.title }}</h3>
+          <p text-sm text-note-sub leading-relaxed>{{ app.desc ?? '进入应用开始使用。' }}</p>
+          <!-- 功能速览: 应用内主要页面 -->
+          <div v-if="app.children?.length" flex flex-wrap gap-1.5 mt-4>
+            <span
+              v-for="child in app.children"
+              :key="child.index"
+              px-2 py-0.5 rounded-full bg-note-tint text-xs text-note-sub
+            >
+              {{ child.title }}
+            </span>
+          </div>
         </RouterLink>
       </div>
     </section>
@@ -168,19 +124,17 @@
 </template>
 
 <script setup lang="ts">
-import { markRaw, computed, ref, onMounted } from 'vue'
-import { Promotion } from '@element-plus/icons-vue'
-import type { Component } from 'vue'
+import { computed, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/common/stores/auth'
-import { useVisibleMenu } from '@/common/composables/useMenu'
+import { useVisibleApps } from '@/common/composables/useMenu'
 import { useRecentPages } from '@/common/composables/useRecentPages'
-import { getStatusCache } from '@/modules/main/api/status'
-import type { HardwareStatus } from '@/modules/main/types/status'
 
 const TITLE = import.meta.env.VITE_GLOB_APP_TITLE
+const router = useRouter()
 
 const authStore = useAuthStore()
-const { visibleMenuItems } = useVisibleMenu()
+const { visibleApps } = useVisibleApps()
 const { recentPages } = useRecentPages()
 
 // ===== 登录态与问候 =====
@@ -198,51 +152,8 @@ function greetingByHour(): string {
 }
 const greeting = ref(greetingByHour())
 
-// ===== 服务器实时状态徽章(仅登录后拉取, 失败静默隐藏) =====
-const hardware = ref<HardwareStatus | null>(null)
-
-/** 状态徽章(CPU/内存/磁盘), hardware 为空时不渲染 */
-const statusBadges = computed(() => {
-  if (!hardware.value) return []
-  const { cpu, memory, disk } = hardware.value
-  return [
-    { label: 'CPU', value: `${cpu.percent}%` },
-    { label: '内存', value: `${memory.percent}%` },
-    { label: '磁盘', value: `${disk.percent}%` },
-  ]
-})
-
-// ===== 功能模块卡(与侧边栏菜单同源, 未登录仅显示无权限要求的分组) =====
-interface ModuleCard {
-  index: string
-  target: string
-  title: string
-  desc: string
-  icon?: Component
-}
-
-const moduleCards = computed<ModuleCard[]>(() => {
-  return visibleMenuItems.value
-    .filter((item) => item.index !== '/')
-    .map((item) => ({
-      index: item.index,
-      // 有子菜单的分组跳转其第一个子页, 无子菜单的直接跳转自身
-      target: item.children?.length ? item.children[0].index : item.index,
-      title: item.title,
-      desc: item.desc ?? '进入模块开始使用。',
-      icon: item.icon,
-    }))
-})
-
-onMounted(async () => {
-  // 状态徽章容错: 接口失败/未登录 401 时保持 null, 徽章区隐藏
-  if (!isLoggedIn.value) return
-  try {
-    // http 客户端直接返回业务数据(StatusServer)
-    const res = await getStatusCache()
-    hardware.value = res?.hardware ?? null
-  } catch {
-    hardware.value = null
-  }
-})
+// ===== 最近访问(仅展示前台应用页, 后台路由不出现在首页) =====
+const recentAppPages = computed(() =>
+  recentPages.value.filter((item) => !router.resolve(item.path).meta.admin)
+)
 </script>

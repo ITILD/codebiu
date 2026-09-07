@@ -1,4 +1,5 @@
 allowBuilds:
   babylonjs: false
+  core-js: false
   esbuild: false
   vue-demi: false

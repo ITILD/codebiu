@@ -1,27 +1,6 @@
 <template>
   <div flex flex-col h-app w-full bg-note-paper overflow-hidden>
     <!-- 通用 AI 聊天: 模型选择 + 富文本消息流(markdown/公式/图表) + 可中断流式 -->
-    <!-- 顶部栏: 模型选择 + 清空对话 -->
-    <header
-      flex flex-wrap items-center gap-3 px-3 md:px-5 py-2.5 border-b border-note
-      class="bg-note-soft/70" backdrop-blur
-    >
-      <LLMSelect
-        v-model:model-id="model_id"
-        :model-list="tableData"
-        :disabled="isSending"
-        @change="handleModelChange"
-      />
-      <el-button
-        text
-        type="danger"
-        :disabled="messages.length === 0 || isSending"
-        @click="clearMessages"
-      >
-        清空对话
-      </el-button>
-    </header>
-
     <!-- 消息流 -->
     <ChatMessageList
       ref="messageListRef"
@@ -64,10 +43,29 @@
           v-model="inputMessage"
           :is-sending="isSending"
           :disabled="!model_id"
-          :hint="model_id ? '' : '请先在上方选择模型'"
+          :hint="model_id ? '' : '请先选择模型'"
           @send="handleSend"
           @stop="handleStop"
         />
+        <!-- 输入框下方选项: 模型选择 + 清空对话 -->
+        <div flex flex-wrap items-center gap-2 mt-2 px-1>
+          <LLMSelect
+            v-model:model-id="model_id"
+            :model-list="tableData"
+            :disabled="isSending"
+            size="small"
+            @change="handleModelChange"
+          />
+          <el-button
+            text
+            size="small"
+            type="danger"
+            :disabled="messages.length === 0 || isSending"
+            @click="clearMessages"
+          >
+            清空对话
+          </el-button>
+        </div>
       </div>
     </div>
   </div>
