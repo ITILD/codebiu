@@ -653,11 +653,6 @@ class ProjectDocumentService:
             texts = [item.content[:8192] for item in chunked_items]
             embeddings = await embedding_llm.aembed_documents(texts)
 
-            # 5.存入向量库 TODO 改成注册
-            if not await db_vector.is_connected():
-                await db_vector.connect()
-            await db_vector.create_table(ProjectDocumentChunk, {"embedding": 1024})
-
             # 在插入新数据前，删除该文档的旧向量
             await self.project_document_chunk_service.vector_delete_by_document_id(document_id)
 

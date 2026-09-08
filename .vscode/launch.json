@@ -13,6 +13,19 @@
             },
             "justMyCode": false,
             "console": "integratedTerminal"
+        },
+        {
+            "name": "▶ Backend: app.py (server_py)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/code/backend/server_py/src/app.py",
+            "cwd": "${workspaceFolder}/code/backend/server_py",
+            "python": "${workspaceFolder}/code/backend/server_py/.venv/bin/python",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/code/backend/server_py/src"
+            },
+            "justMyCode": false,
+            "console": "integratedTerminal"
         }
     ]
 }
