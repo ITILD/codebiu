@@ -17,11 +17,11 @@
         </button>
       </nav>
 
-      <!-- 右侧内容面板 -->
+      <!-- 右侧内容面板: 直接渲染动态组件 —— 不要用 Transition(out-in) 包裹,
+           与动态组件组合存在 parentNode(null) 空白 bug(见 App.vue 路由层同款踩坑),
+           表现为切换子页后面板无内容 -->
       <section class="flex-1 min-w-0 bg-note-card rounded-lg shadow-note p-4 md:p-6">
-        <Transition name="fade" mode="out-in">
-          <component :is="activeComponent" />
-        </Transition>
+        <component :is="activeComponent" />
       </section>
     </div>
   </div>
@@ -47,15 +47,3 @@ type TabKey = (typeof tabs)[number]['key']
 const active = ref<TabKey>('profile')
 const activeComponent = computed(() => tabs.find((t) => t.key === active.value)?.component)
 </script>
-
-<style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.15s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-</style>

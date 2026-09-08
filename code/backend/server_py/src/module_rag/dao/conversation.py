@@ -79,6 +79,8 @@ class ConversationDao:
         user_id: str,
         offset: int,
         limit: int,
+        scope: str = "all",
+        agent_id: str | None = None,
         session: AsyncSession | None = None,
     ) -> list[Conversation]:
         """按用户ID查询对话列表(按更新时间倒序)
@@ -86,6 +88,8 @@ class ConversationDao:
         :param user_id: 用户ID
         :param offset: 偏移量
         :param limit: 单页数量
+        :param scope: 范围过滤(all=全部/rag=知识库对话(agent_id为空)/agent=智能体对话)
+        :param agent_id: 智能体ID(scope=agent 时可进一步按智能体过滤)
         :param session: 可选数据库会话
         :return: 对话列表
         """
@@ -96,23 +100,39 @@ class ConversationDao:
             .offset(offset)
             .limit(limit)
         )
+        if scope == "rag":
+            statement = statement.where(Conversation.agent_id.is_(None))
+        elif scope == "agent":
+            statement = statement.where(Conversation.agent_id.is_not(None))
+            if agent_id:
+                statement = statement.where(Conversation.agent_id == agent_id)
         result = await session.exec(statement)
         return result.all()
 
     @DaoRel
     async def count_by_user(
-        self, user_id: str, session: AsyncSession | None = None
+        self,
+        user_id: str,
+        scope: str = "all",
+        agent_id: str | None = None,
+        session: AsyncSession | None = None,
     ) -> int:
-        """统计指定用户的对话总数
+        """统计指定用户的对话总数(范围过滤口径与 list_by_user 一致)
 
         :param user_id: 用户ID
+        :param scope: 范围过滤(all/rag/agent)
+        :param agent_id: 智能体ID(scope=agent 时可进一步按智能体过滤)
         :param session: 可选数据库会话
         :return: 对话数量
         """
-        statement = (
-            select(func.count())
-            .select_from(Conversation)
-            .where(Conversation.user_id == user_id)
+        statement = select(func.count()).select_from(Conversation).where(
+            Conversation.user_id == user_id
         )
+        if scope == "rag":
+            statement = statement.where(Conversation.agent_id.is_(None))
+        elif scope == "agent":
+            statement = statement.where(Conversation.agent_id.is_not(None))
+            if agent_id:
+                statement = statement.where(Conversation.agent_id == agent_id)
         result = await session.exec(statement)
         return result.one()

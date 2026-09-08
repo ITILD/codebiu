@@ -35,11 +35,15 @@ async def create_conversation(
 @router.get("/my", summary="获取我的对话列表", response_model=PaginationResponse)
 async def list_my_conversations(
     pagination: PaginationParams = Depends(),
+    scope: str = "all",
     current_user_id: str = Depends(get_current_user_id),
     service: ConversationService = Depends(get_conversation_service),
 ):
-    """分页获取当前用户的对话列表"""
-    return await service.list_by_user(current_user_id, pagination)
+    """分页获取当前用户的对话列表
+
+    :param scope: 范围过滤(all=全部/rag=仅知识库对话(agent_id为空)/agent=仅智能体对话)
+    """
+    return await service.list_by_user(current_user_id, pagination, scope=scope)
 
 
 @router.get("/{conversation_id}", summary="获取对话详情", response_model=Conversation)

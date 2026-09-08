@@ -15,6 +15,8 @@ declare module 'vue-router' {
   interface RouteMeta {
     /** 后台管理路由: 需登录访问, 且显示左侧模块列表 */
     admin?: boolean
+    /** 独立页面: 属后台路由(需登录), 但不渲染左侧模块侧边栏(如账户设置) */
+    standalone?: boolean
   }
 }
 

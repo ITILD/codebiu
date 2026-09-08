@@ -29,52 +29,50 @@
         </template>
       </TableSearchBar>
 
-      <!-- 项目表格 -->
-      <el-table v-loading="loading" :data="projects" border stripe>
-        <el-table-column label="名称" min-width="200" show-overflow-tooltip>
-          <template #default="{ row }">
-            <div flex items-center gap-2>
-              <el-icon text-lg text-note-green><Collection /></el-icon>
-              <span font-medium>{{ row.name }}</span>
+      <!-- 项目卡片网格(便签风: 柔和阴影/圆角/绿色点缀, 点击卡片进入设置) -->
+      <div v-loading="loading" grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3>
+        <div
+          v-for="row in projects" :key="row.id"
+          flex flex-col gap-3 p-4 rounded-2xl border border-note bg-note-card shadow-note cursor-pointer
+          hover:border-note-green hover:-translate-y-0.5 transition-all
+          @click="handleOpenEdit(row)"
+        >
+          <!-- 头部: 图标 + 名称 + 创建时间 -->
+          <div flex items-center gap-2.5>
+            <div w-10 h-10 rounded-xl bg-note-tint flex-center shrink-0>
+              <el-icon :size="20" text-note-green><Collection /></el-icon>
             </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="分类" min-width="110" align="center">
-          <template #default="{ row }">
-            <el-tag size="small" :type="categoryTagType(row.kb_category)">
-              {{ categoryLabel(row.kb_category) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="可见性" min-width="90" align="center">
-          <template #default="{ row }">
-            <span flex items-center justify-center gap-1 text-note-sub>
-              <el-icon><Lock v-if="row.is_private" /><Unlock v-else /></el-icon>
-              {{ row.is_private ? '私有' : '公开' }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="描述" min-width="200" show-overflow-tooltip>
-          <template #default="{ row }">
-            {{ row.description || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column label="创建时间" min-width="110" align="center">
-          <template #default="{ row }">
-            {{ formatDate(row.created_at) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" min-width="150" align="center" :fixed="isMd ? 'right' : false">
-          <template #default="{ row }">
-            <el-button size="small" type="primary" plain @click="handleOpenEdit(row)">编辑</el-button>
-            <el-button size="small" type="danger" plain @click="handleDelete(row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+            <div min-w-0 flex-1>
+              <div font-medium text-note truncate>{{ row.name }}</div>
+              <div text-xs text-note-sub mt-0.5>{{ formatDate(row.created_at) }} 创建</div>
+            </div>
+          </div>
+          <!-- 描述 -->
+          <p text-sm text-note-sub leading-relaxed line-clamp-2 min-h-10 m-0>
+            {{ row.description || '暂无描述' }}
+          </p>
+          <!-- 底部: 分类/可见性标签 + 操作 -->
+          <div flex items-center justify-between pt-2.5 border-t border-note>
+            <div flex items-center gap-1.5 min-w-0>
+              <el-tag size="small" effect="plain" :type="categoryTagType(row.kb_category)">
+                {{ categoryLabel(row.kb_category) }}
+              </el-tag>
+              <el-tag size="small" effect="plain" type="info">
+                <el-icon :size="11" mr-0.5><Lock v-if="row.is_private" /><Unlock v-else /></el-icon>
+                {{ row.is_private ? '私有' : '公开' }}
+              </el-tag>
+            </div>
+            <div flex items-center gap-1 @click.stop>
+              <el-button size="small" text bg type="primary" @click="handleOpenEdit(row)">设置</el-button>
+              <el-button size="small" text bg type="danger" @click="handleDelete(row)">删除</el-button>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- 空状态 -->
       <div v-if="!loading && projects.length === 0" py-16 flex flex-col items-center text-note-sub>
-        <el-icon text-5xl mb-3><FolderOpened /></el-icon>
+        <el-icon text-5xl mb-3 class="opacity-40"><FolderOpened /></el-icon>
         <p m-0>暂无知识库，点击右上角"新建知识库"开始</p>
       </div>
 
@@ -90,7 +88,9 @@
     <template v-else>
       <TableSearchBar v-model="docQueryParams" :fields="docSearchFields" :collapse-count="2" />
 
-      <el-table v-loading="docLoading" :data="docPageData" border stripe>
+      <!-- 便签风卡片容器 -->
+      <div rounded-2xl border border-note bg-note-card shadow-note overflow-hidden>
+      <el-table v-loading="docLoading" :data="docPageData" stripe>
         <el-table-column label="文档名称" min-width="220" show-overflow-tooltip>
           <template #default="{ row }">
             <div flex items-center gap-2>
@@ -147,10 +147,11 @@
           </template>
         </el-table-column>
       </el-table>
+      </div>
 
       <!-- 空状态 -->
       <div v-if="!docLoading && filteredDocs.length === 0" py-16 flex flex-col items-center text-note-sub>
-        <el-icon text-5xl mb-3><Document /></el-icon>
+        <el-icon text-5xl mb-3 class="opacity-40"><Document /></el-icon>
         <p m-0>暂无文档，可在知识库编辑抽屉的"文档管理"中上传</p>
       </div>
 
@@ -188,10 +189,14 @@
     </el-dialog>
 
     <!-- 知识库设置抽屉: 基本信息 / 文档管理 / 成员管理(内嵌面板, 免独立子页) -->
-    <el-drawer v-model="drawerVisible" :title="drawerTitle" size="62%" destroy-on-close>
+    <el-drawer v-model="drawerVisible" :title="drawerTitle" size="62%" destroy-on-close class="kb-setting-drawer">
       <el-tabs v-model="drawerTab">
         <el-tab-pane label="基本信息" name="info">
-          <el-form :model="editForm" :rules="rules" ref="editFormRef" label-width="90px" class="max-w-[520px]">
+          <!-- 便签风表单卡片 -->
+          <el-form
+            :model="editForm" :rules="rules" ref="editFormRef" label-width="90px"
+            class="max-w-[520px] p-5 rounded-2xl border border-note bg-note-soft/60"
+          >
             <el-form-item label="名称" prop="name">
               <el-input v-model="editForm.name" placeholder="请输入知识库名称" maxlength="100" />
             </el-form-item>
@@ -207,7 +212,7 @@
               <el-switch v-model="editForm.is_private" />
             </el-form-item>
             <el-form-item>
-              <el-button type="primary" :loading="savingBasic" @click="handleSaveBasic">保存</el-button>
+              <el-button class="px-6" :loading="savingBasic" @click="handleSaveBasic">保存</el-button>
             </el-form-item>
           </el-form>
         </el-tab-pane>

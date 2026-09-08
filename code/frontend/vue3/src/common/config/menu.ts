@@ -14,7 +14,7 @@ import {
   HomeFilled, UserFilled, Document,
   Monitor, ChatDotRound,
   Files, Collection, FolderOpened,
-  Location, Sunny, Timer, Brush, Connection, Notebook,
+  Location, Sunny, Timer, Brush, Connection, Notebook, MagicStick,
 } from '@element-plus/icons-vue'
 
 /** 菜单项定义(perm 为权限码:与后端模块权限声明一致;缺省表示登录即可见) */
@@ -69,6 +69,18 @@ export const menuItems: MenuItem[] = [
       // 首页入口卡取 children[0] 跳转, 问答页为主入口(管理入口在问答页侧栏)
       { index: '/rag/conversation', title: '知识库问答', perm: 'rag:chat' },
       { index: '/rag/project', title: '知识库管理', perm: 'rag:project' },
+    ],
+  },
+  {
+    index: '/agent',
+    icon: markRaw(MagicStick),
+    title: '智能体',
+    perm: 'agent',
+    mainApp: true,
+    desc: '内置翻译/写作/代码智能体, 支持自定义简单智能体。',
+    children: [
+      { index: '/agent/chat', title: '智能体对话', perm: 'agent:chat' },
+      { index: '/agent/manage', title: '智能体管理', perm: 'agent:manage' },
     ],
   },
   {

@@ -65,6 +65,8 @@ export default defineConfig(
             const isPublic = file.endsWith('/src/pages/index.vue') || file.includes('/[..all].vue')
             const isMainApp = /\/src\/modules\/(site|rag|geometry)\//.test(file)
             if (file && !isPublic) route.addToMeta(isMainApp ? { app: true } : { admin: true })
+            // 独立页面(如账户设置): 属后台路由(需登录), 但页面自带导航, 不渲染侧边栏
+            if (file.endsWith('/src/pages/setting.vue')) route.addToMeta({ standalone: true })
             // 全屏页面(如三维地球): 锁定文档滚动, 页面内容占满视口剩余高度
             if (file.endsWith('/modules/geometry/pages/earth.vue')) route.addToMeta({ fullpage: true })
           },

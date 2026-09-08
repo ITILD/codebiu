@@ -50,6 +50,16 @@ export default defineConfig({
         blink: 'infinite',
       },
     },
+    // 语义圆角刻度(与 base.css 全局主题化的组件圆角对齐)
+    borderRadius: {
+      'note-sm': '8px',   // 输入框/按钮/小元素
+      'note-md': '12px',  // 卡片/表格
+      'note-lg': '16px',  // 对话框/抽屉/Hero
+    },
+    // 手写体: 用于 Hero 标语/空状态文案等点缀(正文字体保持系统栈)
+    fontFamily: {
+      hand: 'var(--note-font-hand)',
+    },
   },
   rules: [
     // 抽屉
@@ -82,33 +92,43 @@ export default defineConfig({
       'max-h-app': 'max-h-[calc(100vh-3.5rem)] md:max-h-[calc(100vh-4rem)]'
     },
     // ===== 淡绿色自然笔记风 =====
+    // 取值唯一来源: base.css 中的 --note-* CSS 变量(亮暗自动切换)
+    // 此处一律引用变量, 不再写死 hex, 也不需要 dark: 变体
     {
       // 纸张底色(米白/暗色墨绿底)
-      'bg-note-paper': 'bg-[#fafaf5] dark:bg-[#0d1711]',
+      'bg-note-paper': 'bg-[var(--note-paper)]',
       // 淡绿软底(侧边栏/卡片内衬)
-      'bg-note-soft': 'bg-[#f4f8f2] dark:bg-[#15231c]',
+      'bg-note-soft': 'bg-[var(--note-soft)]',
       // 卡片白(纸片)
-      'bg-note-card': 'bg-white dark:bg-[#18271e]',
+      'bg-note-card': 'bg-[var(--note-card)]',
       // 淡绿强调底
-      'bg-note-tint': 'bg-[#eef6ef] dark:bg-[#1d3a2e]',
+      'bg-note-tint': 'bg-[var(--note-tint)]',
       // 文字: 深绿灰主文字
-      'text-note': 'text-[#3f5348] dark:text-[#ddebe2]',
+      'text-note': 'text-[var(--note-text)]',
       // 文字: 次级淡绿灰
-      'text-note-sub': 'text-[#5a6b5f] dark:text-[#a6c0b1]',
+      'text-note-sub': 'text-[var(--note-sub)]',
       // 文字: 苔绿强调
-      'text-note-green': 'text-[#557f61] dark:text-[#88d2a7]',
+      'text-note-green': 'text-[var(--note-accent)]',
       // 底色: 苔绿实底(按钮)
-      'bg-note-green': 'bg-[#6b9e78] dark:bg-[#4f8d67]',
+      'bg-note-green': 'bg-[var(--note-green)]',
       // 边框: 苔绿强调
-      'border-note-green': 'border-[#a9c9b1] dark:border-[#3f6b52]',
+      'border-note-green': 'border-[var(--note-border-green)]',
       // 边框: 淡绿灰
-      'border-note': 'border-[#e3ebe2] dark:border-[#263a2f]',
-      // 阴影: 柔和纸片影
-      'shadow-note': 'shadow-[0_2px_12px_rgba(108,191,143,0.14)]',
+      'border-note': 'border-[var(--note-border)]',
+      // 阴影: 柔和纸片影(暗色下由变量切换为深色影, 保持层次)
+      'shadow-note': 'shadow-[var(--note-shadow)]',
+      // 阴影: 悬浮抬升影(配 hover:-translate-y-0.5 + note-transition)
+      'shadow-note-hover': 'shadow-[var(--note-shadow-hover)]',
+      // 统一交互动效: 时长/缓动全站一致
+      'note-transition': 'transition-all duration-200 ease-out',
       // 苔绿渐变(hero用)
-      'bg-note-gradient': 'bg-gradient-to-br from-[#e7f2e9] via-[#f4f8f2] to-[#ddeddf] dark:from-[#16241c] dark:via-[#101c15] dark:to-[#1d3a2e]',
-      // 毛玻璃纸底(吸顶头部用; shortcut 不支持 /80 透明度修饰, 故单独定义)
-      'bg-note-glass': 'bg-[rgba(244,248,242,0.85)] dark:bg-[rgba(21,35,28,0.85)]',
+      'bg-note-gradient': 'bg-gradient-to-br from-[var(--note-grad-from)] via-[var(--note-grad-via)] to-[var(--note-grad-to)]',
+      // 毛玻璃纸底(吸顶头部用; 须配 backdrop-blur-md)
+      'bg-note-glass': 'bg-[var(--note-glass)]',
+      // 手账虚线分隔线
+      'note-dashed-divider': 'border-t border-dashed border-note',
+      // 胶带贴纸标签(空状态/卡片角标点缀)
+      'note-sticker-tag': 'inline-flex items-center px-2 py-0.5 rounded-md bg-note-tint text-note-green text-xs border border-dashed border-note-green',
       // 页面根容器(视口内边距, 移动/桌面双档)
       'page-shell': 'p-4 md:p-6 w-full',
       // 卡片容器(表格/面板通用, 含边框宽度——裸用 border-note 缺宽度时边框不会渲染)
@@ -116,22 +136,5 @@ export default defineConfig({
       // 卡片标题行(标题+右侧操作按钮)
       'card-toolbar': 'mb-3 flex flex-wrap items-center justify-between gap-2',
     },
-     // 背景文字颜色
-     [
-      /^bg-deep-(\d+)$/,
-      ([, d]) =>
-        `bg-gray-${+d == 0 ? 50 : +d * 100} dark:bg-gray-${+d == 0 ? 950 : 1000 - +d * 100} text-deep-${d}`
-    ],
-    // 文字颜色  'text-deep-0': 'text-gray-950 dark:text-gray-50', 'text-deep-1': 'text-gray-900 dark:text-gray-100',
-    [
-      /^text-deep-(\d+)$/,
-      ([, d]) =>
-        `text-gray-${+d == 0 ? 950 : 1000 - +d * 100} dark:text-gray-${+d == 0 ? 50 : +d * 100}`
-    ],
-    // btn
-    [
-      /^btn-deep-(\d+)$/,
-      ([, d]) => `px-4 py-1 rounded pointer-default bg-deep-${d} hover:bg-deep-${+d + 1} `
-    ]
   ]
 })

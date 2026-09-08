@@ -1,33 +1,20 @@
 <template>
   <div flex flex-col h-app w-full bg-note-paper overflow-hidden>
-    <!-- 模块内页导航(应用页无侧边栏, 孙页面切换在此) -->
-    <RagPageNav class="shrink-0 px-4 pt-3" />
-
     <div flex flex-1 min-h-0 w-full>
-    <!-- 知识库问答: 左侧会话列表 + 居中消息流(过程区块/引用溯源) + 悬浮输入卡 -->
+    <!-- 知识库问答: 可收起会话列表 + 居中消息流(过程区块/引用溯源) + 悬浮输入卡 -->
     <!-- 移动端抽屉遮罩 -->
     <Transition name="fade">
-      <div v-if="drawerOpen" fixed inset-0 z-20 class="bg-black/30" md:hidden @click="drawerOpen = false" />
+      <div v-if="sidebarOpen" fixed inset-0 z-20 class="bg-black/30" md:hidden @click="sidebarOpen = false" />
     </Transition>
 
-    <!-- 会话列表(桌面常驻, 移动端侧滑抽屉) -->
+    <!-- 会话列表(桌面默认常驻可收起, 移动端侧滑抽屉) -->
     <aside
       fixed md:static inset-y-0 left-0 z-30 w-72 shrink-0 flex flex-col bg-note-soft border-r border-note
-      transition-transform duration-300 md:translate-x-0
-      :class="drawerOpen ? 'translate-x-0' : '-translate-x-full'"
+      transition-all duration-300
+      :class="sidebarOpen ? 'translate-x-0 md:ml-0' : '-translate-x-full md:-ml-72'"
     >
-      <!-- 知识库管理入口(侧栏最顶部) + 新建 + 搜索 -->
+      <!-- 新建 + 搜索 -->
       <div p-3 space-y-2.5>
-        <button
-          v-if="canManage"
-          class="active:scale-[0.98]"
-          flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl border border-note bg-note-card text-note text-sm font-medium
-          shadow-note hover:border-note-green hover:text-note-green transition-all
-          @click="router.push('/rag/project')"
-        >
-          <el-icon :size="16"><Collection /></el-icon>
-          知识库管理
-        </button>
         <button
           class="active:scale-[0.98]"
           flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl bg-note-green text-white text-sm font-medium
@@ -79,45 +66,36 @@
           {{ searchText ? '未找到相关对话' : '暂无对话' }}
         </div>
       </div>
+
+      <!-- 次级管理入口(小字低调, 不抢历史列表; 后续智能体管理等在此扩展) -->
+      <div v-if="visibleManageLinks.length" px-3 py-2.5 border-t border-note space-y-0.5>
+        <RouterLink
+          v-for="link in visibleManageLinks" :key="link.index" :to="link.index"
+          flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-note-sub
+          hover:bg-note-tint hover:text-note-green transition-colors
+        >
+          <el-icon :size="13"><component :is="link.icon" /></el-icon>
+          {{ link.label }}
+        </RouterLink>
+      </div>
     </aside>
 
     <!-- 右侧聊天区域 -->
     <section flex-1 flex flex-col min-w-0 relative>
-      <!-- 顶部栏: 汉堡(移动端) + 知识库选择 + 深度思考 -->
+      <!-- 顶部栏: 侧栏开关 + 当前会话标题 -->
       <header
         flex items-center gap-2 px-3 md:px-5 py-2.5 border-b border-note
         class="bg-note-soft/70" backdrop-blur
       >
         <button
-          md:hidden rounded-full p-2 text-note hover:bg-note-tint transition
-          title="会话列表" @click="drawerOpen = true"
+          rounded-full p-2 text-note hover:bg-note-tint transition
+          title="切换会话列表" @click="sidebarOpen = !sidebarOpen"
         >
           <el-icon :size="20"><Menu /></el-icon>
         </button>
-
-        <div flex-1 min-w-0>
-          <el-select
-            v-model="selectedProjectIds" multiple collapse-tags collapse-tags-tooltip :max-collapse-tags="2"
-            w-full sm:w-80 placeholder="关联知识库（可多选）" :disabled="isSending"
-            @change="handleProjectsChange"
-          >
-            <el-option v-for="p in myProjects" :key="p.project_id" :label="p.project_name" :value="p.project_id" />
-          </el-select>
-        </div>
-
-        <!-- 深度思考开关(胶囊按钮) -->
-        <el-tooltip content="启用后模型将进行更深入的推理分析" placement="bottom">
-          <button
-            flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs whitespace-nowrap transition-all
-            :class="deepThinking
-              ? 'bg-note-tint border-note-green text-note-green'
-              : 'border-note text-note-sub hover:text-note'"
-            @click="deepThinking = !deepThinking"
-          >
-            <el-icon :size="14"><MagicStick /></el-icon>
-            深度思考
-          </button>
-        </el-tooltip>
+        <h2 v-if="currentConversation" flex-1 min-w-0 truncate text-sm font-medium text-note m-0>
+          {{ currentConversation.title || '新对话' }}
+        </h2>
       </header>
 
       <!-- 消息流: 居中阅读宽度(过程区块 + 引用溯源 + 富文本) -->
@@ -155,7 +133,7 @@
         </template>
       </ChatMessageList>
 
-      <!-- 输入区: 悬浮卡片式输入框 -->
+      <!-- 输入区: 悬浮卡片式输入框(卡片内底部为知识库/思考模式工具栏) -->
       <div px-3 md:px-4 pb-3 md:pb-4>
         <div max-w-3xl mx-auto>
           <ChatComposer
@@ -163,7 +141,29 @@
             :is-sending="isSending"
             @send="handleSend"
             @stop="handleStop"
-          />
+          >
+            <template #toolbar>
+              <el-select
+                v-model="selectedProjectIds" multiple collapse-tags collapse-tags-tooltip :max-collapse-tags="2"
+                class="w-40 sm:w-56" size="small" placeholder="关联知识库（可多选）" :disabled="isSending"
+              >
+                <el-option v-for="p in myProjects" :key="p.project_id" :label="p.project_name" :value="p.project_id" />
+              </el-select>
+              <!-- 深度思考开关(胶囊按钮) -->
+              <el-tooltip content="启用后模型将进行更深入的推理分析" placement="top">
+                <button
+                  flex items-center gap-1 px-2.5 py-1 rounded-full border text-xs whitespace-nowrap shrink-0 transition-all
+                  :class="deepThinking
+                    ? 'bg-note-tint border-note-green text-note-green'
+                    : 'border-note text-note-sub hover:text-note'"
+                  @click="deepThinking = !deepThinking"
+                >
+                  <el-icon :size="13"><MagicStick /></el-icon>
+                  深度思考
+                </button>
+              </el-tooltip>
+            </template>
+          </ChatComposer>
         </div>
         <p text-center text-xs text-note-sub mt-2>内容由 AI 基于知识库生成，请注意甄别</p>
       </div>
@@ -178,8 +178,6 @@ import {
   EditPen, Document, List, DataAnalysis, Collection,
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import RagPageNav from '../components/RagPageNav.vue'
-import { useRouter } from 'vue-router'
 import { usePermission } from '@/common/composables/usePermission'
 import {
   createConversation,
@@ -197,16 +195,25 @@ import { StreamEventType } from '@/common/types/chat'
 import type { MessageBlock } from '@/common/types/chat'
 import type { Conversation, ChatMessage, MyProject } from '../types'
 
-const router = useRouter()
 const { hasPerm } = usePermission()
-// 知识库管理入口权限(与菜单配置一致)
-const canManage = computed(() => hasPerm('rag:project'))
 
 // ===== 会话列表 =====
 const conversations = ref<Conversation[]>([])
 const currentConversationId = ref<string | null>(null)
 const searchText = ref('')
-const drawerOpen = ref(false)
+// 侧栏开关(桌面默认展开, 移动端默认收起为抽屉)
+const sidebarOpen = ref(typeof window !== 'undefined' && window.innerWidth >= 768)
+
+// 当前会话信息(顶栏标题展示)
+const currentConversation = computed(() =>
+  conversations.value.find((c) => c.id === currentConversationId.value),
+)
+
+// 次级管理入口(低调收纳于侧栏底部, 后续管理页在此追加一项即可)
+const visibleManageLinks = computed(() => [
+  { label: '知识库管理', icon: markRaw(Collection), index: '/rag/project', perm: 'rag:project' },
+  { label: '智能体管理', icon: markRaw(MagicStick), index: '/agent/manage', perm: 'agent:manage' },
+].filter((l) => !l.perm || hasPerm(l.perm)))
 
 // ===== 知识库关联 =====
 const myProjects = ref<MyProject[]>([])
@@ -308,9 +315,9 @@ const handleCreateConversation = async () => {
   }
 }
 
-// 选中会话并加载历史消息(移动端同时收起抽屉; 恢复关联知识库与过程区块)
+// 选中会话并加载历史消息(同时收起侧栏; 恢复关联知识库与过程区块)
 const selectConversation = async (conversationId: string) => {
-  drawerOpen.value = false
+  sidebarOpen.value = false
   currentConversationId.value = conversationId
   messages.value = []
   try {

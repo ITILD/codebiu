@@ -27,7 +27,7 @@
         </el-form-item>
 
         <el-form-item>
-          <el-button type="primary" w-full :loading="loading" @click="handleLogin">
+          <el-button type="primary" w-full native-type="submit" :loading="loading">
             {{ $t('sign_in') }}
           </el-button>
         </el-form-item>

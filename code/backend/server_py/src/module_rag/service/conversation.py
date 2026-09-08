@@ -59,13 +59,21 @@ class ConversationService:
         return await self.conversation_dao.get(conversation_id)
 
     async def list_by_user(
-        self, user_id: str, pagination: PaginationParams
+        self,
+        user_id: str,
+        pagination: PaginationParams,
+        scope: str = "all",
+        agent_id: str | None = None,
     ) -> PaginationResponse:
-        """分页获取用户的对话列表"""
+        """分页获取用户的对话列表
+
+        :param scope: 范围过滤(all=全部/rag=知识库对话/agent=智能体对话)
+        :param agent_id: 智能体ID(scope=agent 时可进一步按智能体过滤)
+        """
         items = await self.conversation_dao.list_by_user(
-            user_id, pagination.offset, pagination.limit
+            user_id, pagination.offset, pagination.limit, scope=scope, agent_id=agent_id
         )
-        total = await self.conversation_dao.count_by_user(user_id)
+        total = await self.conversation_dao.count_by_user(user_id, scope=scope, agent_id=agent_id)
         return PaginationResponse.create(items, total, pagination)
 
 

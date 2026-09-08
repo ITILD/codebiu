@@ -36,6 +36,9 @@ from module_rag.controller import (
 )
 # # 知识库模块: 权限声明注册保持权限表与声明一致
 from module_rag.config import permissions as rag_permissions  # noqa: F401
+# # 智能体模块(内置公共 agent + 动态添加简单 agent, langgraph 驱动)
+from module_agent.controller import agent, agent_chat, agent_conversation
+from module_agent.config import permissions as agent_permissions  # noqa: F401
 # # 地理空间模块(Babylon 地球绘制 + PostGIS 点线面存储)
 from module_geometry.controller import feature
 from module_geometry.config import permissions as geometry_permissions  # noqa: F401

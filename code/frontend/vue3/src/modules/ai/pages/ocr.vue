@@ -1,9 +1,13 @@
 <template>
-  <div p-4 max-w-6xl mx-auto>
-    <h1 text-center mb-5 text-2xl font-bold>OCR 文字识别</h1>
+  <div p-4 md:p-6 w-full class="max-w-6xl mx-auto">
+    <!-- 页面标题 -->
+    <div mb-4>
+      <h2 text-lg font-bold text-note>OCR 文字识别</h2>
+      <p text-xs text-note-sub mt-1>🌿 上传图片识别文字, 支持多语言与识别结果翻译</p>
+    </div>
 
     <!-- 文件上传和语言选择区域 -->
-    <el-card mb-5>
+    <div page-card mb-5>
       <div flex flex-col gap-4>
         <!-- 文件选择 -->
         <div flex flex-wrap items-center gap-3>
@@ -66,13 +70,13 @@
           </el-button>
         </div>
       </div>
-    </el-card>
+    </div>
 
     <!-- 结果展示区域 -->
     <div v-if="targetFile" flex flex-col lg:flex-row gap-5>
       <!-- 图片预览和检测结果 -->
-      <el-card flex-1>
-        <div font-bold mb-3>文 本 检 测 结 果</div>
+      <div page-card flex-1 min-w-0>
+        <div font-bold mb-3 text-note>文 本 检 测 结 果</div>
         <div relative>
           <img
             :src="imageSrc"
@@ -96,11 +100,11 @@
               <Loading /></el-icon>
           </div>
         </div>
-      </el-card>
+      </div>
 
       <!-- 识别结果表格 -->
-      <el-card flex-1>
-        <div font-bold mb-3>
+      <div page-card flex-1 min-w-0>
+        <div font-bold mb-3 text-note>
           文 本 识 别 结果
           <span v-if="processingTime"> (Total: {{ processingTime.toFixed(3) }}s)</span>
         </div>
@@ -130,12 +134,12 @@
         </el-table>
 
         <el-empty v-else description="暂无识别结果" />
-      </el-card>
+      </div>
     </div>
 
     <!-- 翻译背景图 -->
-    <el-card v-if="bgImage" mt-5>
-      <div font-bold mb-3>翻译背景图</div>
+    <div v-if="bgImage" page-card mt-5>
+      <div font-bold mb-3 text-note>翻译背景图</div>
       <img
         :src="bgImage"
         alt="翻译背景图"
@@ -144,7 +148,7 @@
         border-note
         rounded
       />
-    </el-card>
+    </div>
   </div>
 </template>
 

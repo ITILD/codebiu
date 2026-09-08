@@ -24,13 +24,13 @@ export const createConversation = (data: ConversationCreate) => {
 };
 
 /**
- * 获取我的对话列表
+ * 获取我的对话列表(知识库问答页使用, 排除智能体对话)
  * @param params 分页参数
  */
 export const listMyConversations = (params: PaginationParams) => {
   return http_base_server.get<PaginationResponse<Conversation>>(
     '/rag/conversations/my',
-    { params }
+    { params: { ...params, scope: 'rag' } }
   );
 };
 

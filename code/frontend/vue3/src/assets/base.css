@@ -38,13 +38,37 @@ body,
     --el-text-color-primary: #3f5348;
     --el-text-color-regular: #5a6b5f;
 
-    /* 品牌色变量(自用) */
+    /* 品牌色变量(自用, 是 uno.config.ts note-* shortcut 的唯一取值来源) */
     --note-green: #6b9e78;
     --note-green-deep: #557f61;
     --note-paper: #fafaf5;
     --note-soft: #f4f8f2;
+    --note-card: #ffffff;
+    --note-tint: #eef6ef;
     --note-border: #e3ebe2;
+    --note-border-green: #a9c9b1;
     --note-text: #3f5348;
+    --note-sub: #5a6b5f;
+    --note-accent: #557f61;
+
+    /* 阴影: 静止纸片影 / 悬浮抬升影 */
+    --note-shadow: 0 2px 12px rgba(108, 191, 143, 0.14);
+    --note-shadow-hover: 0 8px 24px rgba(108, 191, 143, 0.22);
+
+    /* 渐变(Hero/页头大区块) */
+    --note-grad-from: #e7f2e9;
+    --note-grad-via: #f4f8f2;
+    --note-grad-to: #ddeddf;
+
+    /* 吸顶毛玻璃底(须配 backdrop-blur) */
+    --note-glass: rgba(244, 248, 242, 0.85);
+
+    /* 手写体(点缀用, 无外链字体时回落到系统楷体) */
+    --note-font-hand: 'LXGW WenKai', 'LXGW WenKai GB', 'Kaiti SC', 'STKaiti', 'KaiTi', cursive;
+
+    /* 滚动条 */
+    --note-scrollbar: rgba(107, 158, 120, 0.30);
+    --note-scrollbar-hover: rgba(107, 158, 120, 0.50);
 }
 
 /* 暗色模式: 墨绿基调(深墨绿底 + 青叶绿强调, 沉稳耐看) */
@@ -76,13 +100,57 @@ html.dark {
     --note-green-deep: #88d2a7;
     --note-paper: #0d1711;
     --note-soft: #15231c;
+    --note-card: #18271e;
+    --note-tint: #1d3a2e;
     --note-border: #263a2f;
+    --note-border-green: #3f6b52;
     --note-text: #ddebe2;
+    --note-sub: #a6c0b1;
+    --note-accent: #88d2a7;
+
+    /* 暗色阴影: 绿色影在墨绿底上不可见, 改用深色影保持层次 */
+    --note-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+    --note-shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.45);
+
+    --note-grad-from: #16241c;
+    --note-grad-via: #101c15;
+    --note-grad-to: #1d3a2e;
+
+    --note-glass: rgba(21, 35, 28, 0.85);
+
+    --note-scrollbar: rgba(140, 190, 160, 0.25);
+    --note-scrollbar-hover: rgba(140, 190, 160, 0.45);
 }
 
-/* 纸张底色 */
+/* 纸张底色 + 极淡噪点纹理(苔绿噪点, 亮暗两版皆可读; 固定不随滚动) */
 body {
     background-color: var(--note-paper);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' fill='%236b9e78' opacity='0.03'/%3E%3C/svg%3E");
+    background-attachment: fixed;
+}
+
+/* ---- 全局细滚动条: 苔绿半透明, 融入纸面 ---- */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--note-scrollbar) transparent;
+}
+
+*::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+    background: var(--note-scrollbar);
+    border-radius: 3px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background: var(--note-scrollbar-hover);
 }
 
 /* 笔记本格线背景(横线纸) */
@@ -171,4 +239,14 @@ body {
 /* ---- 标签: 圆角胶囊 ---- */
 .el-tag {
     --el-tag-border-radius: 10px;
+}
+
+/* ---- 输入框: 悬浮苔绿描边(聚焦态由 EP 主色驱动, 已随主题切换) ---- */
+.el-input__wrapper:not(.is-focus):hover {
+    box-shadow: 0 0 0 1px var(--note-border-green) inset;
+}
+
+/* ---- 按钮: 统一交互动效手感 ---- */
+.el-button {
+    transition: all 0.2s ease-out;
 }

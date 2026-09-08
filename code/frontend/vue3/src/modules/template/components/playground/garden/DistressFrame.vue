@@ -4,7 +4,8 @@
     <div class="relative flex flex-1 items-center justify-center overflow-hidden rounded-md border border-[var(--el-border-color-light)] bg-[var(--el-bg-color-page)] py-10">
       <svg width="0" height="0" class="absolute" aria-hidden="true">
         <defs>
-          <filter id="gdn-distress" :x="-10" :y="-10" width="120%" height="120%">
+          <!-- x/y/width/height 必须用百分比: 无单位数值按 objectBoundingBox 倍数解析, -10 会把滤镜区域推到元素外导致整体不可见 -->
+          <filter id="gdn-distress" x="-10%" y="-10%" width="120%" height="120%">
             <feTurbulence type="fractalNoise" :baseFrequency="state.freq" numOctaves="3" result="noise" />
             <feComponentTransfer in="noise" result="mask">
               <feFuncA type="discrete" :tableValues="tableValues" />
@@ -43,9 +44,9 @@
 // Distress 示例(garden.bradwoods.io/notes/svg/filters#distress):
 // feTurbulence 造纹理 → feComponentTransfer(feFuncA) 阈值化 → feComposite(in) 蚀刻源图形
 
-/** 可调参数 */
-const state = reactive({ freq: 0.05, keep: 5 })
+/** 可调参数(keep 越大阈值越低, 图形越完整) */
+const state = reactive({ freq: 0.05, keep: 3 })
 
-/** discrete 阈值表: 档位越多, 通过的像素越多, 图形越完整 */
-const tableValues = computed(() => `${'0 '.repeat(Math.round(state.keep))}1`)
+/** discrete 阈值表: 首位 0 挡住低 alpha 噪声, 后续 1 放行; 档位越多, 通过的像素越多, 图形越完整 */
+const tableValues = computed(() => `0 ${'1 '.repeat(Math.round(state.keep)).trim()}`)
 </script>

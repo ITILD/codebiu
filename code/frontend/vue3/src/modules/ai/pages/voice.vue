@@ -134,7 +134,7 @@
                     break-words
                   >
                     <span>{{ finalText }}</span>
-                    <span v-if="partialText" text-blue-500>{{ partialText }}</span>
+                    <span v-if="partialText" text-note-green>{{ partialText }}</span>
                     <span
                       v-if="recording"
                       inline-block w-2 h-5 ml-1 bg-current opacity-70 animate-blink align-middle

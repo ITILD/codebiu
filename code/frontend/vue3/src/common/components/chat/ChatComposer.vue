@@ -62,7 +62,12 @@ const onInput = (value: string) => emit('update:modelValue', value)
       @keydown="onKeydown"
     />
     <div class="cc-footer">
-      <span class="cc-hint">{{ hint || 'Enter 发送 · Shift+Enter 换行' }}</span>
+      <!-- 左侧工具栏插槽(默认显示快捷键提示) -->
+      <div class="cc-toolbar">
+        <slot name="toolbar">
+          <span class="cc-hint">{{ hint || 'Enter 发送 · Shift+Enter 换行' }}</span>
+        </slot>
+      </div>
       <!-- 停止生成 / 发送 -->
       <el-tooltip v-if="isSending" content="停止生成" placement="top">
         <button class="cc-btn stop" @click="handleStop">
@@ -144,6 +149,14 @@ const onInput = (value: string) => emit('update:modelValue', value)
   align-items: center;
   justify-content: space-between;
   padding: 0 10px 10px;
+}
+
+.cc-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
 }
 
 .cc-hint {

@@ -1,5 +1,5 @@
 <template>
-  <div max-w-[520px]>
+  <div class="max-w-[520px]">
     <h3 class="text-lg font-bold text-note mb-1">修改密码</h3>
     <p class="text-sm text-note-sub mb-5">需验证旧密码；修改成功后建议在其他设备重新登录。</p>
 

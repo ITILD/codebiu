@@ -121,7 +121,7 @@ const TITLE = ref(import.meta.env.VITE_GLOB_APP_TITLE)
 const route = useRoute()
 const router = useRouter()
 // 仅后台路由显示汉堡(打开侧边栏抽屉), admin 标记见 vite.config.ts 的 extendRoute
-const isAdmin = computed(() => Boolean(route.meta.admin))
+const isAdmin = computed(() => Boolean(route.meta.admin && !route.meta.standalone))
 
 // 未登录被拦截回首页时自动弹出登录框
 watch(

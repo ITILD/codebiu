@@ -21,6 +21,8 @@ declare module 'vue-router/auto-routes' {
     '/': RouteRecordInfo<'/', '/', Record<never, never>, Record<never, never>>,
     '/[..all]': RouteRecordInfo<'/[..all]', '/:ll(.*)', { ll: ParamValue<true> }, { ll: ParamValue<false> }>,
     '/admin': RouteRecordInfo<'/admin', '/admin', Record<never, never>, Record<never, never>>,
+    '/agent/chat': RouteRecordInfo<'/agent/chat', '/agent/chat', Record<never, never>, Record<never, never>>,
+    '/agent/manage': RouteRecordInfo<'/agent/manage', '/agent/manage', Record<never, never>, Record<never, never>>,
     '/ai/chat': RouteRecordInfo<'/ai/chat', '/ai/chat', Record<never, never>, Record<never, never>>,
     '/ai/model_config': RouteRecordInfo<'/ai/model_config', '/ai/model_config', Record<never, never>, Record<never, never>>,
     '/ai/ocr': RouteRecordInfo<'/ai/ocr', '/ai/ocr', Record<never, never>, Record<never, never>>,
@@ -79,6 +81,14 @@ declare module 'vue-router/auto-routes' {
     }
     'src/pages/admin.vue': {
       routes: '/admin'
+      views: never
+    }
+    'src/modules/agent/pages/chat.vue': {
+      routes: '/agent/chat'
+      views: never
+    }
+    'src/modules/agent/pages/manage.vue': {
+      routes: '/agent/manage'
       views: never
     }
     'src/modules/ai/pages/chat.vue': {

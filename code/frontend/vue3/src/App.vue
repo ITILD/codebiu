@@ -6,8 +6,9 @@ import { findMenuTrail } from '@/common/config/menu'
 
 const route = useRoute()
 // 后台管理页面才显示左侧模块列表, 首页等为纯展示布局(页首+内容+页脚)
-// admin 标记由 vite.config.ts 的 extendRoute 写入路由 meta
-const isAdmin = computed(() => Boolean(route.meta.admin))
+// admin 标记由 vite.config.ts 的 extendRoute 写入路由 meta;
+// standalone 页面(如账户设置)虽属后台路由, 但页面自带导航, 不渲染侧边栏
+const isAdmin = computed(() => Boolean(route.meta.admin && !route.meta.standalone))
 // 全屏页面(如三维地球): 锁定文档滚动(滚轮留给场景缩放), 页脚隐藏
 const isFullpage = computed(() => Boolean(route.meta.fullpage))
 

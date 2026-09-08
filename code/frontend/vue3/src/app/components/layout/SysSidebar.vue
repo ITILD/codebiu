@@ -38,7 +38,7 @@
           :collapse="isCollapse"
           border-0
           bg-transparent
-          px-2
+          :class="isCollapse ? 'px-0' : 'px-2'"
         >
           <template v-for="item in visibleMenuItems" :key="item.index">
             <el-menu-item v-if="!item.children" :index="item.index">
@@ -146,5 +146,34 @@ watch(
   border-right: 1px solid var(--note-border);
   /* 内侧装订虚线(笔记本感) */
   box-shadow: inset -6px 0 0 -5px rgba(107, 158, 120, 0.18);
+}
+
+/* 菜单项: 统一高度与圆角, 避免默认直角贴边的生硬感 */
+.sidebar-note :deep(.el-menu-item),
+.sidebar-note :deep(.el-sub-menu__title) {
+  height: 40px;
+  line-height: 40px;
+  border-radius: 8px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* 悬停: 淡绿底色 */
+.sidebar-note :deep(.el-menu-item:hover),
+.sidebar-note :deep(.el-sub-menu__title:hover) {
+  background-color: rgba(107, 158, 120, 0.1);
+}
+
+/* 选中: 绿色圆角高亮块(与设置页 tab 选中风格一致) */
+.sidebar-note :deep(.el-menu-item.is-active) {
+  background-color: rgba(107, 158, 120, 0.14);
+  color: var(--el-color-primary);
+  font-weight: 500;
+}
+
+/* 收缩态: 去掉水平内边距并居中图标, 修复折叠后图标偏移不齐 */
+.sidebar-note :deep(.el-menu--collapse .el-menu-item),
+.sidebar-note :deep(.el-menu--collapse .el-sub-menu__title) {
+  padding-inline: 0;
+  justify-content: center;
 }
 </style>

@@ -1,6 +1,6 @@
 <template>
   <!-- 场景-->
-  <div w-full class="h-[60vh] md:h-[80vh]" overflow-hidden relative bg-blue>
+  <div w-full class="h-[60vh] md:h-[80vh]" overflow-hidden relative bg-note-tint>
     <div id="canvasP" w-full h-full absolute>
       <canvas id="glDom" w-full h-full></canvas>
     </div>

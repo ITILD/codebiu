@@ -1,9 +1,13 @@
 <template>
-  <div p-4 max-w-6xl mx-auto>
-    <h1 text-center mb-5 text-2xl font-bold>LLM 数据清洗</h1>
+  <div p-4 md:p-6 w-full class="max-w-6xl mx-auto">
+    <!-- 页面标题 -->
+    <div mb-4>
+      <h2 text-lg font-bold text-note>LLM 数据清洗</h2>
+      <p text-xs text-note-sub mt-1>🌿 使用对话模型对文本数据做结构化清洗, 支持自定义提示词与 JSON Schema 约束</p>
+    </div>
 
     <!-- 参数配置区域 -->
-    <el-card mb-5>
+    <div page-card mb-5>
       <div flex flex-col gap-4>
         <!-- 模型选择(复用 AI 模块模型配置) -->
         <div flex flex-wrap items-center gap-3>
@@ -68,16 +72,16 @@
           />
         </div>
       </div>
-    </el-card>
+    </div>
 
     <!-- 结果展示 -->
-    <el-card v-if="result !== null">
-      <div font-bold mb-3>清 洗 结 果</div>
-      <div border rounded p-3 bg-note-soft>
-        <pre v-if="output_type === 'json'" text-sm whitespace-pre-wrap m-0>{{ resultText }}</pre>
-        <div v-else text-sm whitespace-pre-wrap>{{ resultText }}</div>
+    <div v-if="result !== null" page-card>
+      <div font-bold mb-3 text-note>清 洗 结 果</div>
+      <div border border-note rounded p-3 bg-note-soft>
+        <pre v-if="output_type === 'json'" text-sm whitespace-pre-wrap m-0 text-note>{{ resultText }}</pre>
+        <div v-else text-sm whitespace-pre-wrap text-note>{{ resultText }}</div>
       </div>
-    </el-card>
+    </div>
   </div>
 </template>
 

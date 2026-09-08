@@ -1,9 +1,9 @@
 <template>
-  <div max-w-[520px]>
+  <div class="max-w-[520px]">
     <h3 class="text-lg font-bold text-note mb-1">基本信息</h3>
     <p class="text-sm text-note-sub mb-5">维护你的昵称、联系方式与头像，登录后即可自助修改。</p>
 
-    <!-- 头像预览 + 上传/删除/地址 -->
+    <!-- 头像预览 + 上传/删除 -->
     <div class="flex items-center gap-4 mb-5">
       <!-- 无上传头像时显示昵称/用户名首字默认头像 -->
       <UserAvatar :size="64" :src="form.avatar" :name="form.nickname || authState.user.username" />
@@ -22,9 +22,6 @@
             删除头像
           </el-button>
         </div>
-        <el-input v-model="form.avatar" placeholder="头像图片地址(可选, 上传头像后自动填充)" clearable>
-          <template #prefix>URL</template>
-        </el-input>
       </div>
     </div>
 
@@ -61,10 +58,11 @@ const saving = ref(false)
 const uploadingAvatar = ref(false)
 const deletingAvatar = ref(false)
 
-// 表单初值取自登录会话中的用户信息
+// 表单初值取自登录会话中的用户信息(昵称缺省为 new user)
+const DEFAULT_NICKNAME = 'new user'
 const buildForm = () => ({
   avatar: authState.user.avatar || '',
-  nickname: authState.user.nickname || '',
+  nickname: authState.user.nickname || DEFAULT_NICKNAME,
   email: authState.user.email || '',
   phone: authState.user.phone || '',
 })

@@ -8,6 +8,12 @@
         <el-slider v-model="state[c.key]" :min="c.min" :max="c.max" :step="c.step ?? 1" size="small" />
       </div>
       <el-checkbox v-model="blended" size="small">启用 overlay 混合</el-checkbox>
+      <div class="flex items-center gap-2">
+        <span class="w-20 shrink-0 text-xs text-[var(--el-text-color-secondary)]">噪声图</span>
+        <el-select v-model="noiseIdx" size="small" class="flex-1">
+          <el-option v-for="(n, i) in NOISE_PRESETS" :key="n.label" :value="i" :label="n.label" />
+        </el-select>
+      </div>
       <p class="text-xs leading-5 text-[var(--el-text-color-secondary)]">
         overlay 让暗色更暗、亮色更亮，50% 灰不受影响。悬停下方按钮试试 —— 顶盖纹理会同样"印"到按钮上。
       </p>
@@ -34,7 +40,7 @@
 <script setup lang="ts">
 // 纸张效果(garden.bradwoods.io/notes/css/blend-modes#paper):
 // base 层 hsl 纸色 + 顶层 overlay(噪声图 + 线性渐晕 + inset 阴影), 可调参数实时预览
-import { NOISE_URL } from './texture'
+import { NOISE_PRESETS } from './texture'
 import type { CSSProperties } from 'vue'
 
 /** 滑杆配置 */
@@ -66,13 +72,16 @@ const state = reactive<Record<string, number>>({
 /** 是否启用混合(关闭后可对比"无混合"的生硬效果) */
 const blended = ref(true)
 
+/** 当前选中的噪声图预设(NOISE_PRESETS 下标) */
+const noiseIdx = ref(1)
+
 /** 演示按钮状态 */
 const pressed = ref(false)
 
 /** overlay 顶盖样式: 噪声 + 渐晕渐变 + inset 阴影 */
 const overlayStyle = computed<CSSProperties>(() => ({
   boxShadow: `inset 0 0 ${state.blur}px ${state.spread}px hsla(0, 0%, 0%, ${state.opacity})`,
-  background: `${NOISE_URL}, linear-gradient(to bottom right, hsla(0, 0%, 0%, 0) ${state.grad}%, hsla(0, 0%, 0%, 1) 130%)`,
+  background: `${NOISE_PRESETS[noiseIdx.value].url}, linear-gradient(to bottom right, hsla(0, 0%, 0%, 0) ${state.grad}%, hsla(0, 0%, 0%, 1) 130%)`,
   mixBlendMode: blended.value ? 'overlay' : 'normal',
 }))
 </script>
