@@ -1,11 +1,14 @@
 <template>
   <!-- 注意: max-w-[720px] 含方括号任意值, 必须写进 class 属性(attributify 陷阱, 见 App.vue) -->
   <div class="max-w-[720px]">
-    <h3 class="text-lg font-bold text-note mb-1">我的权限</h3>
+    <div class="flex items-center gap-2 mb-1">
+      <h3 class="text-lg font-bold text-note">我的权限</h3>
+      <el-tag size="small" type="info" effect="plain">只读</el-tag>
+    </div>
     <p class="text-sm text-note-sub mb-5">
       {{ isSuperAdmin
-        ? '全局管理员, 拥有全部模块的全部功能权限(权限穿透一切, 此页只读)。'
-        : '以下为当前账号在各模块下已授权的功能与操作(由管理员分配, 此页只读)。' }}
+        ? '您正以全局管理员身份浏览，全部模块的全部操作均已默认授信。'
+        : '此处汇总您在各模块下被授予的功能与操作，如需调整请联系管理员。' }}
     </p>
 
     <div v-loading="loading">
