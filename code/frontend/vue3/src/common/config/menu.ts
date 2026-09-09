@@ -54,7 +54,7 @@ export const menuItems: MenuItem[] = [
       { index: '/authorization/user', title: '用户管理', perm: 'sys:user' },
       { index: '/authorization/role', title: '角色管理', perm: 'sys:role' },
       { index: '/authorization/dept', title: '部门管理', perm: 'sys:dept' },
-      { index: '/authorization/permission', title: '权限管理', perm: 'sys:permission' },
+      { index: '/authorization/permission', title: '权限配置', perm: 'sys:permission' },
       { index: '/authorization/casbin', title: '策略规则', perm: 'sys:casbin' },
     ],
   },

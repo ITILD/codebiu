@@ -52,17 +52,19 @@ const onInput = (value: string) => emit('update:modelValue', value)
 
 <template>
   <div class="cc-card">
+    <!-- 同行布局: 输入在左自适应, 控制区(工具栏+发送)在右底部对齐 -->
+    <div class="cc-row">
     <el-input
       :model-value="modelValue"
       type="textarea"
       :autosize="{ minRows: 1, maxRows: 8 }"
       :placeholder="placeholder"
       :disabled="disabled"
+      resize="none"
       @update:model-value="onInput"
       @keydown="onKeydown"
     />
-    <div class="cc-footer">
-      <!-- 左侧工具栏插槽(默认显示快捷键提示) -->
+    <div class="cc-side">
       <div class="cc-toolbar">
         <slot name="toolbar">
           <span class="cc-hint">{{ hint || 'Enter 发送 · Shift+Enter 换行' }}</span>
@@ -79,6 +81,7 @@ const onInput = (value: string) => emit('update:modelValue', value)
           <el-icon :size="16"><Promotion /></el-icon>
         </button>
       </el-tooltip>
+    </div>
     </div>
   </div>
 </template>
@@ -135,33 +138,107 @@ const onInput = (value: string) => emit('update:modelValue', value)
   100% { background-position: -150% 0; }
 }
 
+/* 同行布局: 输入在左自适应, 控制区在右底部对齐(多行时输入向上生长) */
+.cc-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 8px 10px;
+}
+
+.cc-row > .el-textarea {
+  flex: 1;
+  min-width: 0;
+}
+
 /* textarea 无边框融入卡片 */
 .cc-card :deep(.el-textarea__inner) {
   box-shadow: none !important;
   background: transparent;
-  padding: 12px 14px 4px;
+  padding: 6px 8px;
   font-size: 0.9rem;
   line-height: 1.6;
+  border-radius: 0.75rem;
 }
 
-.cc-footer {
+.cc-card :deep(.el-textarea__inner)::placeholder {
+  color: var(--note-sub, #6b7f6e);
+  opacity: 0.7;
+}
+
+/* 右侧控制区: 工具栏 + 发送按钮水平排列 */
+.cc-side {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 10px 10px;
+  gap: 8px;
+  padding-bottom: 2px;
+  flex-shrink: 0;
 }
 
 .cc-toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex: 1;
+  gap: 6px;
   min-width: 0;
 }
 
 .cc-hint {
   font-size: 12px;
   color: var(--note-sub, #6b7f6e);
+  white-space: nowrap;
+}
+
+/* 胶囊形下拉选择器(与思考模式按钮统一风格) */
+.cc-toolbar :deep(.el-select) {
+  width: 150px;
+}
+
+.cc-toolbar :deep(.el-select__wrapper) {
+  border-radius: 9999px;
+  background: var(--note-tint, #e7f3e9);
+  box-shadow: none !important;
+  border: 1px solid transparent;
+  min-height: 30px;
+  padding: 2px 12px;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.cc-toolbar :deep(.el-select__wrapper:hover),
+.cc-toolbar :deep(.el-select__wrapper.is-focused) {
+  border-color: var(--note-green, #6cbf8f);
+  background: var(--el-bg-color, #fff);
+}
+
+.cc-toolbar :deep(.el-select__placeholder) {
+  color: var(--note-sub, #6b7f6e);
+}
+
+.cc-toolbar :deep(.el-select__selected-item) {
+  color: var(--note-green, #6cbf8f);
+}
+
+.cc-toolbar :deep(.el-select .el-tag) {
+  border-radius: 9999px;
+  background: transparent;
+  border-color: var(--note-green, #6cbf8f);
+  color: var(--note-green, #6cbf8f);
+}
+
+/* 小屏: 输入占满一行, 工具栏与发送按钮换行到下方 */
+@media (max-width: 640px) {
+  .cc-row {
+    flex-wrap: wrap;
+  }
+
+  .cc-row > .el-textarea {
+    flex: 1 1 100%;
+  }
+
+  .cc-side {
+    width: 100%;
+    justify-content: space-between;
+  }
 }
 
 .cc-btn {

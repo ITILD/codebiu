@@ -48,7 +48,7 @@ SYS_DEFINE = ModulePermissionDefine(
         _crud_nodes("user", "用户管理", path="/authorization/user", icon="UserFilled", order=1),
         _crud_nodes("role", "角色管理", path="/authorization/role", icon="Avatar", order=2),
         _crud_nodes("dept", "部门管理", path="/authorization/dept", icon="OfficeBuilding", order=3),
-        _crud_nodes("permission", "权限管理", path="/authorization/permission", icon="Key", order=4),
+        _crud_nodes("permission", "权限配置", path="/authorization/permission", icon="Key", order=4),
         _crud_nodes("casbin", "策略规则", path="/authorization/casbin", icon="List", order=5),
     ],
     # 新用户不自动获得系统管理权限,需管理员分配

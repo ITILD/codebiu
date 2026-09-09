@@ -156,7 +156,6 @@
             </template>
           </ChatComposer>
         </div>
-        <p text-center text-xs text-note-sub mt-2>内容由 AI 生成，请注意甄别</p>
       </div>
     </section>
     </div>

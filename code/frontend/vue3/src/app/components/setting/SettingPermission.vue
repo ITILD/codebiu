@@ -84,7 +84,7 @@ const PERMISSION_TREE: ModuleDef[] = [
       { obj: 'user', label: '用户管理', acts: a('read', '查询', 'create', '新增', 'update', '修改', 'delete', '删除') },
       { obj: 'role', label: '角色管理', acts: a('read', '查询', 'create', '新增', 'update', '修改', 'delete', '删除') },
       { obj: 'dept', label: '部门管理', acts: a('read', '查询', 'create', '新增', 'update', '修改', 'delete', '删除') },
-      { obj: 'permission', label: '权限管理', acts: a('read', '查询', 'create', '新增', 'update', '修改', 'delete', '删除') },
+      { obj: 'permission', label: '权限配置', acts: a('read', '查询', 'create', '新增', 'update', '修改', 'delete', '删除') },
       { obj: 'casbin', label: '策略规则', acts: a('read', '查询', 'create', '新增', 'update', '修改', 'delete', '删除') },
     ],
   },

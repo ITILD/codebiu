@@ -133,7 +133,7 @@
         </template>
       </ChatMessageList>
 
-      <!-- 输入区: 悬浮卡片式输入框(卡片内底部为知识库/思考模式工具栏) -->
+      <!-- 输入区: 悬浮卡片式输入框(知识库/思考模式与输入同行) -->
       <div px-3 md:px-4 pb-3 md:pb-4>
         <div max-w-3xl mx-auto>
           <ChatComposer
@@ -145,17 +145,15 @@
             <template #toolbar>
               <el-select
                 v-model="selectedProjectIds" multiple collapse-tags collapse-tags-tooltip :max-collapse-tags="2"
-                class="w-40 sm:w-56" size="small" placeholder="关联知识库（可多选）" :disabled="isSending"
+                class="kb-select" size="small" placeholder="关联知识库" :disabled="isSending"
               >
                 <el-option v-for="p in myProjects" :key="p.project_id" :label="p.project_name" :value="p.project_id" />
               </el-select>
               <!-- 深度思考开关(胶囊按钮) -->
               <el-tooltip content="启用后模型将进行更深入的推理分析" placement="top">
                 <button
-                  flex items-center gap-1 px-2.5 py-1 rounded-full border text-xs whitespace-nowrap shrink-0 transition-all
-                  :class="deepThinking
-                    ? 'bg-note-tint border-note-green text-note-green'
-                    : 'border-note text-note-sub hover:text-note'"
+                  class="think-btn"
+                  :class="{ active: deepThinking }"
                   @click="deepThinking = !deepThinking"
                 >
                   <el-icon :size="13"><MagicStick /></el-icon>
@@ -165,7 +163,6 @@
             </template>
           </ChatComposer>
         </div>
-        <p text-center text-xs text-note-sub mt-2>内容由 AI 基于知识库生成，请注意甄别</p>
       </div>
     </section>
     </div>
@@ -524,6 +521,34 @@ onMounted(() => {
   loadConversations()
 })
 </script>
+
+<style scoped>
+/* 深度思考胶囊按钮(与输入卡内知识库选择器统一风格) */
+.think-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  background: var(--note-tint, #e7f3e9);
+  color: var(--note-sub, #6b7f6e);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.think-btn:hover {
+  color: var(--note, #2f5d43);
+}
+
+.think-btn.active {
+  background: var(--el-bg-color, #fff);
+  border-color: var(--note-green, #6cbf8f);
+  color: var(--note-green, #6cbf8f);
+}
+</style>
 
 <style>
 /* 抽屉遮罩过渡 */
