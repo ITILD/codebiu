@@ -20,9 +20,8 @@ from langgraph.graph import END, START, StateGraph
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 
 # 设定最大允许 token 数量为 1000
-from module_ai.utils.llm.common_splitter.text_splitter_utils import TextSplitterUtils
-from module_ai.utils.llm.utils.llm_utils import LLMUtils
-from config.ai import llm_chat, llm_embeddings,limiter_sim_chat
+from module_ai.utils.llm.splitter.text_splitter import TextSplitterUtils
+from module_ai.utils.llm.chat.utils import LLMUtils
 
 
 class OverallState(TypedDict):
@@ -242,42 +241,14 @@ class MapReduce:
 
 if __name__ == "__main__":
     # ======================================================================================
-    # ✅ 使用说明(示例)
+    # 使用说明: MapReduce 需注入真实 llm 才能运行(依赖模型服务, 不入 pytest)
     # ======================================================================================
-    """
-    # 假设你已经定义好了：
-    llm = ChatOpenAI(model="gpt-3.5-turbo")
-    map_prompt = PromptTemplate.from_template("请简要总结以下内容：{content}")
-    map_chain = LLMChain(llm=llm, prompt=map_prompt)
-
-    reduce_prompt = PromptTemplate.from_template("请整合以下几段摘要：\n\n{doc_summaries}")
-    reduce_chain = StuffDocumentsChain(..., prompt=reduce_prompt, ...)
-    """
     import asyncio
 
     async def main():
-        app = await setup_graph()
-        # 输入多篇文档内容
-        contents = [
-            """传统的三幕结构包括以下部分：
-
-第一幕——设定：提示，诱发事件，第一个情节点
-第二幕——冲突：上升的行动，中点，第二个情节点
-第三幕——结局：预高潮，高潮，收场
-每一幕中都有一些不同的“节拍”——一个情节事件。亚里士多德首先发明了通过三个部分讲故事的方式，每一幕都应该由一个节拍来衔接，将叙事引向不同的方向。在《诗学》中，他认为故事必须是一连串的因果节拍：每个场景必须引出下一个发生的事情，而不是一个独立的“事件”。""",
-            """如何使用三幕结构？
-很明显，很多作家都同意，在讲故事的时候，“好事成三”。我们已经有了三幕的大框架，我们需要进一步把每一幕再分成三个“节拍”。以下将以《绿野仙踪》和《饥饿游戏》作为分析实例，来研究三幕结构是如何应用到故事当中的。""",
-            """2. 诱发事件
-这是让主人公开启冒险行动的催化剂。诱发事件是三幕故事结构中的一个关键环节：没有它，接下来的故事就不会存在。诱发事件向主人公提出了一个登上旅程的原因——一个可以帮助他们改变处境和实现目标的旅程。
-
-在设计诱发事件的时候，问自己以下问题：
-
-主人公对他们的生活有哪些不满？
-要怎样才能让主人公找到满足感？(这就是他们的目标)
-主人公最大的恐惧和性格缺陷是什么？
-主人公为找到满足感而需要采取的行动将如何迫使他们直面自己的恐惧和性格缺陷？""",
-        ]
-        result = await app.ainvoke(inputs)
+        map_reduce = MapReduce(token_max=200, llm=None)  # llm 传入可用的 Chat 模型实例
+        map_reduce.build()
+        result = await map_reduce.run(["第一段文本内容...", "第二段文本内容..."])
         print("最终摘要：", result["final_summary"])
 
     asyncio.run(main())

@@ -1,6 +1,6 @@
 # self
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
-from common.utils.fastapiEX.exceptions import ConflictError, NotFoundError
+from common.utils.fastapiEX.exceptions import BusinessError, ConflictError, NotFoundError
 from module_file.do.filesystem import (
     FileEntry,
     FileEntryCreate,
@@ -31,7 +31,7 @@ import hmac
 import json
 import time
 import uuid
-from fastapi import UploadFile, HTTPException
+from fastapi import UploadFile
 from sqlmodel.ext.asyncio.session import AsyncSession
 from common.config.db import DaoRel
 from pathlib import Path
@@ -1131,36 +1131,31 @@ class FileService:
         获取文件下载所需的信息
         :param entry_id: 文件条目ID
         :return: (文件名, MIME类型, 物理存储键)
+        :raises: NotFoundError 文件/内容记录/物理文件不存在; BusinessError 目录不可下载
         """
-        try:
-            # 联查条目与内容元数据(物理存储键位于内容表)
-            entry_with_content = await self.file_entry_dao.get_file_entry_with_content(
-                entry_id
-            )
-            if not entry_with_content or not entry_with_content.is_active:
-                logger.warning(f"文件不存在或已被禁用: {entry_id}")
-                raise HTTPException(status_code=404, detail="文件不存在或已被禁用")
-            if entry_with_content.is_directory:
-                raise HTTPException(status_code=400, detail="目录不支持下载")
-            if not entry_with_content.physical_storage:
-                raise HTTPException(status_code=404, detail="文件内容记录缺失")
+        # 联查条目与内容元数据(物理存储键位于内容表)
+        entry_with_content = await self.file_entry_dao.get_file_entry_with_content(
+            entry_id
+        )
+        if not entry_with_content or not entry_with_content.is_active:
+            logger.warning(f"文件不存在或已被禁用: {entry_id}")
+            raise NotFoundError("文件不存在或已被禁用")
+        if entry_with_content.is_directory:
+            raise BusinessError("目录不支持下载")
+        if not entry_with_content.physical_storage:
+            raise NotFoundError("文件内容记录缺失")
 
-            # 使用存储接口检查物理文件是否存在
-            file_exists = await self.storage.exists(entry_with_content.physical_storage)
-            if not file_exists:
-                logger.error(f"物理文件不存在: {entry_with_content.physical_storage}")
-                raise HTTPException(status_code=404, detail="物理文件不存在")
+        # 使用存储接口检查物理文件是否存在
+        file_exists = await self.storage.exists(entry_with_content.physical_storage)
+        if not file_exists:
+            logger.error(f"物理文件不存在: {entry_with_content.physical_storage}")
+            raise NotFoundError("物理文件不存在")
 
-            return (
-                entry_with_content.name,
-                entry_with_content.mime_type,
-                entry_with_content.physical_storage,
-            )
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"获取文件信息时发生错误: {e}")
-            raise HTTPException(status_code=500, detail=f"获取文件信息时发生错误: {e}")
+        return (
+            entry_with_content.name,
+            entry_with_content.mime_type,
+            entry_with_content.physical_storage,
+        )
 
     async def stream_file_content(self, file_path: str, chunk_size: int = 8192):
         """

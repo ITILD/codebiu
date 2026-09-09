@@ -1,14 +1,10 @@
 from fastapi import (
     APIRouter,
-    HTTPException,
     status,
     Depends,
-    UploadFile,
-    File,
-    Form,
 )
 from pydantic import BaseModel, Field
-from common.utils.fastapiEX.exceptions import NotFoundError
+from common.utils.fastapiEX.exceptions import ForbiddenError
 from module_rag.config.server import module_app
 from module_rag.do.project_document_chunk import SearchRequest,ProjectDocumentChunkSearchResponse
 from module_authorization.dependencies.auth import get_current_user_id, get_current_user
@@ -84,7 +80,7 @@ async def revectorize_chunks(
     :return: {"task_id": task_queue任务ID}(用 GET /revectorize/status/{task_id} 查询进度, 亦可在任务队列页跟踪)
     """
     if not _is_admin(current_user.id):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="仅系统管理员可执行全库重向量化")
+        raise ForbiddenError("仅系统管理员可执行全库重向量化")
     task = await task_service.create(
         TaskQueueCreate(
             name="全库重向量化",
@@ -111,12 +107,9 @@ async def revectorize_status(
     :return: {"task_id", "state", "meta"/"error"}(PROGRESS 时 meta 含 total/processed/chunks/model)
     """
     if not _is_admin(current_user.id):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="仅系统管理员可查询重向量化进度")
-    try:
-        resp = await task_service.get(task_id)
-    except ValueError as e:
-        # 任务不存在 -> 404(NotFoundError), 与参数错误的400区分
-        raise NotFoundError(str(e))
+        raise ForbiddenError("仅系统管理员可查询重向量化进度")
+    # 任务不存在 → 404(service 层 NotFoundError 直接映射)
+    resp = await task_service.get(task_id)
 
     # Celery 侧状态优先(实时), 库中状态兜底(结果后端不可用时)
     state = resp.celery_state or _DB_STATE_TO_CELERY.get(resp.status, "PENDING")

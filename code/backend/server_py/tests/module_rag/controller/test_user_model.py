@@ -1,6 +1,6 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """module_rag/user_model 接口标准测试
-覆盖: 查询我的绑定/更新绑定(合法/非法模型ID)/解绑
+覆盖: 查询我的绑定/更新绑定(合法/非法模型ID)/解绑/回退开关 fallback_disabled
 说明: 绑定前会校验模型配置归属(本人或已共享),因此用 /ai/model-configs 创建本人配置来测合法分支
 """
 
@@ -92,7 +92,7 @@ async def test_embedding_fallback_to_default_public(client: httpx.AsyncClient):
     resp = await client.put(f"{BASE}/my", json={"embedding_model_id": None})
     assert resp.status_code == 200, resp.text
 
-    from module_ai.utils.llm.do.llm_type import ModelType
+    from module_ai.utils.llm.types import ModelType
     from module_rag.service.user_model import UserModelService
 
     service = UserModelService()
@@ -109,7 +109,7 @@ async def test_chat_fallback_returns_none_without_default(client: httpx.AsyncCli
     resp = await client.put(f"{BASE}/my", json={"chat_model_id": None})
     assert resp.status_code == 200, resp.text
 
-    from module_ai.utils.llm.do.llm_type import ModelType
+    from module_ai.utils.llm.types import ModelType
     from module_rag.service import user_model as um
 
     service = um.UserModelService()
@@ -119,3 +119,63 @@ async def test_chat_fallback_returns_none_without_default(client: httpx.AsyncCli
     monkeypatch.setattr(service, "_get_fallback_model_id", _no_fallback)
     llm = await service.get_llm_by_user_id(user_id, False, ModelType.CHAT)
     assert llm is None, "无绑定且无回退模型时应返回 None"
+
+
+async def test_fallback_disabled_switch_persist(client: httpx.AsyncClient):
+    """回退开关(v4 4.3): PUT /my 可切换 fallback_disabled 且 GET /my 能读回"""
+    try:
+        # 开启: 绑定失效不回退
+        resp = await client.put(f"{BASE}/my", json={"fallback_disabled": True})
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["fallback_disabled"] is True, "开启后应返回 True"
+
+        resp = await client.get(f"{BASE}/my")
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["fallback_disabled"] is True, "GET /my 应能读回开启状态"
+
+        # 关闭: 恢复默认回退行为
+        resp = await client.put(f"{BASE}/my", json={"fallback_disabled": False})
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["fallback_disabled"] is False, "关闭后应返回 False"
+
+        # 显式传 null 应被忽略(不解绑模型也不报 500)
+        resp = await client.put(f"{BASE}/my", json={"fallback_disabled": None})
+        assert resp.status_code == 200, f"显式 null 回退开关应被忽略: {resp.text}"
+        assert resp.json()["fallback_disabled"] is False, "null 不应改变现有开关状态"
+    finally:
+        # 清理: 恢复默认(允许回退), 避免影响其他用例
+        resp = await client.put(f"{BASE}/my", json={"fallback_disabled": False})
+        assert resp.status_code == 200, resp.text
+
+
+async def test_resolve_model_respects_fallback_disabled(client: httpx.AsyncClient, monkeypatch):
+    """resolve_model 尊重用户回退开关(v4 4.3): 关闭回退时绑定失效返回 None 且不触发 fallback;
+    开启回退时返回默认公共模型并标记 fallback_used=True"""
+    resp = await client.get(f"{BASE}/my")
+    assert resp.status_code == 200, resp.text
+    user_id = resp.json()["user_id"]
+
+    from module_ai.utils.llm.types import ModelType
+    from module_rag.service import user_model as um
+
+    service = um.UserModelService()
+
+    # mock fallback 查询返回固定 ID, 用于证明"是否触发了回退"
+    async def _fake_fallback(model_type):
+        return "fake-default-model-id"
+
+    monkeypatch.setattr(service, "_get_fallback_model_id", _fake_fallback)
+
+    # 解绑 chat + 关闭回退: 绑定失效不回退, model_id 为 None 且 fallback_used=False
+    resp = await client.put(f"{BASE}/my", json={"chat_model_id": None, "fallback_disabled": True})
+    assert resp.status_code == 200, resp.text
+    resolved = await service.resolve_model(user_id, ModelType.CHAT)
+    assert resolved.model_id is None, "关闭回退时绑定失效应返回 None"
+    assert resolved.fallback_used is False, "未回退时 fallback_used 应为 False"
+
+    # 开启回退: 回退默认公共模型且标记 fallback_used=True(兜底链可感知)
+    resp = await client.put(f"{BASE}/my", json={"fallback_disabled": False})
+    assert resp.status_code == 200, resp.text
+    resolved = await service.resolve_model(user_id, ModelType.CHAT)
+    assert resolved.model_id == "fake-default-model-id", "开启回退时应回退默认公共模型"
+    assert resolved.fallback_used is True, "发生回退时 fallback_used 应为 True"

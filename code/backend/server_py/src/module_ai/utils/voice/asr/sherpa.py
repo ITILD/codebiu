@@ -19,7 +19,7 @@ from module_ai.config.voice import (
     SHERPA_ASR_TOKENS,
     VOICE_ASR_SAMPLE_RATE,
 )
-from module_ai.utils.voice.audio_utils import load_audio, resample_linear
+from module_ai.utils.voice.audio import load_audio, resample_linear
 from module_ai.utils.voice.interface import ASREngine
 
 logger = logging.getLogger(__name__)
@@ -148,7 +148,7 @@ class SherpaASR(ASREngine):
         cfg = self._ensure_online()
         recognizer = cfg["recognizer"]
         if isinstance(samples, (bytes, bytearray)):
-            from module_ai.utils.voice.audio_utils import pcm16_to_float32
+            from module_ai.utils.voice.audio import pcm16_to_float32
 
             samples = pcm16_to_float32(bytes(samples))
         stream.accept_waveform(sample_rate, np.asarray(samples, dtype=np.float32))

@@ -1,10 +1,11 @@
 from fastapi import APIRouter, status, Depends, Query
 from common.utils.fastapiEX.exceptions import BusinessError, NotFoundError
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
-from module_rag.do.project import Project, ProjectCreate, ProjectUpdate, ProjectResponse, KbCategory
+from module_rag.do.project import ProjectCreate, ProjectUpdate, ProjectResponse, KbCategory
 from module_rag.service.project import ProjectService
 from module_rag.dependencies.project import get_project_service
 from module_authorization.dependencies.auth import get_current_user_id
+from module_authorization.config.casbin_rule import is_global_admin
 from module_rag.dependencies.permission import require_project_permission
 from module_authorization.dependencies.permission import require_permission
 from module_rag.config.server import module_app
@@ -31,7 +32,9 @@ async def create_project(
 
 
 @router.get(
-    "/list", summary="分页查询项目列表", response_model=PaginationResponse
+    "/list",
+    summary="分页查询项目列表(私有库仅授权人可见)",
+    response_model=PaginationResponse,
 )
 async def list_projects(
     pagination: PaginationParams = Depends(),
@@ -42,36 +45,46 @@ async def list_projects(
     service: ProjectService = Depends(get_project_service)
 ):
     """
-    分页查询项目列表(支持多字段过滤)
+    分页查询项目列表(支持多字段过滤); 私有库仅 创建者/直连成员/部门授权 可见,
+    全局管理员跳过可见性过滤(系统审计, v4 5.1); 返回项含当前用户权限位 my_perms
     :param pagination: 分页参数
     :param name: 项目名称模糊搜索
     :param kb_category: 可选知识库分类过滤(personal/project/company)
     :param is_private: 可选私有状态过滤(true=私有/false=公开)
+    :param current_user_id: 当前登录用户ID(可见性过滤与权限位计算)
     :param service: 项目服务依赖注入
-    :return: 分页响应结果
+    :return: 分页响应结果(items 为含 my_perms 的项目响应)
     """
     if kb_category is not None and kb_category not in KbCategory.values():
         raise BusinessError(
             f"无效的知识库分类 '{kb_category}'，允许的值: {'/'.join(KbCategory.values())}"
         )
+    # admin 跳过可见性过滤(viewer_id=None → 全量 + 权限位全 True)
+    viewer_id = None if is_global_admin(current_user_id) else current_user_id
     return await service.list_paged(
-        pagination, kb_category=kb_category, name=name, is_private=is_private
+        pagination, kb_category=kb_category, name=name, is_private=is_private,
+        viewer_id=viewer_id,
     )
 
 
-@router.get("/{project_id}", summary="获取单个项目", response_model=Project)
+@router.get(
+    "/{project_id}",
+    summary="获取单个项目(含我的权限位)",
+    response_model=ProjectResponse,
+)
 async def get_project(
     project_id: str,
     current_user_id: str = Depends(require_project_permission("project", "read")),
     service: ProjectService = Depends(get_project_service)
 ):
     """
-    获取单个项目详情
+    获取单个项目详情(响应含当前用户权限位 my_perms, 供前端按位渲染操作按钮)
     :param project_id: 项目ID
+    :param current_user_id: 当前登录用户ID(权限位计算)
     :param service: 项目服务依赖注入
-    :return: 项目详情
+    :return: 项目详情(含 my_perms)
     """
-    result = await service.get(project_id)
+    result = await service.get_with_my_perms(project_id, current_user_id)
     if not result:
         raise NotFoundError("项目未找到")
     return result
@@ -104,12 +117,14 @@ async def update_project(
     service: ProjectService = Depends(get_project_service)
 ):
     """
-    更新项目基础信息(校验知识库分类合法性, 无效时返回400); 名称变更时同步重命名虚拟目录中的项目文件夹
+    更新项目基础信息(校验知识库分类合法性, 无效时返回400); 名称变更时同步重命名虚拟目录中的项目文件夹;
+    is_private 变更需要 project_admin 档位(editor 变更返回403)
     :param project_id: 项目ID
     :param project: 项目数据
+    :param current_user_id: 当前登录用户ID(可见性变更的 publish 档位校验)
     :param service: 项目服务依赖注入
     """
-    await service.update(project_id, project)
+    await service.update(project_id, project, current_user_id)
 
 
 # 注册路由

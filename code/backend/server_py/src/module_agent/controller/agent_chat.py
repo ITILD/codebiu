@@ -2,10 +2,10 @@
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Request
 from sse_starlette import EventSourceResponse
 
-from module_ai.utils.llm.response.sse import event_generator
+from module_ai.utils.llm.stream.sse import event_generator
 from module_authorization.dependencies.permission import require_permission
 from module_agent.config.server import module_app
 from module_agent.dependencies.agent import get_agent_chat_service_single
@@ -31,15 +31,14 @@ async def chat_stream(
     - 上下文历史由 langgraph postgres checkpointer 按 thread_id 管理
     - 事件协议与 RAG 聊天一致(ANSWER/LLM_THINKING/STATUS/ERROR)
     """
-    try:
-        responses = agent_chat_service.stream_chat(
-            conversation_id=conversation_id, user_id=current_user_id, chat_request=chat_request
-        )
-        return EventSourceResponse(
-            event_generator(responses, request_obj), media_type="text/event-stream"
-        )
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    # 不做 try/except 包装: 建流前的校验错误(BizError 等)由全局异常处理器映射状态码,
+    # 流式体内的异常由 event_generator 转为 ERROR 事件推送
+    responses = agent_chat_service.stream_chat(
+        conversation_id=conversation_id, user_id=current_user_id, chat_request=chat_request
+    )
+    return EventSourceResponse(
+        event_generator(responses, request_obj), media_type="text/event-stream"
+    )
 
 
 # 注册路由(挂在 /agent/agent-chat 前缀下)

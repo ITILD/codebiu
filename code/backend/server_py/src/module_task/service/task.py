@@ -9,7 +9,7 @@
 from datetime import datetime, timezone
 
 from common.config.tasks import app as celery_app
-from common.utils.fastapiEX.exceptions import NotFoundError
+from common.utils.fastapiEX.exceptions import BusinessError, NotFoundError
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
 from module_task.dao.task import TaskQueueDao
 from module_task.do.task import (
@@ -25,6 +25,14 @@ from module_task.tasks import TASK_TYPES, get_task_type
 
 # Celery 队列名(与 app_task.py worker 消费的队列一致)
 TASK_QUEUE_NAME = "task_queue"
+
+# 优先级取值范围(Redis 分级队列 0~9, 数值越大越优先; 越界自动夹紧)
+_PRIORITY_MIN, _PRIORITY_MAX = 0, 9
+
+
+def _clamp_priority(priority: int) -> int:
+    """夹紧优先级到 Celery/Redis 支持的 0~9 区间"""
+    return max(_PRIORITY_MIN, min(_PRIORITY_MAX, int(priority or 0)))
 
 
 class TaskNotFoundError(NotFoundError):
@@ -141,12 +149,12 @@ class TaskQueueService:
         创建任务并投递 Celery 队列
         :param data: 任务数据(类型需在注册表内)
         :param user_id: 创建者用户ID
-        :raises ValueError: 类型未注册 / 队列不可用
+        :raises BusinessError: 类型未注册 / 队列不可用
         """
         task_def = get_task_type(data.task_type)
         if task_def is None:
             registered = ", ".join(TASK_TYPES.keys())
-            raise ValueError(
+            raise BusinessError(
                 f"任务类型 {data.task_type} 未注册(可用类型: {registered})"
             )
 
@@ -154,18 +162,20 @@ class TaskQueueService:
             name=data.name,
             task_type=data.task_type,
             payload=data.payload or {},
-            priority=data.priority,
+            priority=_clamp_priority(data.priority),
             user_id=user_id,
             status=QueueTaskStatus.PENDING,
         )
         await self.dao.add(task)
 
-        # 投递 Celery(仅传任务ID, 参数由 worker 从库读取, 消息保持轻量)
+        # 投递 Celery(仅传任务ID, 参数由 worker 从库读取, 消息保持轻量;
+        # priority 走 Redis 分级子队列, 数值越大越先被 worker 消费)
         try:
             async_result = celery_app.send_task(
                 task_def.celery_task,
                 args=[task.id],
                 queue=TASK_QUEUE_NAME,
+                priority=task.priority,
             )
             task.celery_task_id = async_result.id
             await self.dao.update(task)
@@ -175,7 +185,7 @@ class TaskQueueService:
             task.error = f"任务投递失败(队列不可用): {exc}"
             task.finished_at = datetime.now(timezone.utc)
             await self.dao.update(task)
-            raise ValueError("任务队列不可用, 请检查 Redis 与 Celery worker") from exc
+            raise BusinessError("任务队列不可用, 请检查 Redis 与 Celery worker") from exc
         return _to_response(task)
 
     # ################ 状态同步 ################
@@ -221,7 +231,7 @@ class TaskQueueService:
         if not task:
             raise TaskNotFoundError(f"未找到ID为 {task_id} 的任务")
         if task.status not in ACTIVE_STATUSES:
-            raise ValueError(f"任务已结束({task.status}), 无法取消")
+            raise BusinessError(f"任务已结束({task.status}), 无法取消")
 
         # 先撤销 Celery 侧(排队中直接丢弃; 执行中由 worker 协作式检查提前退出)
         if task.celery_task_id:
@@ -243,11 +253,11 @@ class TaskQueueService:
         if not task:
             raise TaskNotFoundError(f"未找到ID为 {task_id} 的任务")
         if task.status in ACTIVE_STATUSES:
-            raise ValueError("任务仍在进行中, 无需重试")
+            raise BusinessError("任务仍在进行中, 无需重试")
 
         task_def = get_task_type(task.task_type)
         if task_def is None:
-            raise ValueError(f"任务类型 {task.task_type} 已从注册表移除, 无法重试")
+            raise BusinessError(f"任务类型 {task.task_type} 已从注册表移除, 无法重试")
 
         task.status = QueueTaskStatus.PENDING
         task.progress = 0
@@ -258,6 +268,7 @@ class TaskQueueService:
         try:
             async_result = celery_app.send_task(
                 task_def.celery_task, args=[task.id], queue=TASK_QUEUE_NAME,
+                priority=_clamp_priority(task.priority),
             )
             task.celery_task_id = async_result.id
         except Exception as exc:
@@ -265,7 +276,7 @@ class TaskQueueService:
             task.error = f"任务投递失败(队列不可用): {exc}"
             task.finished_at = datetime.now(timezone.utc)
             await self.dao.update(task)
-            raise ValueError("任务队列不可用, 请检查 Redis 与 Celery worker") from exc
+            raise BusinessError("任务队列不可用, 请检查 Redis 与 Celery worker") from exc
         await self.dao.update(task)
         return _to_response(task)
 

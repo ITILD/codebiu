@@ -6,7 +6,6 @@ import tempfile
 from pathlib import Path
 
 import aiofiles
-from fastapi import HTTPException
 from langchain.chat_models import BaseChatModel
 from langchain_openai import OpenAIEmbeddings
 
@@ -14,9 +13,9 @@ from common.config.db import db_vector
 from common.utils.fastapiEX.exceptions import NotFoundError
 from common.config.path import DIR_UPLOAD
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
-from module_ai.service.llm_base import LLMBaseService
+from module_ai.service.llm import LLMService
 from module_ai.service.model_config import ModelConfigService
-from module_ai.utils.llm.do.llm_type import ModelType
+from module_ai.utils.llm.types import ModelType
 from module_file.do.filesystem import (
     EntryCreateRequest,
     FileEntry,
@@ -75,7 +74,7 @@ class ProjectDocumentService:
         document_dao: ProjectDocumentDao,
         project_dao: ProjectDao,
         user_model_service: UserModelService | None = None,
-        llm_base_service: LLMBaseService | None = None,
+        llm_service: LLMService | None = None,
         model_config_service: ModelConfigService | None = None,
         document_parse_service: DocumentParseService | None = None,
         document_chunk_service: DocumentChunkService | None = None,
@@ -86,7 +85,7 @@ class ProjectDocumentService:
         self.document_dao = document_dao or ProjectDocumentDao()
         self.project_dao = project_dao or ProjectDao()
         self.user_model_service = user_model_service or UserModelService()
-        self.llm_base_service = llm_base_service or LLMBaseService()
+        self.llm_service = llm_service or LLMService()
         self.model_config_service = model_config_service or ModelConfigService()
         self.document_parse_service = document_parse_service or DocumentParseService()
         # 负责文档分块策略选择和分块操作
@@ -702,13 +701,12 @@ class ProjectDocumentService:
                 )
             except Exception as report_exc:
                 logger.warning(f"回写失败步骤状态异常 document_id={document_id}: {report_exc}")
-            if isinstance(e, HTTPException):
-                raise
-            # 标记解析失败并记录原因(截断至字段上限)
+            # 标记解析失败并记录原因(截断至字段上限), 原样重抛异常
+            # (本 service 同时供任务队列 worker 复用, 禁止转抛 HTTP 异常)
             await self._update_parse_status(
                 document_id, ParseStatus.FAILED, error_message=str(e)[:1000]
             )
-            raise HTTPException(status_code=500, detail=f"重新解析失败: {e}")
+            raise
         finally:
             # 清理临时文件(解析输出目录 + 新口径落盘的源文件目录)
             if temp_input_dir and temp_input_dir.exists():

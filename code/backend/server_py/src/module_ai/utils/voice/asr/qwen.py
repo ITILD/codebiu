@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from module_ai.config.voice import DIR_VOICE_MODEL, QWEN_ASR_MODEL_DIR, QWEN_DEVICE, VOICE_ASR_SAMPLE_RATE
-from module_ai.utils.voice.audio_utils import load_audio, resample_linear
+from module_ai.utils.voice.audio import load_audio, resample_linear
 from module_ai.utils.voice.interface import ASREngine
 
 logger = logging.getLogger(__name__)
@@ -104,7 +104,7 @@ class QwenASR(ASREngine):
         return {"buffer": bytearray()}
 
     def stream_accept(self, stream, samples, sample_rate: int = VOICE_ASR_SAMPLE_RATE) -> str:
-        from module_ai.utils.voice.audio_utils import to_pcm16
+        from module_ai.utils.voice.audio import to_pcm16
         import numpy as np
 
         if isinstance(samples, (bytes, bytearray)):

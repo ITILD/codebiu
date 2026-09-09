@@ -1,4 +1,4 @@
-from common.utils.ai.server.core.rerank import Rerank
+from module_ai.utils.llm.rerank.interface import Rerank
 import aiohttp
 import requests
 
@@ -65,12 +65,6 @@ if __name__ == "__main__":
     import asyncio
 
     async def main():
-        from config.index import conf
-
-        API_KEY = conf["ai.vllm_server.reranker.api_key"]
-
-        # query = "红"
-        # documents = ["绿", "颜色", "red", "红色"]
         query = "什么是机器学习?"
         documents = [
             "机器学习是人工智能的一个分支，通过算法让计算机从数据中学习模式",
@@ -79,7 +73,7 @@ if __name__ == "__main__":
             "机器学习是操作系统的一种类型",
         ]
 
-        rerank = DashscopeRerank(API_KEY)
+        rerank = DashscopeRerank(api_key="YOUR_API_KEY")
 
         reranked_results = await rerank.arerank(query, documents, 3)
         print("异步重排序结果:")

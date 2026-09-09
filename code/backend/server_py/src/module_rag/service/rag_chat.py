@@ -15,9 +15,9 @@ from langchain_core.runnables.schema import StreamEvent
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.state import CompiledStateGraph
 
-from module_ai.service.llm_base import LLMBaseService
-from module_ai.utils.llm.do.llm_type import RoleType
-from module_ai.utils.llm.message.trim import messages_trim_with_max_tokens
+from module_ai.service.llm import LLMService
+from module_ai.utils.llm.types import RoleType, ModelType
+from module_ai.utils.llm.chat.trim import messages_trim_with_max_tokens
 from module_rag.config.checkpointer import get_checkpointer
 from module_rag.dao.rag_chat_prompt import (
     RAG_CHAT_SYSTEM_PROMPT,
@@ -54,14 +54,14 @@ class RagChatService:
 
     def __init__(
         self,
-        llm_base_service: LLMBaseService | None = None,
+        llm_service: LLMService | None = None,
         user_model_service: UserModelService | None = None,
         chat_message_service: ChatMessageService | None = None,
         project_document_chunk_service: ProjectDocumentChunkService | None = None,
         conversation_service: ConversationService | None = None,
     ):
         """依赖注入构造器:初始化所需的数据访问对象"""
-        self.llm_base_service = llm_base_service or LLMBaseService()
+        self.llm_service = llm_service or LLMService()
         self.user_model_service = user_model_service or UserModelService()
         self.chat_message_service = chat_message_service or ChatMessageService()
         self.project_document_chunk_service = project_document_chunk_service or ProjectDocumentChunkService()
@@ -224,6 +224,22 @@ class RagChatService:
         full_response = ""
         process_blocks: list[dict] = []
         try:
+            # 兜底链可感知(v4 4.3): 绑定失效回退公共模型时, 先推送 STATUS 提示数据流向变化
+            resolved = await self.user_model_service.resolve_model(
+                user_id, ModelType.CHAT
+            )
+            if resolved.fallback_used:
+                yield StreamOne(
+                    content="绑定的对话模型不可用，已回退系统公共模型（数据将由公共模型处理，可在设置中调整）",
+                    stream_event_type=StreamEventType.STATUS,
+                )
+            elif resolved.model_id is None:
+                # 用户关闭回退且无可用模型: 直接报错, 不静默换模型
+                yield StreamOne(
+                    content="没有可用的对话模型（绑定的模型不可用且已关闭回退），请在设置中检查模型绑定",
+                    stream_event_type=StreamEventType.ERROR,
+                )
+                return
             async for event in self.chat_compiled_graph.astream_events(
                 input_state, config=config, version="v2"
             ):

@@ -79,16 +79,17 @@ class TokenUtil:
                 token, self.SECRET_KEY, algorithms=[self.ALGORITHM]
             )
             return data_decoded
+        except jwt.exceptions.ExpiredSignatureError:
+            # 注意: ExpiredSignatureError 是 InvalidTokenError 的子类, 必须放在前面捕获
+            raise HTTPException(
+                status_code=401,
+                detail="Token has expired",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
         except jwt.exceptions.InvalidTokenError:
             raise HTTPException(
                 status_code=401,
                 detail="Invalid token",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        except jwt.exceptions.ExpiredSignatureError:
-            raise HTTPException(
-                status_code=401,
-                detail="Token has expired",
                 headers={"WWW-Authenticate": "Bearer"},
             )
 

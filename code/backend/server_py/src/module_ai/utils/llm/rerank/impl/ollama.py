@@ -1,4 +1,4 @@
-from common.utils.ai.todo.rerank_test.rerank import Rerank
+from module_ai.utils.llm.rerank.interface import Rerank
 import aiohttp
 import requests
 
@@ -57,8 +57,6 @@ if __name__ == "__main__":
     import asyncio
 
     async def main():
-        from config.index import conf
-
         query = "1"
         documents = ["1", "2", "11", "4"]
 

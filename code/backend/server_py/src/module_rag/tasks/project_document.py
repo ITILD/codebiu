@@ -33,7 +33,8 @@ def reparse_document_task(self, task_id: str):
 
 
 async def _run_reparse(celery_task, task_id: str, request_id: str | None) -> dict:
-    """解析任务主体: 读参数 → 调功能服务(带进度回调) → 双写进度状态"""
+    """解析任务主体: 读参数 → 以创建者身份复检权限 → 调功能服务(带进度回调) → 双写进度状态"""
+    from module_rag.dependencies.permission import enforce_project_permission
     from module_rag.service.project_document import ProjectDocumentService
 
     # 1. 读任务参数与创建者(模型按创建者绑定解析, worker 侧无法从请求上下文获取)
@@ -43,12 +44,19 @@ async def _run_reparse(celery_task, task_id: str, request_id: str | None) -> dic
     if not document_id:
         raise ValueError(f"任务 {task_id} payload 缺少 document_id")
 
+    # 2. 执行时权限复检: 以任务创建者身份实时校验项目文档编辑权限
+    #    (权限回收后任务安全失败, 不越权续跑; 直跑路径已在 controller 校验, 此处双检无害)
+    document = await ProjectDocumentService().get_document(document_id)
+    if document is None:
+        raise ValueError(f"任务 {task_id} 指向的文档 {document_id} 不存在")
+    await enforce_project_permission(user_id, document.project_id, "doc", "update")
+
     await update_task_fields(
         task_id, status=QueueTaskStatus.RUNNING,
         progress=0, message="开始解析文档", set_started=True,
     )
 
-    # 2. 入库进度回调: 文档流水线步骤推进时, 把总进度/阶段描述双写到
+    # 3. 入库进度回调: 文档流水线步骤推进时, 把总进度/阶段描述双写到
     #    task_queue 表与 Celery 结果后端(任务模块只收百分比与描述, 不感知业务步骤)
     async def _on_ingest_progress(overall: float, message: str):
         await update_task_fields(task_id, progress=overall, message=message)
@@ -58,14 +66,14 @@ async def _run_reparse(celery_task, task_id: str, request_id: str | None) -> dic
         )
 
     try:
-        # 3. 调用功能服务执行核心逻辑(解析→分块→向量化→入库, 内部维护
+        # 4. 调用功能服务执行核心逻辑(解析→分块→向量化→入库, 内部维护
         #    document.parse_status 与 parse_steps 步骤进度)
         result = await ProjectDocumentService().parse_document(
             document_id, user_id, progress_callback=_on_ingest_progress
         )
         result_payload = {"document_id": document_id, "success": bool(result)}
 
-        # 4. 成功收尾(双写)
+        # 5. 成功收尾(双写)
         await update_task_fields(
             task_id, status=QueueTaskStatus.SUCCESS, progress=100,
             message="解析完成", result=result_payload, set_finished=True,

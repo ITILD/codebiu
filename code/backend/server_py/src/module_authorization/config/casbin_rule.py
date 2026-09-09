@@ -120,6 +120,28 @@ class AuthManager:
             logger.error(f"初始化默认权限策略失败: {e}")
             return None
 
+    async def init_enforcer_only(self) -> casbin.AsyncEnforcer | None:
+        """
+        轻量初始化(仅构建 enforcer 并从库加载策略, 不写默认策略不同步声明表)
+        适用场景: 任务 worker 等无请求上下文的进程 —— 只需要读权限做执行时复检,
+        默认策略/角色权限表的同步由 API 进程(app.py 启动)负责。
+        :return: 初始化后的 enforcer, 失败返回 None
+        """
+        if self.enforcer:
+            return self.enforcer
+        try:
+            adapter = Adapter(db_rel.engine, CasbinRule)
+            await adapter.create_table()
+            enforcer = casbin.AsyncEnforcer("rbac_model.conf", adapter)
+            await enforcer.load_policy()
+            enforcer.enable_auto_save(False)  # worker 只读, 不落盘
+            self.enforcer = enforcer
+            logger.info("worker 侧 casbin enforcer 初始化完成(只读)")
+            return enforcer
+        except Exception as e:
+            logger.error(f"worker 侧 casbin enforcer 初始化失败: {e}")
+            return None
+
     async def sync_permission_tables(self) -> None:
         """
         将注册中心的声明幂等同步到 role 表与 permission 表
@@ -227,3 +249,14 @@ class AuthManager:
 
 
 auth_manager = AuthManager()
+
+
+def is_global_admin(user_id: str) -> bool:
+    """判断用户是否为全局管理员(casbin 全局域 admin 绑定)
+    :param user_id: 用户ID
+    :return: 是否全局管理员(enforcer 未初始化时返回 False)
+    """
+    enforcer = auth_manager.enforcer
+    if enforcer is None:
+        return False
+    return bool(enforcer.has_grouping_policy(user_id, "admin", "*"))

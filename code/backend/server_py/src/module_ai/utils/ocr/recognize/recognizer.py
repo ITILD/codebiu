@@ -1,112 +1,11 @@
+"""CRNN 文本识别器: 将文本图批量识别为文字"""
 import json
+
 import numpy as np
-from common.utils.media.FileFormat import resize_norm_img
-from module_ai.utils.onnx.ocr_rapid.utils import OrtInferSession
 
-
-class CTCLabelDecode:
-    """CTC标签解码器 - 在文本标签和文本索引之间进行转换"""
-
-    def __init__(self, characters: list[str]):
-        """
-        初始化CTC标签解码器
-        
-        Args:
-            characters: 字符列表，包含所有可能的字符
-        """
-        super(CTCLabelDecode, self).__init__()
-
-        self.characters = characters
-        self.characters.append(" ")  # 添加空格字符
-
-        dict_character = self.add_special_char(self.characters)
-        self.character = dict_character
-
-        self.dict = {}
-        for i, char in enumerate(dict_character):
-            self.dict[char] = i
-
-    def __call__(self, preds, label=None):
-        """
-        调用函数，执行CTC解码
-        
-        Args:
-            preds: 模型预测结果
-            label: 真实标签(可选)
-            
-        Returns:
-            解码后的文本结果，如果提供了标签则返回预测结果和真实标签
-        """
-        preds_idx = preds.argmax(axis=2)  # 获取每个位置概率最大的字符索引
-        preds_prob = preds.max(axis=2)    # 获取对应的概率值
-        text = self.decode(preds_idx, preds_prob, is_remove_duplicate=True)
-        if label is None:
-            return text
-        label = self.decode(label)
-        return text, label
-
-    def add_special_char(self, dict_character):
-        """
-        添加特殊字符(CTC空白符)
-        
-        Args:
-            dict_character: 原始字符列表
-            
-        Returns:
-            添加了特殊字符后的字符列表
-        """
-        dict_character = ["blank"] + dict_character  # 添加CTC空白符
-        return dict_character
-
-    def get_ignored_tokens(self):
-        """
-        获取需要忽略的token(CTC空白符)
-        
-        Returns:
-            需要忽略的token索引列表
-        """
-        return [0]  # CTC空白符的索引
-
-    def decode(self, text_index, text_prob=None, is_remove_duplicate=False):
-        """
-        将文本索引转换为文本标签
-        
-        Args:
-            text_index: 文本索引数组
-            text_prob: 对应的概率数组(可选)
-            is_remove_duplicate: 是否移除重复字符(用于预测时)
-            
-        Returns:
-            包含文本和置信度的结果列表
-        """
-
-        result_list = []
-        ignored_tokens = self.get_ignored_tokens()  # 获取需要忽略的token
-        batch_size = len(text_index)
-        for batch_idx in range(batch_size):
-            char_list = []  # 存储字符
-            conf_list = []  # 存储置信度
-            for idx in range(len(text_index[batch_idx])):
-                if text_index[batch_idx][idx] in ignored_tokens:
-                    continue  # 跳过空白符
-                if is_remove_duplicate:
-                    # 预测时移除重复字符
-                    if (
-                        idx > 0
-                        and text_index[batch_idx][idx - 1] == text_index[batch_idx][idx]
-                    ):
-                        continue
-                # 将索引转换为字符
-                char_list.append(self.character[int(text_index[batch_idx][idx])])
-                if text_prob is not None:
-                    conf_list.append(text_prob[batch_idx][idx])
-                else:
-                    conf_list.append(1)
-            # 计算平均置信度，避免空列表警告
-            score = np.mean(conf_list) if conf_list else 0
-            text = "".join(char_list)  # 将字符列表拼接成字符串
-            result_list.append((text, score))
-        return result_list
+from module_ai.utils.ocr.common import resize_norm_img
+from module_ai.utils.ocr.runtime import OrtInferSession
+from .ctc_decode import CTCLabelDecode
 
 
 class TextRecognizer:

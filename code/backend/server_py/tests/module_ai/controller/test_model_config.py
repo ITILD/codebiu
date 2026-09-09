@@ -135,8 +135,9 @@ async def test_model_config_default_params(client: httpx.AsyncClient):
 
 
 async def test_public_model_permission_and_masking(client: httpx.AsyncClient, user_client: httpx.AsyncClient):
-    """公共模型权限与脱敏: 管理员创建公共模型后,
-    非管理员可见但 url/api_key 被脱敏且不可修改/删除(403), 管理员可正常修改"""
+    """公共模型权限与脱敏(v4 4.1/4.2): 管理员创建公共模型后,
+    所有人(含管理员)可见但 url/api_key 一律脱敏(密钥仅本人私有模型保留明文);
+    非管理员不可修改/删除(403), 管理员可修改且空值不覆盖真实密钥"""
     data = _make_config()
     data["scope"] = "public"
     model_id: str | None = None
@@ -165,13 +166,15 @@ async def test_public_model_permission_and_masking(client: httpx.AsyncClient, us
         resp = await user_client.delete(f"{BASE}/{model_id}")
         assert resp.status_code == 403, f"非管理员删除公共模型应 403: {resp.text}"
 
-        # 管理员查看不脱敏、修改放行
+        # 管理员查看公共模型: 元数据可见, 但密钥已脱敏(v4: 密钥仅本人私有模型明文)
         resp = await client.get(f"{BASE}/{model_id}")
         assert resp.status_code == 200, resp.text
         got = resp.json()
-        assert got["url"] == "https://api.openai.com/v1", "管理员应看到明文 url"
-        assert got["api_key"] == "test-key-not-real", "管理员应看到明文 api_key"
-        resp = await client.put(f"{BASE}/{model_id}", json={"temperature": 0.8})
+        assert got["url"] is None and got["api_key"] is None, "管理员查看公共模型密钥也应脱敏"
+        # 管理员修改放行; 更新携带空 api_key(脱敏回传场景)不应报错也不应覆盖真实密钥
+        resp = await client.put(
+            f"{BASE}/{model_id}", json={"temperature": 0.8, "api_key": None}
+        )
         assert resp.status_code in (200, 204), resp.text
     finally:
         if model_id:

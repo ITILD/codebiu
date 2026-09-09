@@ -1,7 +1,9 @@
+"""DBNet 文本检测器: 定位图中所有文本行区域"""
 import numpy as np
 
-from module_ai.utils.onnx.ocr_rapid.utils import OrtInferSession
-from .detect_process import DBPostProcess, create_operators, transform
+from module_ai.utils.ocr.runtime import OrtInferSession
+from .db_postprocess import DBPostProcess
+from .preprocess import create_operators, transform
 
 
 class TextDetector:

@@ -2,7 +2,7 @@ from sqlmodel import Column, DateTime, Field, SQLModel, JSON
 from uuid import uuid4
 from datetime import datetime, timezone
 
-from module_ai.utils.llm.do.llm_type import RoleType
+from module_ai.utils.llm.types import RoleType
 
 
 class ChatMessageBase(SQLModel):

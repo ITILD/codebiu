@@ -43,6 +43,13 @@ app.conf.update(
     # 默认队列(与 app_task.py worker 消费的队列一致)
     task_default_queue="task_queue",
     broker_connection_retry_on_startup=True,
+    # 任务优先级(Redis 分级队列): priority 0~9, 数值越大越先被消费;
+    # 生产者(send_task)与消费者(worker)共用本配置, 分级子队列语义一致
+    broker_transport_options={
+        "priority_steps": list(range(10)),
+        "queue_order_strategy": "priority",
+    },
+    task_inherit_parent_priority=True,
 )
 
 logger.info(f"ok...tasks celery配置加载完成 broker={BROKER_URL}")

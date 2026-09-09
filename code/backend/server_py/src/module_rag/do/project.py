@@ -80,9 +80,22 @@ class ProjectUpdate(SQLModel):
     )
 
 
+class ProjectMyPerms(SQLModel):
+    """当前用户对单个知识库的操作权限位(前端按位渲染按钮, 字段命名对齐 v4 5.3)
+
+    内部映射: upload_doc→动作upload(档位>=2), manage_member→invite/remove/manage(档位>=3)
+    """
+
+    read: bool = Field(default=False, description="可读(档位>=1)")
+    upload_doc: bool = Field(default=False, description="可上传文档(档位>=2)")
+    update: bool = Field(default=False, description="可编辑项目信息(档位>=2)")
+    delete: bool = Field(default=False, description="可删除项目(档位>=3)")
+    manage_member: bool = Field(default=False, description="可管理成员/部门授权/发布(档位>=3)")
+
+
 class ProjectResponse(SQLModel):
     """项目响应模型"""
-    
+
     id: str = Field(..., description="唯一标识符")
     name: str = Field(..., description="项目名称")
     description: str | None = Field(default=None, description="项目描述")
@@ -98,3 +111,6 @@ class ProjectResponse(SQLModel):
     )
     created_at: datetime = Field(..., description="创建时间")
     updated_at: datetime = Field(..., description="最后更新时间")
+    my_perms: ProjectMyPerms | None = Field(
+        default=None, description="当前用户操作权限位(列表/详情接口返回; admin 全 True)"
+    )

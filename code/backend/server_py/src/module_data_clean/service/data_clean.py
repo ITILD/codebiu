@@ -5,7 +5,7 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from module_data_clean.do.data_clean import DataCleanRequest, DataCleanResponse
-from module_ai.service.llm_base import LLMBaseService
+from module_ai.service.llm import LLMService
 from common.utils.fastapiEX.exceptions import NotFoundError
 
 logger = logging.getLogger(__name__)
@@ -22,15 +22,15 @@ SYSTEM_PROMPT = (
 
 
 class DataCleanService:
-    """数据清洗服务: 复用 module_ai 的 LLMBaseService, 按输出类型(json/string)返回清洗结果"""
+    """数据清洗服务: 复用 module_ai 的 LLMService, 按输出类型(json/string)返回清洗结果"""
 
-    def __init__(self, llm_base_service: LLMBaseService):
+    def __init__(self, llm_service: LLMService):
         """依赖注入: 复用 LLM 基础服务"""
-        self.llm_base_service = llm_base_service
+        self.llm_service = llm_service
 
     async def clean(self, request: DataCleanRequest) -> DataCleanResponse:
         """执行数据清洗"""
-        llm: BaseChatModel | None = await self.llm_base_service.get_llm(
+        llm: BaseChatModel | None = await self.llm_service.get_llm(
             request.model_id, streaming=False
         )
         if llm is None:

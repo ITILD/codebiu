@@ -40,7 +40,7 @@ class TaskQueueBase(SQLModel):
     )
     priority: int = Field(
         default=0,
-        description="优先级(预留: 数值越大越优先, 当前版本仅存储)",
+        description="优先级(0~9, 数值越大越优先, 投递时走 Redis 分级子队列加权消费)",
     )
 
 
@@ -121,7 +121,7 @@ class TaskQueueCreate(SQLModel):
     name: str = Field(max_length=200, description="任务名称")
     task_type: str = Field(max_length=50, description="任务类型(需在 TASK_TYPES 注册表中)")
     payload: dict = Field(default_factory=dict, description="任务参数 JSON")
-    priority: int = Field(default=0, description="优先级(预留)")
+    priority: int = Field(default=0, description="优先级(0~9, 越界自动夹紧)")
 
 
 class TaskQueueResponse(SQLModel):

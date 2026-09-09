@@ -4,7 +4,7 @@ from module_ai.dependencies.ocr import get_ocr_service
 from module_ai.do.ocr import Base64File
 from module_ai.service.ocr import OcrService
 from common.utils.media.FileFormat import bytes_to_cv2
-from module_ai.config.ocr import conf_ocr_languages
+from module_ai.config.ocr import get_ocr_languages
 from common.utils.code.language.lang2lang import Language
 
 # lib
@@ -102,7 +102,7 @@ async def recognize_all(
 @router.get("/languages", status_code=status.HTTP_201_CREATED, summary="返回可用语言列表")
 def get_languages():
     """读取 OCR 配置中支持的语言，返回 [{code, name}] 列表，供前端选择识别语言"""
-    result = [{"code": key, "name": val["name"]} for key, val in conf_ocr_languages.items()]
+    result = [{"code": key, "name": val["name"]} for key, val in get_ocr_languages().items()]
     return result
 
 

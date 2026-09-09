@@ -34,12 +34,16 @@ def revectorize_chunks_task(self, task_id: str):
 
 
 async def _run_revectorize(celery_task, task_id: str, request_id: str | None) -> dict:
-    """重向量化任务主体: 读参数 → 调功能服务(带进度回调) → 双写状态"""
+    """重向量化任务主体: 读参数 → 以创建者身份复检管理员权限 → 调功能服务(带进度回调) → 双写状态"""
+    from module_authorization.config.casbin_rule import is_global_admin
+    from common.utils.fastapiEX.exceptions import ForbiddenError
     from module_rag.service.project_document_chunk import ProjectDocumentChunkService
 
-    # 1. 读任务参数
-    payload, _user_id = await load_task(task_id)
+    # 1. 读任务参数与创建者(执行时复检: 仅全局管理员可触发, 权限回收后任务安全失败)
+    payload, user_id = await load_task(task_id)
     model_id = payload.get("model_id") or None
+    if not is_global_admin(user_id):
+        raise ForbiddenError(f"任务创建者 {user_id} 已无全局管理员权限, 重向量化任务终止")
 
     await update_task_fields(
         task_id, status=QueueTaskStatus.RUNNING,

@@ -23,7 +23,7 @@ from module_life.utils.baby_name.do.baby_name import (
     NameInfoPredictFull,
 )
 from module_life.dao.baby_name import BabyNameDao
-from module_ai.service.llm_base import LLMBaseService
+from module_ai.service.llm import LLMService
 # lib
 # from config.db import async_transaction
 from module_life.utils.baby_name.baby_name import baby_name_generator
@@ -31,10 +31,10 @@ from module_life.utils.baby_name.baby_name import baby_name_generator
 class BabyNameService:
     """宝宝名字服务"""
 
-    def __init__(self, baby_name_dao: BabyNameDao, llm_base_service: LLMBaseService):
+    def __init__(self, baby_name_dao: BabyNameDao, llm_service: LLMService):
         """依赖注入构造器:初始化所需的数据访问对象"""
         self.baby_name_dao = baby_name_dao or BabyNameDao()
-        self.llm_base_service = llm_base_service or LLMBaseService()
+        self.llm_service = llm_service or LLMService()
 
     async def predict_name_info_preference_by_ai(
         self, name_info_base: NameInfoBase
@@ -67,7 +67,7 @@ class BabyNameService:
         :param name_info_predict_full: 姓名信息基础数据
         :return: 推测结果列表
         """
-        model = await self.llm_base_service.get_llm(model_id)
+        model = await self.llm_service.get_llm(model_id)
         # 这里可以添加智能推测名字的逻辑
         # 目前先返回空列表，后续可以集成AI推测名字的功能
         return baby_name_generator.generate_stream(name_info_predict_full, model)

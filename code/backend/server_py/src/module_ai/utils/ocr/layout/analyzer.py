@@ -1,27 +1,17 @@
+"""版面分析(layout)子包: YOLOv8 检测文档区域类型(标题/图片/表格/目录等)"""
 import time
 from pathlib import Path
 
 import numpy as np
 
+from module_ai.utils.ocr.runtime import OrtInferSession
 from .utils import (
     LoadImage,
-    OrtInferSession,
     YOLOv8PostProcess,
     YOLOv8PreProcess,
-    # get_logger,
 )
 import logging
 logger = logging.getLogger(__name__)
-# ROOT_URL = "https://github.com/RapidAI/RapidLayout/releases/download/v0.0.0/"
-# KEY_TO_MODEL_URL = {
-#     "pp_layout_cdla": f"{ROOT_URL}/layout_cdla.onnx",
-#     "pp_layout_publaynet": f"{ROOT_URL}/layout_publaynet.onnx",
-#     "pp_layout_table": f"{ROOT_URL}/layout_table.onnx",
-#     "yolov8n_layout_paper": f"{ROOT_URL}/yolov8n_layout_paper.onnx",
-#     "yolov8n_layout_report": f"{ROOT_URL}/yolov8n_layout_report.onnx",
-#     "yolov8n_layout_publaynet": f"{ROOT_URL}/yolov8n_layout_publaynet.onnx",
-#     "yolov8n_layout_general6": f"{ROOT_URL}/yolov8n_layout_general6.onnx",
-# }
 
 
 class RapidLayout:
@@ -37,14 +27,10 @@ class RapidLayout:
             raise ValueError(f"conf_thres {conf_thres} is outside of range [0, 1]")
 
         if not self.check_of(iou_thres):
-            raise ValueError(f"iou_thres {conf_thres} is outside of range [0, 1]")
+            raise ValueError(f"iou_thres {iou_thres} is outside of range [0, 1]")
 
-        config = {
-            "model_path": model_path,
-            "use_cuda": use_cuda,
-            "use_dml": use_dml,
-        }
-        self.session = OrtInferSession(config)
+        # 会话创建与设备切换统一由 runtime 管理(use_dml 由全局配置决定)
+        self.session = OrtInferSession(str(model_path), use_cuda=use_cuda)
         labels = self.session.get_character_list()
         logger.info("%s contains %s", model_path, labels)
 

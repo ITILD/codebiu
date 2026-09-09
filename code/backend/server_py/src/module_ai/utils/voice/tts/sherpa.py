@@ -16,7 +16,7 @@ from module_ai.config.voice import (
     SHERPA_TTS_MODEL,
     SHERPA_TTS_TOKENS,
 )
-from module_ai.utils.voice.audio_utils import to_pcm16
+from module_ai.utils.voice.audio import to_pcm16
 from module_ai.utils.voice.interface import TTSEngine
 logger = logging.getLogger(__name__)
 

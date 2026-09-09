@@ -13,7 +13,7 @@ from module_ai.do.model_config import (
     ModelConfigUpdate,
     ModelScope,
 )
-from module_ai.utils.llm.do.llm_type import ModelType
+from module_ai.utils.llm.types import ModelType
 
 
 class ModelConfigDao:

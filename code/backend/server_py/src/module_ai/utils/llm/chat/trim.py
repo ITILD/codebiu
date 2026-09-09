@@ -7,7 +7,7 @@ import logging
 
 from langchain_core.messages import BaseMessage
 
-from module_ai.utils.llm.utils.llm_utils import LLMUtils
+from module_ai.utils.llm.chat.utils import LLMUtils
 
 logger = logging.getLogger(__name__)
 

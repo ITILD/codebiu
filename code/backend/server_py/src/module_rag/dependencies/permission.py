@@ -14,12 +14,13 @@
            部门授权级联: 用户所在部门的 ancestors 祖级链 + 自身 命中授权记录即生效
         3. 公开项目(非私有)允许任何登录用户只读
 """
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends
 
-from module_authorization.config.casbin_rule import auth_manager
+from module_authorization.config.casbin_rule import auth_manager, is_global_admin
 from module_authorization.dependencies.auth import get_current_user_id
 from module_authorization.dao.user import UserDao
 from module_authorization.dao.dept import DeptDao
+from common.utils.fastapiEX.exceptions import ForbiddenError, NotFoundError
 from module_rag.dao.project import ProjectDao
 from module_rag.dao.project_member import ProjectMemberDao
 from module_rag.dao.project_dept import ProjectDeptDao
@@ -31,6 +32,7 @@ ACTION_LEVELS: dict[str, int] = {
     "upload": 2,
     "update": 2,
     "write": 2,
+    "publish": 3,  # 公开/私有切换: 仅 project_admin, 防止 editor 泄露私有库(v4 3.1)
     "delete": 3,
     "invite": 3,
     "remove": 3,
@@ -80,19 +82,13 @@ async def check_project_permission(
     :param act: 动作
     :return: 是否有权限
     """
-    # 1. 全局管理员穿透(casbin 全局域 admin 绑定)
-    enforcer = auth_manager.enforcer
-    if enforcer is not None and enforcer.has_grouping_policy(user_id, "admin", "*"):
+    # 1. 全局管理员穿透(casbin 全局域 admin 绑定, 同步检查)
+    if is_global_admin(user_id):
         return True
 
     # 2. 生效档位 = max(直连成员档位, 部门授权档位)
     required = ACTION_LEVELS.get(act, 3)
-    member_level = 0
-    member = await ProjectMemberDao().get_by_user_and_project(user_id, project_id)
-    if member is not None:
-        member_level = RagRole.level(member.role)
-    dept_level = await get_dept_role_level(user_id, project_id)
-    if max(member_level, dept_level) >= required:
+    if await get_effective_level(user_id, project_id) >= required:
         return True
 
     # 3. 公开项目允许任何登录用户只读
@@ -103,21 +99,41 @@ async def check_project_permission(
     return False
 
 
+async def get_effective_level(user_id: str, project_id: str) -> int:
+    """
+    获取用户在项目中的生效档位 = max(直连成员档位, 部门授权档位)
+    :param user_id: 用户ID
+    :param project_id: 项目ID
+    :return: 生效档位(0=非成员无授权, 1~3=reader/editor/admin)
+    """
+    member_level = 0
+    member = await ProjectMemberDao().get_by_user_and_project(user_id, project_id)
+    if member is not None:
+        member_level = RagRole.level(member.role)
+    dept_level = await get_dept_role_level(user_id, project_id)
+    return max(member_level, dept_level)
+
+
 async def enforce_project_permission(
     user_id: str, project_id: str, obj: str, act: str
 ) -> None:
     """
-    项目级权限检查(无权限时抛出403)
+    项目级权限检查(无权限时抛异常)
+    - read 动作 + 私有库 + 完全非成员(档位0): 抛 404, 防止存在性探测(v4 3.3)
+    - 其余无权限场景: 抛 403(成员档位不足/写动作)
     :param user_id: 用户ID
     :param project_id: 项目ID
     :param obj: 资源对象
     :param act: 动作
     """
-    if not await check_project_permission(user_id, project_id, obj, act):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"无项目操作权限: {project_id}/{obj}/{act}",
-        )
+    if await check_project_permission(user_id, project_id, obj, act):
+        return
+    if act == "read" and await get_effective_level(user_id, project_id) == 0:
+        project = await ProjectDao().get(project_id)
+        # 私有库对完全无关用户隐藏存在性; 项目本身不存在时同样 404
+        if project is None or project.is_private:
+            raise NotFoundError(f"项目不存在: {project_id}")
+    raise ForbiddenError(f"无项目操作权限: {project_id}/{obj}/{act}")
 
 
 def require_project_permission(obj: str, act: str):

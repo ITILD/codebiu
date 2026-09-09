@@ -20,8 +20,8 @@
         @input="handleSearchDebounced"
         @clear="handleSearchDebounced"
       />
-      <el-button :icon="FolderAdd" @click="handleCreateFolder" :disabled="loading">新建文件夹</el-button>
-      <el-upload :show-file-list="false" :before-upload="handleUpload" :disabled="uploading"
+      <el-button v-if="canWrite" :icon="FolderAdd" @click="handleCreateFolder" :disabled="loading">新建文件夹</el-button>
+      <el-upload v-if="canWrite" :show-file-list="false" :before-upload="handleUpload" :disabled="uploading"
         accept=".txt,.md,.pdf,.docx,.xlsx,.pptx,.csv,.html,.json">
         <el-button type="primary" :loading="uploading" :icon="Upload">
           {{ uploading ? '上传中' : '上传文档' }}
@@ -100,19 +100,20 @@
           {{ formatDate(row.updated_at || row.created_at) }}
         </template>
       </el-table-column>
-      <!-- 操作列: 目录行=打开/重命名/删除; 文件行=文档操作(需 document_id, 旧数据未登记时仅展示提示) -->
+      <!-- 操作列: 目录行=打开/重命名/删除; 文件行=文档操作(需 document_id, 旧数据未登记时仅展示提示)
+           写操作按钮按项目权限位隐藏: 重命名/编辑/重新解析需档位>=2, 删除需档位>=3(v4 5.3) -->
       <el-table-column label="操作" min-width="280" align="center">
         <template #default="{ row }">
           <template v-if="row.is_directory">
             <el-button size="small" type="primary" plain @click="handleOpen(row)">打开</el-button>
-            <el-button size="small" type="success" plain @click="handleRenameFolder(row)">重命名</el-button>
-            <el-button size="small" type="danger" plain @click="handleDeleteFolder(row)">删除</el-button>
+            <el-button v-if="canWrite" size="small" type="success" plain @click="handleRenameFolder(row)">重命名</el-button>
+            <el-button v-if="canDelete" size="small" type="danger" plain @click="handleDeleteFolder(row)">删除</el-button>
           </template>
           <template v-else-if="row.document_id">
             <el-button size="small" type="primary" plain @click="handleDownload(row)">下载</el-button>
-            <el-button size="small" type="warning" plain @click="handleReparse(row)">重新解析</el-button>
-            <el-button size="small" plain @click="handleEdit(row)">编辑</el-button>
-            <el-button size="small" type="danger" plain @click="handleDelete(row)">删除</el-button>
+            <el-button v-if="canWrite" size="small" type="warning" plain @click="handleReparse(row)">重新解析</el-button>
+            <el-button v-if="canWrite" size="small" plain @click="handleEdit(row)">编辑</el-button>
+            <el-button v-if="canDelete" size="small" type="danger" plain @click="handleDelete(row)">删除</el-button>
           </template>
           <span v-else text-note-sub text-xs>旧数据(未登记文档)</span>
         </template>
@@ -187,12 +188,24 @@ import {
   type RagFileEntry,
 } from '../api/document'
 import { listRagProjects } from '../api/project'
-import { ParseStatus, IngestStepState, parseStatusOptions } from '../types'
+import {
+  ParseStatus, IngestStepState, parseStatusOptions,
+  type ProjectMyPerms,
+} from '../types'
 import type { DocumentIngestProgress } from '../types'
 import type { PaginationParams } from '@/common/types/common'
 import { ElMessage, ElMessageBox, type FormInstance, type UploadRawFile } from 'element-plus'
 
-const props = defineProps<{ /** 所属知识库项目ID */ projectId: string }>()
+const props = defineProps<{
+  /** 所属知识库项目ID */
+  projectId: string
+  /** 当前用户对该项目的权限位(未传时按全权限兼容独立使用场景) */
+  perms?: ProjectMyPerms | null
+}>()
+
+// 写操作能力(档位>=2): 上传/新建文件夹/重命名/编辑/重新解析; 删除能力(档位>=3): 删除文件夹/文档
+const canWrite = computed(() => (props.perms ? props.perms.upload_doc : true))
+const canDelete = computed(() => (props.perms ? props.perms.manage_member : true))
 
 const projectName = ref('知识库文档')
 
@@ -347,13 +360,14 @@ const stopPolling = () => {
   }
 }
 
+// immediate: 进入页面时若已有解析中的文档(如从其他页返回), 也要立即启动轮询
 watch(hasParsingDoc, (parsing) => {
   if (parsing && !pollTimer) {
     pollTimer = setInterval(() => fetchData(true), 5000)
   } else if (!parsing) {
     stopPolling()
   }
-})
+}, { immediate: true })
 
 onUnmounted(stopPolling)
 

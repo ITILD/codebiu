@@ -1,13 +1,15 @@
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
-from common.utils.fastapiEX.exceptions import ConflictError
+from common.utils.fastapiEX.exceptions import ConflictError, NotFoundError
 from module_rag.do.project_member import (
     ProjectMember,
     ProjectMemberCreate,
     ProjectMemberUpdate,
     ProjectMemberResponse,
     MyProjectResponse,
+    RagRole,
 )
 from module_rag.dao.project_member import ProjectMemberDao
+from module_rag.dao.project_dept import ProjectDeptDao
 import logging
 
 logger = logging.getLogger(__name__)
@@ -16,9 +18,28 @@ logger = logging.getLogger(__name__)
 class ProjectMemberService:
     """项目成员服务(角色存成员表,项目内鉴权按档位判断,见 dependencies/permission.py)"""
 
-    def __init__(self, member_dao: ProjectMemberDao):
+    def __init__(
+        self,
+        member_dao: ProjectMemberDao | None = None,
+        dept_auth_dao: ProjectDeptDao | None = None,
+    ):
         """依赖注入构造器:初始化所需的数据访问对象"""
         self.member_dao = member_dao or ProjectMemberDao()
+        # 部门授权计数(保底校验时部门授权来源的 admin 也计入)
+        self.dept_auth_dao = dept_auth_dao or ProjectDeptDao()
+
+    async def _assert_admin_remaining(
+        self,
+        project_id: str,
+        exclude_member_id: str | None = None,
+    ) -> None:
+        """移除/降级后必须仍有激活的 project_admin(直连成员或部门授权来源均计入, v4 3.2)"""
+        direct = await self.member_dao.count_admins(
+            project_id, exclude_member_id=exclude_member_id
+        )
+        via_dept = await self.dept_auth_dao.count_admins(project_id)
+        if direct + via_dept == 0:
+            raise ConflictError("必须至少保留一个项目管理员(project_admin)")
 
     async def add(self, member: ProjectMemberCreate) -> str:
         """
@@ -33,17 +54,36 @@ class ProjectMemberService:
 
     async def delete(self, member_id: str):
         """
-        移除项目成员
+        移除项目成员(目标是 project_admin 时校验保底, 否则 409)
         :param member_id: 项目成员ID
         """
+        member = await self.member_dao.get(member_id)
+        if member is None:
+            raise NotFoundError(f"未找到ID为 {member_id} 的项目成员")
+        if member.role == RagRole.PROJECT_ADMIN:
+            await self._assert_admin_remaining(
+                member.project_id, exclude_member_id=member_id
+            )
         await self.member_dao.delete(member_id)
 
     async def update(self, member_id: str, member: ProjectMemberUpdate):
         """
-        更新项目成员角色
+        更新项目成员角色(将 project_admin 降级时校验保底, 否则 409)
         :param member_id: 项目成员ID
         :param member: 项目成员更新数据
         """
+        if member.role is not None and member.role not in RagRole.PROJECT_ROLES:
+            raise ValueError(
+                f"无效的角色 '{member.role}'，允许的角色: {'/'.join(RagRole.PROJECT_ROLES)}"
+            )
+        if member.role is not None and member.role != RagRole.PROJECT_ADMIN:
+            existing = await self.member_dao.get(member_id)
+            if existing is None:
+                raise NotFoundError(f"未找到ID为 {member_id} 的项目成员")
+            if existing.role == RagRole.PROJECT_ADMIN:
+                await self._assert_admin_remaining(
+                    existing.project_id, exclude_member_id=member_id
+                )
         await self.member_dao.update(member_id, member)
 
     async def get(self, member_id: str) -> ProjectMember | None:

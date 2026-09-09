@@ -7,13 +7,23 @@ module_task 任务注册表与 worker 辅助
        - default_payload: 前端"新建任务"对话框的默认参数模板
     2. worker 侧通过 update_task_fields() 把 状态/百分比/阶段消息 实时回写 PostgreSQL,
        API 侧读库展示, 并可通过 Celery AsyncResult 读取 broker/backend 侧真实状态做对照。
-    3. 后续知识库文档处理只需: 注册新类型 + 实现对应 celery 任务函数, API/前端无需改动。
+    3. 任务函数统一是"薄启动器": load_task 读参数 → 调用业务模块自己的 service 执行 →
+       双写进度。service 保持纯净(不抛 HTTP 异常), 主进程 controller 可直跑同一 service,
+       也可经 TaskQueueService.create 入队, 两种执行路径完全兼容(示例任务 demo 除外)。
+    4. 任务账户与权限约定(推荐模式):
+       - 账户: task_queue.user_id 记录任务创建者, worker 经 load_task 取回作为"任务身份";
+       - 权限: 创建时由 controller 鉴权(require_permission / enforce_project_permission),
+               执行时 worker 以 user_id 实时查库复检资源权限(casbin/项目档位),
+               不快照权限 —— 权限被回收后任务安全失败, 不会越权续跑。
 """
 import asyncio
+import logging
 import threading
 
 from common.config.db import db_manager
 from module_task.do.task import TaskTypeDef
+
+logger = logging.getLogger(__name__)
 
 # ################ worker 专用事件循环 ################
 # Celery 任务函数是同步的, 每次用 asyncio.run 会创建新事件循环,
@@ -134,3 +144,63 @@ async def update_task_fields(
                 task.started_at = datetime.now(timezone.utc)
             if set_finished:
                 task.finished_at = datetime.now(timezone.utc)
+
+
+# ################ worker 启动自愈 ################
+
+async def recover_pending_tasks(min_age_seconds: int = 60) -> int:
+    """
+    兜底重投递: worker 启动时扫描"长期 PENDING 且从未成功投递"的任务
+    (celery_task_id 为空, 多为 API 投递瞬间崩溃或 Redis 消息丢失), 重新 send_task。
+    消息只携带 task_id, 重复投递安全(消费侧按 ID 读库, 业务执行本身可重入)。
+    :param min_age_seconds: 仅处理创建超过该秒数的任务(避开与 API 投递过程竞态)
+    :return: 重投递的任务数
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from sqlmodel import select
+
+    from common.config.tasks import app as celery_app
+    from module_task.do.task import QueueTaskStatus, TaskQueue
+
+    cutoff = datetime.now(timezone.utc) - timedelta(seconds=min_age_seconds)
+    recovered = 0
+    async with db_manager.db_rel.session_factory() as session:
+        rows = await session.exec(
+            select(TaskQueue).where(
+                TaskQueue.status == QueueTaskStatus.PENDING,
+                TaskQueue.celery_task_id.is_(None),  # type: ignore[attr-defined]
+                TaskQueue.created_at < cutoff,
+            )
+        )
+        stale = list(rows.all())
+        for task in stale:
+            task_def = get_task_type(task.task_type)
+            if task_def is None:
+                continue
+            try:
+                result = celery_app.send_task(
+                    task_def.celery_task, args=[task.id],
+                    queue="task_queue", priority=task.priority,
+                )
+                task.celery_task_id = result.id
+                await session.commit()
+                recovered += 1
+                logger.info(f"自愈重投递任务 {task.id}({task.task_type})")
+            except Exception as exc:
+                logger.warning(f"自愈重投递失败 {task.id}: {exc}")
+                await session.rollback()
+    if recovered:
+        logger.info(f"任务队列自愈完成, 重投递 {recovered} 个遗留任务")
+    return recovered
+
+
+async def init_worker_authorization() -> None:
+    """
+    worker 进程权限上下文初始化: 轻量构建 casbin enforcer 并从库加载策略。
+    仅读不写(默认策略由 API 进程负责同步), 供任务执行时以创建者身份复检权限
+    (is_global_admin / enforce_project_permission 均依赖该 enforcer)。
+    """
+    from module_authorization.config.casbin_rule import auth_manager
+
+    await auth_manager.init_enforcer_only()

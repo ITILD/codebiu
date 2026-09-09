@@ -29,16 +29,18 @@
 
 <script setup lang="ts">
 import { markRaw } from 'vue'
-import { User, Lock, Brush, Key } from '@element-plus/icons-vue'
+import { User, Lock, Brush, Key, Cpu } from '@element-plus/icons-vue'
 import SettingProfile from '@/app/components/setting/SettingProfile.vue'
 import SettingPassword from '@/app/components/setting/SettingPassword.vue'
 import SettingBase from '@/app/components/setting/SettingBase.vue'
 import SettingPermission from '@/app/components/setting/SettingPermission.vue'
+import SettingModel from '@/app/components/setting/SettingModel.vue'
 
-/** 设置分组: 个人信息(自助修改) + 系统样式 */
+/** 设置分组: 个人信息(自助修改) + 模型绑定 + 系统样式 */
 const tabs = [
   { key: 'profile', label: '基本信息', icon: markRaw(User), component: SettingProfile },
   { key: 'password', label: '修改密码', icon: markRaw(Lock), component: SettingPassword },
+  { key: 'model', label: '模型设置', icon: markRaw(Cpu), component: SettingModel },
   { key: 'appearance', label: '外观设置', icon: markRaw(Brush), component: SettingBase },
   { key: 'permission', label: '我的权限', icon: markRaw(Key), component: SettingPermission },
 ] as const

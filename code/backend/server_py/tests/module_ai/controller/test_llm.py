@@ -1,16 +1,16 @@
-﻿# -*- coding: utf-8 -*-
-"""module_ai/llm_base 接口标准测试
+# -*- coding: utf-8 -*-
+"""module_ai/llm 接口标准测试
 只测配置校验分支: POST /check-config 与 POST /check-config-by-model-id
 不测 /chat(需真实LLM服务),所有用例均不发起真实外部LLM网络请求。
 
-安全分支说明(源码 src/module_ai/service/llm_base.py):
-- model_type=rerank/ocr/asr/tts: 走"不支持的模型类型"分支,直接返回默认失败响应,不调用LLM
-- model_type=chat + server_type=vllm: VLLM 方案未实现,_llm_by_config 返回 None,
-  连通性校验触发异常被兜底捕获为校验失败,不发真实请求
+安全分支说明(源码 src/module_ai/utils/llm/factory/builder.py):
+- model_type=rerank/ocr/asr/tts: 走"不支持的模型类型"分支,构建抛异常被 check_config
+  兜底捕获为校验失败,不调用LLM
+- model_type=chat + server_type=vllm: VLLM 方案未实现,build_model 抛 ValueError,
+  check_config 兜底为校验失败,不发真实请求
 - 不存在的 model_id: 服务层查库返回 None,直接返回校验失败,不调用LLM
 
-注意: app.py 目前仅导入 model_config 控制器,llm_base 路由未随应用注册(见测试报告),
-此处显式导入控制器模块以完成路由注册后再发起请求。
+注意: app.py 已注册 llm 控制器; 此处显式导入控制器模块以保证路由注册后再发起请求。
 """
 
 import time
@@ -18,10 +18,10 @@ import uuid
 
 import httpx
 
-# 显式导入以注册路由(生产 app.py 未导入该控制器)
-from module_ai.controller import llm_base  # noqa: F401
+# 显式导入以注册路由(保证独立运行本测试时路由可用)
+from module_ai.controller import llm  # noqa: F401
 
-BASE = "/ai/llm-base"
+BASE = "/ai/llm"
 
 
 def _make_check_body(model_type: str = "chat", server_type: str = "vllm") -> dict:

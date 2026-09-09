@@ -14,7 +14,7 @@ from module_websearch.controller import websearch
 from module_authorization.controller import token, casbin_rule, permission, role, user,auth,dept
 # # 业务模块
 from module_template.controller import static,template,template_ex,template_async_learn
-from module_ai.controller import static as ai_static,model_config,llm_base,voice
+from module_ai.controller import static as ai_static,model_config,llm,rerank,voice
 # # ,ocr 
 from module_dev_tools.controller import template_string
 # # 个人小站模块(博客/备忘/记账 三条业务线, 由原 module_blog + module_little_utils 合并)
@@ -45,9 +45,8 @@ from module_geometry.config import permissions as geometry_permissions  # noqa: 
 # # 任务队列模块(Celery+Redis 异步任务: 创建/轮询/取消/重试)
 from module_task.controller import task
 from module_task.config import permissions as task_permissions  # noqa: F401
-# # AI 模块: 仅挂载模型配置管理(用户私有模型配置 + 共享标记),chat/voice/ocr 待启用
-from module_ai.controller import model_config
-# # 数据清洗模块: 独立模块, 复用 module_ai 的 LLM 基础服务
+# # AI 模块: 模型配置管理(model_config) + LLM 调用(llm) + 重排序(rerank) + 语音(voice) + OCR(ocr, 待启用)
+# # 数据清洗模块: 独立模块, 复用 module_ai 的 LLM 服务
 from module_data_clean.controller import data_clean
 
 if __name__ == "__main__":

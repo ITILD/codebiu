@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Iterator, Tuple
 
 from module_ai.config.voice import DIR_VOICE_MODEL, QWEN_DEVICE, QWEN_TTS_MODEL_DIR
-from module_ai.utils.voice.audio_utils import to_pcm16
+from module_ai.utils.voice.audio import to_pcm16
 from module_ai.utils.voice.interface import TTSEngine
 
 logger = logging.getLogger(__name__)

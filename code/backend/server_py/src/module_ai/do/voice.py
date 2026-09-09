@@ -36,3 +36,17 @@ class ASRStreamMessage(BaseModel):
     text: str = Field("", description="当前识别文本")
     is_final: bool = Field(False, description="是否为最终结果")
     engine: VoiceEngine = Field(VoiceEngine.SHERPA, description="使用的引擎")
+
+
+class VADSegment(BaseModel):
+    """VAD 检测出的单个语音段"""
+
+    start: float = Field(0.0, description="语音段起始时间(秒)")
+    duration: float = Field(0.0, description="语音段时长(秒)")
+
+
+class VADResponse(BaseModel):
+    """VAD 语音活动检测结果"""
+
+    segments: list[VADSegment] = Field(default_factory=list, description="语音段列表")
+    elapsed: float = Field(0.0, description="耗时(秒)")

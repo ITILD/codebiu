@@ -16,7 +16,7 @@ import type {
  * @returns 聊天响应
  */
 export const sendChatMessage = async (request: ChatRequest) => {
-  return http_base_server.post<ChatResponse>('/ai/llm-base/chat', request)
+  return http_base_server.post<ChatResponse>('/ai/llm/chat', request)
 }
 
 /**
@@ -39,7 +39,7 @@ export const sendChatMessageStream = async (
   const controller = new AbortController()
   // 立即交给调用方, 供流式期间中止
   onController?.(controller)
-  await fetchEventSource(`/base_server/ai/llm-base/chat`, {
+  await fetchEventSource(`/base_server/ai/llm/chat`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
@@ -87,7 +87,7 @@ export const sendChatMessageStream = async (
  * @param model_id 模型ID(为空清除全部)
  */
 export const clearModelCache = async (model_id?: string) => {
-  const url = model_id ? `/ai/llm-base/cache/${model_id}` : '/ai/llm-base/cache'
+  const url = model_id ? `/ai/llm/cache/${model_id}` : '/ai/llm/cache'
   return http_base_server.delete<void>(url)
 }
 
@@ -97,7 +97,7 @@ export const clearModelCache = async (model_id?: string) => {
  * @returns 校验结果
  */
 export const checkModelConfig = async (modelConfig: any) => {
-  return http_base_server.post<{ message: string }>('/ai/llm-base/check-config', modelConfig)
+  return http_base_server.post<{ message: string }>('/ai/llm/check-config', modelConfig)
 }
 
 // 本地存储相关的辅助函数

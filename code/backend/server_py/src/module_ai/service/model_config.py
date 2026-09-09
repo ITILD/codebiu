@@ -7,6 +7,12 @@ from module_ai.do.model_config import (
     ModelScope,
 )
 from module_ai.dao.model_config import ModelConfigDao
+import logging
+
+logger = logging.getLogger(__name__)
+
+# url 协议白名单(v4 4.2 安全要求: 防止私有模型指向内网/任意协议)
+_ALLOWED_URL_SCHEMES = ("http://", "https://")
 
 
 class ModelConfigService:
@@ -15,6 +21,44 @@ class ModelConfigService:
     def __init__(self, model_config_dao: ModelConfigDao =None):
         """依赖注入构造器:初始化所需的数据访问对象"""
         self.model_config_dao = model_config_dao or ModelConfigDao()
+
+    @staticmethod
+    def _validate_url(url: str | None) -> None:
+        """
+        校验 base_url 协议白名单(http/https) + 可选域名黑名单(配置 model_url_domain_blacklist)
+        :param url: API基础URL(None/空 跳过)
+        :raises ValueError: 协议非法或命中黑名单域名
+        """
+        if not url:
+            return
+        lowered = url.strip().lower()
+        if not lowered.startswith(_ALLOWED_URL_SCHEMES):
+            raise ValueError(f"模型 url 仅支持 http/https 协议: {url}")
+        # 可选域名黑名单(走配置节, 未配置则不启用)
+        try:
+            from common.config.index import conf
+            if "model_url_domain_blacklist" in conf:
+                blacklist = [str(d).lower() for d in conf.model_url_domain_blacklist]
+                if any(d in lowered for d in blacklist if d):
+                    raise ValueError(f"模型 url 命中禁用域名: {url}")
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.warning(f"读取模型 url 域名黑名单配置失败, 跳过校验: {e}")
+
+    @staticmethod
+    def _log_write_audit(action: str, config: ModelConfigCreate | ModelConfig | None = None) -> None:
+        """模型配置写操作审计日志(logging 起步; 私有/部门模型记录归属与去向)"""
+        if config is None:
+            return
+        scope = getattr(config, "scope", None)
+        if scope == ModelScope.PUBLIC:
+            return  # 公共模型由管理员维护, 无需逐条审计
+        logger.info(
+            f"[模型审计] {action} scope={scope} "
+            f"model={getattr(config, 'model', None)} "
+            f"owner={getattr(config, 'user_id', None)} dept={getattr(config, 'dept_id', None)}"
+        )
 
     async def _ensure_default_unique(
         self,
@@ -47,48 +91,74 @@ class ModelConfigService:
     async def add(self, model_config: ModelConfigCreate) -> str:
         """
         添加新的模型配置(允许同名,以来源/配置区分)
+        校验 base_url 协议白名单; 私有/部门模型写操作记审计日志
         :param model_config: 模型配置数据
         :return: 创建的模型配置ID
         """
         self._normalize_scope(model_config)
+        self._validate_url(model_config.url)
         # 设置默认公共模型时, 先取消该类型旧的默认标记, 保证唯一
         if model_config.scope == ModelScope.PUBLIC and model_config.is_default:
             await self._ensure_default_unique(model_config.model_type.value)
-        return await self.model_config_dao.add(model_config)
+        model_id = await self.model_config_dao.add(model_config)
+        self._log_write_audit("create", model_config)
+        return model_id
 
     async def delete(self, id: str):
         """
         删除模型配置
         :param id: 模型配置ID
         """
+        existing = await self.model_config_dao.get(id)
         await self.model_config_dao.delete(id)
+        self._log_write_audit("delete", existing)
 
     async def update(self, model_config_id: str, model_config: ModelConfigUpdate):
         """
         更新模型配置
+        url/api_key 为空值(None/空串)时跳过更新, 防止前端携带脱敏后的空值覆盖真实密钥;
+        校验 base_url 协议白名单; 私有/部门模型写操作记审计日志
         :param model_config_id: 模型配置ID
-        :param model_config: 更新的模型配置数据
+        :param model_config: 模型配置更新数据
         """
-        scope = model_config.scope
+        # 空值保护: 前端编辑被脱敏的模型时 url/api_key 会以空值回传, 不覆盖真实值
+        update_data = model_config.model_dump(exclude_unset=True)
+        update_data = {
+            k: v
+            for k, v in update_data.items()
+            if not (k in ("url", "api_key") and not v)
+        }
+        scope = update_data.get("scope") if "scope" in update_data else None
         if scope is not None:
-            if scope == ModelScope.DEPT and not model_config.dept_id:
+            if scope == ModelScope.DEPT and not update_data.get("dept_id"):
                 # 更新时若切换为部门但未带部门, 回填当前已存部门
                 existing = await self.model_config_dao.get(model_config_id)
                 if existing and existing.scope == ModelScope.DEPT:
-                    model_config.dept_id = existing.dept_id
-                elif existing and not model_config.dept_id:
-                    model_config.dept_id = None
+                    update_data["dept_id"] = existing.dept_id
+                elif existing and not update_data.get("dept_id"):
+                    update_data["dept_id"] = None
             elif scope != ModelScope.DEPT:
-                model_config.dept_id = None
+                update_data["dept_id"] = None
         # 默认公共模型唯一性
-        if model_config.is_default is True and (
+        if update_data.get("is_default") is True and (
             scope == ModelScope.PUBLIC
-            or (scope is None and await self._becomes_public_default(model_config_id))
+            or ("scope" not in update_data and await self._becomes_public_default(model_config_id))
         ):
             existing = await self.model_config_dao.get(model_config_id)
             if existing:
-                await self._ensure_default_unique(model_config.model_type.value, current_id=model_config_id)
-        await self.model_config_dao.update(model_config_id, model_config)
+                # model_type 经 pydantic 校验后为 ModelType 枚举, 统一转 value
+                model_type = update_data["model_type"]
+                await self._ensure_default_unique(
+                    model_type.value if hasattr(model_type, "value") else model_type,
+                    current_id=model_config_id,
+                )
+        if "url" in update_data:
+            self._validate_url(update_data["url"])
+        if update_data:
+            normalized = ModelConfigUpdate(**update_data)
+            await self.model_config_dao.update(model_config_id, normalized)
+        # 审计: 以更新后完整记录为准
+        self._log_write_audit("update", await self.model_config_dao.get(model_config_id))
 
     async def _becomes_public_default(self, model_config_id: str) -> bool:
         """更新未显式改 scope 时, 判断是否仍为 public 且当前即为默认"""
@@ -155,20 +225,25 @@ class ModelConfigService:
         return PaginationResponse.create(items, total, pagination)
 
     def mask_secrets(
-        self, configs: ModelConfig | list[ModelConfig] | None, user_id: str, is_admin: bool
+        self, configs: ModelConfig | list[ModelConfig] | None, user_id: str, is_admin: bool = False
     ) -> None:
         """
-        敏感信息脱敏(就地修改): 非管理员查看"非本人创建"的模型时,
-        清空 url/api_key(key 是创建者资产, 公共/部门模型不暴露给其他人)
+        敏感信息脱敏(就地修改): 仅本人私有模型(scope=user 且 user_id==本人)保留 url/api_key 明文,
+        公共/部门/他人私有一律脱敏(v4 4.1/4.2: admin 可见全量元数据用于运维, 但密钥除本人私有配置外脱敏)
         :param configs: 单个或多个模型配置对象(None 忽略)
         :param user_id: 当前用户ID
-        :param is_admin: 是否全局管理员(管理员可见全部明文)
+        :param is_admin: 兼容参数(已忽略, v4 后 admin 不再有密钥豁免)
         """
-        if configs is None or is_admin:
+        if configs is None:
             return
         items = configs if isinstance(configs, list) else [configs]
         for config in items:
-            if config is not None and config.user_id != user_id:
+            if config is None:
+                continue
+            is_owner_private = (
+                config.scope == ModelScope.USER and config.user_id == user_id
+            )
+            if not is_owner_private:
                 config.url = None
                 config.api_key = None
 
@@ -198,7 +273,7 @@ class ModelConfigService:
         """
         from pydantic_core import PydanticUndefined
 
-        from module_ai.utils.llm.do.llm_config import ModelConfig
+        from module_ai.utils.llm.factory.config import ModelConfig
 
         return {
             name: (info.default if info.default is not PydanticUndefined else None)

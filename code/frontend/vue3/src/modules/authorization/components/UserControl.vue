@@ -30,6 +30,7 @@
 import { markRaw, computed } from 'vue'
 import { Monitor, Setting, SwitchButton } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/common/stores/auth'
+import { logoutUser } from '@/modules/authorization/api/auth'
 import { useVisibleMenu } from '@/common/composables/useMenu'
 import UserLoginIcon from './UserLoginIcon.vue'
 
@@ -73,7 +74,17 @@ const allMenuItems: MenuItem[] = [
     label: '退出登录',
     icon: markRaw(SwitchButton),
     divided: true,
-    action: () => {
+    action: async () => {
+      // 先通知后端吊销令牌(写入黑名单并撤销刷新令牌), 失败不阻断本地清理
+      try {
+        await logoutUser({
+          token_access: authState.tokens.access.token,
+          token_refresh: authState.tokens.refresh.token,
+          token_refresh_id: authState.tokens.refresh.token_id ?? '',
+        })
+      } catch (error) {
+        console.error('后端登出失败:', error)
+      }
       initAuthState()
       router.push('/')
     },

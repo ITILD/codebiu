@@ -1,8 +1,6 @@
 from pydantic import BaseModel, Field, field_validator
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
-from uuid import uuid4
-from module_ai.utils.llm.do.llm_type import RoleType, LCRoleType
-from module_ai.utils.llm.do.llm_type import StreamStatus
+from module_ai.utils.llm.types import RoleType, LCRoleType
 
 class Message(BaseModel):
     """消息模型，与langchain_core.messages兼容"""
@@ -100,24 +98,3 @@ class ModelConfigCheckResponse(BaseModel):
 
     is_valid: bool = Field(False, description="模型配置是否有效")
     is_format: bool = Field(False, description="模型支持格式化")
-
-
-class StreamChunkResponse(BaseModel):
-    """流式响应主模型 单个Chunk"""
-
-    status: StreamStatus = Field(StreamStatus.STREAM, description="响应状态")
-    role: RoleType = Field(
-        RoleType.ASSISTANT,
-        description="消息角色:system、user、assistant 或具体业务模拟",
-    )
-    content: str | None = Field(None, description="响应内容")
-    response_id: str = Field(
-        default_factory=lambda: uuid4().hex, description="响应唯一标识 uuid"
-    )
-    # usage: Usage = Field(description="Token 使用统计信息")
-    timestamp: float = Field(0.0, description="Unix 时间戳（秒）")
-    # 步骤节点名称
-    node_name: str | None = Field(None, description="节点名称")
-    # 流式事件分类(answer/llm_thinking/agent_thinking/tool_call/status/error)
-    # 供前端区分"正式回答"与"思考/检索等过程区块"
-    stream_event_type: str | None = Field(None, description="流式事件分类")

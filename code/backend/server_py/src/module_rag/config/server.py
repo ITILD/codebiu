@@ -68,3 +68,21 @@ async def ensure_project_document_parse_steps():
                      "ADD COLUMN root_entry_id VARCHAR(50) DEFAULT NULL")
             )
             logger.info("project.root_entry_id 项目根目录列已补齐")
+
+
+@register_init_hook
+async def ensure_user_model_fallback_column():
+    """存量表补列: user_model.fallback_disabled(用户级回退开关, v4 4.3 兜底链可关闭; 幂等)"""
+    if db_manager.db_rel is None:
+        return
+    engine = db_manager.db_rel.engine
+    async with engine.begin() as conn:
+        cols = await conn.run_sync(
+            lambda sc: {c["name"] for c in inspect(sc).get_columns("user_model")}
+        )
+        if "fallback_disabled" not in cols:
+            await conn.execute(
+                text("ALTER TABLE user_model "
+                     "ADD COLUMN fallback_disabled BOOLEAN NOT NULL DEFAULT FALSE")
+            )
+            logger.info("user_model.fallback_disabled 回退开关列已补齐")

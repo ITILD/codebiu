@@ -1,7 +1,7 @@
-"""语音服务(ASR/TTS) 统一入口
+"""语音服务(ASR/TTS/VAD/Denoise) 统一入口
 
 引擎方案由 model_config 表驱动:
-    - model_type=asr/tts + server_type=sherpa/qwen 的记录即为可选方案
+    - model_type=asr/tts/vad/denoise + server_type=sherpa/qwen 的记录即为可选方案
     - engine 参数可选: 指定时精确匹配 server_type, 缺省时取该类型第一条配置
     - 引擎缓存键含配置的 updated_at, 配置修改后自动重建引擎
     - 表中无配置时回落 config.yaml 的 voice 静态配置
@@ -9,21 +9,25 @@
 import logging
 from typing import Iterator, Tuple
 
+from module_ai.config.voice import VOICE_ASR_SAMPLE_RATE
 from module_ai.dao.model_config import ModelConfigDao
 from module_ai.do.model_config import ModelConfig
 from module_ai.do.voice import VoiceEngine
-from module_ai.utils.voice.interface import ASREngine, TTSEngine
-from module_ai.utils.voice.qwen_asr import QwenASR
-from module_ai.utils.voice.qwen_tts import QwenTTS
-from module_ai.utils.voice.sherpa_asr import SherpaASR
-from module_ai.utils.voice.sherpa_tts import SherpaTTS
+from module_ai.utils.voice.asr import QwenASR, SherpaASR
+from module_ai.utils.voice.denoise import SherpaDenoise
+from module_ai.utils.voice.interface import ASREngine, DenoiseEngine, TTSEngine, VADEngine
+from module_ai.utils.voice.tts import QwenTTS, SherpaTTS
+from module_ai.utils.voice.vad import SherpaVAD
 
 logger = logging.getLogger(__name__)
 
-# 引擎类映射(server_type -> 类)
-_ENGINE_CLASSES = {
-    VoiceEngine.SHERPA: {"asr": SherpaASR, "tts": SherpaTTS},
-    VoiceEngine.QWEN: {"asr": QwenASR, "tts": QwenTTS},
+# 引擎类映射(model_type -> {server_type -> 类})
+_ENGINE_CLASSES: dict[str, dict[str, type]] = {
+    "asr": {VoiceEngine.SHERPA.value: SherpaASR, VoiceEngine.QWEN.value: QwenASR},
+    "tts": {VoiceEngine.SHERPA.value: SherpaTTS, VoiceEngine.QWEN.value: QwenTTS},
+    # vad/denoise 仅 sherpa(CPU) 方案
+    "vad": {VoiceEngine.SHERPA.value: SherpaVAD},
+    "denoise": {VoiceEngine.SHERPA.value: SherpaDenoise},
 }
 
 
@@ -76,10 +80,14 @@ class VoiceService:
 
         key = (model_type, effective, cache_key)
         if key not in self._engines:
-            engine_cls = _ENGINE_CLASSES[effective][model_type]
+            engine_cls = _ENGINE_CLASSES[model_type][effective.value]
             self._engines[key] = engine_cls(_engine_conf(config))
             logger.info("语音引擎已构建: %s/%s (来源: %s)", model_type, effective.value, cache_key)
         return self._engines[key]
+
+    async def get_engine(self, model_type: str, engine: VoiceEngine | None = None) -> ASREngine | TTSEngine | VADEngine | DenoiseEngine:
+        """按模型类型获取引擎实例(asr/tts/vad/denoise 通用)"""
+        return await self._resolve_engine(model_type, engine)
 
     async def get_asr(self, engine: VoiceEngine | None = None) -> ASREngine:
         """
@@ -137,3 +145,59 @@ class VoiceService:
             except ValueError:
                 effective = VoiceEngine.SHERPA
         return tts.synthesize_stream(text, speaker, speed, sample_rate), effective
+
+    async def get_vad(self, engine: VoiceEngine | None = None) -> VADEngine:
+        """
+        获取 VAD 引擎(实时语音活动检测, 仅 sherpa CPU 方案)
+        :param engine: 指定方案(None 时取第一条 vad 配置)
+        """
+        result = await self._resolve_engine("vad", engine)
+        return result  # type: ignore[return-value]
+
+    async def get_denoise(self, engine: VoiceEngine | None = None) -> DenoiseEngine:
+        """
+        获取降噪引擎(实时语音降噪, 仅 sherpa CPU 方案)
+        :param engine: 指定方案(None 时取第一条 denoise 配置)
+        """
+        result = await self._resolve_engine("denoise", engine)
+        return result  # type: ignore[return-value]
+
+    async def vad_segments(self, audio_bytes: bytes, engine: VoiceEngine | None = None) -> list[dict]:
+        """对完整音频执行语音活动检测, 切分出全部语音段
+
+        :return: [{"start": 起始秒, "duration": 时长秒}]
+        """
+        from module_ai.utils.voice.audio import load_audio, resample_linear
+
+        vad = await self.get_vad(engine)
+        samples, sr = load_audio(audio_bytes)
+        if sr != VOICE_ASR_SAMPLE_RATE:
+            samples = resample_linear(samples, sr, VOICE_ASR_SAMPLE_RATE)
+        vad.accept_waveform(samples)
+        vad.flush()
+        segments = []
+        while vad.is_speech_detected():
+            segment = vad.pop_speech_segment()
+            if segment is None:
+                break
+            seg, start = segment
+            segments.append({
+                "start": round(start / VOICE_ASR_SAMPLE_RATE, 3),
+                "duration": round(len(seg) / VOICE_ASR_SAMPLE_RATE, 3),
+            })
+        vad.reset()
+        return segments
+
+    async def denoise(self, audio_bytes: bytes, engine: VoiceEngine | None = None) -> tuple[bytes, int]:
+        """对音频执行降噪
+
+        :return: (降噪后 int16 PCM 字节, 采样率)
+        """
+        from module_ai.utils.voice.audio import load_audio
+
+        denoiser = await self.get_denoise(engine)
+        samples, sr = load_audio(audio_bytes)
+        enhanced, out_sr = denoiser.enhance(samples, sr)
+        from module_ai.utils.voice.audio import to_pcm16
+
+        return to_pcm16(enhanced), out_sr

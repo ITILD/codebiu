@@ -4,7 +4,7 @@ RAG 聊天控制器
 - 对话总结：压缩历史消息并生成标题
 """
 
-from fastapi import APIRouter, HTTPException, status, Depends, Request
+from fastapi import APIRouter, Depends, Request
 from sse_starlette import EventSourceResponse
 from module_rag.do.rag_chat import ConversationSummary
 from module_rag.do.conversation import ChatRequest
@@ -13,7 +13,7 @@ from module_rag.dependencies.rag_chat import get_rag_chat_service_single
 from module_authorization.dependencies.auth import get_current_user_id
 from module_authorization.dependencies.permission import require_permission
 from module_rag.config.server import module_app
-from module_ai.utils.llm.response.sse import event_generator
+from module_ai.utils.llm.stream.sse import event_generator
 import logging
 
 logger = logging.getLogger(__name__)
@@ -34,15 +34,14 @@ async def chat_stream(
     - 支持传入知识库列表，有内容时先做意图分析
     - 输出为流式 SSE
     """
-    try:
-        responses = rag_chat_service.chat_stream(
-            conversation_id=conversation_id, user_id=current_user_id, chat_request=chat_request
-        )
-        return EventSourceResponse(
-            event_generator(responses, request_obj), media_type="text/event-stream"
-        )
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    # 不做 try/except 包装: 建流前的校验错误(BizError 等)由全局异常处理器映射状态码,
+    # 流式体内的异常由 event_generator 转为 ERROR 事件推送
+    responses = rag_chat_service.chat_stream(
+        conversation_id=conversation_id, user_id=current_user_id, chat_request=chat_request
+    )
+    return EventSourceResponse(
+        event_generator(responses, request_obj), media_type="text/event-stream"
+    )
 
 
 @router.post(

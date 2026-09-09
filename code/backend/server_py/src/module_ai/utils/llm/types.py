@@ -19,7 +19,7 @@ class ModelServerType(str, Enum):
 
 class ModelType(str, Enum):
     """
-    模型类型枚举 chat embeddings rerank ocr asr tts
+    模型类型枚举 chat embeddings rerank ocr asr tts vad denoise
     """
 
     CHAT = "chat"
@@ -28,18 +28,23 @@ class ModelType(str, Enum):
     OCR = "ocr"
     ASR = "asr"
     TTS = "tts"
+    VAD = "vad"
+    DENOISE = "denoise"
 
 
 def server_types_for(model_type: "ModelType | str") -> list[ModelServerType]:
     """
     按模型类型返回可用的服务方案(前端下拉/后端校验共用)
+    - asr/tts: sherpa(轻量 CPU) 与 qwen(大模型 GPU) 双方案
+    - vad/denoise/ocr: 本地 sherpa-onnx 实时/轻量推理, 仅 sherpa 方案
     :param model_type: 模型类型
     :return: 服务方案列表
     """
-    voice_like = ("asr", "tts", "ocr")
     value = model_type.value if isinstance(model_type, ModelType) else str(model_type)
-    if value in voice_like:
+    if value in ("asr", "tts"):
         return [ModelServerType.SHERPA, ModelServerType.QWEN]
+    if value in ("vad", "denoise", "ocr"):
+        return [ModelServerType.SHERPA]
     return [
         ModelServerType.OPENAI,
         ModelServerType.DASHSCOPE,

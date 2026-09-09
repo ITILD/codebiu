@@ -3,7 +3,7 @@
     <!-- 页面标题 -->
     <div mb-4>
       <h2 text-lg font-bold text-note>OCR 文字识别</h2>
-      <p text-xs text-note-sub mt-1>🌿 上传图片识别文字, 支持多语言与识别结果翻译</p>
+      <p text-xs text-note-sub mt-1>🌿 上传图片识别文字, 支持多语言识别</p>
     </div>
 
     <!-- 文件上传和语言选择区域 -->
@@ -44,29 +44,6 @@
             @click="startRecognition"
           >
             {{ isProcessing ? '运行中...' : '开始识别' }}
-          </el-button>
-        </div>
-
-        <!-- 翻译语言选择 -->
-        <div flex flex-wrap items-center gap-3>
-          <span>翻译语言:</span>
-          <el-radio-group v-model="selectedLangTranslate" class="flex flex-wrap gap-2">
-            <el-radio
-              v-for="lang in languages"
-              :key="lang.code"
-              :label="lang.code"
-              border
-            >
-              {{ lang.name }}
-            </el-radio>
-          </el-radio-group>
-          <el-button
-            type="primary"
-            :loading="isProcessing"
-            :disabled="!targetFile || isProcessing"
-            @click="startRecognitionTranslate"
-          >
-            {{ isProcessing ? '运行中...' : '识别+翻译' }}
           </el-button>
         </div>
       </div>
@@ -136,19 +113,6 @@
         <el-empty v-else description="暂无识别结果" />
       </div>
     </div>
-
-    <!-- 翻译背景图 -->
-    <div v-if="bgImage" page-card mt-5>
-      <div font-bold mb-3 text-note>翻译背景图</div>
-      <img
-        :src="bgImage"
-        alt="翻译背景图"
-        w-full
-        border
-        border-note
-        rounded
-      />
-    </div>
   </div>
 </template>
 
@@ -158,7 +122,7 @@ import type { Ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
 import type { Language, OcrResult, OcrResponse } from '../types/ocr'
-import { listOcrLanguages, recognizeText, recognizeAndTranslate } from '../api/ocr'
+import { listOcrLanguages, recognizeText } from '../api/ocr'
 
 // 响应式数据
 const fileInputRef: Ref<HTMLInputElement | null> = ref(null)
@@ -167,7 +131,6 @@ const ctx: Ref<CanvasRenderingContext2D | null> = ref(null)
 
 const languages = ref<Language[]>([])
 const selectedLang = ref('')
-const selectedLangTranslate = ref('')
 
 const targetFile = ref<File | null>(null)
 const imageSrc = ref('')
@@ -178,7 +141,6 @@ const detectionTime = ref(0)
 const classificationTime = ref(0)
 const recognitionTime = ref(0)
 const layout = ref<number[][]>([])
-const bgImage = ref('')
 
 let scale = 1
 
@@ -206,7 +168,6 @@ const fetchLanguages = async () => {
     languages.value = data
     if (data.length > 0) {
       selectedLang.value = data[0].code
-      selectedLangTranslate.value = data[0].code
     }
   } catch (error) {
     console.error('获取语言列表失败:', error)
@@ -274,8 +235,6 @@ const clearPreviousResults = () => {
   classificationTime.value = 0
   recognitionTime.value = 0
   layout.value = []
-  bgImage.value = ''
-
   // 清空画布
   if (canvasRef.value && ctx.value) {
     ctx.value.clearRect(0, 0, canvasRef.value.width, canvasRef.value.height)
@@ -422,8 +381,6 @@ const startRecognition = async () => {
   classificationTime.value = 0
   recognitionTime.value = 0
   layout.value = []
-  bgImage.value = ''
-
   try {
     const data: OcrResponse = await recognizeText(formData)
 
@@ -446,59 +403,6 @@ const startRecognition = async () => {
   } catch (error) {
     console.error('识别失败:', error)
     ElMessage.error('识别失败: ' + (error instanceof Error ? error.message : '未知错误'))
-  } finally {
-    isProcessing.value = false
-  }
-}
-
-// 开始识别并翻译
-const startRecognitionTranslate = async () => {
-  if (!targetFile.value) return
-
-  if (!validateFile(targetFile.value)) return
-
-  const formData = new FormData()
-  formData.append('image', targetFile.value)
-  formData.append('model_id', model_id)
-  formData.append('lang_ocr', selectedLang.value)
-  formData.append('lang_translate', selectedLangTranslate.value)
-
-  isProcessing.value = true
-  results.value = []
-  processingTime.value = 0
-  detectionTime.value = 0
-  classificationTime.value = 0
-  recognitionTime.value = 0
-  layout.value = []
-  bgImage.value = ''
-
-  try {
-    const data: OcrResponse = await recognizeAndTranslate(formData)
-
-    // 处理结果
-    results.value = (data.results || []).map((item, index) => ({
-      ...item,
-      index
-    }))
-
-    processingTime.value = data.ts?.total || 0
-    detectionTime.value = (data.ts?.detect || 0) + (data.ts?.['post-detect'] || 0)
-    classificationTime.value = (data.ts?.classify || 0) + (data.ts?.['post-classify'] || 0)
-    recognitionTime.value = (data.ts?.recognize || 0) + (data.ts?.['post-recognize'] || 0)
-    layout.value = data.layout || []
-
-    // 绘制框线
-    if (canvasRef.value && ctx.value) {
-      drawBoxes()
-    }
-
-    // 设置背景图
-    if (data.background) {
-      bgImage.value = `data:image/jpeg;base64,${data.background}`
-    }
-  } catch (error) {
-    console.error('识别+翻译失败:', error)
-    ElMessage.error('识别+翻译失败: ' + (error instanceof Error ? error.message : '未知错误'))
   } finally {
     isProcessing.value = false
   }

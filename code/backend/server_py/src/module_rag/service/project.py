@@ -1,18 +1,31 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
 from common.config.db import DaoRel
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
-from module_rag.do.project import Project, ProjectCreate, ProjectUpdate, ProjectResponse, KbCategory
+from module_rag.do.project import (
+    Project,
+    ProjectCreate,
+    ProjectUpdate,
+    ProjectResponse,
+    ProjectMyPerms,
+    KbCategory,
+)
 from module_rag.do.project_member import ProjectMemberCreate, RagRole
 from module_rag.dao.project import ProjectDao
 from module_rag.dao.project_member import ProjectMemberDao
 from module_rag.dao.project_dept import ProjectDeptDao
 from module_rag.dao.project_document import ProjectDocumentDao
-from common.config.path import DIR_UPLOAD
-import logging
-import shutil
+from module_rag.dependencies.permission import (
+    enforce_project_permission,
+    get_effective_level,
+    get_user_dept_chain,
+)
+from module_authorization.config.casbin_rule import is_global_admin
 from module_rag.dao.project_document_chunk import ProjectDocumentChunkDao
 from module_file.service.filesystem import FileService
 from common.utils.fastapiEX.exceptions import ConflictError, NotFoundError
+from common.config.path import DIR_UPLOAD
+import logging
+import shutil
 
 logger = logging.getLogger(__name__)
 
@@ -226,16 +239,32 @@ class ProjectService:
 
         logger.info(f"项目 {project_id} 删除完成")
 
-    async def update(self, project_id: str, project: ProjectUpdate):
+    async def update(
+        self, project_id: str, project: ProjectUpdate,
+        current_user_id: str | None = None,
+    ):
         """
         更新项目(名称变更时同步重命名虚拟目录中的项目文件夹)
+        is_private 变更需 project_admin 档位(publish 动作), 防止 editor 将私有库切公开泄露数据(v4 3.1)
         :param project_id: 项目ID
         :param project: 项目更新数据
+        :param current_user_id: 当前用户ID(publish 校验用; 缺省时不允许变更可见性)
         """
         if project.kb_category is not None and project.kb_category not in KbCategory.values():
             raise ValueError(
                 f"无效的知识库分类 '{project.kb_category}'，允许的值: {'/'.join(KbCategory.values())}"
             )
+        # publish 校验: 仅在本次提交确实改变 is_private 时执行
+        if project.is_private is not None:
+            existing = await self.project_dao.get(project_id)
+            if existing is None:
+                raise NotFoundError(f"未找到ID为 {project_id} 的项目")
+            if project.is_private != existing.is_private:
+                if not current_user_id:
+                    raise ConflictError("缺少操作用户上下文，无法变更项目可见性")
+                await enforce_project_permission(
+                    current_user_id, project_id, "project", "publish"
+                )
         await self.project_dao.update(project_id, project)
         # 名称变更: 同步重命名项目根文件夹(失败仅告警,不影响项目更新)
         if project.name:
@@ -259,22 +288,114 @@ class ProjectService:
         """
         return await self.project_dao.get(project_id)
 
+    async def get_with_my_perms(
+        self, project_id: str, current_user_id: str
+    ) -> ProjectResponse | None:
+        """
+        获取项目详情并附带当前用户权限位
+        :param project_id: 项目ID
+        :param current_user_id: 当前用户ID
+        :return: 项目响应对象(含 my_perms), 未找到返回None
+        """
+        project = await self.project_dao.get(project_id)
+        if project is None:
+            return None
+        perms_map = await self.compute_my_perms(current_user_id, [project_id])
+        perms = perms_map.get(project_id)
+        # 公开库任何登录用户可只读(v4 3.2): 非成员档位0也标记 read
+        if perms is not None and not project.is_private:
+            perms.read = True
+        return ProjectResponse(**project.model_dump(), my_perms=perms)
+
+    async def compute_my_perms(
+        self, current_user_id: str, project_ids: list[str]
+    ) -> dict[str, ProjectMyPerms]:
+        """
+        批量计算当前用户对多个项目的权限位(列表/详情共用, 避免 N+1)
+        计算口径: 全局管理员全 True; 其余按生效档位 max(直连成员, 部门授权) 映射动作位(v4 5.3)
+        :param current_user_id: 当前用户ID
+        :param project_ids: 项目ID列表
+        :return: {project_id: 权限位}
+        """
+        full = ProjectMyPerms(
+            read=True, upload_doc=True, update=True, delete=True, manage_member=True
+        )
+        if not project_ids:
+            return {}
+        # 全局管理员全 True(与鉴权穿透口径一致, 同步检查)
+        if is_global_admin(current_user_id):
+            return {pid: full for pid in project_ids}
+
+        # 批量取直连成员档位 + 部门授权档位(部门链一次查询复用)
+        level_by_project: dict[str, int] = {pid: 0 for pid in project_ids}
+        for pid, role in await self.member_dao.list_roles_by_projects(
+            current_user_id, project_ids
+        ):
+            level_by_project[pid] = max(level_by_project[pid], RagRole.level(role))
+        dept_chain = await get_user_dept_chain(current_user_id)
+        if dept_chain:
+            for pid, role in await self.dept_auth_dao.list_roles_by_projects(
+                dept_chain, project_ids
+            ):
+                level_by_project[pid] = max(level_by_project[pid], RagRole.level(role))
+
+        return {
+            pid: ProjectMyPerms(
+                read=level >= 1,
+                upload_doc=level >= 2,
+                update=level >= 2,
+                delete=level >= 3,
+                manage_member=level >= 3,
+            )
+            for pid, level in level_by_project.items()
+        }
+
     async def list_paged(
         self, pagination: PaginationParams, kb_category: str | None = None,
         name: str | None = None, is_private: bool | None = None,
+        viewer_id: str | None = None,
     ) -> PaginationResponse:
         """
-        分页获取项目列表(支持多字段过滤)
+        分页获取项目列表(支持多字段过滤 + 查看者可见性 + 权限位)
         :param pagination: 分页参数
         :param kb_category: 可选知识库分类过滤(personal/project/company)
         :param name: 项目名称模糊匹配
         :param is_private: 可选私有状态过滤(true=私有/false=公开)
-        :return: 分页项目列表
+        :param viewer_id: 查看者用户ID(传入时私有库隐身 + 返回 my_perms; None=管理员审计全量,my_perms 全 True)
+        :return: 分页项目列表(items 为 ProjectResponse, 含 my_perms)
         """
+        dept_chain: list[str] = []
+        if viewer_id:
+            # 部门链每请求只查一次, list/count 复用(v4 5.1 注 3)
+            dept_chain = await get_user_dept_chain(viewer_id)
         items = await self.project_dao.list_paged(
-            pagination, name=name, kb_category=kb_category, is_private=is_private
+            pagination, name=name, kb_category=kb_category, is_private=is_private,
+            viewer_id=viewer_id, dept_chain=dept_chain,
         )
         total = await self.project_dao.count(
-            name=name, kb_category=kb_category, is_private=is_private
+            name=name, kb_category=kb_category, is_private=is_private,
+            viewer_id=viewer_id, dept_chain=dept_chain,
         )
-        return PaginationResponse.create(items, total, pagination)
+        # 权限位: 普通用户按档位批量计算; 管理员(viewer_id=None)全 True
+        if viewer_id:
+            perms_map = await self.compute_my_perms(
+                viewer_id, [p.id for p in items]
+            )
+            # 公开库任何登录用户可只读(v4 3.2): 非成员档位0也标记 read
+            for p in items:
+                perms = perms_map.get(p.id)
+                if perms is not None and not p.is_private:
+                    perms.read = True
+        else:
+            # 管理员全 True(每项独立实例, 避免共享可变对象被调用方误改)
+            perms_map = {
+                p.id: ProjectMyPerms(
+                    read=True, upload_doc=True, update=True, delete=True, manage_member=True
+                )
+                for p in items
+            }
+        response_items = [
+            ProjectResponse(**p.model_dump(), my_perms=perms_map.get(p.id))
+            for p in items
+        ]
+        return PaginationResponse.create(response_items, total, pagination)

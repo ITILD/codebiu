@@ -1,9 +1,12 @@
+"""文本方向分类器: 判断文本图是否倒置并旋转校正"""
 import copy
 import json
+
 import cv2
 import numpy as np
-from common.utils.media.FileFormat import resize_norm_img
-from module_ai.utils.onnx.ocr_rapid.utils import OrtInferSession
+
+from module_ai.utils.ocr.common import resize_norm_img
+from module_ai.utils.ocr.runtime import OrtInferSession
 
 
 class ClsPostProcess:

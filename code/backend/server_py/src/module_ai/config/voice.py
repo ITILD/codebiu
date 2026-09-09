@@ -13,6 +13,8 @@ DIR_VOICE_MODEL: Path = DIR_MODEL / "voice"
 VOICE_DEFAULT_SAMPLE_RATE = 22050
 # ASR 期望采样率(sherpa 流式识别固定 16kHz)
 VOICE_ASR_SAMPLE_RATE = 16000
+# VAD 检测采样率(silero-vad 固定 16kHz)
+VOICE_VAD_SAMPLE_RATE = 16000
 
 # 从 config.yaml 读取 voice 配置(可选，缺失时使用默认值)
 try:
@@ -46,6 +48,15 @@ SHERPA_TTS_DICT_DIR: Path = DIR_VOICE_MODEL / conf_voice_sherpa.get(
 )
 # TTS 单次合成最长文本
 SHERPA_TTS_MAX_NUM_SENTENCES: int = int(conf_voice_sherpa.get("max_num_sentences", 2))
+
+# sherpa VAD 模型(silero-vad, CPU 实时语音活动检测)
+SHERPA_VAD_MODEL: Path = DIR_VOICE_MODEL / conf_voice_sherpa.get(
+    "vad_model", "silero_vad.onnx"
+)
+# sherpa 降噪模型(GTCRN, CPU 实时语音降噪)
+SHERPA_DENOISE_MODEL: Path = DIR_VOICE_MODEL / conf_voice_sherpa.get(
+    "denoise_model", "gtcrn_simple.onnx"
+)
 
 # ---------- Qwen 引擎配置 ----------
 conf_voice_qwen = conf_voice.get("qwen", {}) if conf_voice else {}

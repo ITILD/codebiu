@@ -1,9 +1,6 @@
 from fastapi import Request
-from pydantic import BaseModel
-from module_ai.do.llm_base import (
-    StreamChunkResponse,
-)
-from module_ai.utils.llm.do.llm_type import StreamStatus
+from module_ai.utils.llm.stream.schemas import StreamChunkResponse
+from module_ai.utils.llm.types import StreamStatus
 from sse_starlette import EventSourceResponse, ServerSentEvent
 import logging
 

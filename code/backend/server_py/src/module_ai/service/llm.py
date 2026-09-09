@@ -1,52 +1,53 @@
-from langchain_core.runnables import RunnableSequence
-from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
-from langchain_core.output_parsers import StrOutputParser
-from module_ai.do.model_config import ModelConfig, ModelConfigCreateRequest
-from module_ai.service.model_config import ModelConfigService
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from langchain_aws import BedrockEmbeddings, ChatBedrockConverse
-from langchain_ollama import ChatOllama, OllamaEmbeddings
+"""LLM 服务: chat/embeddings 模型的统一调用入口
+
+职责:
+    - 按模型配置加载 LangChain 模型实例(构建统一走 utils.llm.factory 工厂, 本服务不重复实现)
+    - chat 对话(流式/非流式) 与 embeddings 调用
+    - 模型配置连通性/格式化能力校验
+    - 模型实例缓存管理(按 model_id+streaming 缓存, 配置变更由调用方 clear_cache)
+"""
+import logging
+
 from langchain.agents import create_agent
 from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import BaseChatModel
-from module_ai.do.llm_base import (
-    Message,
+from langchain_core.runnables import RunnableSequence
+
+from module_ai.do.llm import (
     ChatRequest,
-    EmbeddingRequest,
-    CacheClearRequest,
     ModelChatCheckFormat,
     ModelConfigCheckResponse,
 )
-from pydantic import SecretStr
-from module_ai.utils.llm.do.llm_type import ModelType, ModelServerType
-from module_ai.dao.llm_base_prompt import LLMBasePrompt
-from module_ai.utils.llm.utils.llm_think_ex import ChatQwenWithReasoning
-import logging
+from module_ai.do.model_config import ModelConfig, ModelConfigCreateRequest
+from module_ai.service.model_config import ModelConfigService
+from module_ai.utils.llm.factory.builder import build_model
+from module_ai.utils.llm.prompts.base import LLMPrompt
+from module_ai.utils.llm.types import ModelType
 
 logger = logging.getLogger(__name__)
 
 
-class LLMBaseService:
+class LLMService:
     """
-    LLM基础服务类，提供统一的大语言模型调用接口
-    集成模型配置管理、AI工厂创建和基础调用方法
+    LLM 服务类，提供统一的大语言模型调用接口
+    集成模型配置管理、模型工厂构建和基础调用方法
     使用单例模式确保全局唯一实例
     """
 
     def __init__(
         self,
         model_config_service: ModelConfigService | None = None,
-        llm_base_prompt: LLMBasePrompt | None = None,
+        llm_prompt: LLMPrompt | None = None,
     ):
         """
-        初始化LLM基础服务
+        初始化LLM服务
 
         Args:
             model_config_service: 模型配置服务实例，如果不提供则创建默认实例
         """
         self.model_config_service = model_config_service or ModelConfigService()
-        self.llm_base_prompt = llm_base_prompt or LLMBasePrompt()
-        self._model_cache: dict[str, RunnableSequence] = {}
+        self.llm_prompt = llm_prompt or LLMPrompt()
+        self._model_cache: dict[str, BaseChatModel | Embeddings] = {}
 
     async def check_config(
         self, model_config_create_request: ModelConfigCreateRequest
@@ -54,10 +55,14 @@ class LLMBaseService:
         """校验模型配置连通性与输出格式(创建/修改模型配置时使用)
 
         :param model_config_create_request: 待校验的模型配置
-        :return: 校验结果(是否有效/失败原因)
+        :return: 校验结果(是否有效/是否支持格式化)
         """
-        llm_chain = self._llm_by_config(model_config_create_request)
-        # ModelConfigCheckResponse
+        # 模型构建失败(方案未实现/参数缺失)视为校验失败, 不向上抛
+        try:
+            llm_chain = build_model(model_config_create_request)
+        except Exception as e:
+            logger.warning(f"模型构建失败: {e}")
+            return ModelConfigCheckResponse()
         model_config_check_response = ModelConfigCheckResponse()
         if model_config_create_request.model_type == ModelType.CHAT:
             # 校验简单问答 判断包含2
@@ -70,7 +75,7 @@ class LLMBaseService:
                 return model_config_check_response
             # 校验format格式
             try:
-                messages = await self.llm_base_prompt.get_prompt_format_check()
+                messages = await self.llm_prompt.get_prompt_format_check()
                 agent = create_agent(
                     model=llm_chain,
                     response_format=ModelChatCheckFormat,
@@ -86,7 +91,6 @@ class LLMBaseService:
                 )
             except Exception as e:
                 logger.warning(f"校验format格式失败: {e}")
-                pass
         elif model_config_create_request.model_type == ModelType.EMBEDDINGS:
             try:
                 aembed_result = await llm_chain.aembed_query("你好啊")
@@ -94,13 +98,6 @@ class LLMBaseService:
             except Exception as e:
                 logger.warning(f"校验向量化模型失败: {e}")
                 model_config_check_response.is_valid = False
-        # TODO rerank
-        # elif model_config_create_request.model_type == ModelType.RERANK:
-        #     result = await llm_chain.arank_documents(
-        #         query="1", documents=["1", "2", "3"]
-        #     )
-        #     # 判断包含2
-        #     return len(result) > 0
         else:
             logger.error(f"不支持的模型类型: {model_config_create_request.model_type}")
         return model_config_check_response
@@ -121,16 +118,18 @@ class LLMBaseService:
         result = await self.check_config(config)
         return result.is_valid
 
-    async def get_llm(self, model_id: str, streaming: bool = True):
+    async def get_llm(
+        self, model_id: str, streaming: bool = True
+    ) -> BaseChatModel | Embeddings | None:
         """
-        获取LLM处理链的基础llm对象
+        按模型配置获取模型实例(带缓存)
 
         Args:
             model_id: 模型配置ID或模型标识名称
             streaming: 是否启用流式响应
 
         Returns:
-            LLM处理链，如果获取失败返回None
+            模型实例，配置不存在时返回 None
         """
         # 检查缓存
         cache_key = f"{model_id}_{streaming}"
@@ -143,25 +142,20 @@ class LLMBaseService:
             logger.error(f"模型配置不存在: {model_id}")
             return None
 
-        # 转换为LLM配置
-        llm_chain = self._llm_by_config(config, streaming)
-        
-        # 缓存模型
+        # 经模型工厂构建实例并缓存
+        llm_chain = build_model(config, streaming)
         self._model_cache[cache_key] = llm_chain
-
         return llm_chain
 
     async def chat_completion(self, request: ChatRequest):
         """聊天完成接口"""
         # 获取LLM处理链
-        llm_chain:BaseChatModel  = await self.get_llm(request.model_id, streaming=request.streaming)
+        llm_chain: BaseChatModel = await self.get_llm(request.model_id, streaming=request.streaming)
         # request.messages 是langchain类型
         try:
             # 调用模型
             if request.streaming:
                 return llm_chain.astream(request.messages)
-                # 更详细的事件流 默认v2版本
-                # return llm_chain.astream_events(request.messages)
             result = await llm_chain.ainvoke(request.messages)
             return result.content
         except Exception as e:
@@ -186,69 +180,3 @@ class LLMBaseService:
         else:
             # 清除所有缓存
             self._model_cache.clear()
-
-    def _llm_by_config(
-        self, config: ModelConfig, streaming: bool = True
-    ) -> BaseChatModel | Embeddings:
-        """将数据库模型配置转换为LLM配置对象"""
-        # Ollama模型检测   ChatOpenAI, OpenAIEmbeddings
-        if config.server_type == ModelServerType.OPENAI:
-            if config.model_type == ModelType.CHAT:
-                # return ChatOpenAI(
-                return ChatQwenWithReasoning(
-                    model=config.model,
-                    api_key=config.api_key,
-                    base_url=config.url,
-                    streaming=streaming,
-                    temperature=config.temperature,
-                    extra_body = {
-                        "enable_thinking": not config.no_think,
-                    }
-                )
-            elif config.model_type == ModelType.EMBEDDINGS:
-                if "jina-embeddings" in config.model:
-                    config.out_tokens = None
-                return OpenAIEmbeddings(
-                    model=config.model,
-                    api_key=config.api_key,
-                    base_url=config.url,
-                    dimensions=config.out_tokens,
-                    # qwen模型向量化长度检查关闭
-                    check_embedding_ctx_length=False,
-                )
-        elif config.server_type == ModelServerType.OLLAMA:
-            if config.model_type == ModelType.CHAT:
-                return ChatOllama(
-                    model=config.model,
-                    base_url=config.url,
-                    streaming=streaming,
-                    temperature=config.temperature,
-                )
-            elif config.model_type == ModelType.EMBEDDINGS:
-                return OllamaEmbeddings(
-                    model=config.model,
-                    base_url=config.url,
-                    dimensions=config.out_tokens,
-                )
-        elif config.server_type == ModelServerType.VLLM:
-            
-            pass
-        elif config.server_type == ModelServerType.AWS:
-            aws_access_key_id = config.extra.get("aws_access_key_id")
-            region_name = config.extra.get("region_name")
-            if config.model_type == ModelType.CHAT:
-                return ChatBedrockConverse(
-                    provider="anthropic",
-                    model=config.model,
-                    aws_access_key_id=SecretStr(aws_access_key_id),
-                    aws_secret_access_key=SecretStr(config.api_key),
-                    region_name=region_name,
-                    max_tokens=config.out_tokens,
-                )
-            elif config.model_type == ModelType.EMBEDDINGS:
-                return BedrockEmbeddings(
-                    model_id=config.model,
-                    aws_access_key_id=SecretStr(aws_access_key_id),
-                    aws_secret_access_key=SecretStr(config.api_key),
-                    region_name=region_name,
-                )

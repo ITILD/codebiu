@@ -15,7 +15,7 @@ from langchain_core.language_models import BaseChatModel
 from typing import Annotated
 from typing_extensions import TypedDict
 import datetime
-from module_ai.utils.llm.do.llm_response import StreamOne
+from module_ai.utils.llm.stream.schemas import StreamOne
 import logging
 
 logger = logging.getLogger(__name__)
@@ -266,7 +266,7 @@ baby_name_generator = BabyNameStreamGenerator()
 
 # baby_name_generator.generate_stream(birth_date, gender, surname)
 if __name__ == "__main__":
-    from module_ai.service.llm_base import LLMBaseService
+    from module_ai.service.llm import LLMService
     import asyncio
 
     async def main():
@@ -278,8 +278,8 @@ if __name__ == "__main__":
             name_length=3,
             other="""希望他一生平安，名字里有金属性字但不带金字旁""",
         )
-        llm_base_service = LLMBaseService()
-        model = await llm_base_service.get_llm("")
+        llm_service = LLMService()
+        model = await llm_service.get_llm("")
         async for chunk in baby_name_generator.generate_stream(
             name_info_predict_full, model
         ):

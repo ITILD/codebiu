@@ -28,7 +28,3 @@ export interface OcrResponse {
   layout?: number[][]
   background?: string
 }
-
-export interface OcrResponseWithTranslation extends OcrResponse {
-  results_translate: OcrResult[]
-}

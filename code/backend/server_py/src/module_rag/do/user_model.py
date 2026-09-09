@@ -14,6 +14,10 @@ class UserModelBase(SQLModel):
     rerank_model_id: str | None = Field(
         default=None, max_length=50, description="Rerank模型配置ID"
     )
+    # 用户级回退开关(v4 4.3): True=绑定失效时不回退默认公共模型,直接报错(数据流向可感知)
+    fallback_disabled: bool = Field(
+        default=False, description="绑定失效时不回退默认公共模型(直接报错)"
+    )
 
 
 class UserModel(UserModelBase, table=True):
@@ -49,6 +53,9 @@ class UserModelUpdate(SQLModel):
     chat_model_id: str | None = Field(None, description="对话模型配置ID")
     embedding_model_id: str | None = Field(None, description="向量化模型配置ID")
     rerank_model_id: str | None = Field(None, description="Rerank模型配置ID")
+    fallback_disabled: bool | None = Field(
+        None, description="绑定失效时不回退默认公共模型(直接报错)"
+    )
 
 
 class UserModelResponse(SQLModel):
@@ -59,5 +66,8 @@ class UserModelResponse(SQLModel):
     chat_model_id: str | None = Field(default=None, description="对话模型配置ID")
     embedding_model_id: str | None = Field(default=None, description="向量化模型配置ID")
     rerank_model_id: str | None = Field(default=None, description="Rerank模型配置ID")
+    fallback_disabled: bool = Field(
+        default=False, description="绑定失效时不回退默认公共模型(直接报错)"
+    )
     created_at: datetime | None = Field(default=None, description="创建时间")
     updated_at: datetime | None = Field(default=None, description="最后更新时间")

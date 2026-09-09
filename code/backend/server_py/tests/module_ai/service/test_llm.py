@@ -3,7 +3,10 @@ import pytest
 import asyncio
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
 from common.config.index import conf
-from module_ai.service.llm_base import LLMBaseService, ModelConfigCreateRequest, ModelType, ModelServerType
+from module_ai.do.model_config import ModelConfigCreateRequest
+from module_ai.utils.llm.factory.builder import build_model
+from module_ai.utils.llm.types import ModelType, ModelServerType
+from module_ai.service.llm import LLMService
 
 # 本文件为服务层联调脚本: 依赖 config.yaml 的 test 配置段并会发起真实 LLM 网络调用,
 # 不符合接口自动化测试规范(零外部依赖), 统一跳过; 接口层测试见 tests/module_ai/controller/
@@ -11,7 +14,7 @@ pytestmark = pytest.mark.skip(reason="依赖真实 LLM 服务与 config.test 配
 
 @pytest.mark.asyncio
 async def test_llm_chat():
-    llm_service = LLMBaseService()
+    llm_service = LLMService()
     #
     model_config_create_request = ModelConfigCreateRequest(
         model_type=ModelType.CHAT,
@@ -27,7 +30,7 @@ async def test_llm_chat():
         # no_think = True
     )
 
-    llm_chain = llm_service._llm_by_config(model_config_create_request)
+    llm_chain = build_model(model_config_create_request)
     messages = [SystemMessage(content="你是一个不废话的AI助手"), HumanMessage(content="一句话算出1+1=？")]
     responses = llm_chain.astream(messages)
     async for response in responses:
@@ -38,7 +41,7 @@ async def test_llm_chat():
 
 @pytest.mark.asyncio
 async def test_llm_embed():
-    llm_service = LLMBaseService()
+    llm_service = LLMService()
     model_config_create_request = ModelConfigCreateRequest(
         model_type=ModelType.EMBEDDINGS,
         server_type=ModelServerType.OPENAI,
@@ -50,7 +53,7 @@ async def test_llm_embed():
         out_tokens = 1024
     )
 
-    llm_chain = llm_service._llm_by_config(model_config_create_request)
+    llm_chain = build_model(model_config_create_request)
     aembed_result = llm_chain.embed_query("1")
     print(len(aembed_result))
 

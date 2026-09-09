@@ -1,12 +1,24 @@
-from module_ai.utils.onnx.ocr_rapid.rapidocr.main import detect_recognize
+"""OCR 服务门面: 识别/分段/版面分析统一入口
 
-from module_ai.utils.onnx.ocr_rapid.rapid_layout import RapidLayout
-from module_ai.utils.onnx.ocr_rapid.tbpu.parser_multi_para import MultiPara
+模型加载策略: 全部引擎(识别流水线/版面分析)惰性加载并缓存,
+首次调用对应方法时才加载模型, 保证未配置 ocr 的环境导入本服务不报错。
+"""
+from functools import lru_cache
 
-from module_ai.config.ocr import path_lout_model
+from module_ai.utils.ocr.layout import RapidLayout
+from module_ai.utils.ocr.pipeline import detect_recognize
+from module_ai.utils.ocr.segment.parser_multi_para import MultiPara
 
+from module_ai.config.ocr import get_layout_model_path
+
+# 排版分段引擎(纯算法, 不加载模型)
 segment_engine = MultiPara()
-layout_engine = RapidLayout(model_path=path_lout_model)
+
+
+@lru_cache(maxsize=1)
+def get_layout_engine() -> RapidLayout:
+    """获取版面分析引擎(惰性加载, 全局缓存)"""
+    return RapidLayout(model_path=get_layout_model_path())
 
 class OcrService:
     def recognize(self,image_cv: any, detect: bool, classify: bool, lang: str, inpaint=False):
@@ -41,7 +53,7 @@ class OcrService:
 
     def layout(self,image_cv: any):
         """版面分析"""
-        boxes, scores, class_names, elapse = layout_engine.check(image_cv)
+        boxes, scores, class_names, elapse = get_layout_engine().check(image_cv)
         return boxes, scores, class_names, elapse
 
 
@@ -49,7 +61,7 @@ class OcrService:
         """执行文字识别/分栏分段/版面分析"""
         # 1 文字识别+分栏分段
         result = self.segment_layout(image_cv, detect, classify, lang, inpaint=inpaint)
-        boxes, scores, class_names, elapse = layout_engine.check(image_cv)
+        boxes, scores, class_names, elapse = get_layout_engine().check(image_cv)
         layout = []
         i = 0
         for class_name in class_names:

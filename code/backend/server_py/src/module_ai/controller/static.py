@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from common.config.path import DIR_PUBLIC
-from module_template.config.server import module_app
+from module_ai.config.server import module_app
 
 # 静态配置
 DIR_HTML_TEMPLATE = DIR_PUBLIC / "ai"

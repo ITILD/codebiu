@@ -1,5 +1,5 @@
 from typing import TypedDict, Union, Optional, Any
-from common.utils.ai.common_splitter.text_splitter_utils import TextSplitterUtils
+from module_ai.utils.llm.splitter.text_splitter import TextSplitterUtils
 
 
 class ChunkSplited(TypedDict):

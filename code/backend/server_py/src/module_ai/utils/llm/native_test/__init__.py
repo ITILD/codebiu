@@ -1,5 +1,1 @@
-from langchain_openai.chat_models import ChatOpenAI
-__all__ = [
-    "ChatOpenAI",
-    "OpenAIEmbeddings",
-]
+"""LLM 原生连通性/能力测试脚本(需真实模型服务, 供开发期手工运行, 不入 pytest)"""

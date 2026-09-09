@@ -1,5 +1,5 @@
 from fastapi import Depends
-from module_ai.service.llm_base import LLMBaseService
+from module_ai.service.llm import LLMService
 from module_rag.service.user_model import UserModelService
 from module_rag.service.chat_message import ChatMessageService
 from module_rag.service.conversation import ConversationService
@@ -12,7 +12,7 @@ from module_rag.dependencies.project_document_chunk import (
     get_project_document_chunk_service,
 )
 from module_rag.service.project_document_chunk import ProjectDocumentChunkService
-from module_ai.dependencies.llm_base import get_llm_base_service
+from module_ai.dependencies.llm import get_llm_service
 from module_rag.dependencies.user_model import get_user_model_service
 import asyncio
 
@@ -23,7 +23,7 @@ _service_init_lock = asyncio.Lock()
 
 
 async def get_rag_chat_service_single(
-    llm_base_service: LLMBaseService = Depends(get_llm_base_service),
+    llm_service: LLMService = Depends(get_llm_service),
     user_model_service: UserModelService = Depends(get_user_model_service),
     chat_message_service: ChatMessageService = Depends(get_chat_message_service),
     project_document_chunk_service: ProjectDocumentChunkService = Depends(
@@ -36,7 +36,7 @@ async def get_rag_chat_service_single(
     async with _service_init_lock:
         if _rag_chat_service_instance is None:
             _rag_chat_service_instance = RagChatService(
-                llm_base_service=llm_base_service,
+                llm_service=llm_service,
                 user_model_service=user_model_service,
                 chat_message_service=chat_message_service,
                 project_document_chunk_service=project_document_chunk_service,

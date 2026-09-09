@@ -8,6 +8,7 @@ from module_rag.do.project_dept import (
     ProjectDeptCreate,
     ProjectDeptUpdate,
 )
+from module_rag.do.project_member import RagRole
 
 
 class ProjectDeptDao:
@@ -186,3 +187,49 @@ class ProjectDeptDao:
         )
         result = await session.exec(statement)
         return list(result.all())
+
+    @DaoRel
+    async def list_roles_by_projects(
+        self,
+        dept_ids: list[str],
+        project_ids: list[str],
+        session: AsyncSession | None = None,
+    ) -> list[tuple[str, str]]:
+        """
+        批量查询部门链在多个项目中的授权档位(my_perms 批量计算, 避免 N+1)
+        :param dept_ids: 用户部门链(祖级+自身)部门ID集合
+        :param project_ids: 项目ID列表
+        :param session: 可选数据库会话
+        :return: (project_id, role) 元组列表
+        """
+        if not dept_ids or not project_ids:
+            return []
+        statement = select(ProjectDept.project_id, ProjectDept.role).where(
+            ProjectDept.project_id.in_(project_ids),
+            ProjectDept.dept_id.in_(dept_ids),
+        )
+        result = await session.exec(statement)
+        return [(row[0], row[1]) for row in result.all()]
+
+    @DaoRel
+    async def count_admins(
+        self,
+        project_id: str,
+        session: AsyncSession | None = None,
+        exclude_id: str | None = None,
+    ) -> int:
+        """
+        统计项目中 project_admin 档位的部门授权数量(保底校验用)
+        :param project_id: 项目ID
+        :param session: 可选数据库会话
+        :param exclude_id: 排除的授权记录ID(移除/降级场景排除自身)
+        :return: admin 档位授权记录数
+        """
+        statement = select(func.count()).select_from(ProjectDept).where(
+            ProjectDept.project_id == project_id,
+            ProjectDept.role == RagRole.PROJECT_ADMIN,
+        )
+        if exclude_id:
+            statement = statement.where(ProjectDept.id != exclude_id)
+        result = await session.exec(statement)
+        return result.one()

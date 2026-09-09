@@ -8,6 +8,7 @@ from module_rag.do.project_member import (
     ProjectMemberCreate,
     ProjectMemberUpdate,
     MyProjectResponse,
+    RagRole,
 )
 from module_rag.do.project import Project
 from module_authorization.do.user import User
@@ -234,5 +235,54 @@ class ProjectMemberDao:
             .select_from(ProjectMember)
             .where(ProjectMember.user_id == user_id)
         )
+        result = await session.exec(statement)
+        return result.one()
+
+    @DaoRel
+    async def list_roles_by_projects(
+        self, user_id: str, project_ids: list[str], session: AsyncSession | None = None
+    ) -> list[tuple[str, str]]:
+        """
+        批量查询用户在多个项目中的直连成员角色(my_perms 批量计算, 避免 N+1)
+        :param user_id: 用户ID
+        :param project_ids: 项目ID列表
+        :param session: 可选数据库会话
+        :return: (project_id, role) 元组列表
+        """
+        if not project_ids:
+            return []
+        statement = select(ProjectMember.project_id, ProjectMember.role).where(
+            ProjectMember.user_id == user_id,
+            ProjectMember.project_id.in_(project_ids),
+        )
+        result = await session.exec(statement)
+        return [(row[0], row[1]) for row in result.all()]
+
+    @DaoRel
+    async def count_admins(
+        self,
+        project_id: str,
+        session: AsyncSession | None = None,
+        exclude_member_id: str | None = None,
+    ) -> int:
+        """
+        统计项目中激活的直连 project_admin 数量(成员移除/降级保底校验用)
+        :param project_id: 项目ID
+        :param session: 可选数据库会话
+        :param exclude_member_id: 排除的成员ID(降级/移除场景排除自身旧档位)
+        :return: 激活的 project_admin 数量(join user 表过滤 is_active)
+        """
+        statement = (
+            select(func.count())
+            .select_from(ProjectMember)
+            .join(User, ProjectMember.user_id == User.id)
+            .where(
+                ProjectMember.project_id == project_id,
+                ProjectMember.role == RagRole.PROJECT_ADMIN,
+                User.is_active == True,  # noqa: E712
+            )
+        )
+        if exclude_member_id:
+            statement = statement.where(ProjectMember.id != exclude_member_id)
         result = await session.exec(statement)
         return result.one()

@@ -53,20 +53,19 @@ export const API_CASES: ApiCase[] = [
   c('ai', 'model_config.ts', 'deleteModelConfig', 'DELETE', '/ai/model-configs/{modelId}', { allow404: true }),
   c('ai', 'model_config.ts', 'revectorizeChunks', 'POST', '/rag/project-document-chunks/revectorize', { note: '触发全库重向量化任务, 慎用' }),
   c('ai', 'model_config.ts', 'getRevectorizeStatus', 'GET', '/rag/project-document-chunks/revectorize/status/{taskId}', { allow404: true }),
-  // LLM 对话(后端 llm_base 未挂载)
-  c('ai', 'chat.ts', 'sendChatMessage', 'POST', '/ai/llm-base/chat', { skip: true, note: '后端模块未启用' }),
-  c('ai', 'chat.ts', 'sendChatMessageStream', 'POST', '/ai/llm-base/chat', { skip: true, note: 'SSE 流式, 后端模块未启用' }),
-  c('ai', 'chat.ts', 'clearModelCache', 'DELETE', '/ai/llm-base/cache/{modelId}', { skip: true, note: '后端模块未启用' }),
-  c('ai', 'chat.ts', 'checkModelConfig', 'POST', '/ai/llm-base/check-config', { skip: true, note: '后端模块未启用' }),
-  // OCR(后端 ocr 未挂载)
-  c('ai', 'ocr.ts', 'listOcrLanguages', 'GET', '/ai/ocr/languages', { skip: true, note: '后端模块未启用' }),
-  c('ai', 'ocr.ts', 'recognizeText', 'POST', '/ai/ocr/all', { skip: true, note: '后端模块未启用, 需图片文件' }),
-  c('ai', 'ocr.ts', 'recognizeAndTranslate', 'POST', '/ai/translate/ocr', { skip: true, note: '后端模块未启用, 需图片文件' }),
-  // 语音(后端 voice 未挂载)
-  c('ai', 'voice.ts', 'recognizeAudio', 'POST', '/ai/voice/asr', { skip: true, note: '后端模块未启用, 需音频文件' }),
-  c('ai', 'voice.ts', 'synthesizeAudioFile', 'POST', '/ai/voice/tts/file', { skip: true, note: '后端模块未启用, 需文本参数' }),
-  c('ai', 'voice.ts', 'synthesizeAudioStream', 'POST', '/ai/voice/tts/stream', { skip: true, note: 'SSE 流式, 后端模块未启用' }),
-  c('ai', 'voice.ts', 'buildAsrStreamUrl', 'GET', '/ai/voice/asr/stream', { skip: true, note: 'WebSocket 接口, 后端模块未启用' }),
+  // LLM 对话(真实 LLM 调用, 不自动执行)
+  c('ai', 'chat.ts', 'sendChatMessage', 'POST', '/ai/llm/chat', { skip: true, note: '真实调用 LLM, 仅手动验证' }),
+  c('ai', 'chat.ts', 'sendChatMessageStream', 'POST', '/ai/llm/chat', { skip: true, note: 'SSE 流式 + 真实调用 LLM, 仅手动验证' }),
+  c('ai', 'chat.ts', 'clearModelCache', 'DELETE', '/ai/llm/cache/{modelId}', { note: '写操作(清空模型实例缓存), 手动执行' }),
+  c('ai', 'chat.ts', 'checkModelConfig', 'POST', '/ai/llm/check-config', { skip: true, note: '真实调用模型校验, 仅手动验证' }),
+  // OCR(需图片文件, 手动验证)
+  c('ai', 'ocr.ts', 'listOcrLanguages', 'GET', '/ai/ocr/languages'),
+  c('ai', 'ocr.ts', 'recognizeText', 'POST', '/ai/ocr/all', { skip: true, note: '需图片文件, 手动验证' }),
+  // 语音(需音频/文本参数, 手动验证)
+  c('ai', 'voice.ts', 'recognizeAudio', 'POST', '/ai/voice/asr', { skip: true, note: '需音频文件, 手动验证' }),
+  c('ai', 'voice.ts', 'synthesizeAudioFile', 'POST', '/ai/voice/tts/file', { skip: true, note: '真实调用 TTS 模型, 手动验证' }),
+  c('ai', 'voice.ts', 'synthesizeAudioStream', 'POST', '/ai/voice/tts/stream', { skip: true, note: '流式 PCM + 真实调用 TTS 模型, 手动验证' }),
+  c('ai', 'voice.ts', 'buildAsrStreamUrl', 'GET', '/ai/voice/asr/stream', { skip: true, note: 'WebSocket 接口, 手动验证' }),
 
   // ==================== 权限管理 ====================
   // 认证
@@ -253,6 +252,9 @@ export const API_CASES: ApiCase[] = [
   c('rag', 'deptAuth.ts', 'listProjectDepts', 'GET', '/rag/project-depts/project/{projectId}', { allow404: true }),
   c('rag', 'deptAuth.ts', 'updateProjectDept', 'PUT', '/rag/project-depts/{id}', { allow404: true }),
   c('rag', 'deptAuth.ts', 'removeProjectDept', 'DELETE', '/rag/project-depts/{id}', { allow404: true }),
+  // 用户模型绑定(v4 4.3: 绑定校验归属, 回退开关)
+  c('rag', 'user_model.ts', 'getMyModelBinding', 'GET', '/rag/user-models/my'),
+  c('rag', 'user_model.ts', 'updateMyModelBinding', 'PUT', '/rag/user-models/my', { note: '仅可绑定公共/本部门/自己的模型' }),
   // 会话与问答
   c('rag', 'conversation.ts', 'createConversation', 'POST', '/rag/conversations', { note: '创建会话' }),
   c('rag', 'conversation.ts', 'listMyConversations', 'GET', '/rag/conversations/my'),

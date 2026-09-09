@@ -109,16 +109,17 @@ class TokenService:
 
     async def revoke_token(self, token, token_id):
         """
-        撤销令牌
-        :param token: 要撤销的令牌
+        撤销刷新令牌
+        :param token: 要撤销的刷新令牌(仅用于校验有效性,防止凭空吊销)
+        :param token_id: 令牌存储记录ID(优先使用; JWT 载荷不含 token_id)
         :return: 撤销是否成功
         """
-        # 验证并获取信息
+        # 校验刷新令牌有效性(无效/过期直接抛错)
         payload = await self.verify_token(token, token_type=TokenType.refresh)
-        token_id = payload.get("token_id")
-        if not token_id:
-            raise ValueError("Invalid token payload: missing 'token_id'")
-        return await self.token_dao.revoke_token_by_token_id(token_id)
+        target_id = token_id or payload.get("token_id")
+        if not target_id:
+            raise ValueError("Invalid token: missing token_id")
+        return await self.token_dao.revoke_token_by_token_id(target_id)
 
     async def revoke_all_tokens_by_user(self, user_id):
         """

@@ -16,8 +16,8 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.state import CompiledStateGraph
 
-from module_ai.utils.llm.do.llm_type import RoleType
-from module_ai.utils.llm.message.trim import messages_trim_with_max_tokens
+from module_ai.utils.llm.types import RoleType
+from module_ai.utils.llm.chat.trim import messages_trim_with_max_tokens
 from module_rag.config.checkpointer import get_checkpointer
 from module_rag.do.chat_message import ChatMessageCreate
 from module_rag.do.rag_chat import StreamEventType, StreamOne

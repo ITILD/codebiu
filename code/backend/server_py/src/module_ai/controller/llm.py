@@ -1,18 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 # from fastapi.responses import StreamingResponse
-from module_ai.dependencies.llm_base import LLMBaseService, get_llm_base_service
-from module_ai.do.llm_base import (
+from module_ai.dependencies.llm import LLMService, get_llm_service
+from module_ai.do.llm import (
     ChatRequest,
     EmbeddingRequest,
     CacheClearRequest,
     ModelConfigCheckResponse,
-    StreamChunkResponse,
 )
 from module_ai.config.server import module_app
 from module_ai.do.model_config import ModelConfigCreateRequest
 from sse_starlette import EventSourceResponse, ServerSentEvent
-from module_ai.utils.llm.response.sse import event_generator
+from module_ai.utils.llm.stream.sse import event_generator
 
 import logging
 
@@ -26,7 +25,7 @@ router = APIRouter()
 @router.post("/check-config", summary="配置校验")
 async def check_config(
     model_config: ModelConfigCreateRequest,
-    llm_service: LLMBaseService = Depends(get_llm_base_service),
+    llm_service: LLMService = Depends(get_llm_service),
 ) -> ModelConfigCheckResponse:
     """
     校验模型配置是否有效
@@ -40,7 +39,7 @@ async def check_config(
 @router.post("/check-config-by-model-id", summary="配置校验")
 async def check_config_by_model_id(
     model_id: str,
-    llm_service: LLMBaseService = Depends(get_llm_base_service),
+    llm_service: LLMService = Depends(get_llm_service),
 ):
     """
     校验模型配置是否有效
@@ -53,7 +52,7 @@ async def check_config_by_model_id(
 
 @router.post("/chat", summary="聊天接口 支持流式SSE")
 async def chat_completion(
-    request: ChatRequest, llm_service: LLMBaseService = Depends(get_llm_base_service)
+    request: ChatRequest, llm_service: LLMService = Depends(get_llm_service)
 ):
     """
     聊天完成接口
@@ -82,7 +81,7 @@ async def chat_completion(
 
 @router.delete("/cache/{model_id}", summary="清除模型缓存")
 async def _test_cache_clear(
-    model_id: str, llm_service: LLMBaseService = Depends(get_llm_base_service)
+    model_id: str, llm_service: LLMService = Depends(get_llm_service)
 ):
     """
     按 model_id 前缀匹配清除已缓存的模型实例，使下次请求重新加载模型；model_id 为空时清空全部模型缓存
@@ -97,4 +96,4 @@ async def _test_cache_clear(
 
 
 # 将路由注册到模块应用
-module_app.include_router(router, prefix="/llm-base", tags=["模型基础调用"])
+module_app.include_router(router, prefix="/llm", tags=["模型基础调用"])

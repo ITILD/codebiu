@@ -6,6 +6,7 @@ from module_authorization.do.user import UserCreate, UserResponse, User, UserUpd
 from module_authorization.do.token import (
     TokenCreateRequest,
     TokenResponseFull,
+    TokenResponseBase,
 )
 from module_authorization.do.auth import AuthResponse, AuthLogoutRequest, SelfProfileUpdate
 
@@ -177,11 +178,15 @@ class AuthService:
         获取当前用户
         :param token: 访问令牌
         :return: 当前用户
-        :raises: ValueError 如果令牌无效
+        :raises: ValueError 如果令牌无效或用户不存在
         """
         try:
             user_id = await self.get_current_user_id(token)
-            return await self.user_service.get(user_id)
+            user = await self.user_service.get(user_id)
+            if not user:
+                # 令牌有效但用户已删除: 统一按认证失败处理(依赖层映射为 401)
+                raise ValueError("用户不存在")
+            return user
         except Exception as e:
             raise ValueError(f"获取当前用户失败: {str(e)}")
 
@@ -263,11 +268,11 @@ class AuthService:
         # user_service.update 内部会做哈希处理
         await self.user_service.update(user_id, UserUpdate(password=new_password))
 
-    async def token_refresh(self, token_refresh: str) -> TokenResponseFull:
+    async def token_refresh(self, token_refresh: str) -> TokenResponseBase:
         """
-        刷新访问令牌
+        刷新访问令牌(仅签发新的访问令牌, 刷新令牌不轮换)
         :param token_refresh: 刷新令牌
-        :return: 新的令牌响应
+        :return: 新访问令牌(TokenResponseBase)
         :raises: ValueError 如果刷新令牌无效
         """
         # 验证刷新令牌有效性

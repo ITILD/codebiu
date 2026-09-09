@@ -28,7 +28,7 @@ from common.utils.db.schema.pagination import (
 
 from fastapi import APIRouter, HTTPException, status, Depends
 from common.utils.fastapiEX.exceptions import NotFoundError
-from module_ai.utils.llm.response.sse import event_generator
+from module_ai.utils.llm.stream.sse import event_generator
 from sse_starlette import EventSourceResponse
 
 

@@ -64,7 +64,9 @@
             </div>
             <div flex items-center gap-1 @click.stop>
               <el-button size="small" text bg type="primary" @click="handleOpenEdit(row)">设置</el-button>
-              <el-button size="small" text bg type="danger" @click="handleDelete(row)">删除</el-button>
+              <!-- 删除需项目管理员档位(my_perms.delete, v4 5.3) -->
+              <el-button v-if="row.my_perms?.delete" size="small" text bg type="danger"
+                @click="handleDelete(row)">删除</el-button>
             </div>
           </div>
         </div>
@@ -143,7 +145,9 @@
         <el-table-column label="操作" min-width="140" align="center" :fixed="isMd ? 'right' : false">
           <template #default="{ row }">
             <el-button size="small" type="primary" plain @click="handleDocDownload(row)">下载</el-button>
-            <el-button size="small" type="danger" plain @click="handleDocDelete(row)">删除</el-button>
+            <!-- 文档删除需项目管理员档位(doc/delete, v4 3.2) -->
+            <el-button v-if="projPermsMap.get(row.project_id)?.manage_member" size="small" type="danger" plain
+              @click="handleDocDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -192,34 +196,40 @@
     <el-drawer v-model="drawerVisible" :title="drawerTitle" size="62%" destroy-on-close class="kb-setting-drawer">
       <el-tabs v-model="drawerTab">
         <el-tab-pane label="基本信息" name="info">
-          <!-- 便签风表单卡片 -->
+          <!-- 便签风表单卡片(编辑需 my_perms.update 档位>=2; 公开/私有切换需 manage_member 档位>=3 即 publish, v4 3.1) -->
           <el-form
             :model="editForm" :rules="rules" ref="editFormRef" label-width="90px"
             class="max-w-[520px] p-5 rounded-2xl border border-note bg-note-soft/60"
           >
             <el-form-item label="名称" prop="name">
-              <el-input v-model="editForm.name" placeholder="请输入知识库名称" maxlength="100" />
+              <el-input v-model="editForm.name" :disabled="!currentPerms.update" placeholder="请输入知识库名称"
+                maxlength="100" />
             </el-form-item>
             <el-form-item label="分类" prop="kb_category">
-              <el-select v-model="editForm.kb_category" placeholder="请选择分类" w-full>
+              <el-select v-model="editForm.kb_category" :disabled="!currentPerms.update" placeholder="请选择分类" w-full>
                 <el-option v-for="opt in kbCategoryOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
               </el-select>
             </el-form-item>
             <el-form-item label="描述" prop="description">
-              <el-input v-model="editForm.description" type="textarea" :rows="3" placeholder="请输入描述" maxlength="500" />
+              <el-input v-model="editForm.description" :disabled="!currentPerms.update" type="textarea" :rows="3"
+                placeholder="请输入描述" maxlength="500" />
             </el-form-item>
             <el-form-item label="是否私有">
-              <el-switch v-model="editForm.is_private" />
+              <el-tooltip :disabled="currentPerms.manage_member" content="仅项目管理员可切换公开/私有" placement="top">
+                <el-switch v-model="editForm.is_private" :disabled="!currentPerms.manage_member" />
+              </el-tooltip>
             </el-form-item>
-            <el-form-item>
+            <el-form-item v-if="currentPerms.update">
               <el-button class="px-6" :loading="savingBasic" @click="handleSaveBasic">保存</el-button>
             </el-form-item>
           </el-form>
         </el-tab-pane>
-        <el-tab-pane v-if="hasPerm('rag:doc')" label="文档管理" name="docs" lazy>
-          <DocumentManage :project-id="currentProject!.id" />
+        <!-- 文档管理: 只读成员(档位>=1)可浏览, 写操作按钮由 DocumentManage 按权限位隐藏 -->
+        <el-tab-pane v-if="currentPerms.read" label="文档管理" name="docs" lazy>
+          <DocumentManage :project-id="currentProject!.id" :perms="currentPerms" />
         </el-tab-pane>
-        <el-tab-pane v-if="hasPerm('rag:member')" label="成员管理" name="members" lazy>
+        <!-- 成员管理需项目管理员档位(my_perms.manage_member, v4 5.3) -->
+        <el-tab-pane v-if="currentPerms.manage_member" label="成员管理" name="members" lazy>
           <MemberManage :project-id="currentProject!.id" />
         </el-tab-pane>
       </el-tabs>
@@ -247,21 +257,25 @@ import {
   parseStatusOptions,
   type Project,
   type ProjectCreate,
+  type ProjectMyPerms,
 } from '../types'
 import TableSearchBar, { type SearchField } from '@/common/components/TableSearchBar.vue'
 import RagPageNav from '../components/RagPageNav.vue'
 import DocumentManage from '../components/DocumentManage.vue'
 import MemberManage from '../components/MemberManage.vue'
-import { usePermission } from '@/common/composables/usePermission'
 import { useResponsive } from '@/common/composables/useResponsive'
 import type { PaginationParams } from '@/common/types/common'
 import type { ProjectDocument } from '../types'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
 
-const { hasPerm } = usePermission()
 const { isMd } = useResponsive()
 
 // ==================== 项目列表视图 ====================
+
+// 只读权限位兜底(my_perms 缺失时按只读处理, 防止越权按钮渲染)
+const READ_ONLY_PERMS: ProjectMyPerms = {
+  read: true, upload_doc: false, update: false, delete: false, manage_member: false,
+}
 
 // 分页参数
 const pagination = ref<PaginationParams>({ page: 1, size: 12 })
@@ -426,6 +440,10 @@ const currentProject = ref<Project | null>(null)
 const drawerTitle = computed(() =>
   currentProject.value ? `知识库设置 - ${currentProject.value.name}` : '知识库设置'
 )
+// 当前项目的权限位(v4 5.3: 按位渲染编辑/发布/文档/成员能力)
+const currentPerms = computed<ProjectMyPerms>(
+  () => currentProject.value?.my_perms ?? READ_ONLY_PERMS
+)
 
 // 基本信息编辑表单
 const editFormRef = ref<FormInstance>()
@@ -490,6 +508,8 @@ const allDocs = ref<DocRow[]>([])
 const projectOptions = ref<Project[]>([])
 const docLoading = ref(false)
 const docPagination = ref<PaginationParams>({ page: 1, size: 20 })
+// 项目权限位映射(文档视图按所属项目权限渲染删除按钮)
+const projPermsMap = ref<Map<string, ProjectMyPerms>>(new Map())
 
 // 加载文档列表(项目下拉数据 + 各项目文档汇总)
 const loadDocList = async () => {
@@ -497,6 +517,7 @@ const loadDocList = async () => {
     docLoading.value = true
     const projs = await listRagProjects({ page: 1, size: 200 })
     projectOptions.value = projs.items
+    projPermsMap.value = new Map(projs.items.map((p) => [p.id, p.my_perms ?? READ_ONLY_PERMS]))
     // 动态填充"所属项目"下拉选项
     docSearchFields[1].options = projs.items.map((p) => ({ label: p.name, value: p.id }))
     const nameMap = new Map(projs.items.map((p) => [p.id, p.name]))

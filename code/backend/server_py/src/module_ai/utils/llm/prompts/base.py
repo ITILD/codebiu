@@ -1,7 +1,7 @@
 from langchain_core.messages import HumanMessage, SystemMessage
 
 
-class LLMBasePrompt:
+class LLMPrompt:
     """LLM基础服务提示词构造器"""
 
     async def get_prompt_format_check(self):

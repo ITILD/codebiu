@@ -3,10 +3,10 @@ from module_rag.do.project_document_chunk import (
     SearchRequest,
     ProjectDocumentChunkSearchResponse,
 )
-from module_ai.utils.llm.do.llm_type import ModelType
+from module_ai.utils.llm.types import ModelType
 from common.utils.fastapiEX.exceptions import NotFoundError
 from module_rag.service.user_model import UserModelService
-from module_ai.service.llm_base import LLMBaseService
+from module_ai.service.llm import LLMService
 import logging
 logger = logging.getLogger(__name__)
 
@@ -162,7 +162,7 @@ class ProjectDocumentChunkService:
         :raises ValueError: 模型不存在/加载失败/无生效默认模型
         """
         from module_ai.dao.model_config import ModelConfigDao
-        from module_ai.service.llm_base import LLMBaseService
+        from module_ai.service.llm import LLMService
         from module_rag.dao.project_document import ProjectDocumentDao
         from module_rag.do.project_document_chunk import ProjectDocumentChunk
         from common.config.db import db_vector
@@ -178,7 +178,7 @@ class ProjectDocumentChunkService:
         model_config = await ModelConfigDao().get(model_id)
         if model_config is None:
             raise NotFoundError(f"模型配置不存在: {model_id}")
-        embeddings_llm = await LLMBaseService().get_llm(model_id, False)
+        embeddings_llm = await LLMService().get_llm(model_id, False)
         if embeddings_llm is None:
             raise ValueError(f"加载向量化模型失败: {model_config.model}")
         model_label = model_config.display_name or model_config.model

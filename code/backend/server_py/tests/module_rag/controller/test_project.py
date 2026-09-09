@@ -131,3 +131,43 @@ async def test_project_update_invalid_category(client: httpx.AsyncClient):
         assert resp.status_code == 400, f"无效分类更新应 400: {resp.text}"
     finally:
         await client.delete(f"{BASE}/{project_id}")
+
+
+async def test_project_my_perms_visibility(client: httpx.AsyncClient, user_client: httpx.AsyncClient):
+    """权限位与可见性(v4 5.1/5.3): 公开库非成员可见且 read=True(档位0+公开只读), 写位全 False;
+    私有库对非成员完全隐身(列表不出现); 管理员创建者权限位全 True"""
+    # 公开库 + 私有库各一个(管理员创建)
+    public_data = _make_project()
+    public_data["is_private"] = False
+    public_id = await _create_project(client, public_data)
+    private_data = _make_project()
+    private_id = await _create_project(client, private_data)
+    try:
+        # 普通用户(非成员)按名称过滤列表
+        resp = await user_client.get(
+            f"{BASE}/list", params={"page": 1, "size": 50, "name": public_data["name"]}
+        )
+        assert resp.status_code == 200, resp.text
+        items = resp.json()["items"]
+        target = next((i for i in items if i["id"] == public_id), None)
+        assert target is not None, "公开库应出现在非成员用户的列表中"
+        perms = target["my_perms"]
+        assert perms is not None, "列表项应携带 my_perms 权限位"
+        assert perms["read"] is True, "公开库非成员应可只读"
+        assert perms["delete"] is False and perms["manage_member"] is False, "非成员不应有管理位"
+
+        # 私有库隐身: 非成员按名称过滤列表不应出现
+        resp = await user_client.get(
+            f"{BASE}/list", params={"page": 1, "size": 50, "name": private_data["name"]}
+        )
+        assert resp.status_code == 200, resp.text
+        assert all(i["id"] != private_id for i in resp.json()["items"]), "私有库对非成员应隐身"
+
+        # 管理员(创建者)查看自己创建的公开库: 权限位全 True
+        resp = await client.get(f"{BASE}/{public_id}")
+        assert resp.status_code == 200, resp.text
+        perms = resp.json()["my_perms"]
+        assert perms is not None and all(perms.values()), f"创建者/管理员权限位应全 True: {perms}"
+    finally:
+        await client.delete(f"{BASE}/{public_id}")
+        await client.delete(f"{BASE}/{private_id}")

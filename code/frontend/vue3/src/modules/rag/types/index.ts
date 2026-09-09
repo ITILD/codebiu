@@ -18,6 +18,20 @@ enum RagRole {
 
 // ---------------- 项目 ----------------
 
+// 当前用户对单个知识库的操作权限位(后端 my_perms, 前端按位渲染按钮)
+interface ProjectMyPerms {
+  /** 可读(档位>=1) */
+  read: boolean;
+  /** 可上传文档(档位>=2) */
+  upload_doc: boolean;
+  /** 可编辑项目信息(档位>=2) */
+  update: boolean;
+  /** 可删除项目(档位>=3) */
+  delete: boolean;
+  /** 可管理成员/部门授权/发布(档位>=3) */
+  manage_member: boolean;
+}
+
 interface Project {
   id: string;
   name: string;
@@ -27,6 +41,8 @@ interface Project {
   created_by: string;
   created_at: string;
   updated_at: string;
+  /** 当前用户操作权限位(列表/详情接口返回; 全局管理员全 true) */
+  my_perms?: ProjectMyPerms | null;
 }
 
 interface ProjectCreate {
@@ -236,6 +252,7 @@ export type {
   Project,
   ProjectCreate,
   ProjectUpdate,
+  ProjectMyPerms,
   ProjectDocument,
   ProjectDocumentUpdate,
   IngestStepProgress,

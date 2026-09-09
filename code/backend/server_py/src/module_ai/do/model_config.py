@@ -3,7 +3,7 @@ from sqlalchemy import Enum as SAEnum
 from uuid import uuid4
 from datetime import datetime, timezone
 from enum import StrEnum
-from module_ai.utils.llm.do.llm_type import ModelType, ModelServerType
+from module_ai.utils.llm.types import ModelType, ModelServerType
 from pydantic import model_validator
 
 

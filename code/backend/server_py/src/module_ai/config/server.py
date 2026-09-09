@@ -13,7 +13,7 @@ from module_ai.do.model_config import (
     ModelScope,
 )
 from module_ai.service.model_config import ModelConfigService
-from module_ai.utils.llm.do.llm_type import ModelType
+from module_ai.utils.llm.types import ModelType
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +104,12 @@ def _load_default_models_config() -> dict[str, dict]:
     if "default_models" not in conf or not conf.default_models:
         return {}
     try:
-        return {str(k).lower(): dict(v) for k, v in conf.default_models.items()}
+        # 空节(如 rerank: 后未写内容解析为 None)跳过, 避免一个无效节拖垮整个默认模型 seed
+        return {
+            str(k).lower(): dict(v)
+            for k, v in conf.default_models.items()
+            if v is not None
+        }
     except Exception as e:
         logger.error(f"读取 default_models 配置失败: {e}")
         return {}

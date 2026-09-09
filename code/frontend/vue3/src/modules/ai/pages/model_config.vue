@@ -45,7 +45,8 @@
       </el-table-column>
       <el-table-column label="URL" min-width="160" show-overflow-tooltip>
         <template #default="{ row }">
-          {{ row.url || (canManage(row) ? '-' : '仅管理员可见') }}
+          <!-- v4 4.2: url/api_key 仅本人私有模型保留明文, 其余(含管理员看公共/部门模型)一律脱敏 -->
+          {{ row.url || '已脱敏' }}
         </template>
       </el-table-column>
       <el-table-column label="归属" min-width="90" align="center">
@@ -312,9 +313,12 @@ const pollRevectorizeStatus = (taskId: string) => {
   revTimer = setTimeout(async () => {
     try {
       const status = await getRevectorizeStatus(taskId)
-      if (status.state === 'PROGRESS' && status.meta) {
+      if (status.state === 'PROGRESS') {
         revectorizing.value = true
-        ElMessage.info(`重向量化进度: ${status.meta.processed}/${status.meta.total} 文档, 已处理 ${status.meta.chunks} 块`)
+        // meta 偶发缺失时也要继续轮询, 避免进度链路卡死(按钮永远禁用)
+        if (status.meta) {
+          ElMessage.info(`重向量化进度: ${status.meta.processed}/${status.meta.total} 文档, 已处理 ${status.meta.chunks} 块`)
+        }
         pollRevectorizeStatus(taskId)
       }
       else if (status.state === 'SUCCESS') {

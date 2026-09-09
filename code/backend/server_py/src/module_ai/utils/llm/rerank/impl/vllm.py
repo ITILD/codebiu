@@ -3,13 +3,13 @@ import logging
 import aiohttp
 import requests
 
-from module_ai.utils.llm.do.rerank_response import RerankResult
-from module_ai.utils.llm.server.rerank.interface.rerank import Rerank
+from module_ai.utils.llm.rerank.interface import Rerank
+from module_ai.utils.llm.rerank.schemas import RerankResult
 
 logger = logging.getLogger(__name__)
 
 # 具体实现类
-class OpenaiRerank(Rerank):
+class VllmRerank(Rerank):
     def __init__(
         self,
         model: str = "/models/jina-reranker-v3",
@@ -174,16 +174,11 @@ if __name__ == "__main__":
 
     async def main():
         query = "颜色是哪个？"
-        
+
         documents_with_metadata = [
             {
                 "chunk_id": "c_001",
                 "content": "你好",
-                "metadata": {"page": 5, "source": "book.pdf"}
-            },
-            {
-                "chunk_id": "c_001",
-                "content": "红",
                 "metadata": {"page": 5, "source": "book.pdf"}
             },
             {
@@ -198,17 +193,16 @@ if __name__ == "__main__":
             },
         ]
 
-        # 实例化具体实现类
-        rerank_model = OpenaiRerank()
-        
+        rerank_model = VllmRerank()
+
         print("开始对字典列表进行 Rerank (保留原始信息)...")
         reranked_results = await rerank_model.arerank_dict_list(
-            query=query, 
-            doc_list=documents_with_metadata, 
-            sort_key="content", 
+            query=query,
+            doc_list=documents_with_metadata,
+            sort_key="content",
             top_n=3
         )
-        
+
         print("\n重排序结果 (包含完整原始 node 和 relevance_score):")
         for res in reranked_results:
             print(f"分数: {res['relevance_score']:.4f} | 原始 chunk_id: {res['node']['chunk_id']} | 内容: {res['node']['content'][:30]}...")

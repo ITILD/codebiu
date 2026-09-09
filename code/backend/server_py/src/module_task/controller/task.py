@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, Query, status
 
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
-from common.utils.fastapiEX.exceptions import NotFoundError
 from module_authorization.dependencies.permission import require_permission
 from module_task.config.server import module_app
 from module_task.dependencies.task import get_task_queue_service
@@ -71,11 +70,8 @@ async def get_task(
     service: TaskQueueService = Depends(get_task_queue_service),
 ) -> TaskQueueResponse:
     """任务详情(含 Celery 侧状态/百分比对照)"""
-    try:
-        return await service.get(task_id)
-    except ValueError as e:
-        # 任务不存在 → 404
-        raise NotFoundError(str(e))
+    # 任务不存在 → 404(service 层 NotFoundError 直接映射)
+    return await service.get(task_id)
 
 
 @router.post("/{task_id}/sync", summary="从Celery同步任务状态", response_model=TaskQueueResponse)
@@ -87,11 +83,7 @@ async def sync_task(
     """
     以 Celery 结果后端为准校正数据库状态(worker 回写中断时使用)
     """
-    try:
-        return await service.sync_from_celery(task_id)
-    except ValueError as e:
-        # 任务不存在 → 404
-        raise NotFoundError(str(e))
+    return await service.sync_from_celery(task_id)
 
 
 @router.post("/{task_id}/cancel", summary="取消任务", status_code=status.HTTP_204_NO_CONTENT)
@@ -103,7 +95,7 @@ async def cancel_task(
     """
     取消排队/执行中的任务(Celery revoke + 数据库置 cancelled)
     """
-    # 任务不存在 → 404(依赖 service 层 TaskNotFoundError 的异常继承关系), 状态冲突 ValueError → 400(全局处理器)
+    # 任务不存在 → 404(service 层 TaskNotFoundError), 状态冲突 → 400(service 层 BusinessError)
     await service.cancel(task_id)
 
 
@@ -116,7 +108,7 @@ async def retry_task(
     """
     重试已结束的任务(重置进度后重新投递队列)
     """
-    # 任务不存在 → 404(依赖 service 层 TaskNotFoundError 的异常继承关系), 状态冲突 ValueError → 400(全局处理器)
+    # 任务不存在 → 404(service 层 TaskNotFoundError), 状态冲突 → 400(service 层 BusinessError)
     return await service.retry(task_id)
 
 
@@ -127,11 +119,8 @@ async def delete_task(
     service: TaskQueueService = Depends(get_task_queue_service),
 ) -> None:
     """删除任务记录(任何状态均可删除)"""
-    try:
-        await service.delete(task_id)
-    except ValueError as e:
-        # 任务不存在 → 404
-        raise NotFoundError(str(e))
+    # 任务不存在 → 404(dao 层 NotFoundError 直接映射)
+    await service.delete(task_id)
 
 
 module_app.include_router(router, prefix="/tasks", tags=["任务队列"])
