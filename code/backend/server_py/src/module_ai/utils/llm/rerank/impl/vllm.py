@@ -15,10 +15,12 @@ class VllmRerank(Rerank):
         model: str = "/models/jina-reranker-v3",
         base_url: str = "http://192.168.1.252:10002/v1/rerank",
         score_threshold: float | None = None,
+        api_key: str | None = None,
     ):
         self.model = model
         self.base_url = base_url.strip()  # 防止 URL 末尾有空格
         self.score_threshold = score_threshold
+        self.api_key = api_key  # 可选: 服务端开启鉴权时携带 Bearer token
 
     def _is_jina_model(self) -> bool:
         """判断是否为 jina-reranker 模型"""
@@ -161,6 +163,9 @@ class VllmRerank(Rerank):
             payload["parameters"] = parameters
             
         headers = {"Content-Type": "application/json"}
+        # 服务端开启鉴权时携带 Bearer token(api_key 未配置则不加)
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
         return payload, headers
 
     def _result_to_list(self, result: dict) -> list:

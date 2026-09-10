@@ -1,4 +1,7 @@
 # self
+import asyncio
+from datetime import datetime, timezone
+
 from common.utils.db.schema.pagination import InfiniteScrollParams, InfiniteScrollResponse, PaginationParams, PaginationResponse
 from module_ai.do.model_config import (
     ModelConfig,
@@ -7,6 +10,7 @@ from module_ai.do.model_config import (
     ModelScope,
 )
 from module_ai.dao.model_config import ModelConfigDao
+from module_ai.utils.llm.types import ModelType
 import logging
 
 logger = logging.getLogger(__name__)
@@ -21,6 +25,8 @@ class ModelConfigService:
     def __init__(self, model_config_dao: ModelConfigDao =None):
         """依赖注入构造器:初始化所需的数据访问对象"""
         self.model_config_dao = model_config_dao or ModelConfigDao()
+        # 后台校验任务引用集(防止任务被 GC, 完成后自动移除)
+        self._check_tasks: set[asyncio.Task] = set()
 
     @staticmethod
     def _validate_url(url: str | None) -> None:
@@ -102,6 +108,8 @@ class ModelConfigService:
             await self._ensure_default_unique(model_config.model_type.value)
         model_id = await self.model_config_dao.add(model_config)
         self._log_write_audit("create", model_config)
+        # 写库后后台自动校验并回写结果(check_valid/check_format/checked_at)
+        self._schedule_check(model_id)
         return model_id
 
     async def delete(self, id: str):
@@ -157,8 +165,46 @@ class ModelConfigService:
         if update_data:
             normalized = ModelConfigUpdate(**update_data)
             await self.model_config_dao.update(model_config_id, normalized)
+            # 配置变更后重新校验并回写结果
+            self._schedule_check(model_config_id)
         # 审计: 以更新后完整记录为准
         self._log_write_audit("update", await self.model_config_dao.get(model_config_id))
+
+    def _schedule_check(self, model_config_id: str) -> None:
+        """调度后台连通性校验任务(不阻塞保存接口, 结果回写后前端展示能力标签)"""
+        task = asyncio.create_task(self._check_and_persist(model_config_id))
+        # 持有任务引用防止被 GC, 完成后自动移除
+        self._check_tasks.add(task)
+        task.add_done_callback(self._check_tasks.discard)
+
+    async def _check_and_persist(self, model_config_id: str) -> None:
+        """后台校验模型配置并把结果回写(check_valid/check_format/checked_at)"""
+        try:
+            config = await self.model_config_dao.get(model_config_id)
+            if config is None:
+                return
+            # rerank/ocr/asr 等类型暂无自动校验, 结果保持为空
+            if config.model_type not in (ModelType.CHAT, ModelType.EMBEDDINGS):
+                return
+            # 延迟导入避免与 LLMService 循环依赖
+            from module_ai.service.llm import LLMService
+
+            result = await LLMService().check_config(config)
+            await self.model_config_dao.update(
+                model_config_id,
+                ModelConfigUpdate(
+                    check_valid=result.is_valid,
+                    check_format=(
+                        result.is_format if config.model_type == ModelType.CHAT else None
+                    ),
+                    checked_at=datetime.now(timezone.utc),
+                ),
+            )
+            logger.info(
+                f"模型配置后台校验完成: {config.model} valid={result.is_valid} format={result.is_format}"
+            )
+        except Exception as e:
+            logger.warning(f"模型配置后台校验失败[{model_config_id}]: {e}")
 
     async def _becomes_public_default(self, model_config_id: str) -> bool:
         """更新未显式改 scope 时, 判断是否仍为 public 且当前即为默认"""

@@ -107,6 +107,14 @@ class ModelConfig(ModelConfigBase, table=True):
         index=True,
         description="唯一标识符",
     )
+    # 最近校验结果(创建/更新后由后台自动校验回写, 前端展示能力标签)
+    check_valid: bool | None = Field(None, description="最近一次校验是否可用")
+    check_format: bool | None = Field(None, description="最近一次校验是否支持格式化输出(仅chat类)")
+    checked_at: datetime | None = Field(
+        None,
+        sa_column=Column(DateTime(timezone=True), nullable=True),
+        description="最近一次校验时间",
+    )
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True)),
@@ -170,3 +178,8 @@ class ModelConfigUpdate(SQLModel):
     no_think: bool | None = None
     # 其余配置统一放在json字段中,使用时遍历
     extra: dict | None = None
+
+    # 最近校验结果(仅由后台自动校验回写, 前端不直接提交)
+    check_valid: bool | None = None
+    check_format: bool | None = None
+    checked_at: datetime | None = None

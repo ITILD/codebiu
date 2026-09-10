@@ -140,6 +140,12 @@ interface ModelConfig extends ModelConfigBase {
   user_id: string;
   created_at: string; // ISO格式日期字符串
   updated_at: string; // ISO格式日期字符串
+  /** 最近一次校验是否可用(后台自动校验回写, null=未校验) */
+  check_valid?: boolean | null;
+  /** 最近一次校验是否支持格式化输出(仅chat类, null=未校验/不适用) */
+  check_format?: boolean | null;
+  /** 最近一次校验时间 */
+  checked_at?: string | null;
 }
 
 interface ModelConfigCreate extends ModelConfigBase {

@@ -4,7 +4,7 @@
     - 按模型配置加载 LangChain 模型实例(构建统一走 utils.llm.factory 工厂, 本服务不重复实现)
     - chat 对话(流式/非流式) 与 embeddings 调用
     - 模型配置连通性/格式化能力校验
-    - 模型实例缓存管理(按 model_id+streaming 缓存, 配置变更由调用方 clear_cache)
+    - 模型实例缓存管理(按 配置ID+updated_at+streaming 缓存, 配置变更自动失效旧实例)
 """
 import logging
 
@@ -131,16 +131,28 @@ class LLMService:
         Returns:
             模型实例，配置不存在时返回 None
         """
-        # 检查缓存
-        cache_key = f"{model_id}_{streaming}"
-        if cache_key in self._model_cache:
-            return self._model_cache[cache_key]
-
-        # 获取模型配置
+        # 先获取模型配置, 用 updated_at 参与缓存键, 保证配置变更后自动失效旧实例
         config = await self.model_config_service.get(model_id)
         if not config:
             logger.error(f"模型配置不存在: {model_id}")
             return None
+        # 停用模型不可被使用(前端灰色显示, 调用侧同样拦截)
+        if not config.is_active:
+            logger.warning(f"模型已停用, 拒绝构建实例: {model_id}")
+            return None
+
+        # 检查缓存
+        cache_key = f"{config.id}_{config.updated_at}_{streaming}"
+        if cache_key in self._model_cache:
+            return self._model_cache[cache_key]
+
+        # 配置已变更: 淘汰该模型旧版本的缓存实例(兼容按 id 或模型名称两种查找方式)
+        stale_prefixes = (f"{model_id}_", f"{config.id}_", f"{config.model}_")
+        stale_keys = [
+            key for key in self._model_cache if key.startswith(stale_prefixes)
+        ]
+        for key in stale_keys:
+            del self._model_cache[key]
 
         # 经模型工厂构建实例并缓存
         llm_chain = build_model(config, streaming)
@@ -151,6 +163,8 @@ class LLMService:
         """聊天完成接口"""
         # 获取LLM处理链
         llm_chain: BaseChatModel = await self.get_llm(request.model_id, streaming=request.streaming)
+        if llm_chain is None:
+            raise ValueError(f"模型不可用: {request.model_id}")
         # request.messages 是langchain类型
         try:
             # 调用模型
@@ -167,14 +181,13 @@ class LLMService:
         清除模型缓存
 
         Args:
-            model_id: 模型配置ID或模型标识名称，如果为None则清除所有缓存
+            model_id: 模型配置ID，如果为None则清除所有缓存
         """
         if model_id:
-            # 清除指定模型的缓存
-            keys_to_remove = []
-            for key in self._model_cache.keys():
-                if key.startswith(model_id):
-                    keys_to_remove.append(key)
+            # 清除指定模型的缓存(带 _ 分隔, 防止 id 前缀相近的模型被误清)
+            keys_to_remove = [
+                key for key in self._model_cache if key.startswith(f"{model_id}_")
+            ]
             for key in keys_to_remove:
                 del self._model_cache[key]
         else:

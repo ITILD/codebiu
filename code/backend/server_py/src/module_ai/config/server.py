@@ -55,6 +55,19 @@ async def ensure_model_config_scope_columns():
             await conn.execute(
                 text("ALTER TABLE model_config ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT TRUE")
             )
+        # 最近校验结果列(后台自动校验回写, 前端能力标签展示)
+        if "check_valid" not in cols:
+            await conn.execute(
+                text("ALTER TABLE model_config ADD COLUMN check_valid BOOLEAN NULL")
+            )
+        if "check_format" not in cols:
+            await conn.execute(
+                text("ALTER TABLE model_config ADD COLUMN check_format BOOLEAN NULL")
+            )
+        if "checked_at" not in cols:
+            await conn.execute(
+                text("ALTER TABLE model_config ADD COLUMN checked_at TIMESTAMP WITH TIME ZONE NULL")
+            )
         # 枚举列类型统一为 VARCHAR(存量列可能为 PG enum, 与 ORM 的 String 映射不一致会导致
         # "operator does not exist: modeltype = character varying" 比较运算符错误)
         col_types = {

@@ -36,6 +36,10 @@
               <span>{{ modelMainLabel(row) }}</span>
               <el-tag v-if="row.is_default" type="warning" size="small">默认</el-tag>
               <el-tag v-if="row.is_active === false" type="info" size="small">不生效</el-tag>
+              <!-- 能力标签: 后台自动校验回写的结果(null=尚未校验) -->
+              <el-tag v-if="row.check_valid === true" type="success" size="small">校验通过</el-tag>
+              <el-tag v-else-if="row.check_valid === false" type="danger" size="small">校验失败</el-tag>
+              <el-tag v-if="row.check_format === true" type="primary" size="small">格式化</el-tag>
             </div>
             <div v-if="row.display_name && row.display_name !== row.model" text-xs text-note-sub>
               {{ row.model }}

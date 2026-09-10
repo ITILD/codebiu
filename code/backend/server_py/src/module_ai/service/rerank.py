@@ -46,6 +46,7 @@ def _build_reranker(config: ModelConfig) -> Rerank:
             model=config.model,
             base_url=config.url or "http://localhost:10002/v1/rerank",
             score_threshold=extra.get("score_threshold"),
+            api_key=config.api_key,
         )
     raise BusinessError(f"服务方案 {config.server_type} 暂不支持重排序")
 

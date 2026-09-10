@@ -47,6 +47,9 @@ class UserModelService:
         config = await self.llm_service.model_config_service.get(model_id)
         if config is None:
             raise NotFoundError(f"模型配置不存在: {model_id}")
+        # 停用模型视为绑定失效(触发回退链, 与前端灰色不可选语义一致)
+        if not config.is_active:
+            raise ValueError(f"模型配置已停用: {model_id}")
         # 公共模型放行
         if config.scope == ModelScope.PUBLIC:
             return
