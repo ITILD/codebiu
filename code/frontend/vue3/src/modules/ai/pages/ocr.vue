@@ -60,6 +60,8 @@
             alt="目标图片"
             max-w-full
             hidden
+            loading="lazy"
+            decoding="async"
             @load="onImageLoad"
           />
           <canvas ref="canvasRef" max-w-full></canvas>

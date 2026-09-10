@@ -1,13 +1,99 @@
 <!DOCTYPE html>
-<html lang="">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8">
     <link rel="icon" href="/favicon.svg">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vite App</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="description" content="像打理一页自然笔记一样，安放你的数据与灵感">
+    <meta name="theme-color" content="#fafaf5" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#0d1711" media="prefers-color-scheme: dark)">
+    <title>数据小园 · 自然笔记</title>
+    <style>
+      /* 首屏启动画面: 与正文同纸色, Vue 挂载后自动替换, 消除白屏与布局抖动 */
+      html, body { margin: 0; background: #fafaf5; }
+      @media (prefers-color-scheme: dark) {
+        html, body { background: #0d1711; }
+      }
+      #boot-splash {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        background: #fafaf5;
+        transition: opacity .3s ease;
+      }
+      @media (prefers-color-scheme: dark) {
+        #boot-splash { background: #0d1711; }
+      }
+      #boot-splash .boot-leaf {
+        color: #6b9e78;
+        animation: boot-breathe 2.2s ease-in-out infinite;
+        transform-origin: 50% 90%;
+      }
+      @media (prefers-color-scheme: dark) {
+        #boot-splash .boot-leaf { color: #6cbf8f; }
+      }
+      #boot-splash .boot-title {
+        font-size: 15px;
+        letter-spacing: .32em;
+        text-indent: .32em;
+        color: #5a6b5f;
+        font-family: "LXGW WenKai", "Kaiti SC", STKaiti, KaiTi, serif;
+      }
+      @media (prefers-color-scheme: dark) {
+        #boot-splash .boot-title { color: #a6c0b1; }
+      }
+      #boot-splash .boot-bar {
+        width: 120px;
+        height: 3px;
+        border-radius: 999px;
+        overflow: hidden;
+        background: rgba(107, 158, 120, .18);
+      }
+      #boot-splash .boot-bar::after {
+        content: "";
+        display: block;
+        width: 40%;
+        height: 100%;
+        border-radius: inherit;
+        background: #6b9e78;
+        animation: boot-slide 1.3s ease-in-out infinite;
+      }
+      @keyframes boot-breathe {
+        0%, 100% { transform: scale(1) rotate(-2deg); opacity: .85; }
+        50% { transform: scale(1.08) rotate(2deg); opacity: 1; }
+      }
+      @keyframes boot-slide {
+        0% { transform: translateX(-110%); }
+        100% { transform: translateX(260%); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #boot-splash .boot-leaf,
+        #boot-splash .boot-bar::after { animation: none; }
+      }
+    </style>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <div id="boot-splash" aria-hidden="true">
+        <svg class="boot-leaf" width="46" height="46" viewBox="0 0 24 24" fill="none">
+          <path d="M5 19C5 12 9.5 5.5 19 5c.5 9.5-5 14-12 14Zm0 0c2.5-4.5 6-7.5 10-9.5"
+            stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div class="boot-title">数据小园</div>
+        <div class="boot-bar"></div>
+      </div>
+    </div>
+    <script>
+      // 兜底: Vue 挂载时会清掉 #app 内的启动画面; 若 8 秒后仍在(入口异常), 主动移除避免永久遮挡
+      setTimeout(function () {
+        var s = document.getElementById('boot-splash');
+        if (s) s.remove();
+      }, 8000);
+    </script>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -8,11 +8,13 @@
       @mouseleave="hide"
     >
       <!-- 底层: 去色图 -->
-      <img :src="mainPhoto" alt="灰度底图" class="absolute inset-0 h-full w-full object-cover grayscale" />
+      <img :src="mainPhoto" alt="灰度底图" loading="lazy" decoding="async" class="absolute inset-0 h-full w-full object-cover grayscale" />
       <!-- 顶层: 彩色图, 用 mask 只露出圆形区域 -->
       <img
         :src="mainPhoto"
         alt="彩色透镜"
+        loading="lazy"
+        decoding="async"
         class="absolute inset-0 h-full w-full object-cover"
         :style="lensStyle"
         :class="{ 'opacity-0': !inside }"

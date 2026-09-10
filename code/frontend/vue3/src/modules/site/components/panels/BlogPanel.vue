@@ -12,8 +12,15 @@
       </template>
     </TableSearchBar>
 
+    <!-- 首轮加载: 表格骨架(搜索/刷新仍用表格自身 loading 遮罩) -->
+    <NoteSkeleton
+      v-if="loading && tableData.length === 0"
+      variant="table"
+      :rows="8"
+      class="rounded-xl border border-note bg-note-card shadow-note px-2 py-3"
+    />
     <!-- 文章表格 -->
-    <el-table :data="tableData" v-loading="loading" stripe w-full>
+    <el-table v-else :data="tableData" v-loading="loading" stripe w-full>
       <el-table-column prop="title" label="标题" min-width="200" show-overflow-tooltip>
         <template #default="{ row }">
           <el-link type="primary" @click="goRead(row)">{{ row.title }}</el-link>

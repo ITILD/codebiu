@@ -131,6 +131,44 @@ export default defineConfig(
         proxy: proxys
       },
 
+      // 生产构建: 体积/缓存优化
+      build: {
+        // 现代浏览器目标: 减少语法降级与 helper 体积
+        target: 'es2020',
+        cssCodeSplit: true,
+        // 无需 gzip 体积统计, 加快构建
+        reportCompressedSize: false,
+        // 重型库已拆为独立 chunk(见下), 调高阈值避免无谓告警
+        chunkSizeWarningLimit: 1200,
+        rollupOptions: {
+          output: {
+            // 分包策略: 变更频率低的大库独立成块, 利于长效缓存;
+            // 页面本身已由 unplugin-vue-router 懒加载, 此处只切第三方依赖
+            manualChunks(id: string) {
+              if (!id.includes('node_modules')) return
+              // Vue 全家桶(最高频, 单独缓存)
+              if (/[\\/]node_modules[\\/](@vue|vue|vue-router|pinia|vue-i18n|@vueuse)[\\/]/.test(id)) {
+                return 'vue-vendor'
+              }
+              if (id.includes('element-plus') || id.includes('@element-plus')) {
+                return 'element-plus'
+              }
+              // ECharts 及渲染引擎 zrender(仅小站图表用)
+              if (id.includes('echarts') || id.includes('zrender')) return 'echarts'
+              // Mermaid 及其图形依赖(聊天/导出时动态加载)
+              if (/[\\/]node_modules[\\/](mermaid|cytoscape|d3|d3-[^\\/]+|dagre[^\\/]*|elkjs|roughjs|khroma|@viz-js)[\\/]/.test(id)) {
+                return 'mermaid'
+              }
+              if (id.includes('monaco-editor')) return 'monaco'
+              if (id.includes('babylonjs')) return 'babylon'
+              if (id.includes('katex')) return 'katex'
+              if (id.includes('exceljs')) return 'exceljs'
+              if (id.includes('marked')) return 'markdown'
+            },
+          },
+        },
+      },
+
       // 依赖优化配置
       optimizeDeps: {
         // 显式包含常用依赖，避免运行时动态发现

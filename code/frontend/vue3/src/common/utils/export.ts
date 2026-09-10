@@ -1,8 +1,7 @@
 // src/common/utils/export.ts
 // 消息内容导出工具集: 剪贴板 / 表格导出 Excel / Markdown 导出 Word / PDF / SVG 转 PNG
-import ExcelJS from 'exceljs'
-import { saveAs } from 'file-saver'
-import { marked } from 'marked'
+// 注意: exceljs/file-saver/marked 体积大且仅导出操作使用, 一律在函数内动态 import,
+// 避免本工具被 MermaidBlock 等常用组件静态引用时把它们打进聊天/首屏相关 chunk
 
 /* ============ 剪贴板 ============ */
 
@@ -68,6 +67,11 @@ export async function exportTableToExcel(
   tableEl: HTMLTableElement,
   fileName = 'table',
 ): Promise<void> {
+  // 按需加载 ExcelJS(约数百 KB) 与 file-saver
+  const [{ default: ExcelJS }, { saveAs }] = await Promise.all([
+    import('exceljs'),
+    import('file-saver'),
+  ])
   const workbook = new ExcelJS.Workbook()
   const worksheet = workbook.addWorksheet('Sheet1')
 
@@ -361,6 +365,8 @@ export async function exportMarkdownToDocx(
   const images = await renderMermaidBlocksToImages(markdownText, 'MERMAID_DOCX')
   const processedMd = replaceMermaidWithPlaceholders(markdownText, 'MERMAID_DOCX')
 
+  // marked 仅导出时加载, 不进入日常渲染包
+  const { marked } = await import('marked')
   let htmlBody = marked.parse(processedMd, { async: false }) as string
   htmlBody = cleanupHtmlForWord(htmlBody)
   htmlBody = applyMermaidImages(htmlBody, images)
@@ -447,6 +453,8 @@ export async function exportMarkdownToPdf(
   const images = await renderMermaidBlocksToImages(markdownText, 'MERMAID_PDF')
   const processedMd = replaceMermaidWithPlaceholders(markdownText, 'MERMAID_PDF')
 
+  // marked 仅导出时加载, 不进入日常渲染包
+  const { marked } = await import('marked')
   let htmlBody = marked.parse(processedMd, { async: false }) as string
   htmlBody = cleanupHtmlForWord(htmlBody)
   htmlBody = applyMermaidImages(htmlBody, images)

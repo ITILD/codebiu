@@ -48,12 +48,23 @@
             />
           </div>
 
-          <div v-loading="loading" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <!-- 首屏加载: 与卡片流同网格的骨架, 避免遮罩闪烁与布局抖动 -->
+          <div
+            v-if="loading && posts.length === 0"
+            class="grid grid-cols-1 md:grid-cols-2 gap-3"
+            aria-busy="true"
+            aria-label="文章加载中"
+          >
+            <NoteSkeleton v-for="i in 6" :key="i" variant="post" />
+          </div>
+
+          <!-- 搜索/翻页时保留已有卡片, 仅叠加轻量 loading -->
+          <div v-else v-loading="loading" class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <button
               v-for="post in posts"
               :key="post.id"
               type="button"
-              class="rounded-xl border border-note bg-note-card shadow-note p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-md"
+              class="note-glow-hover rounded-xl border border-note bg-note-card shadow-note p-4 text-left hover:-translate-y-0.5"
               @click="openRead(post)"
             >
               <div class="flex items-center gap-2">

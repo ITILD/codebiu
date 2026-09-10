@@ -69,6 +69,26 @@ body,
     /* 滚动条 */
     --note-scrollbar: rgba(107, 158, 120, 0.30);
     --note-scrollbar-hover: rgba(107, 158, 120, 0.50);
+
+    /* 柔边光晕: 用淡色差/光晕替代生硬描边 */
+    --note-glow: rgba(107, 158, 120, 0.22);
+    --note-edge-soft: rgba(107, 158, 120, 0.16);
+
+    /* 小池 / 枝叶点缀色(首页诗意场景, 亮暗两版) */
+    --note-water: #cfe4dd;        /* 水面亮色 */
+    --note-water-deep: #a4c9bd;   /* 深水色 */
+    --note-water-line: rgba(85, 127, 97, 0.38);  /* 水纹线 */
+    --note-lotus: #e9c3bb;        /* 荷花瓣 */
+    --note-lotus-core: #c39b57;   /* 花蕊金 */
+    --note-seal: #ad563e;         /* 朱砂闲章 */
+
+    /* 页面底纸颗粒: 纸纤维(低频拉丝) + 细颗粒, 纯灰噪声不脏纸面 */
+    --note-body-grain:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.02 0.4' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E"),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+
+    /* 纸面顶盖颗粒(garden PaperCard 配方: 供 overlay 混合的中性噪声) */
+    --note-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.02 0.4' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
 }
 
 /* 暗色模式: 墨绿基调(深墨绿底 + 青叶绿强调, 沉稳耐看) */
@@ -120,13 +140,87 @@ html.dark {
 
     --note-scrollbar: rgba(140, 190, 160, 0.25);
     --note-scrollbar-hover: rgba(140, 190, 160, 0.45);
+
+    /* 柔边光晕(暗色: 降低亮度防过曝) */
+    --note-glow: rgba(108, 191, 143, 0.18);
+    --note-edge-soft: rgba(108, 191, 143, 0.14);
+
+    /* 小池 / 枝叶点缀色(暗色: 深青水色 + 收敛的朱红) */
+    --note-water: #23483f;
+    --note-water-deep: #17332d;
+    --note-water-line: rgba(140, 210, 167, 0.34);
+    --note-lotus: #94655f;
+    --note-lotus-core: #c39b57;
+    --note-seal: #c5735c;
+
+    /* 暗底需略强颗粒方可"摸"到纸感 */
+    --note-body-grain:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.02 0.4' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.07'/%3E%3C/svg%3E"),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
 }
 
-/* 纸张底色 + 极淡噪点纹理(苔绿噪点, 亮暗两版皆可读; 固定不随滚动) */
+/* 纸张底色 + 纸纤维/细颗粒双层纹理(亮暗由 --note-body-grain 切换; 固定不随滚动) */
 body {
     background-color: var(--note-paper);
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' fill='%236b9e78' opacity='0.03'/%3E%3C/svg%3E");
+    background-image: var(--note-body-grain);
     background-attachment: fixed;
+}
+
+/* ---- 纸面顶盖(garden PaperCard 配方落地) -----------------------------
+   纸色底层 + ::after 顶盖(中性噪声 + 角落渐晕 + inset 阴影), overlay 混合:
+   暗处更暗、亮处更亮, 纹理同时"印"在内容上; isolation 防止混合泄漏。
+   .paper-grain: 卡片/面板轻档; .paper-sheet: Hero 等大纸片强档。 ---------- */
+.el-card,
+.page-card,
+.paper-grain,
+.paper-sheet {
+    position: relative;
+    isolation: isolate;
+}
+
+.el-card::after,
+.page-card::after,
+.paper-grain::after,
+.paper-sheet::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    /* 顶盖位于内容之上: overlay 混合让纹理"印"进内容; pointer-events 放行交互 */
+    z-index: 20;
+    border-radius: inherit;
+    pointer-events: none;
+    background-image:
+        var(--note-grain),
+        linear-gradient(to bottom right, hsla(150, 18%, 18%, 0) 46%, hsla(150, 22%, 14%, 0.1) 132%);
+    background-size: 260px 260px, cover;
+    mix-blend-mode: overlay;
+}
+
+/* 轻档: 仅可察觉的纤维与角晕, 不打扰表格/表单阅读 */
+.el-card::after,
+.page-card::after,
+.paper-grain::after {
+    box-shadow: inset 0 0 22px 1px hsla(150, 20%, 18%, 0.07);
+    opacity: 0.45;
+}
+
+/* 强档: 大纸片的蚀刻内影与渐晕 */
+.paper-sheet::after {
+    box-shadow: inset 0 0 46px 8px hsla(150, 20%, 18%, 0.12);
+    opacity: 0.62;
+}
+
+/* 暗色下整体收敛, 避免角落死黑 */
+html.dark .el-card::after,
+html.dark .page-card::after,
+html.dark .paper-grain::after {
+    box-shadow: inset 0 0 22px 1px hsla(150, 30%, 4%, 0.2);
+    opacity: 0.35;
+}
+
+html.dark .paper-sheet::after {
+    box-shadow: inset 0 0 46px 8px hsla(150, 30%, 4%, 0.28);
+    opacity: 0.5;
 }
 
 /* ---- 全局细滚动条: 苔绿半透明, 融入纸面 ---- */
@@ -249,4 +343,160 @@ body {
 /* ---- 按钮: 统一交互动效手感 ---- */
 .el-button {
     transition: all 0.2s ease-out;
+}
+
+/* ============================================
+   全局渲染/滚动/可访问性打磨
+   ============================================ */
+html {
+    /* 锚点/路由跳转时为吸顶栏留出偏移 */
+    scroll-padding-top: 72px;
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    /* 字体渲染: macOS/iOS 抗锯齿, 中文更匀 */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    /* 移动端横向滚动不触发整页手势 */
+    overscroll-behavior-x: none;
+}
+
+/* 点击高亮改苔绿淡色, 而非系统默认蓝块 */
+* {
+    -webkit-tap-highlight-color: rgba(107, 158, 120, 0.15);
+}
+
+/* 文本选区: 淡苔绿, 与主色呼应 */
+::selection {
+    background: rgba(107, 158, 120, 0.24);
+    color: inherit;
+}
+
+html.dark ::selection {
+    background: rgba(108, 191, 143, 0.3);
+}
+
+/* 键盘焦点: 苔绿柔光描边(不影响鼠标点击态) */
+:focus-visible {
+    outline: 2px solid var(--note-border-green);
+    outline-offset: 2px;
+    border-radius: 6px;
+}
+
+/* ============================================
+   骨架屏(接口数据占位, 防 CLS 抖动): 苔绿纸色 shimmer
+   ============================================ */
+.note-sk {
+    position: relative;
+    display: block;
+    border-radius: 8px;
+    overflow: hidden;
+    background-color: var(--note-soft);
+}
+
+.note-sk::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+        90deg,
+        transparent 0,
+        rgba(255, 255, 255, 0.55) 50%,
+        transparent 100%
+    );
+    animation: note-sk-shimmer 1.5s ease-in-out infinite;
+}
+
+html.dark .note-sk {
+    background-color: rgba(140, 190, 160, 0.12);
+}
+
+html.dark .note-sk::after {
+    background: linear-gradient(
+        90deg,
+        transparent 0,
+        rgba(180, 220, 195, 0.08) 50%,
+        transparent 100%
+    );
+}
+
+@keyframes note-sk-shimmer {
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+/* 骨架卡片/图面的圆角档位 */
+.note-sk-card {
+    border-radius: 14px;
+}
+
+.note-sk-circle {
+    border-radius: 50%;
+}
+
+/* ============================================
+   设计感工具: 柔光替边线 / 长列表渲染优化
+   ============================================ */
+
+/* hover 苔绿柔光晕(边框不跳色, 适合卡片/面板) */
+.note-glow-hover {
+    transition: box-shadow 0.28s ease, transform 0.28s ease, border-color 0.28s ease;
+}
+
+.note-glow-hover:hover {
+    border-color: var(--note-edge-soft);
+    box-shadow:
+        0 0 0 3px var(--note-edge-soft),
+        0 14px 34px -16px var(--note-glow);
+}
+
+/* 吸顶栏/页脚: 用淡苔绿内阴影替代生硬 1px 边线 */
+.note-edge-b {
+    box-shadow: inset 0 -1px 0 var(--note-edge-soft),
+        0 6px 18px -14px var(--note-glow);
+}
+
+.note-edge-t {
+    box-shadow: inset 0 1px 0 var(--note-edge-soft);
+}
+
+/* 渐隐分隔线(替代实边/虚线) */
+.note-line-fade {
+    height: 1px;
+    border: 0;
+    background: linear-gradient(
+        to right,
+        transparent,
+        var(--note-edge-soft) 18%,
+        var(--note-edge-soft) 82%,
+        transparent
+    );
+}
+
+/* 屏外长区块跳过渲染(含 intrinsic 尺寸, 出现时不挤动布局) */
+.cv-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 360px;
+}
+
+/* ============================================
+   动效偏好: 用户系统要求减弱动画时, 关闭装饰性运动
+   ============================================ */
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
 }

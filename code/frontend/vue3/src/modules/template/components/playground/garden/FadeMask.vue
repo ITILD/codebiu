@@ -7,6 +7,8 @@
         alt="渐隐融合演示"
         class="h-full w-full object-cover"
         :style="fadeStyle"
+        loading="lazy"
+        decoding="async"
       />
       <span class="pointer-events-none absolute bottom-2 left-3 text-xs text-[var(--el-text-color-secondary)]">图片边缘正在"溶"进纸张</span>
     </div>

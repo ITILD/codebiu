@@ -131,7 +131,8 @@ export default defineConfig({
       'note-sticker-tag': 'inline-flex items-center px-2 py-0.5 rounded-md bg-note-tint text-note-green text-xs border border-dashed border-note-green',
       // 页面根容器(视口内边距, 移动/桌面双档)
       'page-shell': 'p-4 md:p-6 w-full',
-      // 卡片容器(表格/面板通用, 含边框宽度——裸用 border-note 缺宽度时边框不会渲染)
+      // 卡片容器(表格/面板通用, 含边框宽度——裸用 border-note 缺宽度时边框不会渲染;
+      // 纸纤维顶盖由 base.css 的 .page-card::after 统一承载, 与 el-card 质感一致)
       'page-card': 'p-4 rounded-lg bg-note-card border border-note shadow-note',
       // 卡片标题行(标题+右侧操作按钮)
       'card-toolbar': 'mb-3 flex flex-wrap items-center justify-between gap-2',

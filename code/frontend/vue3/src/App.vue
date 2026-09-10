@@ -41,7 +41,7 @@ onMounted(() => {
          注意: bg-note-glass 含方括号任意值, 必须写进 class 属性(attributify 陷阱)
          高度保持 h-14 md:h-16 不变 —— h-app/max-h-app 公式与侧边栏 top-16 依赖它 -->
     <SysHeader
-      class="sticky top-0 z-20 h-14 md:h-16 border-b border-note shrink-0 bg-note-glass backdrop-blur-md"
+      class="note-edge-b sticky top-0 z-20 h-14 md:h-16 shrink-0 bg-note-glass backdrop-blur-md"
     />
 
     <div flex flex-1 items-start>

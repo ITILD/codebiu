@@ -26,7 +26,7 @@ import { User, DocumentCopy, Setting } from '@element-plus/icons-vue'
 const router = useRouter()
 
 const tables = [
-  { path: '/authorization/user', title: '用户数据', desc: '用户信息管理', icon: markRaw(User), color: 'text-blue-500' },
-  { path: '/main/dict', title: '字段表管理', desc: '数据字典管理', icon: markRaw(Setting), color: 'text-purple-500' },
+  { path: '/authorization/user', title: '用户数据', desc: '用户信息管理', icon: markRaw(User), color: 'text-[var(--note-green)]' },
+  { path: '/main/dict', title: '字段表管理', desc: '数据字典管理', icon: markRaw(Setting), color: 'text-[var(--note-lotus-core)]' },
 ]
 </script>

@@ -9,14 +9,18 @@
         v-for="chip in overviewChips"
         :key="chip.key"
         type="button"
-        class="rounded-xl border border-note bg-note-card p-3 text-left shadow-note transition-all hover:-translate-y-0.5 hover:shadow-md md:p-4"
+        class="note-glow-hover rounded-xl border border-note bg-note-card p-3 text-left shadow-note hover:-translate-y-0.5 md:p-4"
         @click="active = chip.key"
       >
         <div class="flex items-center gap-1.5 text-xs text-note-sub">
           <el-icon><component :is="chip.icon" /></el-icon>
           {{ chip.label }}
         </div>
-        <div class="mt-1 truncate text-base font-bold text-note md:text-xl">{{ chip.value }}</div>
+        <!-- 数据未到: 与数值等高骨架条, 避免 '-'→数字 的抖动 -->
+        <div class="mt-1 truncate text-base font-bold text-note md:text-xl">
+          <span v-if="!overviewLoaded" class="note-sk inline-block h-5 w-12 align-middle md:h-6 md:w-14" />
+          <template v-else>{{ chip.value }}</template>
+        </div>
       </button>
     </div>
 
@@ -112,6 +116,8 @@ const postCount = ref<number | null>(null)
 const todoCount = ref<number | null>(null)
 const monthExpense = ref<number | null>(null)
 const todayTodos = ref<Todolist[]>([])
+/** 首轮概览是否全部落地(失败也算落地, 展示 '-' 而非永久骨架) */
+const overviewLoaded = ref(false)
 
 const overviewChips = computed(() => [
   { key: 'blog' as TabKey, icon: markRaw(EditPen), label: '我的文章', value: postCount.value === null ? '-' : `${postCount.value} 篇` },
@@ -127,11 +133,11 @@ const todayTitles = computed(() =>
 /** 拉取概览数据(各业务线独立静默降级, 无权限不互相影响) */
 async function loadOverview() {
   // 文章数
-  listMyPosts({ page: 1, size: 1 })
+  const p1 = listMyPosts({ page: 1, size: 1 })
     .then((resp) => { postCount.value = resp.total })
     .catch(() => { postCount.value = null })
   // 今日待办(今日 0 点 ~ 明日 0 点, 过滤未完成)
-  listMemosByRange(localIsoStartOfDay(new Date()), localIsoEndOfDay(new Date()))
+  const p2 = listMemosByRange(localIsoStartOfDay(new Date()), localIsoEndOfDay(new Date()))
     .then((items) => {
       todayTodos.value = items.filter((t) => t.status === 'todo')
       todoCount.value = todayTodos.value.length
@@ -141,9 +147,12 @@ async function loadOverview() {
       todoCount.value = null
     })
   // 本月支出
-  getLedgerStats(dayjs().format('YYYY-MM'))
+  const p3 = getLedgerStats(dayjs().format('YYYY-MM'))
     .then((stats) => { monthExpense.value = stats.expense_total })
     .catch(() => { monthExpense.value = null })
+  // 首轮全部结束(无论成败)即收骨架; 后续 tab 刷新不再显示骨架
+  await Promise.allSettled([p1, p2, p3])
+  overviewLoaded.value = true
 }
 
 onMounted(loadOverview)

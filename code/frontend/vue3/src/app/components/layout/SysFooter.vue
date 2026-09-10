@@ -1,6 +1,9 @@
 <template>
   <!-- 页脚: 淡绿软底与顶栏呼应, 位于文档末尾随内容增长 -->
-  <footer v-if="sysStyle.headFootShow" border-t border-note bg-note-soft px-4 py-4 lg:px-8>
+  <footer
+    v-if="sysStyle.headFootShow"
+    class="note-edge-t bg-note-soft px-4 py-4 lg:px-8"
+  >
     <!-- 关联账号 本站 备案 -->
     <div flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6>
       <!-- 关联账号 -->
