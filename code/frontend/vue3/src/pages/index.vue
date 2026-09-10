@@ -17,7 +17,8 @@
       <!-- 分形悬枝 + 落叶(右上角, 替换原 emoji 装饰) -->
       <FractalBranch :falling="4" />
 
-      <div relative z-10 max-w-[68%] md:max-w-[64%]>
+      <!-- 注意: 含方括号的任意值类名必须写进 class(attributify 陷阱: 裸属性名含 [] 会使 setAttribute 抛 InvalidCharacterError, 整页渲染失败) -->
+      <div relative z-10 class="max-w-[68%] md:max-w-[64%]">
         <!-- 已登录: 时段问候 + 最近访问(仅前台应用页) -->
         <template v-if="isLoggedIn">
           <h1 flex items-center font-serif text-3xl md:text-5xl font-bold text-note-green mb-3>
