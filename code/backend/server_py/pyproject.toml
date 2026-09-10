@@ -45,7 +45,8 @@ dependencies = [
     "beautifulsoup4>=4.14.3",
     "lxml>=6.0.2",
     # 语音 asr/tts
-    "sherpa-onnx>=1.10.36",
+    # 1.13.8 在镜像源缺少 cp313 linux x86_64 wheel,暂限上界
+    "sherpa-onnx>=1.10.36,<1.13.8",
     "soundfile>=0.13.1",
     # yolo26 视觉模型训练/推理
     "ultralytics>=8.3.0",
@@ -83,7 +84,8 @@ dependencies = [
     # "zh_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/zh_core_web_sm-3.8.0/zh_core_web_sm-3.8.0-py3-none-any.whl",
     "real-ladybug>=0.15.2",
     "fastmcp>=3.3.1",
-    "sherpa-onnx-core>=1.13.4",
+    # 与 sherpa-onnx 版本保持一致,避免原生库 ABI 不匹配
+    "sherpa-onnx-core>=1.13.4,<1.13.8",
     "langchain-huggingface>=1.2.2",
     "sentence-transformers>=5.6.0",
     "peft>=0.19.1",

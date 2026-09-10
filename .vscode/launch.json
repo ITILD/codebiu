@@ -39,6 +39,18 @@
             },
             "justMyCode": false,
             "console": "integratedTerminal"
+        },
+        {
+            // 在集成终端直接运行前端开发服务器（F5 / 运行按钮）
+            "name": "▶ Frontend: pnpm run dev (vue3)",
+            "type": "node-terminal",
+            "request": "launch",
+            "command": "pnpm run dev",
+            "cwd": "${workspaceFolder}/code/frontend/vue3",
+            "env": {
+                // 桌面图标启动 IDE 时 PATH 可能不含 fnm，显式补上其 default 版本目录
+                "PATH": "/home/here/.local/share/fnm/aliases/default/bin:${env:PATH}"
+            }
         }
     ]
 }
