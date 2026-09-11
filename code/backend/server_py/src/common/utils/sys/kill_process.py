@@ -1,3 +1,4 @@
+import re
 import sys
 import platform
 import subprocess
@@ -40,9 +41,27 @@ def find_and_kill_process(port, os_type=platform.system()):
             pids = [line.split()[1] for line in output.splitlines()[1:]]
         except subprocess.CalledProcessError:
             pass
+        # lsof 查不到时用 ss 兜底(lsof 未安装 / 无权限时看不到占用进程)
+        if not pids and os_type == "Linux":
+            try:
+                output = subprocess.check_output(
+                    f"ss -ltnp sport = :{port}", shell=True
+                ).decode()
+                pids = re.findall(r"pid=(\d+)", output)
+            except subprocess.CalledProcessError:
+                pass
         if not pids:
-            log_info = f"port:{port} not used or cant check"
-            logger.warning(log_info)
+            # 区分"端口确实空闲"和"端口被占用但当前用户无权查看/终止(属主非当前用户)"
+            occupied = subprocess.run(
+                f"ss -ltn sport = :{port}", shell=True, capture_output=True
+            ).stdout.decode().count("LISTEN")
+            if occupied:
+                logger.error(
+                    f"port:{port} 被占用, 但占用进程属主不是当前用户(root/容器等), 无权终止, "
+                    f"请用 root 执行: sudo kill $(sudo lsof -ti tcp:{port}) 或停止对应服务"
+                )
+            else:
+                logger.warning(f"port:{port} not used or cant check")
             return
         for pid in pids:
             subprocess.run(f"kill -9 {pid}", shell=True, check=True)
