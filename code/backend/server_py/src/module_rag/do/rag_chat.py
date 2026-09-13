@@ -22,10 +22,7 @@ class StreamEventType(StrEnum):
 
 
 class ConversationSummary(BaseModel):
-    """对话总结结构化输出模型
-
-    用于 LLM 结构化输出，生成对话标题和摘要。
-    """
+    """对话总结结构化输出模型(用于 LLM 结构化输出, 生成对话标题和摘要)"""
 
     title: str = Field(
         default="",
@@ -42,13 +39,6 @@ class SummaryState(MessagesState):
 
     user_id: str
     summary: ConversationSummary | None
-
-
-class ConversationSummary(BaseModel):
-    """对话摘要结构化模型"""
-
-    title: str = Field(default="新对话", description="不超过20字的对话标题")
-    summary: str = Field(default="", description="不超过100字的对话总结")
 
 
 class RagHelpInfo(BaseModel):
@@ -75,7 +65,8 @@ class RagChatState(MessagesState):
 
 class StreamOne(BaseModel):
     content: str = Field(..., description="模型返回的内容")
-    node_name: str = Field(..., description="节点名称")
+    # 默认空串: chat_stream 的回退提示/错误事件不携带节点名, 必填会抛 ValidationError 中断流
+    node_name: str = Field("", description="节点名称")
     stream_event_type: StreamEventType = Field(
         StreamEventType.ANSWER, description="流式输出事件分类"
     )

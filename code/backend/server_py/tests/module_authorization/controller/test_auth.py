@@ -42,11 +42,11 @@ async def test_login_oauth2_token(client: httpx.AsyncClient):
     assert body["token_type"] == "bearer"
 
 
-async def test_me(client: httpx.AsyncClient):
+async def test_me(client: httpx.AsyncClient, test_admin: dict):
     """获取当前登录用户信息"""
     resp = await client.get(f"{BASE}/me")
     assert resp.status_code == 200, resp.text
-    assert resp.json()["username"] == "admin"
+    assert resp.json()["username"] == test_admin["username"]
 
 
 async def test_me_id(client: httpx.AsyncClient):

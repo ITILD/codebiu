@@ -7,6 +7,8 @@ from module_ai.do.llm import (
     EmbeddingRequest,
     CacheClearRequest,
     ModelConfigCheckResponse,
+    ModelTestRequest,
+    ModelTestResponse,
 )
 from module_ai.config.server import module_app
 from module_ai.do.model_config import ModelConfigCreateRequest
@@ -48,6 +50,24 @@ async def check_config_by_model_id(
     """
     result: bool = await llm_service.check_config_by_model_id(model_id)
     return {"message": "配置校验通过" if result else "配置校验失败:智能程度低"}
+
+
+@router.post("/test-by-model-id", summary="模型能力测试")
+async def test_by_model_id(
+    request: ModelTestRequest,
+    llm_service: LLMService = Depends(get_llm_service),
+) -> ModelTestResponse:
+    """
+    按模型配置ID运行能力测试(问答/结构化/多模态/向量化/重排), 结果持久化到
+    model_config.check_result, 供前端能力标签常驻展示
+
+    - **model_id**: 模型配置ID
+    - **capability**: 可选, 仅测试指定能力(缺省测试该类型全部能力)
+    """
+    try:
+        return await llm_service.test_and_persist(request.model_id, request.capability)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.post("/chat", summary="聊天接口 支持流式SSE")

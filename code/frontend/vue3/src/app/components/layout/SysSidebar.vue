@@ -63,8 +63,8 @@
         </el-menu>
       </el-scrollbar>
 
-      <!-- 底部装饰小语 -->
-      <div v-if="!isCollapse" px-4 py-3 text-xs text-note-sub border-t border-note shrink-0>
+      <!-- 底部装饰小语(note-edge-t: 内阴影替代实线) -->
+      <div v-if="!isCollapse" px-4 py-3 text-xs text-note-sub note-edge-t shrink-0>
         🌿 记录每一份数据
       </div>
     </div>
@@ -140,12 +140,13 @@ watch(
 )
 </script>
 <style scoped>
-/* 侧边栏: 淡绿纸底 + 右侧装订虚线 */
+/* 侧边栏: 淡绿纸底, 右缘不画线 —— 以与主区的底色差 + 极淡接缝光晕分区 */
 .sidebar-note {
   background-color: var(--note-soft);
-  border-right: 1px solid var(--note-border);
-  /* 内侧装订虚线(笔记本感) */
-  box-shadow: inset -6px 0 0 -5px rgba(107, 158, 120, 0.18);
+  /* 内侧装订虚线 + 右缘一道若有若无的接缝影(替代 1px 实线) */
+  box-shadow:
+    inset -6px 0 0 -5px rgba(107, 158, 120, 0.18),
+    inset -1px 0 0 var(--note-edge-soft);
 }
 
 /* 菜单项: 统一高度与圆角, 避免默认直角贴边的生硬感 */

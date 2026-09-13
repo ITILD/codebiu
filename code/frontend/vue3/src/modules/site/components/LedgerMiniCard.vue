@@ -2,7 +2,7 @@
   <!-- 记账分析迷你卡: 月/年快捷切换 + 本期结余概览 + 支出分类 top3 + 迷你支出趋势条 -->
   <div
     v-if="stats"
-    class="w-full rounded-xl border border-note bg-note-card p-3 text-left shadow-note"
+    class="w-full rounded-xl bg-note-card p-3 text-left shadow-note"
   >
     <!-- 标题 + 月/年切换 -->
     <div class="flex items-center justify-between gap-2">

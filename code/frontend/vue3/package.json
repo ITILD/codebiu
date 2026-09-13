@@ -29,6 +29,7 @@
     "@vueuse/core": "^13.9.0",
     "babylonjs": "^9.3.0",
     "dayjs": "^1.11.23",
+    "dompurify": "^3.4.15",
     "earcut": "^3.2.3",
     "echarts": "^6.1.0",
     "element-plus": "^2.11.4",

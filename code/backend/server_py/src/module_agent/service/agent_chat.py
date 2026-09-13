@@ -137,17 +137,22 @@ class AgentChatService:
                 content=f"服务异常: {e}",
                 stream_event_type=StreamEventType.ERROR,
             )
-
-        # 2. 持久化助手消息(含过程区块，便于重新打开时恢复思考链路显示)
-        if full_response:
-            await self.chat_message_service.add(
-                ChatMessageCreate(
-                    conversation_id=conversation_id,
-                    role=RoleType.ASSISTANT,
-                    content=full_response,
-                    blocks=process_blocks or None,
-                )
-            )
+        finally:
+            # 持久化助手消息(含过程区块，便于重新打开时恢复思考链路显示)
+            # 客户端中止(停止生成)时生成器被 GeneratorExit 关闭, except Exception 捕获不到,
+            # 必须放 finally 才能保证已生成的部分回答落库
+            if full_response:
+                try:
+                    await self.chat_message_service.add(
+                        ChatMessageCreate(
+                            conversation_id=conversation_id,
+                            role=RoleType.ASSISTANT,
+                            content=full_response,
+                            blocks=process_blocks or None,
+                        )
+                    )
+                except Exception as e:
+                    logger.error(f"助手消息持久化失败: {e}", exc_info=True)
 
     @staticmethod
     def _accumulate_process_block(blocks: list[dict], item: StreamOne) -> None:

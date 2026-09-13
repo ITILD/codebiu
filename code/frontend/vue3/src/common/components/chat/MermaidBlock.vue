@@ -351,10 +351,11 @@ const cancelEdit = () => { editing.value = false }
 .mm-block {
   position: relative;
   margin: 12px 0;
-  border: 1px solid var(--note-border, #e2e8e3);
+  /* 描边改为极淡光晕环, 边缘更柔 */
   border-radius: 12px;
   overflow: hidden;
   background: var(--note-card, #fdfefc);
+  box-shadow: 0 0 0 1px var(--note-edge-soft, rgba(107, 158, 120, 0.16));
 }
 
 .mm-head {
@@ -363,7 +364,6 @@ const cancelEdit = () => { editing.value = false }
   justify-content: space-between;
   padding: 6px 12px;
   background: var(--note-soft, #f2f7f0);
-  border-bottom: 1px solid var(--note-border, #e2e8e3);
 }
 
 .mm-title {

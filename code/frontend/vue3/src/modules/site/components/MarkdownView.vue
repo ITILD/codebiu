@@ -8,6 +8,7 @@ import { marked } from 'marked'
 import type { Tokens } from 'marked'
 import { useDebounceFn } from '@vueuse/core'
 import { SysSettingStore } from '@/common/stores/sys'
+import { sanitizeHtml } from '@/common/utils/sanitize'
 
 const props = defineProps<{
   /** markdown 源文本 */
@@ -39,9 +40,9 @@ marked.use({
   },
 })
 
-/** 渲染为 HTML(同步模式) */
+/** 渲染为 HTML(同步模式; 博客正文为不可信内容, 渲染前消毒) */
 const html = computed(
-  () => marked.parse(props.content ?? '', { async: false }) as string
+  () => sanitizeHtml(marked.parse(props.content ?? '', { async: false }) as string)
 )
 
 // ---------- mermaid 按需异步渲染(仅在内容含图表块时加载) ----------

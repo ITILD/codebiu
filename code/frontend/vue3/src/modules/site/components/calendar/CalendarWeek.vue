@@ -6,11 +6,11 @@
       <div
         v-for="day in days"
         :key="day.getTime()"
-        class="flex items-start gap-2 rounded-lg border p-2 transition-colors"
+        class="flex items-start gap-2 rounded-lg p-2 transition-colors"
         :class="[
           keyOf(day) === today
-            ? 'border-note-green bg-note-tint/60'
-            : 'border-note bg-note-soft/50',
+            ? 'bg-note-tint shadow-note'
+            : 'bg-note-soft/50',
         ]"
       >
         <!-- 日头: 周X + 日期 -->
@@ -63,11 +63,11 @@
       <div
         v-for="day in days"
         :key="day.getTime()"
-        class="flex flex-col rounded-lg border p-2 transition-colors"
+        class="flex flex-col rounded-lg p-2 transition-colors"
         :class="[
           keyOf(day) === today
-            ? 'border-note-green bg-note-tint/60'
-            : 'border-note bg-note-soft/50',
+            ? 'bg-note-tint shadow-note'
+            : 'bg-note-soft/50',
         ]"
       >
         <!-- 日头: 周X + 日期 -->

@@ -182,7 +182,7 @@
         :load="loadTreeNodes"
         :expand-on-click-node="false"
         @node-click="handleTreeNodeClick"
-        class="max-h-[320px] overflow-auto border rounded"
+        class="max-h-[320px] overflow-auto rounded bg-note-soft"
       >
         <template #default="{ node, data }">
           <span flex items-center gap-1>

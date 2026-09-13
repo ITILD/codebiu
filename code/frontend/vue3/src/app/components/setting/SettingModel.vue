@@ -1,19 +1,26 @@
 <template>
-  <div max-w-[640px] flex flex-col gap-5>
+  <div class="max-w-[640px]" flex flex-col gap-5>
     <div>
       <h3 text-lg font-medium text-note m-0>模型设置</h3>
       <p text-sm text-note-sub mt-1 mb-0>
-        绑定个人默认模型(可选用公共/本部门/自己的模型); 未绑定的类型自动使用系统默认公共模型
+        为对话/向量化/重排选择个人默认模型(可选用公共/本部门/自己的模型); 未选择时使用系统默认公共模型
       </p>
     </div>
 
     <el-form v-loading="loading" label-width="96px" label-position="right" flex flex-col gap-1>
       <!-- 对话模型绑定 -->
       <el-form-item label="对话模型">
-        <div w-full flex flex-col gap-1>
-          <el-select v-model="binding.chat_model_id" placeholder="未绑定(使用系统默认公共模型)" clearable w-full>
+        <div class="w-full flex flex-col gap-1">
+          <el-select v-model="binding.chat_model_id" placeholder="暂无系统默认公共模型, 请联系管理员配置" clearable w-full>
+            <!-- 选中态自定义展示: 模型名 + 系统默认tag(与下拉选项一致) -->
+            <template #label="{ value }">
+              <span flex items-center gap-1>
+                <span>{{ selectedText('chat', value) }}</span>
+                <el-tag v-if="selectedIsDefault('chat', value)" type="warning" size="small">系统默认</el-tag>
+              </span>
+            </template>
             <el-option v-for="item in modelMap.chat" :key="item.id" :value="item.id"
-              :label="optionLabel(item)" :disabled="item.is_active === false">
+              :label="modelMainLabel(item)" :disabled="item.is_active === false">
               <div flex flex-col>
                 <div flex items-center gap-1>
                   <span>{{ modelMainLabel(item) }}</span>
@@ -26,18 +33,34 @@
               </div>
             </el-option>
           </el-select>
-          <div v-if="defaultHint.chat" text-xs text-note-sub>
-            系统默认公共模型: {{ defaultHint.chat }}(未绑定时回退使用)
+          <!-- 能力标签: 最近一次测试结果(通过=能力色/失败=红), 常驻展示 -->
+          <div v-if="binding.chat_model_id" class="flex items-center gap-1 flex-wrap">
+            <el-tooltip v-for="cap in testedCapabilities(selectedModel('chat'))" :key="cap.key"
+              :content="cap.ok ? (cap.detail || '测试通过') : (cap.error || '测试未通过')" placement="top">
+              <el-tag :type="cap.ok ? (capabilityTagType[cap.key] ?? 'success') : 'danger'" size="small" effect="light">
+                {{ cap.label }}
+              </el-tag>
+            </el-tooltip>
+            <el-button link type="primary" size="small" :loading="testingType === 'chat'" @click="handleTest('chat')">
+              测试能力
+            </el-button>
           </div>
         </div>
       </el-form-item>
 
       <!-- 向量化模型绑定 -->
       <el-form-item label="向量化模型">
-        <div w-full flex flex-col gap-1>
-          <el-select v-model="binding.embedding_model_id" placeholder="未绑定(使用系统默认公共模型)" clearable w-full>
+        <div class="w-full flex flex-col gap-1">
+          <el-select v-model="binding.embedding_model_id" placeholder="暂无系统默认公共模型, 请联系管理员配置" clearable w-full>
+            <!-- 选中态自定义展示: 模型名 + 系统默认tag(与下拉选项一致) -->
+            <template #label="{ value }">
+              <span flex items-center gap-1>
+                <span>{{ selectedText('embeddings', value) }}</span>
+                <el-tag v-if="selectedIsDefault('embeddings', value)" type="warning" size="small">系统默认</el-tag>
+              </span>
+            </template>
             <el-option v-for="item in modelMap.embeddings" :key="item.id" :value="item.id"
-              :label="optionLabel(item)" :disabled="item.is_active === false">
+              :label="modelMainLabel(item)" :disabled="item.is_active === false">
               <div flex flex-col>
                 <div flex items-center gap-1>
                   <span>{{ modelMainLabel(item) }}</span>
@@ -50,18 +73,34 @@
               </div>
             </el-option>
           </el-select>
-          <div v-if="defaultHint.embeddings" text-xs text-note-sub>
-            系统默认公共模型: {{ defaultHint.embeddings }}(未绑定时回退使用)
+          <!-- 能力标签: 最近一次测试结果(通过=能力色/失败=红), 常驻展示 -->
+          <div v-if="binding.embedding_model_id" class="flex items-center gap-1 flex-wrap">
+            <el-tooltip v-for="cap in testedCapabilities(selectedModel('embeddings'))" :key="cap.key"
+              :content="cap.ok ? (cap.detail || '测试通过') : (cap.error || '测试未通过')" placement="top">
+              <el-tag :type="cap.ok ? (capabilityTagType[cap.key] ?? 'success') : 'danger'" size="small" effect="light">
+                {{ cap.label }}
+              </el-tag>
+            </el-tooltip>
+            <el-button link type="primary" size="small" :loading="testingType === 'embeddings'" @click="handleTest('embeddings')">
+              测试能力
+            </el-button>
           </div>
         </div>
       </el-form-item>
 
       <!-- 重排模型绑定 -->
       <el-form-item label="重排模型">
-        <div w-full flex flex-col gap-1>
-          <el-select v-model="binding.rerank_model_id" placeholder="未绑定(使用系统默认公共模型)" clearable w-full>
+        <div class="w-full flex flex-col gap-1">
+          <el-select v-model="binding.rerank_model_id" placeholder="暂无系统默认公共模型, 请联系管理员配置" clearable w-full>
+            <!-- 选中态自定义展示: 模型名 + 系统默认tag(与下拉选项一致) -->
+            <template #label="{ value }">
+              <span flex items-center gap-1>
+                <span>{{ selectedText('rerank', value) }}</span>
+                <el-tag v-if="selectedIsDefault('rerank', value)" type="warning" size="small">系统默认</el-tag>
+              </span>
+            </template>
             <el-option v-for="item in modelMap.rerank" :key="item.id" :value="item.id"
-              :label="optionLabel(item)" :disabled="item.is_active === false">
+              :label="modelMainLabel(item)" :disabled="item.is_active === false">
               <div flex flex-col>
                 <div flex items-center gap-1>
                   <span>{{ modelMainLabel(item) }}</span>
@@ -74,23 +113,17 @@
               </div>
             </el-option>
           </el-select>
-          <div v-if="defaultHint.rerank" text-xs text-note-sub>
-            系统默认公共模型: {{ defaultHint.rerank }}(未绑定时回退使用)
-          </div>
-        </div>
-      </el-form-item>
-
-      <!-- 回退开关(v4 4.3): 绑定失效时是否回退默认公共模型 -->
-      <el-form-item label="回退兜底">
-        <div w-full flex flex-col gap-1>
-          <el-switch v-model="allowFallback" active-text="绑定失效时回退系统默认公共模型" />
-          <div text-xs text-note-sub leading-5>
-            <template v-if="allowFallback">
-              开启: 绑定的模型被删除/取消共享等失效时, 自动改用系统默认公共模型处理(数据将流向公共模型, 请求时会提示)
-            </template>
-            <template v-else>
-              关闭: 绑定失效时直接报错, 数据不会流向公共模型(数据流向可感知)
-            </template>
+          <!-- 能力标签: 最近一次测试结果(通过=能力色/失败=红), 常驻展示 -->
+          <div v-if="binding.rerank_model_id" class="flex items-center gap-1 flex-wrap">
+            <el-tooltip v-for="cap in testedCapabilities(selectedModel('rerank'))" :key="cap.key"
+              :content="cap.ok ? (cap.detail || '测试通过') : (cap.error || '测试未通过')" placement="top">
+              <el-tag :type="cap.ok ? (capabilityTagType[cap.key] ?? 'success') : 'danger'" size="small" effect="light">
+                {{ cap.label }}
+              </el-tag>
+            </el-tooltip>
+            <el-button link type="primary" size="small" :loading="testingType === 'rerank'" @click="handleTest('rerank')">
+              测试能力
+            </el-button>
           </div>
         </div>
       </el-form-item>
@@ -103,11 +136,17 @@
 </template>
 
 <script setup lang="ts">
-// 设置页-模型设置面板: 用户级模型绑定/切换 + 回退开关(v4 4.3)
+// 设置页-模型设置面板: 用户级模型绑定/切换(未绑定的类型默认使用系统默认公共模型)
 // 模型配置的管理(新增/统计/默认公共模型配置)在 /ai/model_config 页, 仅系统管理员与授权人员使用
-import { listModelConfigs } from '@/modules/ai/api/model_config'
-import { modelMainLabel, scopeShortLabel, serverTypeLabel } from '@/modules/ai/types/model_config'
-import type { ModelConfig } from '@/modules/ai/types/model_config'
+import { listModelConfigs, testModelCapability } from '@/modules/ai/api/model_config'
+import {
+  modelMainLabel,
+  scopeShortLabel,
+  serverTypeLabel,
+  capabilityTagType,
+  testedCapabilities,
+} from '@/modules/ai/types/model_config'
+import type { ModelConfig, ModelCapabilityResult } from '@/modules/ai/types/model_config'
 import { getMyModelBinding, updateMyModelBinding } from '@/modules/rag/api/user_model'
 import { ElMessage } from 'element-plus'
 import type { PaginationParams } from '@/common/types/common'
@@ -119,23 +158,15 @@ const BINDABLE_TYPES: BindableType[] = ['chat', 'embeddings', 'rerank']
 const loading = ref(false)
 const saving = ref(false)
 
-// 绑定表单(模型ID, null=未绑定)
+// 绑定表单(模型ID, null=未绑定→自动使用系统默认公共模型)
 const binding = reactive<{
   chat_model_id: string | null
   embedding_model_id: string | null
   rerank_model_id: string | null
-  fallback_disabled: boolean
 }>({
   chat_model_id: null,
   embedding_model_id: null,
   rerank_model_id: null,
-  fallback_disabled: false,
-})
-
-// 回退开关的界面语义与后端 fallback_disabled 相反: 允许回退=true
-const allowFallback = computed({
-  get: () => !binding.fallback_disabled,
-  set: (v: boolean) => { binding.fallback_disabled = !v },
 })
 
 // 各类型可见模型列表(公共/本部门/本人, 后端按当前用户过滤)
@@ -145,21 +176,60 @@ const modelMap = reactive<Record<BindableType, ModelConfig[]>>({
   rerank: [],
 })
 
-// 各类型当前生效的默认公共模型名(回退目标提示)
-const defaultHint = computed<Record<BindableType, string>>(() => {
-  const hint = { chat: '', embeddings: '', rerank: '' } as Record<BindableType, string>
-  for (const type of BINDABLE_TYPES) {
-    const found = modelMap[type].find(
-      (m) => m.is_default && m.is_active !== false && m.scope === 'public'
-    )
-    hint[type] = found ? modelMainLabel(found) : ''
-  }
-  return hint
-})
+/** 查找某类型当前生效的系统默认公共模型ID(未找到返回 null) */
+const defaultModelId = (type: BindableType) =>
+  modelMap[type].find(
+    (m) => m.is_default && m.is_active !== false && m.scope === 'public'
+  )?.id ?? null
 
-/** 下拉选项主文案(默认模型附加标注) */
-const optionLabel = (item: ModelConfig) =>
-  item.is_default ? `${modelMainLabel(item)}(系统默认)` : modelMainLabel(item)
+/** 选中态展示文案(#label 插槽用): 按类型+模型ID反查配置取主文案 */
+const selectedText = (type: BindableType, value: unknown) => {
+  const item = modelMap[type].find((m) => m.id === value)
+  return item ? modelMainLabel(item) : ''
+}
+
+/** 选中项是否为系统默认公共模型(#label 插槽用) */
+const selectedIsDefault = (type: BindableType, value: unknown) =>
+  modelMap[type].some((m) => m.id === value && m.is_default)
+
+/** 模型类型 -> 绑定字段名常量表 */
+const BINDING_KEYS = {
+  chat: 'chat_model_id',
+  embeddings: 'embedding_model_id',
+  rerank: 'rerank_model_id',
+} as const
+
+/** 绑定字段名映射(类型 -> binding 键) */
+const bindingKeyOf = (type: BindableType): (typeof BINDING_KEYS)[BindableType] => BINDING_KEYS[type]
+
+/** 当前选中的模型配置对象(按类型) */
+const selectedModel = (type: BindableType): ModelConfig | undefined =>
+  modelMap[type].find((m) => m.id === binding[bindingKeyOf(type)])
+
+// ################ 能力测试 ################
+const testingType = ref<BindableType | null>(null)
+
+/** 运行当前选中模型的能力测试, 结果持久化到后端并展示为标签 */
+const handleTest = async (type: BindableType) => {
+  const item = selectedModel(type)
+  if (!item) return
+  try {
+    testingType.value = type
+    const res = await testModelCapability(item.id)
+    // 合并测试结果到本地模型数据(后端 check_result 已同步持久化)
+    const merged: Record<string, ModelCapabilityResult> = { ...(item.check_result ?? {}) }
+    for (const cap of res.capabilities) merged[cap.capability] = { ...cap, checked_at: res.checked_at }
+    item.check_result = merged
+    const passed = res.capabilities.filter((c) => c.ok).length
+    if (passed === res.capabilities.length) ElMessage.success(`测试完成: ${passed}/${res.capabilities.length} 项能力通过`)
+    else ElMessage.warning(`测试完成: ${passed}/${res.capabilities.length} 项能力通过, 失败项见红色标签`)
+  } catch (error) {
+    console.error('模型能力测试失败:', error)
+    ElMessage.error('模型能力测试失败')
+  } finally {
+    testingType.value = null
+  }
+}
 
 /** 拉取单个类型的可见模型列表 */
 const fetchModels = async (type: BindableType) => {
@@ -171,7 +241,7 @@ const fetchModels = async (type: BindableType) => {
   }
 }
 
-/** 初始化: 并行拉取绑定 + 三类模型列表 */
+/** 初始化: 并行拉取绑定 + 三类模型列表, 未绑定时默认展示系统默认公共模型 */
 const init = async () => {
   loading.value = true
   try {
@@ -179,10 +249,9 @@ const init = async () => {
       getMyModelBinding(),
       ...BINDABLE_TYPES.map((t) => fetchModels(t)),
     ])
-    binding.chat_model_id = bind.chat_model_id
-    binding.embedding_model_id = bind.embedding_model_id
-    binding.rerank_model_id = bind.rerank_model_id
-    binding.fallback_disabled = bind.fallback_disabled ?? false
+    binding.chat_model_id = bind.chat_model_id ?? defaultModelId('chat')
+    binding.embedding_model_id = bind.embedding_model_id ?? defaultModelId('embeddings')
+    binding.rerank_model_id = bind.rerank_model_id ?? defaultModelId('rerank')
   } catch (error) {
     console.error('获取模型绑定失败:', error)
     ElMessage.error('获取模型绑定失败')
@@ -191,7 +260,8 @@ const init = async () => {
   }
 }
 
-/** 保存绑定(绑定前校验由后端完成: 公共/本部门/本人模型才允许绑定) */
+/** 保存绑定(绑定前校验由后端完成: 公共/本部门/本人模型才允许绑定);
+ *  fallback_disabled 固定传 false: 回退开关已移除, 顺带清理历史遗留的关闭回退标记 */
 const handleSave = async () => {
   try {
     saving.value = true
@@ -199,7 +269,7 @@ const handleSave = async () => {
       chat_model_id: binding.chat_model_id,
       embedding_model_id: binding.embedding_model_id,
       rerank_model_id: binding.rerank_model_id,
-      fallback_disabled: binding.fallback_disabled,
+      fallback_disabled: false,
     })
     ElMessage.success('模型设置已保存')
   } catch (error) {

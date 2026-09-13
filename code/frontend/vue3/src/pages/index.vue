@@ -37,7 +37,7 @@
                 v-for="item in recentAppPages.slice(0, 6)"
                 :key="item.path"
                 :to="item.path"
-                px-3 py-1.5 rounded-full bg-note-card border border-note text-xs md:text-sm text-note hover:border-note-green hover:text-note-green transition-colors
+                px-3 py-1.5 rounded-full bg-note-tint text-xs md:text-sm text-note hover:text-note-green hover:shadow-note transition-all
               >
                 {{ item.title }}
               </RouterLink>
@@ -195,7 +195,7 @@ const recentAppPages = computed(() =>
 .pond-quote {
   margin-top: 2px;
   padding: 0.3rem 1.1rem;
-  border: 1px solid var(--note-border);
+  /* 无描边: 半透纸丸以底色差 + note-shadow 光晕环成形 */
   border-radius: 999px;
   /* 不支持 color-mix 的旧引擎回退为实底纸色 */
   background: var(--note-card);

@@ -3,13 +3,15 @@
 
 基础设施:
 - _app_lifespan: session 级触发完整 lifespan(建表/casbin/默认管理员引导),测试完关闭连接
-- admin_headers: 管理员真实登录,返回 Bearer 鉴权头(走完整 JWT+casbin 链路)
+- test_admin: session 级注册专用测试管理员并绑定 admin 角色(绝不复用真实 admin 账户)
+- admin_headers: 测试管理员真实登录,返回 Bearer 鉴权头(走完整 JWT+casbin 链路)
 - client: 带管理员鉴权的 httpx 异步客户端(ASGITransport 直连 app,无需启动服务器)
 - anon_client: 匿名客户端(测登录/注册/401 场景)
 
 约定:
 - asyncio 默认 session loop(lifespan 与测试同 loop,asyncpg 连接池不跨 loop)
 - 测试数据一律带时间戳唯一后缀,测完清理,不依赖执行顺序
+- 禁止用真实 admin 账户执行写操作类用例(自助资料/头像等会覆盖持久数据)
 """
 
 import logging
@@ -39,8 +41,7 @@ logger.info("test log is set up ok")
 logger.info("运行环境: %s", "测试 (tests)")
 
 BASE_URL = "http://test"
-ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "admin123"
+TEST_ADMIN_PASSWORD = "Test123456"
 
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
@@ -103,14 +104,48 @@ def _make_client(headers: dict | None = None) -> AsyncClient:
 
 
 @pytest_asyncio.fixture(scope="session")
-async def admin_token() -> str:
-    """管理员登录获取访问令牌(走真实登录链路)"""
+async def test_admin(_app_lifespan, local_storage_override) -> dict:
+    """session 级专用测试管理员: 注册新账号并绑定全局 admin 角色, 测完清理
+
+    历史教训: 早期 client 直接复用真实 admin 账户, 头像/自助资料用例会覆盖
+    admin 的持久数据(avatar 字段被改成测试假文件、旧头像条目被删除、昵称
+    邮箱被改写), 导致真实用户头像丢失。故所有管理员写操作均走本账户。
+    """
+    username = f"pytest_admin_{int(time.time() * 1000)}_{uuid.uuid4().hex[:6]}"
+    async with _make_client() as ac:
+        resp = await ac.post(
+            "/authorization/auth/register",
+            json={"username": username, "password": TEST_ADMIN_PASSWORD, "nickname": "测试管理员"},
+        )
+    assert resp.status_code == 200, f"测试管理员注册失败: {resp.status_code} {resp.text}"
+    user_id = resp.json()["user"]["id"]
+    # 绑定全局域 admin 角色(同 ensure_default_admin 引导逻辑)
+    from module_authorization.config.casbin_rule import auth_manager
+
+    await auth_manager.enforcer.add_grouping_policy(user_id, "admin", "*")
+    yield {"id": user_id, "username": username, "password": TEST_ADMIN_PASSWORD}
+    # 会话收尾: 清理头像条目/头像字段 → casbin 规则 → 用户记录
+    from module_authorization.dao.user import UserDao
+    from module_authorization.service.avatar import AvatarService
+
+    try:
+        await AvatarService().delete_avatar(user_id)
+    except ValueError:
+        pass  # 本会话未上传过头像
+    await auth_manager.enforcer.remove_filtered_grouping_policy(0, user_id)
+    await UserDao().delete(user_id)
+    logger.info(f"测试管理员 {username} 已清理")
+
+
+@pytest_asyncio.fixture(scope="session")
+async def admin_token(test_admin: dict) -> str:
+    """管理员登录获取访问令牌(走真实登录链路, 使用专用测试管理员)"""
     async with _make_client() as ac:
         resp = await ac.post(
             "/authorization/auth/login",
-            data={"username": ADMIN_USERNAME, "password": ADMIN_PASSWORD},
+            data={"username": test_admin["username"], "password": test_admin["password"]},
         )
-    assert resp.status_code == 200, f"管理员登录失败: {resp.status_code} {resp.text}"
+    assert resp.status_code == 200, f"测试管理员登录失败: {resp.status_code} {resp.text}"
     return resp.json()["tokens"]["access"]["token"]
 
 

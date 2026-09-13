@@ -109,10 +109,10 @@
             <div grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-8 w-full max-w-lg>
               <button
                 v-for="a in builtinAgents" :key="a.id"
-                flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all
+                flex items-center gap-3 p-3.5 rounded-xl text-left transition-all
                 :class="selectedAgentId === a.id
-                  ? 'border-note-green bg-note-tint shadow-note'
-                  : 'border-note bg-note-card hover:border-note-green hover:shadow-note hover:-translate-y-0.5'"
+                  ? 'bg-note-tint shadow-note'
+                  : 'bg-note-card hover:shadow-note hover:-translate-y-0.5'"
                 @click="selectedAgentId = a.id"
               >
                 <div w-8 h-8 rounded-lg bg-note-tint flex-center shrink-0>

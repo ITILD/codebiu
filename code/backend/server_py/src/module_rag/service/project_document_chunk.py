@@ -33,12 +33,16 @@ class ProjectDocumentChunkService:
         embedding_llm = await self.user_model_service.get_llm_by_user_id(
             user_id, False, ModelType.EMBEDDINGS
         )
+        if embedding_llm is None:
+            # 明确报错: 上游知识检索节点会捕获并记录, 前端过程区块可见"未检索到相关片段"的原因
+            raise ValueError("无可用向量化模型, 请在设置中绑定或由管理员配置默认向量化模型")
         try:
             query_vector = await embedding_llm.aembed_query(request.query_content)
             if not query_vector:
                 raise ValueError("向量化模型返回空结果")
         except Exception as e:
-            raise ValueError("文本向量化失败")
+            logger.warning(f"查询文本向量化失败: {e}")
+            raise ValueError("文本向量化失败") from e
 
         # 4. 调用 DAO 层执行 Milvus 检索
         results: list[ProjectDocumentChunkSearchResponse] = (

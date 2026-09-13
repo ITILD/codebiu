@@ -58,7 +58,7 @@
 
         <!-- 策略明细列表 -->
         <div v-for="(p, i) in drawerPolicies" :key="i"
-          class="flex items-center justify-between gap-2 border border-note rounded px-3 py-2 mb-2">
+          class="flex items-center justify-between gap-2 bg-note-soft rounded px-3 py-2 mb-2">
           <div class="flex items-center gap-1 flex-wrap">
             <el-tag size="small">{{ p.obj }}</el-tag>
             <span class="text-note-sub text-xs">/</span>

@@ -168,8 +168,7 @@ class OpenAIClient:
                     if decoded_line.startswith("data:"):  # 检查是否为数据行
                         json_data = decoded_line.replace("data: ", "")  # 去掉前缀
                         if json_data.strip() == "[DONE]":  # 检查是否结束
-                            # print("Stream finished.")
-                            yield content  # noqa: F821
+                            # 最后一条 content 已在上个 chunk yield 过, 这里直接结束避免重复
                             break
                         try:
                             response_data = json.loads(json_data)  # 解析 JSON

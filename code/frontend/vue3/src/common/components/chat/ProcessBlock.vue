@@ -154,7 +154,7 @@ const toggle = () => { collapsed.value = !collapsed.value }
 <style scoped>
 .pb-wrap {
   margin-bottom: 10px;
-  border: 1px dashed var(--note-border, #e2e8e3);
+  /* 无描边: 以软纸底色差成形 */
   border-radius: 10px;
   background: var(--note-soft, #f6faf5);
   overflow: hidden;
@@ -212,7 +212,6 @@ const toggle = () => { collapsed.value = !collapsed.value }
   padding: 8px 10px;
   border-radius: 8px;
   background: var(--note-card, #fdfefc);
-  border: 1px solid var(--note-border, #e2e8e3);
 }
 
 .pb-item-title {

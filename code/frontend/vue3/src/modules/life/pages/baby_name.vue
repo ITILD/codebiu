@@ -117,10 +117,11 @@ import type {
 } from '../types/baby_name'
 import LLMSelect from '@/modules/ai/components/LLMSelect.vue'
 import { marked } from 'marked'
+import { sanitizeHtml } from '@/common/utils/sanitize'
 
-// 渲染 Markdown 内容
+// 渲染 Markdown 内容(先消毒再渲染, LLM 输出不可信)
 const renderMarkdown = (content: string) => {
-  return marked.parse(content)
+  return sanitizeHtml(marked.parse(content) as string)
 }
 
 // 分页参数

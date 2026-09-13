@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field, field_validator
+from datetime import datetime
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
-from module_ai.utils.llm.types import RoleType, LCRoleType
+from module_ai.utils.llm.types import RoleType, LCRoleType, ModelType
 
 class Message(BaseModel):
     """消息模型，与langchain_core.messages兼容"""
@@ -43,8 +44,8 @@ class ChatRequest(BaseModel):
     """聊天请求模型"""
 
     model_id: str = Field(..., description="模型配置ID或模型标识名称")
-    messages: str | list[Message | HumanMessage | AIMessage | SystemMessage] = Field(
-        ..., description="消息内容"
+    messages: str | list[BaseMessage] = Field(
+        ..., description="消息内容(字符串或消息列表, 列表项可为 dict/Message/LangChain 消息)"
     )
     streaming: bool = Field(False, description="是否启用流式响应")
 
@@ -52,19 +53,26 @@ class ChatRequest(BaseModel):
     @classmethod
     def validate_messages(cls, v):
         """
-        验证并标准化messages字段
-        - 如果是字符串，自动转换为包含单个用户消息的列表
-        - 如果是列表，保持原样
+        验证并标准化messages字段(统一转为 LangChain 消息, 供模型直接调用)
+        - 字符串 → 单条用户消息列表
+        - 列表项为 dict/pydantic Message → 转 LangChain 消息
+        - 空列表/其他形态保持原样(交由后续校验报错, 避免下标越界)
         """
         if isinstance(v, str):
-            # 将字符串转换为包含单个用户消息的列表
             return [HumanMessage(content=v)]
-        elif isinstance(v[0], Message):
-            messages = [msg.to_langchain_message() for msg in v]
-            return messages
-        else:
-            # 保持列表原样
-            return v
+        if isinstance(v, list):
+            converted: list = []
+            for item in v:
+                if isinstance(item, BaseMessage):
+                    converted.append(item)
+                elif isinstance(item, Message):
+                    converted.append(item.to_langchain_message())
+                elif isinstance(item, dict):
+                    converted.append(Message(**item).to_langchain_message())
+                else:
+                    converted.append(item)
+            return converted
+        return v
 
 
 class EmbeddingRequest(BaseModel):
@@ -98,3 +106,41 @@ class ModelConfigCheckResponse(BaseModel):
 
     is_valid: bool = Field(False, description="模型配置是否有效")
     is_format: bool = Field(False, description="模型支持格式化")
+
+
+# 各模型类型支持的能力测试项: capability -> 中文名(与前端 capabilityOptionsFor 对齐)
+MODEL_CAPABILITIES: dict[str, list[tuple[str, str]]] = {
+    ModelType.CHAT.value: [("chat", "问答"), ("structured", "结构化"), ("vision", "多模态")],
+    ModelType.EMBEDDINGS.value: [("embedding", "向量化")],
+    ModelType.RERANK.value: [("rerank", "重排")],
+}
+
+
+class ModelCapabilityTestItem(BaseModel):
+    """单项能力测试结果"""
+
+    capability: str = Field(..., description="能力标识(chat/structured/vision/embedding/rerank)")
+    label: str = Field("", description="能力中文名")
+    ok: bool = Field(False, description="是否通过")
+    detail: str = Field("", description="结果摘要(通过时展示)")
+    error: str = Field("", description="失败原因")
+    elapsed: float = Field(0.0, description="耗时(秒)")
+    suggest: dict | None = Field(
+        None, description="附加建议(rerank: 检测到的分数范围与建议配置 score_min/score_max)"
+    )
+
+
+class ModelTestRequest(BaseModel):
+    """模型能力测试请求"""
+
+    model_id: str = Field(..., description="模型配置ID")
+    capability: str | None = Field(None, description="仅测试指定能力(缺省测试该类型全部能力)")
+
+
+class ModelTestResponse(BaseModel):
+    """模型能力测试响应(结果已持久化到 model_config.check_result)"""
+
+    model_id: str = Field(..., description="模型配置ID")
+    model_type: str = Field(..., description="模型类型")
+    capabilities: list[ModelCapabilityTestItem] = Field(default_factory=list, description="各项能力测试结果")
+    checked_at: datetime | None = Field(None, description="测试时间")

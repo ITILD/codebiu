@@ -4,7 +4,7 @@
     <div
       v-for="monthDate in months"
       :key="monthDate.getMonth()"
-      class="rounded-lg border border-note bg-note-soft/60 p-2"
+      class="rounded-lg bg-note-soft/60 p-2"
     >
       <!-- 月份标题 + 当月备忘数 -->
       <div class="flex items-center justify-between mb-1 px-0.5">

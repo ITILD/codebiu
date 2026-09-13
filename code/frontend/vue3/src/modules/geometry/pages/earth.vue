@@ -23,7 +23,7 @@
       >
       <div
         pointer-events-auto
-        class="flex flex-wrap items-center justify-center gap-2 rounded-lg border border-note bg-note-glass px-3 py-2 shadow-note backdrop-blur-md"
+        class="flex flex-wrap items-center justify-center gap-2 rounded-lg bg-note-glass px-3 py-2 shadow-note backdrop-blur-md"
       >
         <el-radio-group v-model="drawMode" size="small" @change="handleModeChange">
           <el-radio-button value="none">
@@ -70,10 +70,10 @@
     <Transition name="slide-left">
     <div
       v-if="editing && !panelCollapsed"
-      class="absolute bottom-3 left-3 top-16 z-10 flex w-64 md:w-72 flex-col rounded-lg border border-note bg-note-glass shadow-note backdrop-blur-md"
+      class="absolute bottom-3 left-3 top-16 z-10 flex w-64 md:w-72 flex-col rounded-lg bg-note-glass shadow-note backdrop-blur-md"
     >
       <!-- 面板头: 标题 + 新增图层 + 收起 -->
-      <div flex items-center gap-2 border-b border-note px-3 py-2 shrink-0>
+      <div flex items-center gap-2 note-edge-b px-3 py-2 shrink-0>
         <span text-sm font-bold text-note>🗂️ 图层</span>
         <el-button link type="primary" size="small" :icon="Plus" @click="handleAddLayer">
           新增
@@ -179,7 +179,7 @@
     <!-- 指针所指地表坐标(仅编辑模式实时显示) -->
     <div
       v-if="editing && hoverLngLat"
-      class="absolute bottom-3 right-3 z-10 rounded-full border border-note bg-note-glass px-3 py-1.5 text-xs text-note-sub shadow-note backdrop-blur-md"
+      class="absolute bottom-3 right-3 z-10 rounded-full bg-note-glass px-3 py-1.5 text-xs text-note-sub shadow-note backdrop-blur-md"
     >
       经度 {{ hoverLngLat.lon.toFixed(2) }}° · 纬度 {{ hoverLngLat.lat.toFixed(2) }}°
     </div>

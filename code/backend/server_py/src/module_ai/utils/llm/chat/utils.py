@@ -1,3 +1,4 @@
+import logging
 import os
 import numpy as np
 import re
@@ -5,6 +6,7 @@ import tiktoken
 
 from common.config.path import DIR_TIKTOKEN_CACHE
 
+logger = logging.getLogger(__name__)
 os.environ["TIKTOKEN_CACHE_DIR"] = str(DIR_TIKTOKEN_CACHE)
 tiktokenenc = tiktoken.get_encoding("cl100k_base")
 
@@ -57,13 +59,13 @@ class LLMUtils:
             text = await cls.trans_in_limit(llm, text, limit_str_num)
             return await embeddings.aembed_query(text)
         except Exception as e:
-            print(f"embedding_in_limit error: {e}")
-            raise e
+            logger.error(f"embedding_in_limit 失败: {e}")
+            raise
 
     @classmethod
     async def trans_in_limit(
         cls, llm, text: str, limit_str_num: int = 8192, recursion_count: int = 0
-    ) -> list[str, str]:
+    ) -> str:
         # 如果递归次数超过3次，直接截取前limit_str_num个token的字符串
         if recursion_count >= 3:
             return cls.truncate_text_to_tokens(text, limit_str_num)
@@ -95,14 +97,12 @@ class LLMUtils:
                 """.lstrip(),
         }
         invoke_result = await llm.ainvoke([prompt_result])
-        result_text = invoke_result.lstrip()
+        # ainvoke 返回 AIMessage, 取 content 文本(直接 .lstrip() 会 AttributeError)
+        result_text = str(getattr(invoke_result, "content", "") or "").lstrip()
         str_num = cls.count_tokens(result_text)
-        print(f"token缩减: {recursion_count} 轮次")
-        # print(f"简化{str_num_before}: {text}")
-        # print(f"简化后{str_num}: {result_text}")
+        logger.info(f"token缩减: 第 {recursion_count} 轮, {str_num}/{limit_str_num} tokens")
         if str_num <= limit_str_num:
             return result_text
-        print(f"token缩减继续缩减")
         return await cls.trans_in_limit(
             llm, result_text, limit_str_num, recursion_count + 1
         )
@@ -113,13 +113,10 @@ class LLMUtils:
         截取文本的前limit_str_num个token。
         :param text: 输入的文本
         :param limit_str_num: token限制
-        :return: 截取后的文本
+        :return: 截取后的文本(tiktoken decode 保留原文格式, 不丢空格)
         """
-        tokens = re.findall(
-            r"[\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff]|\w+|[^\w\s]", text, re.UNICODE
-        )
-        truncated_tokens = tokens[:limit_str_num]
-        return "".join(truncated_tokens)
+        tokens = tiktokenenc.encode(text)
+        return tiktokenenc.decode(tokens[:limit_str_num])
 
 
 if __name__ == "__main__":

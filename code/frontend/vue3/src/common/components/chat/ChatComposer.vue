@@ -87,18 +87,18 @@ const onInput = (value: string) => emit('update:modelValue', value)
 </template>
 
 <style scoped>
-/* 悬浮纸片输入卡 */
+/* 悬浮纸片输入卡: 无描边, 以光晕环+纸影定义边缘 */
 .cc-card {
   position: relative;
   border-radius: 1rem;
   background: var(--el-bg-color, #fff);
-  border: 1px solid var(--note-border, #e2e8e3);
-  box-shadow: 0 2px 12px rgba(108, 191, 143, 0.14);
-  transition: border-color 0.2s;
+  box-shadow: var(--note-shadow, 0 0 0 1px rgba(107, 158, 120, 0.16), 0 2px 12px rgba(108, 191, 143, 0.14));
+  transition: box-shadow 0.2s;
 }
 
+/* 聚焦: 光晕环收拢变亮, 提示输入中 */
 .cc-card:focus-within {
-  border-color: var(--note-green, #6cbf8f);
+  box-shadow: 0 0 0 2px var(--note-edge-soft, rgba(107, 158, 120, 0.16)), 0 6px 20px -6px var(--note-glow, rgba(107, 158, 120, 0.22));
 }
 
 /* 聚焦时的淡渐变光晕: 几乎不可见的流动微光, 表示正在输入 */
@@ -206,7 +206,7 @@ const onInput = (value: string) => emit('update:modelValue', value)
 
 .cc-toolbar :deep(.el-select__wrapper:hover),
 .cc-toolbar :deep(.el-select__wrapper.is-focused) {
-  border-color: var(--note-green, #6cbf8f);
+  border-color: var(--note-border-green, #a9c9b1);
   background: var(--el-bg-color, #fff);
 }
 
@@ -245,7 +245,9 @@ const onInput = (value: string) => emit('update:modelValue', value)
   width: 36px;
   height: 36px;
   border-radius: 9999px;
-  border: 1px solid var(--note-border, #e2e8e3);
+  border: 1px solid transparent;
+  /* 极淡光晕环替代描边 */
+  box-shadow: 0 0 0 1px var(--note-edge-soft, rgba(107, 158, 120, 0.16));
   background: var(--note-card, #fff);
   color: var(--note-sub, #6b7f6e);
   display: flex;

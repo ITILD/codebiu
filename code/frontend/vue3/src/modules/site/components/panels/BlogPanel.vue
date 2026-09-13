@@ -17,7 +17,7 @@
       v-if="loading && tableData.length === 0"
       variant="table"
       :rows="8"
-      class="rounded-xl border border-note bg-note-card shadow-note px-2 py-3"
+      class="rounded-xl bg-note-card shadow-note px-2 py-3"
     />
     <!-- 文章表格 -->
     <el-table v-else :data="tableData" v-loading="loading" stripe w-full>
@@ -99,10 +99,10 @@
 
         <!-- markdown 编辑: 工具栏 + 桌面双栏同步预览 / 移动端 tab 切换 -->
         <el-form-item v-if="form.source_type === 'markdown'" label="正文">
-          <div class="w-full overflow-hidden rounded-lg border border-note bg-note-paper">
+          <div class="w-full overflow-hidden rounded-lg bg-note-paper">
             <!-- 工具栏: 快捷插入 + 字数 + 全屏 -->
             <div
-              class="flex flex-wrap items-center gap-0.5 border-b border-note bg-note-soft/60 px-1.5 py-1"
+              class="flex flex-wrap items-center gap-0.5 bg-note-soft/60 px-1.5 py-1"
             >
               <button
                 v-for="act in toolbarActions"

@@ -146,7 +146,74 @@ interface ModelConfig extends ModelConfigBase {
   check_format?: boolean | null;
   /** 最近一次校验时间 */
   checked_at?: string | null;
+  /** 各能力测试明细(capability -> 结果), null=未测试 */
+  check_result?: Record<string, ModelCapabilityResult> | null;
 }
+
+/** rerank 分数范围检测建议(与后端 _test_rerank 的 suggest 对齐) */
+interface RerankScoreSuggest {
+  observed_min: number;
+  observed_max: number;
+  configured_min: number;
+  configured_max: number;
+  need_fix?: boolean;
+  /** 建议写入 extra 的分数范围(need_fix 时提供) */
+  score_min?: number;
+  score_max?: number;
+}
+
+/** 单项能力测试结果(与后端 ModelCapabilityTestItem 对齐) */
+interface ModelCapabilityResult {
+  capability: string;
+  label: string;
+  ok: boolean;
+  detail?: string;
+  error?: string;
+  elapsed?: number;
+  checked_at?: string;
+  /** 附加建议(rerank: 分数范围检测) */
+  suggest?: RerankScoreSuggest | null;
+}
+
+/** 模型能力测试响应(POST /ai/llm/test-by-model-id) */
+interface ModelTestResponse {
+  model_id: string;
+  model_type: string;
+  capabilities: ModelCapabilityResult[];
+  checked_at?: string;
+}
+
+/** 各模型类型支持的能力项(capability -> 中文名, 与后端 MODEL_CAPABILITIES 对齐) */
+const capabilityOptionsFor: Record<string, { key: string; label: string }[]> = {
+  [ModelType.CHAT]: [
+    { key: 'chat', label: '问答' },
+    { key: 'structured', label: '结构化' },
+    { key: 'vision', label: '多模态' },
+  ],
+  [ModelType.EMBEDDINGS]: [{ key: 'embedding', label: '向量化' }],
+  [ModelType.RERANK]: [{ key: 'rerank', label: '重排' }],
+}
+
+/** 能力标签样式(通过时展示的颜色) */
+const capabilityTagType: Record<string, 'primary' | 'success' | 'warning' | 'info' | 'danger'> = {
+  chat: 'primary',
+  structured: 'success',
+  vision: 'danger',
+  embedding: 'success',
+  rerank: 'warning',
+}
+
+/** 取模型已测试的能力列表(含未通过, 供标签渲染; 未测试返回 []) */
+const testedCapabilities = (config?: ModelConfig | null) =>
+  Object.entries(config?.check_result ?? {})
+    .filter(([, v]) => !!v)
+    .map(([key, v]) => ({
+      key,
+      label: v.label || capabilityOptionsFor[key]?.find(c => c.key === key)?.label || key,
+      ok: !!v.ok,
+      detail: v.detail || '',
+      error: v.error || '',
+    }))
 
 interface ModelConfigCreate extends ModelConfigBase {
   model: string; // 必填字段
@@ -207,8 +274,14 @@ export {
   modelTypeLabel,
   serverTypeLabel,
   extraKeyHints,
+  capabilityOptionsFor,
+  capabilityTagType,
+  testedCapabilities,
   type ModelConfigBase,
   type ModelConfig,
   type ModelConfigCreate,
   type ModelConfigUpdate,
+  type ModelCapabilityResult,
+  type RerankScoreSuggest,
+  type ModelTestResponse,
 }

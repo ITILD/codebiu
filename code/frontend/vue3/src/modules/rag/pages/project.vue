@@ -33,8 +33,8 @@
       <div v-loading="loading" grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3>
         <div
           v-for="row in projects" :key="row.id"
-          flex flex-col gap-3 p-4 rounded-2xl border border-note bg-note-card shadow-note cursor-pointer
-          hover:border-note-green hover:-translate-y-0.5 transition-all
+          flex flex-col gap-3 p-4 rounded-2xl bg-note-card shadow-note cursor-pointer
+          hover:shadow-note-hover hover:-translate-y-0.5 transition-all
           @click="handleOpenEdit(row)"
         >
           <!-- 头部: 图标 + 名称 + 创建时间 -->
@@ -91,7 +91,7 @@
       <TableSearchBar v-model="docQueryParams" :fields="docSearchFields" :collapse-count="2" />
 
       <!-- 便签风卡片容器 -->
-      <div rounded-2xl border border-note bg-note-card shadow-note overflow-hidden>
+      <div rounded-2xl bg-note-card shadow-note overflow-hidden>
       <el-table v-loading="docLoading" :data="docPageData" stripe>
         <el-table-column label="文档名称" min-width="220" show-overflow-tooltip>
           <template #default="{ row }">
@@ -199,7 +199,7 @@
           <!-- 便签风表单卡片(编辑需 my_perms.update 档位>=2; 公开/私有切换需 manage_member 档位>=3 即 publish, v4 3.1) -->
           <el-form
             :model="editForm" :rules="rules" ref="editFormRef" label-width="90px"
-            class="max-w-[520px] p-5 rounded-2xl border border-note bg-note-soft/60"
+            class="max-w-[520px] p-5 rounded-2xl bg-note-soft/60 shadow-note"
           >
             <el-form-item label="名称" prop="name">
               <el-input v-model="editForm.name" :disabled="!currentPerms.update" placeholder="请输入知识库名称"

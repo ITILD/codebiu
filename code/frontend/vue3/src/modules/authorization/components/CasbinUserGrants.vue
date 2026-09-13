@@ -21,7 +21,7 @@
         </template>
         <div class="flex flex-col gap-2">
           <div v-for="b in c.bindings" :key="b.dom + ':' + b.role_key"
-            class="flex items-center justify-between gap-2 border border-note rounded px-2 py-1.5">
+            class="flex items-center justify-between gap-2 bg-note-soft rounded px-2 py-1.5">
             <div class="flex items-center gap-1 flex-wrap">
               <el-tag size="small" :type="b.dom === '*' ? 'danger' : 'primary'">{{ domLabel(b.dom) }}</el-tag>
               <el-tag size="small" type="warning">{{ roleLabel(b.role_key) }}</el-tag>

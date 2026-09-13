@@ -77,7 +77,7 @@
     <!-- 结果展示 -->
     <div v-if="result !== null" page-card>
       <div font-bold mb-3 text-note>清 洗 结 果</div>
-      <div border border-note rounded p-3 bg-note-soft>
+      <div rounded p-3 bg-note-soft>
         <pre v-if="output_type === 'json'" text-sm whitespace-pre-wrap m-0 text-note>{{ resultText }}</pre>
         <div v-else text-sm whitespace-pre-wrap text-note>{{ resultText }}</div>
       </div>

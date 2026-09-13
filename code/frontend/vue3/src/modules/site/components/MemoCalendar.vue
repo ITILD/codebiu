@@ -1,8 +1,8 @@
 <template>
   <!-- 备忘日历(年/月/周 tab 切换), 供博客展示页右上角等场景嵌入 -->
-  <div class="flex flex-col rounded-xl border border-note bg-note-card shadow-note">
+  <div class="flex flex-col rounded-xl bg-note-card shadow-note">
     <!-- 头部: 视图切换 + 周期导航 -->
-    <div class="flex flex-wrap items-center gap-2 border-b border-note px-3 py-2">
+    <div class="flex flex-wrap items-center gap-2 note-edge-b px-3 py-2">
       <el-radio-group v-model="view" size="small">
         <el-radio-button value="year">年</el-radio-button>
         <el-radio-button value="month">月</el-radio-button>
@@ -67,7 +67,7 @@
       <div
         v-for="memo in dayMemos"
         :key="memo.id"
-        class="rounded-lg border border-note bg-note-soft/60 p-3"
+        class="rounded-lg bg-note-soft/60 p-3"
       >
         <div class="flex items-center gap-2">
           <el-tag :type="statusTagType(memo.status)" size="small">{{ statusLabel(memo.status) }}</el-tag>

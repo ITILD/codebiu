@@ -9,7 +9,7 @@
         v-for="chip in overviewChips"
         :key="chip.key"
         type="button"
-        class="note-glow-hover rounded-xl border border-note bg-note-card p-3 text-left shadow-note hover:-translate-y-0.5 md:p-4"
+        class="note-glow-hover rounded-xl bg-note-card p-3 text-left shadow-note hover:-translate-y-0.5 md:p-4"
         @click="active = chip.key"
       >
         <div class="flex items-center gap-1.5 text-xs text-note-sub">
@@ -27,7 +27,7 @@
     <!-- 待办提醒横幅(仅当今日有待办时渲染) -->
     <div
       v-if="todayTodos.length > 0"
-      class="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-note bg-green-600/5 px-3 py-2"
+      class="mb-4 flex flex-wrap items-center gap-2 rounded-lg bg-green-600/5 px-3 py-2"
     >
       <i class="i-ep-bell text-green-700 dark:text-green-400" />
       <span class="text-sm text-note">

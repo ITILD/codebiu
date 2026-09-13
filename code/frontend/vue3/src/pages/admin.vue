@@ -14,7 +14,7 @@
       <div
         v-for="card in statCards"
         :key="card.label"
-        bg-note-card border border-note rounded-xl p-5 shadow-note
+        bg-note-card rounded-xl p-5 shadow-note
       >
         <div flex items-center justify-between>
           <div min-w-0>
@@ -37,7 +37,7 @@
           v-for="shortcut in shortcuts"
           :key="shortcut.path"
           :to="shortcut.path"
-          flex flex-col items-center p-4 rounded-xl bg-note-tint border border-note
+          flex flex-col items-center p-4 rounded-xl bg-note-tint
           transition-all duration-300 hover:-translate-y-1 hover:shadow-note hover:bg-note-card
         >
           <el-icon :size="28" mb-2 text-note-green>
@@ -50,7 +50,7 @@
 
     <div grid grid-cols-1 lg:grid-cols-2 gap-4>
       <!-- 最近访问(localStorage 采集, 与主页共用) -->
-      <div bg-note-card border border-note rounded-xl p-5>
+      <div bg-note-card rounded-xl p-5 shadow-note>
         <h3 font-semibold text-note mb-3>最近访问</h3>
         <template v-if="recentPages.length">
           <div
@@ -70,7 +70,7 @@
       </div>
 
       <!-- 系统信息 -->
-      <div bg-note-card border border-note rounded-xl p-5>
+      <div bg-note-card rounded-xl p-5 shadow-note>
         <h3 font-semibold text-note mb-3>系统信息</h3>
         <el-descriptions :column="1" border>
           <el-descriptions-item label="系统版本">v1.0.0</el-descriptions-item>

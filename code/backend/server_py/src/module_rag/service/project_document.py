@@ -554,7 +554,6 @@ class ProjectDocumentService:
             entry = await self.file_service.get_file_entry(document.entry_id)
             content_hash = entry.content_hash if entry and entry.is_active else None
         temp_input_dir: Path | None = None
-        temp_output_dir: Path | None = None
         if content_hash:
             content = await self.file_service.get_content(content_hash)
             if not content or not content.physical_storage:
@@ -573,9 +572,9 @@ class ProjectDocumentService:
                 logger.error(f"物理文件 {file_path} 不存在")
                 raise NotFoundError(f"物理文件 {file_path} 不存在")
 
-        # 获取当前用户绑定的向量化模型实例 # TODO改成 文件处理专用   ocr模型单独设置
-        ocr_llm: BaseChatModel | None = await self.user_model_service.get_llm_by_user_id(user_id,False)
-        chat_llm: BaseChatModel | None = await self.user_model_service.get_llm_by_user_id(user_id,False,ModelType.CHAT)
+        # 获取当前用户绑定的模型实例(OCR 暂与对话模型共用, 待拆分专用 OCR 模型配置)
+        chat_llm: BaseChatModel | None = await self.user_model_service.get_llm_by_user_id(user_id,False)
+        ocr_llm: BaseChatModel | None = chat_llm
         embedding_llm: BaseChatModel | None = await self.user_model_service.get_llm_by_user_id(user_id,False,ModelType.EMBEDDINGS)
 
         # 步骤进度快照(流水线推进时整体回写 document.parse_steps)
@@ -608,7 +607,6 @@ class ProjectDocumentService:
         await self._update_parse_status(document_id, ParseStatus.PARSING)
         await _report(IngestStep.PARSE, IngestStepState.RUNNING, 5, "开始解析文档")
         try:
-            temp_output_dir = Path(tempfile.mkdtemp(prefix="doc_reparse_"))
             # 1.文件解析
             chunked:list[Chunk] =await self.document_parse_service.file2chunk(file_path,ocr_llm)
             await _report(
@@ -708,11 +706,9 @@ class ProjectDocumentService:
             )
             raise
         finally:
-            # 清理临时文件(解析输出目录 + 新口径落盘的源文件目录)
+            # 清理临时文件(新口径落盘的源文件目录)
             if temp_input_dir and temp_input_dir.exists():
                 shutil.rmtree(temp_input_dir, ignore_errors=True)
-            if temp_output_dir and temp_output_dir.exists():
-                shutil.rmtree(temp_output_dir, ignore_errors=True)
 
     async def _write_ingest_steps(self, document_id: str, steps: dict) -> None:
         """回写文档入库步骤进度 JSONB(失败仅告警, 不阻断解析主流程)"""

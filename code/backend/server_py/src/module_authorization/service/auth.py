@@ -282,7 +282,8 @@ class AuthService:
             raise ValueError("刷新令牌中缺少用户ID")
         # 验证刷新令牌 获取用户信息
         user = await self.user_service.get(user_id)
-
+        if user is None:
+            raise ValueError("用户不存在")
         # 检查用户是否激活
         if not user.is_active:
             raise ValueError("用户账户已被禁用")

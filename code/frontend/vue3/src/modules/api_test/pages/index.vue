@@ -38,7 +38,7 @@
     <div grid grid-cols-2 md:grid-cols-5 gap-3>
       <div
         v-for="card in statCards" :key="card.level"
-        cursor-pointer rounded-lg p-3 bg-note-card border border-note shadow-note
+        cursor-pointer rounded-lg p-3 bg-note-card shadow-note
         transition-colors hover:bg-note-tint
         :class="{ 'ring-2 ring-note': filterLevel === card.level }"
         @click="toggleLevelFilter(card.level)"

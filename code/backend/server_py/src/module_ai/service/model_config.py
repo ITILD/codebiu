@@ -154,8 +154,8 @@ class ModelConfigService:
         ):
             existing = await self.model_config_dao.get(model_config_id)
             if existing:
-                # model_type 经 pydantic 校验后为 ModelType 枚举, 统一转 value
-                model_type = update_data["model_type"]
+                # model_type 未随本次提交时回退库中已有类型(避免 KeyError)
+                model_type = update_data.get("model_type", existing.model_type)
                 await self._ensure_default_unique(
                     model_type.value if hasattr(model_type, "value") else model_type,
                     current_id=model_config_id,
@@ -178,33 +178,70 @@ class ModelConfigService:
         task.add_done_callback(self._check_tasks.discard)
 
     async def _check_and_persist(self, model_config_id: str) -> None:
-        """后台校验模型配置并把结果回写(check_valid/check_format/checked_at)"""
+        """后台校验模型配置并把结果回写(check_valid/check_format/checked_at/check_result)"""
         try:
             config = await self.model_config_dao.get(model_config_id)
             if config is None:
                 return
-            # rerank/ocr/asr 等类型暂无自动校验, 结果保持为空
-            if config.model_type not in (ModelType.CHAT, ModelType.EMBEDDINGS):
+            # 仅自动校验文本类模型(ocr/asr/tts 本地语音类暂无在线测试)
+            type_key = (
+                config.model_type.value
+                if hasattr(config.model_type, "value")
+                else str(config.model_type)
+            )
+            if type_key not in (ModelType.CHAT.value, ModelType.EMBEDDINGS.value, ModelType.RERANK.value):
                 return
             # 延迟导入避免与 LLMService 循环依赖
             from module_ai.service.llm import LLMService
 
-            result = await LLMService().check_config(config)
+            llm_service = LLMService()
+            items = await llm_service.run_capability_tests(config)
+            by_cap = {item.capability: item for item in items}
+            now = datetime.now(timezone.utc)
+            # 由能力测试结果推导旧校验字段(check_valid/check_format)
+            is_valid: bool | None = None
+            is_format: bool | None = None
+            if type_key == ModelType.CHAT.value and "chat" in by_cap:
+                is_valid = by_cap["chat"].ok
+                is_format = by_cap["structured"].ok
+            elif type_key == ModelType.EMBEDDINGS.value and "embedding" in by_cap:
+                is_valid = by_cap["embedding"].ok
+            elif type_key == ModelType.RERANK.value and "rerank" in by_cap:
+                is_valid = by_cap["rerank"].ok
+            check_result = {
+                item.capability: {
+                    "capability": item.capability,
+                    "label": item.label,
+                    "ok": item.ok,
+                    "detail": item.detail,
+                    "error": item.error,
+                    "elapsed": item.elapsed,
+                    "checked_at": now.isoformat(),
+                }
+                for item in items
+            }
             await self.model_config_dao.update(
                 model_config_id,
                 ModelConfigUpdate(
-                    check_valid=result.is_valid,
-                    check_format=(
-                        result.is_format if config.model_type == ModelType.CHAT else None
-                    ),
-                    checked_at=datetime.now(timezone.utc),
+                    check_valid=is_valid,
+                    check_format=is_format if type_key == ModelType.CHAT.value else None,
+                    check_result=check_result or None,
+                    checked_at=now,
                 ),
             )
             logger.info(
-                f"模型配置后台校验完成: {config.model} valid={result.is_valid} format={result.is_format}"
+                f"模型配置后台校验完成: {config.model} valid={is_valid} format={is_format} "
+                f"caps={ {c: i['ok'] for c, i in check_result.items()} }"
             )
         except Exception as e:
             logger.warning(f"模型配置后台校验失败[{model_config_id}]: {e}")
+
+    async def persist_check_result(self, model_config_id: str, check_result: dict) -> None:
+        """仅回写能力测试明细(直连 DAO, 不走 update 流程避免重复触发自动校验)"""
+        await self.model_config_dao.update(
+            model_config_id,
+            ModelConfigUpdate(check_result=check_result),
+        )
 
     async def _becomes_public_default(self, model_config_id: str) -> bool:
         """更新未显式改 scope 时, 判断是否仍为 public 且当前即为默认"""

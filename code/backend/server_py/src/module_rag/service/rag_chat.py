@@ -114,19 +114,28 @@ class RagChatService:
         llm = await self.user_model_service.get_llm_by_user_id(user_id, streaming=False)
         messages: list[AnyMessage] = state["messages"]
 
-        try:
-            structured_llm = llm.with_structured_output(RagHelpInfo)
-            rag_help_info: RagHelpInfo = await structured_llm.ainvoke(
-                [SystemMessage(content=INTENT_ANALYSIS_SYSTEM_PROMPT)] + messages
-            )
-        except Exception as e:
-            logger.warning(f"意图分析失败，回退原问题: {e}")
-            last_content = messages[-1].content if messages else ""
+        last_content = messages[-1].content if messages else ""
+        if llm is None:
+            # 无可用模型: 跳过意图分析, 用原问题检索(chat 节点会给出明确报错)
+            logger.warning(f"用户 {user_id} 无可用对话模型, 意图分析跳过")
             rag_help_info = RagHelpInfo(
                 intent=last_content,
                 vector_search=last_content,
                 full_text_search=last_content,
             )
+        else:
+            try:
+                structured_llm = llm.with_structured_output(RagHelpInfo)
+                rag_help_info: RagHelpInfo = await structured_llm.ainvoke(
+                    [SystemMessage(content=INTENT_ANALYSIS_SYSTEM_PROMPT)] + messages
+                )
+            except Exception as e:
+                logger.warning(f"意图分析失败，回退原问题: {e}")
+                rag_help_info = RagHelpInfo(
+                    intent=last_content,
+                    vector_search=last_content,
+                    full_text_search=last_content,
+                )
         return {"rag_help_info": rag_help_info}
 
     async def _knowledge_search_node(self, state: RagChatState) -> dict:
@@ -163,6 +172,9 @@ class RagChatService:
         """LLM 对话节点: 拼接 system prompt + 历史消息 → 生成回复"""
         user_id: str = state["user_id"]
         llm = await self.user_model_service.get_llm_by_user_id(user_id)
+        if llm is None:
+            # 与 agent_chat 一致: 明确报错而非 AttributeError, 由 chat_stream 转 ERROR 事件
+            raise ValueError("无可用对话模型, 请先在模型设置中绑定或由管理员配置默认公共模型")
 
         messages = messages_trim_with_max_tokens(list(state["messages"]))
         knowledge_context_list: list[ProjectDocumentChunkSearchResponse] = state.get(
@@ -234,9 +246,9 @@ class RagChatService:
                     stream_event_type=StreamEventType.STATUS,
                 )
             elif resolved.model_id is None:
-                # 用户关闭回退且无可用模型: 直接报错, 不静默换模型
+                # 无可用模型(绑定失效/未绑定, 且无默认公共模型可回退): 直接报错, 不静默换模型
                 yield StreamOne(
-                    content="没有可用的对话模型（绑定的模型不可用且已关闭回退），请在设置中检查模型绑定",
+                    content="没有可用的对话模型(绑定失效且无默认公共模型可回退), 请在设置中绑定模型或联系管理员配置默认模型",
                     stream_event_type=StreamEventType.ERROR,
                 )
                 return
@@ -258,17 +270,22 @@ class RagChatService:
                 content=f"服务异常: {e}",
                 stream_event_type=StreamEventType.ERROR,
             )
-
-        # 5. 持久化助手消息(含过程区块，便于重新打开时恢复思考链路显示)
-        if full_response:
-            await self.chat_message_service.add(
-                ChatMessageCreate(
-                    conversation_id=conversation_id,
-                    role=RoleType.ASSISTANT,
-                    content=full_response,
-                    blocks=process_blocks or None,
-                )
-            )
+        finally:
+            # 持久化助手消息(含过程区块，便于重新打开时恢复思考链路显示)
+            # 客户端中止(停止生成)时生成器被 GeneratorExit 关闭, except Exception 捕获不到,
+            # 必须放 finally 才能保证已生成的部分回答落库
+            if full_response:
+                try:
+                    await self.chat_message_service.add(
+                        ChatMessageCreate(
+                            conversation_id=conversation_id,
+                            role=RoleType.ASSISTANT,
+                            content=full_response,
+                            blocks=process_blocks or None,
+                        )
+                    )
+                except Exception as e:
+                    logger.error(f"助手消息持久化失败: {e}", exc_info=True)
 
     @staticmethod
     def _accumulate_process_block(blocks: list[dict], item: StreamOne) -> None:
@@ -302,6 +319,9 @@ class RagChatService:
         """LLM 结构化总结: 生成标题 + 摘要"""
         user_id = state["user_id"]
         llm = await self.user_model_service.get_llm_by_user_id(user_id, streaming=False)
+        if llm is None:
+            logger.warning(f"用户 {user_id} 无可用对话模型, 总结降级返回默认摘要")
+            return {"summary": ConversationSummary()}
         structured_llm = llm.with_structured_output(ConversationSummary)
 
         messages: list[AnyMessage] = [
@@ -327,9 +347,11 @@ class RagChatService:
             summary: ConversationSummary = (
                 result.get("summary") or ConversationSummary()
             )
-            await self.conversation_service.update(
-                conversation_id, ConversationUpdate(title=summary.title)
-            )
+            # 仅在生成出有效标题时更新, 避免 LLM 失败/空标题覆盖原对话标题
+            if summary.title:
+                await self.conversation_service.update(
+                    conversation_id, ConversationUpdate(title=summary.title)
+                )
             return summary
         except Exception as e:
             logger.error(f"总结对话失败: {e}", exc_info=True)

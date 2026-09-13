@@ -4,6 +4,8 @@
     - model_type=rerank + server_type=dashscope/ollama/vllm 的记录即为可选方案
     - model_id 参数可选: 指定时精确匹配, 缺省取该类型最优先配置(默认公共模型优先)
     - 引擎缓存键含配置 updated_at, 配置修改后自动重建
+    - 分数范围由 extra.score_min/score_max 声明(默认 0~1, jina 等为 -0.5~0.5),
+      rerank() 出口的 relevance_score 已归一化到 0~1
 """
 import logging
 import time
@@ -23,32 +25,17 @@ _MAX_DOC_CHARS = 4000
 
 
 def _build_reranker(config: ModelConfig) -> Rerank:
-    """按服务方案构建重排序引擎实例
+    """按服务方案构建重排序引擎实例(委托工厂统一构建, 含分数范围读取)
 
     :param config: rerank 类型的模型配置
     :raises BusinessError: 服务方案暂未支持
     """
-    extra = config.extra or {}
-    if config.server_type == ModelServerType.DASHSCOPE:
-        return DashscopeRerank(
-            api_key=config.api_key,
-            model=config.model,
-            base_url=config.url
-            or "https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank",
-        )
-    if config.server_type == ModelServerType.OLLAMA:
-        return OllamaRerank(
-            model=config.model,
-            base_url=config.url or "http://localhost:11434/api/rerank",
-        )
-    if config.server_type == ModelServerType.VLLM:
-        return VllmRerank(
-            model=config.model,
-            base_url=config.url or "http://localhost:10002/v1/rerank",
-            score_threshold=extra.get("score_threshold"),
-            api_key=config.api_key,
-        )
-    raise BusinessError(f"服务方案 {config.server_type} 暂不支持重排序")
+    from module_ai.utils.llm.factory.builder import build_rerank_model
+
+    try:
+        return build_rerank_model(config)
+    except ValueError as e:
+        raise BusinessError(str(e)) from e
 
 
 class RerankService:
@@ -106,15 +93,17 @@ class RerankService:
             return RerankResponse(results=[], elapsed=round(time.time() - start, 3))
 
         ranked = await reranker.arerank(request.query, texts, request.top_n)
-        # 按返回索引映射回原文档
+        # 按返回索引映射回原文档(分数归一化到 0~1, 阈值过滤方可统一语义)
         results = [
             {
                 "node": docs[item["index"]],
-                "relevance_score": float(
-                    item.get("relevance_score", item.get("score", 0.0))
+                "relevance_score": reranker.normalize_score(
+                    float(item.get("relevance_score", item.get("score", 0.0)))
                 ),
             }
             for item in ranked
             if isinstance(item, dict) and item.get("index") is not None
         ]
+        # 按归一化分数降序
+        results.sort(key=lambda x: x["relevance_score"], reverse=True)
         return RerankResponse(results=results, elapsed=round(time.time() - start, 3))

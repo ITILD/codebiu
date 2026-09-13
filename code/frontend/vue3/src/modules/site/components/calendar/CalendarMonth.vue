@@ -16,9 +16,9 @@
         v-for="cell in cells"
         :key="cell.date.getTime()"
         type="button"
-        class="min-h-[52px] rounded-md border p-1 text-left align-top transition-colors"
+        class="min-h-[52px] rounded-md p-1 text-left align-top transition-colors"
         :class="[
-          cell.inMonth ? 'border-note bg-note-soft/50' : 'border-transparent opacity-40',
+          cell.inMonth ? 'bg-note-soft/50' : 'opacity-40',
           keyOf(cell) === today ? 'ring-1.5 ring-note-green' : 'hover:bg-note-tint',
         ]"
         @click="emit('day-click', keyOf(cell))"

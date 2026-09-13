@@ -11,13 +11,11 @@
       px-3.5
       py-1.5
       rounded-full
-      border
-      border-note
       text-sm
-      transition-colors
+      transition-all
       :class="isActive(tab.index)
-        ? 'bg-note-green text-white border-note-green font-medium'
-        : 'bg-note-card text-note hover:border-note-green hover:text-note-green'"
+        ? 'bg-note-green text-white font-medium'
+        : 'bg-note-tint text-note hover:shadow-note hover:text-note-green'"
     >
       <el-icon :size="14"><component :is="tab.icon" /></el-icon>
       {{ tab.title }}

@@ -18,19 +18,19 @@
 
     <!-- 月度概览: 收入/支出/结余 -->
     <div class="mb-4 grid grid-cols-3 gap-2 md:gap-4">
-      <div class="rounded-xl border border-note bg-note-card p-3 shadow-note md:p-4">
+      <div class="rounded-xl bg-note-card p-3 shadow-note md:p-4">
         <div class="text-xs text-note-sub">本月收入</div>
         <div class="mt-1 truncate text-base font-bold text-note md:text-2xl">
           ¥ {{ fmtMoney(stats?.income_total ?? 0) }}
         </div>
       </div>
-      <div class="rounded-xl border border-note bg-note-card p-3 shadow-note md:p-4">
+      <div class="rounded-xl bg-note-card p-3 shadow-note md:p-4">
         <div class="text-xs text-note-sub">本月支出</div>
         <div class="mt-1 truncate text-base font-bold text-note md:text-2xl">
           ¥ {{ fmtMoney(stats?.expense_total ?? 0) }}
         </div>
       </div>
-      <div class="rounded-xl border border-note bg-note-card p-3 shadow-note md:p-4">
+      <div class="rounded-xl bg-note-card p-3 shadow-note md:p-4">
         <div class="text-xs text-note-sub">本月结余</div>
         <div
           class="mt-1 truncate text-base font-bold md:text-2xl"
@@ -43,11 +43,11 @@
 
     <!-- 图表区: 支出分类饼图 + 近6月收支趋势(移动端堆叠) -->
     <div class="mb-4 grid grid-cols-1 gap-2 md:gap-4 lg:grid-cols-2">
-      <div class="rounded-xl border border-note bg-note-card p-3 shadow-note">
+      <div class="rounded-xl bg-note-card p-3 shadow-note">
         <div class="mb-1 text-sm font-bold text-note">支出分类占比</div>
         <div ref="pieEl" class="h-[240px] w-full md:h-[280px]" />
       </div>
-      <div class="rounded-xl border border-note bg-note-card p-3 shadow-note">
+      <div class="rounded-xl bg-note-card p-3 shadow-note">
         <div class="mb-1 text-sm font-bold text-note">近6月收支趋势</div>
         <div ref="barEl" class="h-[240px] w-full md:h-[280px]" />
       </div>

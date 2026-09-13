@@ -7,7 +7,7 @@
       <!-- 主内容区: 文章列表 / 阅读视图 -->
       <div class="w-full min-w-0 flex-1">
         <!-- 阅读视图: 点击文章进入 -->
-        <article v-if="reading" class="rounded-xl border border-note bg-note-card shadow-note p-5 md:p-8">
+        <article v-if="reading" class="rounded-xl bg-note-card shadow-note p-5 md:p-8">
           <el-button size="small" text :icon="ArrowLeft" @click="closeRead">返回列表</el-button>
           <h1 class="mt-3 text-2xl font-bold text-note">{{ reading.title }}</h1>
           <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-note-sub">
@@ -64,7 +64,7 @@
               v-for="post in posts"
               :key="post.id"
               type="button"
-              class="note-glow-hover rounded-xl border border-note bg-note-card shadow-note p-4 text-left hover:-translate-y-0.5"
+              class="note-glow-hover rounded-xl bg-note-card shadow-note p-4 text-left hover:-translate-y-0.5"
               @click="openRead(post)"
             >
               <div class="flex items-center gap-2">

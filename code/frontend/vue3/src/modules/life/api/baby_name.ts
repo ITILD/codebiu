@@ -37,8 +37,8 @@ export const predictBabyNameStream = async (
           return
         }
 
-        // 有实际内容时才触发回调 stream
-        if (parsed.content && parsed.content.trim()) {
+        // 有内容即回调(含纯空白块: 空行/缩进是格式的一部分, trim 会丢换行)
+        if (parsed.content) {
           onChunk(parsed)
         }
 

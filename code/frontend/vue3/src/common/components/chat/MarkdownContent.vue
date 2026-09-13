@@ -7,6 +7,7 @@ import { marked, type Tokens } from 'marked'
 import MermaidBlock from './MermaidBlock.vue'
 import TableBlock from './TableBlock.vue'
 import { protectMath, restoreMathHtml } from '@/common/utils/latex'
+import { sanitizeHtml } from '@/common/utils/sanitize'
 
 interface Props {
   /** markdown 源内容 */
@@ -57,7 +58,8 @@ const segments = computed<Segment[]>(() => {
       const html = marked.parser(currentTextTokens)
       result.push({
         type: 'text',
-        content: restoreMathHtml(html, mathMap),
+        // marked 不消毒, LLM 输出可能含恶意 HTML, 渲染前必须 sanitize
+        content: sanitizeHtml(restoreMathHtml(html, mathMap)),
         id: `${props.blockId}-${idx++}`,
       })
       currentTextTokens = []
@@ -186,10 +188,9 @@ const handleMermaidUpdate = (payload: { id: string; code: string }) => {
   color: var(--note-green-deep, #3f7a52);
 }
 
-/* 代码块: 深绿纸面 */
+/* 代码块: 深绿纸面(底色差成形, 无描边) */
 .markdown-body :deep(pre) {
   background: var(--note-soft, #f2f7f0);
-  border: 1px solid var(--note-border, #e2e8e3);
   border-radius: 10px;
   padding: 0.9em 1em;
   overflow-x: auto;
@@ -206,7 +207,15 @@ const handleMermaidUpdate = (payload: { id: string; code: string }) => {
 
 .markdown-body :deep(hr) {
   border: none;
-  border-top: 1px solid var(--note-border, #e2e8e3);
+  height: 1px;
+  /* 两端渐隐的淡色分隔, 替代实线 */
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--note-border, #e2e8e3) 18%,
+    var(--note-border, #e2e8e3) 82%,
+    transparent
+  );
   margin: 1em 0;
 }
 

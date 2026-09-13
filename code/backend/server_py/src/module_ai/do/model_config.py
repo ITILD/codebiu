@@ -73,8 +73,10 @@ class ModelConfigBase(SQLModel):
 
     @model_validator(mode='before')
     @classmethod
-    def set_default_url(cls, data: dict[str, any]) -> dict[str, any]:
-        """在验证前根据 server_type 设置默认 url"""
+    def set_default_url(cls, data) -> dict:
+        """在验证前根据 server_type 设置默认 url(非 dict 输入原样返回)"""
+        if not isinstance(data, dict):
+            return data
         server_type = data.get("server_type", ModelServerType.OPENAI)
         url = data.get("url")
 
@@ -114,6 +116,12 @@ class ModelConfig(ModelConfigBase, table=True):
         None,
         sa_column=Column(DateTime(timezone=True), nullable=True),
         description="最近一次校验时间",
+    )
+    # 各能力测试明细(capability -> {ok/detail/error/elapsed/checked_at}), 由能力测试回写, 前端能力标签常驻展示
+    check_result: dict | None = Field(
+        default=None,
+        sa_column=Column(JSON, nullable=True),
+        description="能力测试明细(JSON: capability -> {ok, detail, error, elapsed, checked_at})",
     )
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
@@ -156,7 +164,7 @@ class ModelConfigUpdate(SQLModel):
     # type openai  vllm 枚举
     server_type: ModelServerType | None = None
     # 模型标识
-    model: str = None
+    model: str | None = None
     url: str | None = None
     api_key: str | None = None
     # 归属范围/部门/默认/显示名
@@ -183,3 +191,5 @@ class ModelConfigUpdate(SQLModel):
     check_valid: bool | None = None
     check_format: bool | None = None
     checked_at: datetime | None = None
+    # 能力测试明细(仅由能力测试接口/后台校验回写, 前端不直接提交)
+    check_result: dict | None = None

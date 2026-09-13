@@ -4,8 +4,8 @@
     <div mb-4 flex flex-wrap items-center gap-2>
       <RouterLink
         to="/agent/chat"
-        flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-note bg-note-card text-sm text-note
-        hover:border-note-green hover:text-note-green transition-colors
+        flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-note-tint text-sm text-note
+        hover:text-note-green hover:shadow-note transition-all
       >
         <el-icon :size="14"><ChatDotRound /></el-icon>
         智能体对话
@@ -33,8 +33,8 @@
     <div v-loading="loading" grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3>
       <div
         v-for="agent in filteredAgents" :key="agent.id"
-        flex flex-col gap-3 p-4 rounded-2xl border border-note bg-note-card shadow-note
-        hover:border-note-green hover:-translate-y-0.5 transition-all
+        flex flex-col gap-3 p-4 rounded-2xl bg-note-card shadow-note
+        hover:shadow-note-hover hover:-translate-y-0.5 transition-all
       >
         <!-- 头部: 图标 + 名称 + 标签 -->
         <div flex items-center gap-2.5>

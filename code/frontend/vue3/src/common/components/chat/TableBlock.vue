@@ -12,6 +12,7 @@ import {
   copyToClipboard,
 } from '@/common/utils/export'
 import { renderMarkdownWithLatex } from '@/common/utils/latex'
+import { sanitizeHtml } from '@/common/utils/sanitize'
 
 interface Props {
   /** 表格 markdown 源码 */
@@ -36,13 +37,14 @@ watch(
   () => { editedMd.value = null },
 )
 
-/** 渲染表格 HTML(latex 保护, 仅取 <table> 部分) */
+/** 渲染表格 HTML(latex 保护 + 消毒, 仅取 <table> 部分) */
 const tableHtml = computed(() => {
   const html = renderMarkdownWithLatex(
     (t) => marked.parse(t, { async: false }) as string,
     localMd.value,
   )
-  return html.match(/<table[\s\S]*?<\/table>/)?.[0] ?? html
+  // 单元格内容由 LLM 生成, 渲染前消毒防 XSS
+  return sanitizeHtml(html.match(/<table[\s\S]*?<\/table>/)?.[0] ?? html)
 })
 
 const getTableEl = () => tableWrapRef.value?.querySelector('table') ?? null
@@ -150,10 +152,11 @@ const handleCopy = async (format: 'md' | 'excel') => {
 <style scoped>
 .tb-block {
   margin: 12px 0;
-  border: 1px solid var(--note-border, #e2e8e3);
+  /* 描边改为极淡光晕环, 边缘更柔 */
   border-radius: 12px;
   overflow: hidden;
   background: var(--note-card, #fdfefc);
+  box-shadow: 0 0 0 1px var(--note-edge-soft, rgba(107, 158, 120, 0.16));
 }
 
 .tb-head {
@@ -162,7 +165,6 @@ const handleCopy = async (format: 'md' | 'excel') => {
   justify-content: space-between;
   padding: 6px 12px;
   background: var(--note-soft, #f2f7f0);
-  border-bottom: 1px solid var(--note-border, #e2e8e3);
 }
 
 .tb-title {

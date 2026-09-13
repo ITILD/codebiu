@@ -175,7 +175,18 @@ class HttpClient {
       let msg = `HTTP error! status: ${response.status}`;
       try {
         const err = await response.json();
-        if (typeof err.detail === 'string') msg = err.detail;
+        if (typeof err.detail === 'string') {
+          msg = err.detail;
+        } else if (Array.isArray(err.detail)) {
+          // FastAPI 422 校验错误: detail 为 [{loc, msg, type}, ...], 拼接为可读信息
+          msg = err.detail
+            .map((item: { loc?: (string | number)[]; msg?: string }) => {
+              const field = item.loc?.filter((p) => p !== 'body').join('.');
+              return field ? `${field}: ${item.msg ?? ''}` : (item.msg ?? '');
+            })
+            .filter(Boolean)
+            .join('; ');
+        }
       } catch { }
       throw new Error(msg);
     }

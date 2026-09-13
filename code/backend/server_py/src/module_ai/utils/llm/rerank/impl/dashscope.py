@@ -2,17 +2,30 @@ from module_ai.utils.llm.rerank.interface import Rerank
 import aiohttp
 import requests
 
+# 重排序接口超时(秒): 检索链路强依赖, 无超时易整体挂起
+_REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=60)
+
 
 class DashscopeRerank(Rerank):
+    """Dashscope 文本重排序(gte-rerank 系, 输出分数 0~1)
+
+    分数范围可通过 score_min/score_max 覆盖:
+        兼容部署在 dashscope 风格接口上的 -0.5~0.5 量纲模型(如 bge-reranker 系)
+    """
+
     def __init__(
         self,
         api_key,
         model="gte-rerank-v2",
         base_url="https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank",
+        score_min: float = 0.0,
+        score_max: float = 1.0,
     ):
         self.api_key = api_key
         self.model = model
         self.base_url = base_url.strip()  # 防止 URL 末尾有空格
+        self.score_min = score_min
+        self.score_max = score_max
 
     def _build_payload_and_headers(self, query, documents, top_n=None):
         """构建请求的 payload 和 headers"""
@@ -50,15 +63,19 @@ class DashscopeRerank(Rerank):
         return result
 
     async def arerank(self, query, documents, top_n=None) -> list:
-        """异步文本重排序函数"""
+        """异步文本重排序函数(带超时与状态校验, 错误时抛出响应体便于排查)"""
         payload, headers = self._build_payload_and_headers(query, documents, top_n)
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(timeout=_REQUEST_TIMEOUT) as session:
             async with session.post(
                 self.base_url, headers=headers, json=payload
             ) as response:
+                if response.status >= 400:
+                    body = await response.text()
+                    raise RuntimeError(
+                        f"Dashscope 重排序请求失败({response.status}): {body[:500]}"
+                    )
                 result = await response.json()
-                result = self._result_to_list(result)
-                return result
+                return self._result_to_list(result)
 
 
 if __name__ == "__main__":

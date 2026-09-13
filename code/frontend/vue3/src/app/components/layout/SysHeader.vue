@@ -57,7 +57,7 @@
             <!-- 登录 -->
             {{ $t('sign_in') }}
           </button>
-          <!-- 注册按钮 小屏幕隐藏 -->
+          <!-- 注册按钮 小屏幕隐藏(淡绿软底替代描边) -->
           <button
             max-lg:hidden
             flex
@@ -66,11 +66,10 @@
             rounded
             px-3
             py-1.5
-            border-1
-            border-note
+            bg-note-tint
             text-note
-            hover:bg-note-tint
-            transition-colors
+            hover:shadow-note
+            note-transition
             @click="showRegisterDialog = true"
           >
             {{ $t('sign_up') }}

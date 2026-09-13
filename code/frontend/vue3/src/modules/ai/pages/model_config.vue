@@ -36,10 +36,19 @@
               <span>{{ modelMainLabel(row) }}</span>
               <el-tag v-if="row.is_default" type="warning" size="small">默认</el-tag>
               <el-tag v-if="row.is_active === false" type="info" size="small">不生效</el-tag>
-              <!-- 能力标签: 后台自动校验回写的结果(null=尚未校验) -->
-              <el-tag v-if="row.check_valid === true" type="success" size="small">校验通过</el-tag>
-              <el-tag v-else-if="row.check_valid === false" type="danger" size="small">校验失败</el-tag>
-              <el-tag v-if="row.check_format === true" type="primary" size="small">格式化</el-tag>
+              <!-- 能力标签: 最近一次测试结果持久化展示(通过=能力色, 失败=红); 未测试过回退旧校验字段 -->
+              <template v-if="row.check_result">
+                <el-tooltip v-for="cap in testedCapabilities(row)" :key="cap.key"
+                  :content="cap.ok ? (cap.detail || '测试通过') : (cap.error || '测试未通过')" placement="top">
+                  <el-tag :type="cap.ok ? (capabilityTagType[cap.key] ?? 'success') : 'danger'" size="small" effect="light">
+                    {{ cap.label }}
+                  </el-tag>
+                </el-tooltip>
+              </template>
+              <template v-else>
+                <el-tag v-if="row.check_valid === true" type="success" size="small">校验通过</el-tag>
+                <el-tag v-else-if="row.check_valid === false" type="danger" size="small">校验失败</el-tag>
+              </template>
             </div>
             <div v-if="row.display_name && row.display_name !== row.model" text-xs text-note-sub>
               {{ row.model }}
@@ -66,8 +75,12 @@
         </template>
       </el-table-column>
       <!-- 操作列: 平板及以上固定右侧, 手机取消固定避免遮挡 -->
-      <el-table-column label="操作" min-width="140" align="center" :fixed="isMd ? 'right' : false">
+      <el-table-column label="操作" min-width="180" align="center" :fixed="isMd ? 'right' : false">
         <template #default="{ row }">
+          <!-- 测试: 任意可见模型均可发起(公共/部门/本人) -->
+          <el-button link type="success" size="small" :loading="testingId === row.id" @click="handleTest(row)">
+            测试
+          </el-button>
           <template v-if="canManage(row)">
             <el-button link type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
             <el-button link type="danger" size="small" @click="handleDelete(row)">删除</el-button>
@@ -160,6 +173,27 @@
           <el-input-number v-model="form.out_tokens" :min="1" :step="256" w-full />
         </el-form-item>
 
+        <!-- 重排模型: 分数范围(量纲因模型而异, 影响 score 过滤) -->
+        <template v-if="form.model_type === ModelType.RERANK">
+          <el-form-item label="分数范围">
+            <div class="w-full flex flex-wrap items-center gap-2">
+              <el-input-number v-model="rerankScoreMin" :step="0.1" controls-position="right"
+                placeholder="下限" class="!w-30" />
+              <span class="text-note-sub">~</span>
+              <el-input-number v-model="rerankScoreMax" :step="0.1" controls-position="right"
+                placeholder="上限" class="!w-30" />
+              <el-button size="small" @click="applyScorePreset(0, 1)">0 ~ 1</el-button>
+              <el-button size="small" @click="applyScorePreset(-0.5, 0.5)">-0.5 ~ 0.5</el-button>
+            </div>
+          </el-form-item>
+          <el-form-item label=" ">
+            <div class="text-xs text-note-sub leading-5">
+              模型输出分数量纲不同：gte/Qwen3 系为 0~1，jina-reranker-v3 为 -0.5~0.5。
+              配置后 score 过滤阈值统一按 0~1 归一化；不确定时保存后用"测试"按钮自动检测。
+            </div>
+          </el-form-item>
+        </template>
+
         <!-- 超时与成本(API 类) -->
         <template v-if="!isLocalType">
           <el-form-item label="超时(秒)" prop="timeout">
@@ -191,11 +225,54 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- 能力测试结果对话框 -->
+    <el-dialog v-model="testDialogVisible" :title="`能力测试 - ${testTargetName}`" width="90%" class="max-w-[520px]">
+      <div class="flex flex-col">
+        <div v-for="item in testResults" :key="item.capability"
+          class="flex items-start gap-2 py-2 border-b border-note-glass last:border-b-0">
+          <el-tag :type="item.ok ? 'success' : 'danger'" size="small" class="shrink-0">
+            {{ item.ok ? '通过' : '失败' }}
+          </el-tag>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2">
+              <span class="text-sm text-note">{{ item.label }}</span>
+              <span v-if="item.elapsed" class="text-xs text-note-sub">{{ item.elapsed }}s</span>
+            </div>
+            <div class="text-xs text-note-sub break-all">
+              {{ item.ok ? (item.detail || '测试通过') : (item.error || '测试未通过') }}
+            </div>
+            <!-- rerank 分数范围检测建议: 一键应用 -->
+            <div v-if="item.suggest?.need_fix" class="mt-2">
+              <el-alert type="warning" :closable="false" class="!py-1">
+                <template #title>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span>
+                      检测到分数范围 [{{ item.suggest.observed_min }}, {{ item.suggest.observed_max }}]
+                      与当前配置 [{{ item.suggest.configured_min }}, {{ item.suggest.configured_max }}] 不符，
+                      score 过滤会失真
+                    </span>
+                    <el-button size="small" type="warning" :loading="applyingSuggest"
+                      @click="applyScoreSuggest(item.suggest!)">
+                      应用建议范围
+                    </el-button>
+                  </div>
+                </template>
+              </el-alert>
+            </div>
+          </div>
+        </div>
+        <div v-if="!testResults.length" class="text-sm text-note-sub">该模型类型暂不支持在线测试</div>
+      </div>
+      <template #footer>
+        <el-button type="primary" @click="testDialogVisible = false">知道了</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { createModelConfig, deleteModelConfig, updateModelConfig, getModelConfig, listModelConfigs, revectorizeChunks, getRevectorizeStatus } from '../api/model_config'
+import { createModelConfig, deleteModelConfig, updateModelConfig, getModelConfig, listModelConfigs, revectorizeChunks, getRevectorizeStatus, testModelCapability } from '../api/model_config'
 import type { PaginationParams, PaginationResponse } from '@/common/types/common'
 import TableSearchBar, { type SearchField } from '@/common/components/TableSearchBar.vue'
 import { useAuthStore } from '@/common/stores/auth'
@@ -213,9 +290,13 @@ import {
   scopeShortLabel,
   modelMainLabel,
   extraKeyHints,
+  capabilityTagType,
+  testedCapabilities,
   type ModelConfig,
   type ModelConfigCreate,
   type ModelConfigUpdate,
+  type ModelCapabilityResult,
+  type RerankScoreSuggest,
 } from '../types/model_config'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
 
@@ -372,6 +453,72 @@ onBeforeUnmount(() => {
   if (revTimer) clearTimeout(revTimer)
 })
 
+// ################ 能力测试 ################
+const testingId = ref<string | null>(null)
+const testDialogVisible = ref(false)
+const testResults = ref<ModelCapabilityResult[]>([])
+const testTargetName = ref('')
+const testTargetId = ref('')
+const applyingSuggest = ref(false)
+
+/** 运行模型能力测试(该类型全部能力), 结果持久化并常驻展示为标签 */
+const handleTest = async (row: ModelConfig) => {
+  try {
+    testingId.value = row.id
+    testTargetId.value = row.id
+    const res = await testModelCapability(row.id)
+    testTargetName.value = modelMainLabel(row)
+    testResults.value = res.capabilities
+    testDialogVisible.value = true
+    // 合并进行数据(check_result 后端已同步持久化)
+    const idx = tableData.value.findIndex(r => r.id === row.id)
+    if (idx >= 0) {
+      const merged: Record<string, ModelCapabilityResult> = { ...(tableData.value[idx].check_result ?? {}) }
+      for (const cap of res.capabilities) merged[cap.capability] = { ...cap, checked_at: res.checked_at }
+      tableData.value[idx] = { ...tableData.value[idx], check_result: merged }
+    }
+    const passed = res.capabilities.filter(c => c.ok).length
+    if (passed === res.capabilities.length) ElMessage.success(`测试完成: ${passed}/${res.capabilities.length} 项能力通过`)
+    else ElMessage.warning(`测试完成: ${passed}/${res.capabilities.length} 项能力通过, 失败项见红色标签`)
+  }
+  catch (error) {
+    console.error('模型能力测试失败:', error)
+    ElMessage.error('模型能力测试失败')
+  }
+  finally {
+    testingId.value = null
+  }
+}
+
+/** 一键应用 rerank 分数范围建议(写回模型配置 extra 并刷新行数据) */
+const applyScoreSuggest = async (suggest: RerankScoreSuggest) => {
+  if (suggest.score_min === undefined || suggest.score_max === undefined) return
+  try {
+    applyingSuggest.value = true
+    const row = tableData.value.find(r => r.id === testTargetId.value)
+    if (!row) throw new Error('模型配置不存在')
+    const mergedExtra = { ...(row.extra ?? {}), score_min: suggest.score_min, score_max: suggest.score_max }
+    await updateModelConfig(row.id, { extra: mergedExtra })
+    // 同步本地行数据(含能力标签中的建议状态)
+    const idx = tableData.value.findIndex(r => r.id === row.id)
+    if (idx >= 0) {
+      const checkResult = { ...(tableData.value[idx].check_result ?? {}) }
+      for (const cap of testResults.value) {
+        if (cap.suggest) checkResult[cap.capability] = { ...checkResult[cap.capability], suggest: { ...cap.suggest, need_fix: false } }
+      }
+      tableData.value[idx] = { ...tableData.value[idx], extra: mergedExtra, check_result: checkResult }
+    }
+    ElMessage.success(`已应用分数范围: ${suggest.score_min} ~ ${suggest.score_max}`)
+  }
+  catch (error) {
+    console.error('应用分数范围建议失败:', error)
+    ElMessage.error('应用分数范围建议失败')
+  }
+  finally {
+    applyingSuggest.value = false
+  }
+}
+
 // ################ 编辑表单(按类型动态) ################
 const dialogVisible = ref(false)
 const formRef = ref<FormInstance>()
@@ -444,6 +591,43 @@ const serverTypeOptions = computed(() => serverTypeOptionsFor(form.model_type))
 
 /** 当前方案 extra 键提示 */
 const extraHints = computed(() => extraKeyHints[form.server_type] ?? [])
+
+/** 容忍非法 JSON 的 extra 读取(表单实时编辑中可能尚未合法) */
+const peekExtra = (): Record<string, unknown> => {
+  const text = form.extra_text.trim()
+  if (!text) return {}
+  try {
+    const obj = JSON.parse(text)
+    return typeof obj === 'object' && obj !== null && !Array.isArray(obj) ? obj : {}
+  }
+  catch {
+    return {}
+  }
+}
+
+/** 写入单个 extra 键(保留其余键; 非法 JSON 时以新对象重建) */
+const setExtraKey = (key: string, value: unknown) => {
+  const base = peekExtra()
+  if (value === undefined || value === null || Number.isNaN(value)) delete base[key]
+  else base[key] = value
+  form.extra_text = Object.keys(base).length ? JSON.stringify(base, null, 2) : ''
+}
+
+/** rerank 分数范围(与 extra_text 中的 score_min/score_max 双向绑定) */
+const rerankScoreMin = computed<number | undefined>({
+  get: () => peekExtra().score_min as number | undefined,
+  set: v => setExtraKey('score_min', v),
+})
+const rerankScoreMax = computed<number | undefined>({
+  get: () => peekExtra().score_max as number | undefined,
+  set: v => setExtraKey('score_max', v),
+})
+
+/** 应用分数范围预设(0~1 通用量纲 / -0.5~0.5 jina 等量纲) */
+const applyScorePreset = (min: number, max: number) => {
+  setExtraKey('score_min', min)
+  setExtraKey('score_max', max)
+}
 
 /** 类型切换: 重置方案为该类型第一个可用项 */
 const handleTypeChange = () => {

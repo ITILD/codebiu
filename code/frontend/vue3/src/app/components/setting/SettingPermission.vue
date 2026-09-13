@@ -15,7 +15,7 @@
       <!-- 模块权限(只读卡片: 模块 -> 功能 -> 动作) -->
       <div v-if="moduleCards.length" class="flex flex-col gap-4">
         <div v-for="card in moduleCards" :key="card.dom"
-          class="border border-note rounded-lg p-3 bg-note-glass">
+          class="rounded-lg p-3 bg-note-glass shadow-note">
           <!-- 模块行 -->
           <div class="flex items-center gap-2 mb-2">
             <el-tag size="small" type="primary">{{ card.label }}</el-tag>
@@ -40,7 +40,7 @@
         <h4 class="text-sm font-medium text-note mt-6 mb-2">角色绑定</h4>
         <div class="flex flex-col gap-2">
           <div v-for="[dom, roles] in roleEntries" :key="dom"
-            class="flex items-start gap-2 border border-note rounded px-3 py-2 flex-wrap">
+            class="flex items-start gap-2 bg-note-soft rounded px-3 py-2 flex-wrap">
             <el-tag size="small" :type="dom === '*' ? 'danger' : 'primary'" class="mt-0.5">{{ domLabel(dom) }}</el-tag>
             <div class="flex gap-1 flex-wrap">
               <el-tag v-for="r in roles" :key="r" size="small" type="warning">{{ r }}</el-tag>

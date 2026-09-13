@@ -6,7 +6,7 @@ import {
   type PaginationParams,
   type PaginationResponse,
 } from '@/common/types/common';
-import type { ModelConfig, ModelConfigCreate, ModelConfigUpdate } from '../types/model_config';
+import type { ModelConfig, ModelConfigCreate, ModelConfigUpdate, ModelTestResponse } from '../types/model_config';
 
 /**
  * 创建新模型配置
@@ -60,6 +60,19 @@ export const listModelConfigs = (params: PaginationParams) => {
 export const infiniteScrollModelConfigs = (params: InfiniteScrollParams) => {
   return http_base_server.get<InfiniteScrollResponse<ModelConfig>>('/ai/model-configs/scroll', {
     params
+  });
+};
+
+/**
+ * 模型能力测试(问答/结构化/多模态/向量化/重排)
+ * 结果持久化到 model_config.check_result, 供能力标签常驻展示
+ * @param modelId 模型配置ID
+ * @param capability 可选, 仅测试指定能力(缺省测试该类型全部能力)
+ */
+export const testModelCapability = (modelId: string, capability?: string) => {
+  return http_base_server.post<ModelTestResponse>('/ai/llm/test-by-model-id', {
+    model_id: modelId,
+    capability: capability || null,
   });
 };
 

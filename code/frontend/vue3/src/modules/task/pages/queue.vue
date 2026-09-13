@@ -5,7 +5,7 @@
       <div
         v-for="card in statCards" :key="card.status"
         cursor-pointer rounded-lg p-3
-        bg-note-card border border-note shadow-note
+        bg-note-card shadow-note
         transition-colors hover:bg-note-tint
         :class="{ 'ring-2 ring-note': queryParams.status === card.status }"
         @click="handleStatCardClick(card.status)"

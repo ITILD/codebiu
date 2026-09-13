@@ -29,10 +29,10 @@ body,
     --el-fill-color-light: #f2f7f0;
     --el-fill-color-lighter: #f7faf6;
 
-    /* 边框: 淡绿灰 */
-    --el-border-color: #d5e0d5;
-    --el-border-color-light: #e3ebe2;
-    --el-border-color-lighter: #ebf1ea;
+    /* 边框: 淡绿灰(全局调淡一档, 边线退为背景色差) */
+    --el-border-color: #dbe5da;
+    --el-border-color-light: #e5ece4;
+    --el-border-color-lighter: #edf2ec;
 
     /* 文字: 深绿灰 */
     --el-text-color-primary: #3f5348;
@@ -51,9 +51,10 @@ body,
     --note-sub: #5a6b5f;
     --note-accent: #557f61;
 
-    /* 阴影: 静止纸片影 / 悬浮抬升影 */
-    --note-shadow: 0 2px 12px rgba(108, 191, 143, 0.14);
-    --note-shadow-hover: 0 8px 24px rgba(108, 191, 143, 0.22);
+    /* 阴影: 静止纸片影 / 悬浮抬升影
+       首段 1px 光晕环替代实线边框: 远看是极淡的苔绿辉光, 不是描边 */
+    --note-shadow: 0 0 0 1px var(--note-edge-soft), 0 2px 12px rgba(108, 191, 143, 0.14);
+    --note-shadow-hover: 0 0 0 1px var(--note-edge-soft), 0 8px 24px rgba(108, 191, 143, 0.22);
 
     /* 渐变(Hero/页头大区块) */
     --note-grad-from: #e7f2e9;
@@ -128,9 +129,9 @@ html.dark {
     --note-sub: #a6c0b1;
     --note-accent: #88d2a7;
 
-    /* 暗色阴影: 绿色影在墨绿底上不可见, 改用深色影保持层次 */
-    --note-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
-    --note-shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.45);
+    /* 暗色阴影: 绿色影在墨绿底上不可见, 改用深色影保持层次(光晕环同亮色策略) */
+    --note-shadow: 0 0 0 1px var(--note-edge-soft), 0 2px 12px rgba(0, 0, 0, 0.35);
+    --note-shadow-hover: 0 0 0 1px var(--note-edge-soft), 0 8px 24px rgba(0, 0, 0, 0.45);
 
     --note-grad-from: #16241c;
     --note-grad-via: #101c15;
@@ -286,7 +287,7 @@ html.dark .paper-sheet::after {
    双写 .el-table 提高特异性: element-plus 按需注入的组件样式晚于本文件,
    同特异性下会覆盖变量, 故用 .el-table.el-table 保证笔记风生效 */
 .el-table.el-table {
-    --el-table-border-color: var(--note-border);
+    --el-table-border-color: var(--el-border-color-lighter);
     --el-table-header-bg-color: var(--note-soft);
     --el-table-header-text-color: var(--note-text);
     --el-table-tr-bg-color: var(--el-bg-color);
@@ -296,7 +297,13 @@ html.dark .paper-sheet::after {
     --el-table-current-row-bg-color: var(--el-color-primary-light-9);
     border-radius: 10px;
     overflow: hidden;
-    box-shadow: var(--el-box-shadow-lighter);
+    /* 外圈光晕纸影替代生硬外框 */
+    box-shadow: var(--note-shadow);
+}
+
+/* 描述列表(bordered)网格线同步调淡 */
+.el-descriptions__cell {
+    border-color: var(--el-border-color-lighter) !important;
 }
 
 /* 斑马纹: 清晰可辨的淡纸底 */
@@ -309,10 +316,19 @@ html.dark .paper-sheet::after {
     font-weight: 600;
 }
 
-/* ---- 卡片: 圆角纸片 ---- */
-.el-card {
-    --el-card-border-color: var(--note-border);
-    --el-card-border-radius: 12px;
+/* ---- 卡片: 无边线纸片 ----
+   边缘由「白纸 vs 米白底色差 + 1px 光晕环(在 --note-shadow 内)」定义,
+   不再画 1px 实线; 卡片头部如需分隔, 用最淡一档色差线 */
+.el-card,
+.el-card.is-always-shadow,
+.el-card.is-hover-shadow:hover {
+    --el-card-border-color: transparent;
+    border-color: transparent;
+    box-shadow: var(--note-shadow);
+}
+
+.el-card__header {
+    border-bottom-color: var(--el-border-color-lighter);
 }
 
 /* ---- 对话框/抽屉: 圆角纸片 ---- */
@@ -335,14 +351,86 @@ html.dark .paper-sheet::after {
     --el-tag-border-radius: 10px;
 }
 
-/* ---- 输入框: 悬浮苔绿描边(聚焦态由 EP 主色驱动, 已随主题切换) ---- */
+/* ---- 按钮: 统一交互动效手感 ---- */
+.el-button {
+    transition: all 0.2s ease-out;
+}
+
+/* ---- 按钮: 去描边, 用极淡光晕环+底色差定义形状 ----
+   只作用于常规实底/默认按钮; plain/text/link 及语义色变体保持原样 */
+.el-button:not(.is-text):not(.is-link):not(.is-plain):not([class*='el-button--']) {
+    border-color: transparent;
+    box-shadow: 0 0 0 1px var(--note-edge-soft), 0 1px 4px -2px var(--note-glow);
+}
+
+/* 悬浮: 光晕环扩一圈并浮起, 边框不跳色 */
+.el-button:not(.is-text):not(.is-link):not(.is-plain):not([class*='el-button--']):hover {
+    box-shadow: 0 0 0 3px var(--note-edge-soft), 0 6px 16px -8px var(--note-glow);
+}
+
+/* ---- 输入框: 默认描边调淡为纸色, 悬浮苔绿(聚焦态由 EP 主色驱动) ---- */
+.el-input__wrapper.el-input__wrapper:not(.is-focus) {
+    box-shadow: 0 0 0 1px var(--note-border) inset;
+}
+
+.el-textarea__inner.el-textarea__inner {
+    box-shadow: 0 0 0 1px var(--note-border) inset;
+}
+
+.el-select__wrapper.el-select__wrapper:not(.is-focused) {
+    box-shadow: 0 0 0 1px var(--note-border) inset;
+}
+
 .el-input__wrapper:not(.is-focus):hover {
     box-shadow: 0 0 0 1px var(--note-border-green) inset;
 }
 
-/* ---- 按钮: 统一交互动效手感 ---- */
-.el-button {
-    transition: all 0.2s ease-out;
+.el-select__wrapper:not(.is-focused):hover {
+    box-shadow: 0 0 0 1px var(--note-border-green) inset;
+}
+
+/* ---- 标签: 胶囊形, 淡底色差即可辨识, 去掉描边 ---- */
+.el-tag.el-tag {
+    border-color: transparent;
+}
+
+/* ---- 菜单: 去默认右描边(侧栏以底色差分区) ---- */
+.el-menu {
+    border-right: none;
+}
+
+/* ---- 页签: 底部灰线改为两端渐隐的淡色线 ---- */
+.el-tabs__nav-wrap.el-tabs__nav-wrap::after {
+    height: 1px;
+    background: linear-gradient(
+        to right,
+        transparent,
+        var(--note-edge-soft) 18%,
+        var(--note-edge-soft) 82%,
+        transparent
+    );
+}
+
+/* ---- 分隔线: 两端渐隐的淡苔绿 ---- */
+.el-divider.el-divider--horizontal {
+    border-top: none;
+    height: 1px;
+    background: linear-gradient(
+        to right,
+        transparent,
+        var(--note-edge-soft) 12%,
+        var(--note-edge-soft) 88%,
+        transparent
+    );
+}
+
+/* ---- 弹层(气泡/下拉): 去描边, 层次交给阴影 ---- */
+.el-popper.is-light {
+    border-color: transparent;
+}
+
+.el-popover.el-popper {
+    --el-popover-border-color: transparent;
 }
 
 /* ============================================
