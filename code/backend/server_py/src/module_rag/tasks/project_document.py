@@ -1,11 +1,14 @@
 """
-知识库文档解析任务(经 module_task 统一任务队列接入)
+知识库文档解析任务(经 module_task 统一任务队列接入, local/celery 双引擎共用执行主体)
 
 架构约定:
-    - 各业务模块 controller/服务 通过 TaskQueueService.create() 创建任务并投递,
+    - 各业务模块 controller/服务 通过 TaskQueueService.create() 创建任务并派发,
       消息只传 task_queue 表主键(task_id), 业务参数从库中读取(payload)
     - 任务函数仅是"异步启动器": 读参数 → 调用本模块功能服务(ProjectDocumentService) → 回写状态
-    - 进度双写: PostgreSQL task_queue 表(update_task_fields, 事实来源) + Celery 结果后端(update_state, 对照)
+      - celery 引擎: app_task.py worker 经 reparse_document_task → run_async 常驻循环执行
+      - local 引擎: API 进程内经 run_reparse_local 直接后台协程执行
+    - 进度双写: PostgreSQL task_queue 表(update_task_fields, 事实来源) +
+      Celery 结果后端(update_state, 对照; local 引擎下无 Celery 上下文仅写表)
     - worker 内禁止 asyncio.run(asyncpg 连接池与循环绑定), 统一使用 run_async 常驻循环
 """
 import logging
@@ -30,6 +33,15 @@ def reparse_document_task(self, task_id: str):
     # request 为线程本地对象, 必须在 Celery 工作线程内先捕获 ID
     request_id = self.request.id
     return run_async(_run_reparse(self, task_id, request_id))
+
+
+async def run_reparse_local(task_id: str) -> dict:
+    """
+    文档解析 local 引擎入口(FastAPI 进程内后台协程): 复用与 Celery 完全相同的执行主体
+    (由 module_task.tasks.dispatch_task 经 TASK_TYPES.local_runner 动态导入调用)
+    :param task_id: task_queue 表主键
+    """
+    return await _run_reparse(None, task_id, None)
 
 
 async def _run_reparse(celery_task, task_id: str, request_id: str | None) -> dict:
@@ -57,13 +69,15 @@ async def _run_reparse(celery_task, task_id: str, request_id: str | None) -> dic
     )
 
     # 3. 入库进度回调: 文档流水线步骤推进时, 把总进度/阶段描述双写到
-    #    task_queue 表与 Celery 结果后端(任务模块只收百分比与描述, 不感知业务步骤)
+    #    task_queue 表与 Celery 结果后端(任务模块只收百分比与描述, 不感知业务步骤;
+    #    local 引擎下 celery_task 为 None, 仅写表)
     async def _on_ingest_progress(overall: float, message: str):
         await update_task_fields(task_id, progress=overall, message=message)
-        celery_task.update_state(
-            task_id=request_id, state="PROGRESS",
-            meta={"progress": overall, "message": message},
-        )
+        if celery_task is not None:
+            celery_task.update_state(
+                task_id=request_id, state="PROGRESS",
+                meta={"progress": overall, "message": message},
+            )
 
     try:
         # 4. 调用功能服务执行核心逻辑(解析→分块→向量化→入库, 内部维护
@@ -78,9 +92,10 @@ async def _run_reparse(celery_task, task_id: str, request_id: str | None) -> dic
             task_id, status=QueueTaskStatus.SUCCESS, progress=100,
             message="解析完成", result=result_payload, set_finished=True,
         )
-        celery_task.update_state(
-            task_id=request_id, state="SUCCESS", meta={"progress": 100},
-        )
+        if celery_task is not None:
+            celery_task.update_state(
+                task_id=request_id, state="SUCCESS", meta={"progress": 100},
+            )
         return result_payload
     except Exception as exc:
         # 失败收尾(parse_document 内部已把 document.parse_status 置 failed, 此处只管任务表)

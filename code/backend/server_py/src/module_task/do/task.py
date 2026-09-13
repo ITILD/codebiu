@@ -168,6 +168,9 @@ class TaskTypeDef(SQLModel):
     name: str
     description: str
     celery_task: str
+    # local 引擎执行器("模块路径:协程函数名", 协程签名 async def runner(task_id: str));
+    # 按字符串声明 + 动态导入, 避免通用任务模块反向依赖业务模块(与 celery_task 路由名同等地位)
+    local_runner: str | None = None
     default_payload: dict
 
 

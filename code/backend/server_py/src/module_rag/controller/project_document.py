@@ -68,7 +68,8 @@ async def _dispatch_parse_task(
                 f"文档已上传, 但解析任务未派发: 未配置可用的{'、'.join(missing)}模型, "
                 "请先在模型管理中绑定或由管理员配置默认公共模型"
             )
-        # 经统一任务队列(task_queue 表可查/可取消/可重试), 任务以创建者绑定的模型执行
+        # 经统一任务队列(task_queue 表可查/可取消/可重试, local/celery 双引擎按配置派发),
+        # 任务以创建者绑定的模型执行
         await task_service.create(
             TaskQueueCreate(
                 name=f"解析文档: {document.name}",
@@ -79,7 +80,7 @@ async def _dispatch_parse_task(
         )
         return None
     except Exception as e:
-        # Celery 不可用时静默降级: 文档保持 pending, 可手动触发解析
+        # 派发失败时静默降级: 文档保持 pending, 可手动触发解析
         logger.warning(f"自动派发解析任务失败(可手动解析) document_id={document.id}: {e}")
         return f"文档已上传, 但解析任务派发失败(可手动重试): {e}"
 
@@ -640,7 +641,8 @@ async def reparse_project_document(
     service: ProjectDocumentService = Depends(get_project_document_service),
 ) -> bool:
     """
-    重新解析文档：读取文件内容并返回是否成功
+    重新解析文档(同步直跑版, 仅调试用: 阻塞至解析完成才返回)
+    前端正常入口请走 /{document_id}/reparse-task(入队即返回"排队解析", 轮询进度)
     :param document_id: 文档ID
     :param current_user_id: 当前登录用户ID(由 token 自动解析)
     :param service: 文档服务依赖注入

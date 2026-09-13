@@ -1,11 +1,12 @@
 """
 示例消费任务(模拟文档处理流水线)
 
-演示 Celery worker 的完整生命周期:
+演示任务队列的完整生命周期(local/celery 双引擎共用同一执行主体):
     排队(pending) → 开始执行(running) → 阶段性回写进度 → 成功(success)/失败(failed)
 进度同时写入两处, 供 API/前端对照检测:
     1. PostgreSQL task_queue 表(状态与百分比的事实来源)
-    2. Celery 结果后端(update_state PROGRESS meta, 通过 AsyncResult 读取)
+    2. Celery 结果后端(update_state PROGRESS meta, 通过 AsyncResult 读取;
+       local 引擎下无 Celery 上下文, 仅写表)
 """
 import asyncio
 import logging
@@ -36,6 +37,15 @@ def run_demo_document(self, task_id: str) -> dict:
     request_id = self.request.id
     # 提交到 worker 专用事件循环(asyncpg 连接池与该循环绑定, 不能跨循环复用)
     return run_async(_run_demo(self, task_id, request_id))
+
+
+async def run_demo_local(task_id: str) -> dict:
+    """
+    local 引擎入口(FastAPI 进程内后台协程): 复用与 Celery 完全相同的执行主体
+    (由 module_task.tasks.dispatch_task 经 TASK_TYPES.local_runner 动态导入调用)
+    :param task_id: task_queue 表主键
+    """
+    return await _run_demo(None, task_id, None)
 
 
 async def _run_demo(celery_task, task_id: str, request_id: str | None) -> dict:
@@ -83,14 +93,15 @@ async def _run_demo(celery_task, task_id: str, request_id: str | None) -> dict:
                     detail = "写入知识库集合 demo_collection"
                 message = f"{stage_name}: {detail}"
 
-                # 双写: 数据库(展示事实来源) + Celery 结果后端(状态对照)
+                # 双写: 数据库(展示事实来源) + Celery 结果后端(状态对照, local 引擎跳过)
                 await update_task_fields(
                     task_id, progress=progress, message=message,
                 )
-                celery_task.update_state(
-                    task_id=request_id, state="PROGRESS",
-                    meta={"progress": progress, "message": message},
-                )
+                if celery_task is not None:
+                    celery_task.update_state(
+                        task_id=request_id, state="PROGRESS",
+                        meta={"progress": progress, "message": message},
+                    )
 
         # ---- 成功收尾 ----
         chunks = int(100 * 3.2)

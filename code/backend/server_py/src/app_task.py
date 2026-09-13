@@ -1,5 +1,5 @@
 """
-Celery 任务队列入口(Worker 启动文件 / 消费进程)
+Celery 任务队列入口(Worker 启动文件 / 消费进程, 仅 tasks.engine=celery 时需要)
 
 用法:
     python src/app_task.py          # 启动单个 worker(消费 task_queue 队列)
@@ -9,6 +9,11 @@ Celery 任务队列入口(Worker 启动文件 / 消费进程)
     同机多开直接重复执行 `python src/app_task.py` 即可 —— 节点名自动携带 PID
     (task_worker@<主机名>#<PID>), 互不冲突; 所有实例竞争消费同一 task_queue 队列,
     由 Redis 分级子队列按任务 priority(0~9, 越大越优先)加权派发。
+
+双引擎说明:
+    - celery 引擎(config tasks.engine=celery): 消息经 Redis broker 派发, 本文件消费
+    - local 引擎(tasks.engine=local): 无需 Redis/worker, API 进程内后台协程直接执行,
+      无需启动本文件(启动自愈改由 API 进程 init 钩子 recover_local_pending_tasks 负责)
 
 说明:
     - broker/backend 由 config.yaml 的 tasks 段配置(当前 dev 使用 Redis)

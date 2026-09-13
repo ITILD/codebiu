@@ -1,9 +1,11 @@
-"""Celery 应用配置(模块级单例)
+"""任务队列配置(模块级单例)
 
-- broker/backend 从 config.yaml 的 tasks 段读取
-- 未配置时默认 memory:// 本地内存队列(无需额外服务,适合开发/测试)
+- broker/backend/engine 从 config.yaml 的 tasks 段读取
+- engine 双引擎: local(FastAPI 进程内后台协程) / celery(Redis broker + worker)
+- 未配置 broker 时默认 memory:// 本地内存队列(无需额外服务,适合开发/测试)
 - 生产部署配置 redis 即可,如:
     tasks:
+      engine: celery
       broker_url: redis://127.0.0.1:6379/1
       result_backend: redis://127.0.0.1:6379/2
 """
@@ -21,6 +23,10 @@ try:
         conf_tasks = {}
 except Exception:
     conf_tasks = {}
+
+# 任务执行引擎: local(FastAPI 进程内后台协程, 无需 Redis/worker) / celery(Redis broker)
+# 未显式配置时默认 celery(向后兼容既有部署)
+TASK_ENGINE: str = str(conf_tasks.get("engine", "celery")).strip().lower()
 
 BROKER_URL: str = conf_tasks.get("broker_url", "memory://")
 RESULT_BACKEND: str = conf_tasks.get("result_backend", "cache+memory://")

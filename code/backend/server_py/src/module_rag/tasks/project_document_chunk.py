@@ -3,10 +3,11 @@
 
 用途: 系统更换向量模型后, 以指定/当前生效的默认公共向量化模型重算 Milvus 中所有 chunk 向量。
 
-架构约定(与 module_rag.tasks.project_document 一致):
+架构约定(与 module_rag.tasks.project_document 一致, local/celery 双引擎共用执行主体):
     - controller 通过 TaskQueueService.create() 创建任务, 消息只传 task_queue 表主键
     - 任务函数仅是"异步启动器": 读参数 → 调用功能服务(ProjectDocumentChunkService.revectorize_all) → 双写进度
-    - 进度双写: task_queue 表(update_task_fields, 事实来源) + Celery 结果后端(update_state, 对照)
+    - 进度双写: task_queue 表(update_task_fields, 事实来源) +
+      Celery 结果后端(update_state, 对照; local 引擎下无 Celery 上下文仅写表)
     - worker 内禁止 asyncio.run(asyncpg 连接池与循环绑定), 统一使用 run_async 常驻循环
 """
 import logging
@@ -33,6 +34,15 @@ def revectorize_chunks_task(self, task_id: str):
     return run_async(_run_revectorize(self, task_id, request_id))
 
 
+async def run_revectorize_local(task_id: str) -> dict:
+    """
+    全库重向量化 local 引擎入口(FastAPI 进程内后台协程): 复用与 Celery 完全相同的执行主体
+    (由 module_task.tasks.dispatch_task 经 TASK_TYPES.local_runner 动态导入调用)
+    :param task_id: task_queue 表主键
+    """
+    return await _run_revectorize(None, task_id, None)
+
+
 async def _run_revectorize(celery_task, task_id: str, request_id: str | None) -> dict:
     """重向量化任务主体: 读参数 → 以创建者身份复检管理员权限 → 调功能服务(带进度回调) → 双写状态"""
     from module_authorization.config.casbin_rule import is_global_admin
@@ -50,19 +60,20 @@ async def _run_revectorize(celery_task, task_id: str, request_id: str | None) ->
         progress=0, message="开始全库重向量化", set_started=True,
     )
 
-    # 2. 进度回调: 按文档粒度双写 task_queue 表与 Celery 结果后端
+    # 2. 进度回调: 按文档粒度双写 task_queue 表与 Celery 结果后端(local 引擎仅写表)
     async def _on_progress(processed_docs: int, total_docs: int,
                            chunks: int, model_label: str, dim_changed: bool):
         progress = round(processed_docs / total_docs * 100, 1) if total_docs else 100.0
         message = (f"重向量化: {processed_docs}/{total_docs} 文档, 已处理 {chunks} 块"
                    f"(维度{'变更' if dim_changed else '一致'})")
         await update_task_fields(task_id, progress=progress, message=message)
-        celery_task.update_state(
-            task_id=request_id, state="PROGRESS",
-            meta={"progress": progress, "message": message,
-                  "total": total_docs, "processed": processed_docs,
-                  "chunks": chunks, "model": model_label, "dim_changed": dim_changed},
-        )
+        if celery_task is not None:
+            celery_task.update_state(
+                task_id=request_id, state="PROGRESS",
+                meta={"progress": progress, "message": message,
+                      "total": total_docs, "processed": processed_docs,
+                      "chunks": chunks, "model": model_label, "dim_changed": dim_changed},
+            )
 
     try:
         # 3. 调用功能服务执行核心逻辑

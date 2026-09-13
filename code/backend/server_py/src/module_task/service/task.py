@@ -2,9 +2,9 @@
 任务队列服务层
 
 职责:
-    - 任务创建: 校验类型注册表 → 落库(pending) → 投递 Celery(记录 celery_task_id)
-    - 状态检测: 数据库为主, 同时读取 Celery 结果后端(AsyncResult)做对照/校正
-    - 生命周期管理: 取消(revoke)/重试(重新入队)/删除
+    - 任务创建: 校验类型注册表 → 落库(pending) → 按引擎派发(local 后台协程 / celery 投递 broker)
+    - 状态检测: 数据库为主, celery 引擎下同时读取结果后端(AsyncResult)做对照/校正
+    - 生命周期管理: 取消(revoke)/重试(重新派发)/删除
 """
 from datetime import datetime, timezone
 
@@ -21,10 +21,7 @@ from module_task.do.task import (
     TaskStatsResponse,
     TaskTypeDef,
 )
-from module_task.tasks import TASK_TYPES, get_task_type
-
-# Celery 队列名(与 app_task.py worker 消费的队列一致)
-TASK_QUEUE_NAME = "task_queue"
+from module_task.tasks import TASK_TYPES, dispatch_task, get_task_type
 
 # 优先级取值范围(Redis 分级队列 0~9, 数值越大越优先; 越界自动夹紧)
 _PRIORITY_MIN, _PRIORITY_MAX = 0, 9
@@ -146,10 +143,10 @@ class TaskQueueService:
 
     async def create(self, data: TaskQueueCreate, user_id: str) -> TaskQueueResponse:
         """
-        创建任务并投递 Celery 队列
+        创建任务并按引擎派发(local=进程内后台协程 / celery=投递 broker)
         :param data: 任务数据(类型需在注册表内)
         :param user_id: 创建者用户ID
-        :raises BusinessError: 类型未注册 / 队列不可用
+        :raises BusinessError: 类型未注册 / 派发不可用
         """
         task_def = get_task_type(data.task_type)
         if task_def is None:
@@ -168,24 +165,20 @@ class TaskQueueService:
         )
         await self.dao.add(task)
 
-        # 投递 Celery(仅传任务ID, 参数由 worker 从库读取, 消息保持轻量;
-        # priority 走 Redis 分级子队列, 数值越大越先被 worker 消费)
+        # 双引擎统一派发(仅传任务ID, 参数由执行侧从库中读取)
         try:
-            async_result = celery_app.send_task(
-                task_def.celery_task,
-                args=[task.id],
-                queue=TASK_QUEUE_NAME,
-                priority=task.priority,
-            )
-            task.celery_task_id = async_result.id
+            task.celery_task_id = await dispatch_task(task, task_def)
             await self.dao.update(task)
         except Exception as exc:
-            # 队列不可用: 标记失败并保留记录, 前端可见失败原因
+            # 派发不可用: 标记失败并保留记录, 前端可见失败原因
             task.status = QueueTaskStatus.FAILED
-            task.error = f"任务投递失败(队列不可用): {exc}"
+            task.error = f"任务派发失败: {exc}"
             task.finished_at = datetime.now(timezone.utc)
             await self.dao.update(task)
-            raise BusinessError("任务队列不可用, 请检查 Redis 与 Celery worker") from exc
+            raise BusinessError(
+                f"任务派发失败, 请检查任务配置"
+                f"(celery 引擎需检查 Redis 与 worker): {exc}"
+            ) from exc
         return _to_response(task)
 
     # ################ 状态同步 ################
@@ -246,7 +239,7 @@ class TaskQueueService:
 
     async def retry(self, task_id: str) -> TaskQueueResponse:
         """
-        重试任务(仅终态任务): 重置状态后重新投递
+        重试任务(仅终态任务): 重置状态后按引擎重新派发
         :raises ValueError: 任务不存在/未结束/类型未注册
         """
         task = await self.dao.get(task_id)
@@ -265,18 +258,18 @@ class TaskQueueService:
         task.result = None
         task.error = None
         task.finished_at = None
+        task.celery_task_id = None
         try:
-            async_result = celery_app.send_task(
-                task_def.celery_task, args=[task.id], queue=TASK_QUEUE_NAME,
-                priority=_clamp_priority(task.priority),
-            )
-            task.celery_task_id = async_result.id
+            task.celery_task_id = await dispatch_task(task, task_def)
         except Exception as exc:
             task.status = QueueTaskStatus.FAILED
-            task.error = f"任务投递失败(队列不可用): {exc}"
+            task.error = f"任务派发失败: {exc}"
             task.finished_at = datetime.now(timezone.utc)
             await self.dao.update(task)
-            raise BusinessError("任务队列不可用, 请检查 Redis 与 Celery worker") from exc
+            raise BusinessError(
+                f"任务派发失败, 请检查任务配置"
+                f"(celery 引擎需检查 Redis 与 worker): {exc}"
+            ) from exc
         await self.dao.update(task)
         return _to_response(task)
 
