@@ -1,38 +1,46 @@
 """语音服务(ASR/TTS/VAD/Denoise) 统一入口
 
 引擎方案由 model_config 表驱动:
-    - model_type=asr/tts/vad/denoise + server_type=sherpa/qwen 的记录即为可选方案
-    - engine 参数可选: 指定时精确匹配 server_type, 缺省时取该类型第一条配置
+    - model_type=asr/tts/vad/denoise + server_type=online/local 的记录即为可选方案
+    - engine 参数可选: 指定时精确匹配 server_type(旧值 dashscope/sherpa/qwen 自动归一化), 缺省时取该类型第一条配置
     - 引擎缓存键含配置的 updated_at, 配置修改后自动重建引擎
-    - 表中无配置时回落 config.yaml 的 voice 静态配置
+    - 表中无配置时回落 config.yaml 的 voice 静态配置(local sherpa 本地方案)
+    - online/local 内部细节由 extra 分派: extra.protocol=dashscope|openai / extra.engine=sherpa|qwen
 """
 import logging
+from collections.abc import AsyncIterator
 from typing import Iterator, Tuple
 
 from module_ai.config.voice import VOICE_ASR_SAMPLE_RATE
 from module_ai.dao.model_config import ModelConfigDao
 from module_ai.do.model_config import ModelConfig
 from module_ai.do.voice import VoiceEngine
-from module_ai.utils.voice.asr import QwenASR, SherpaASR
+from module_ai.utils.voice.asr import LocalASR, OnlineASR
 from module_ai.utils.voice.denoise import SherpaDenoise
 from module_ai.utils.voice.interface import ASREngine, DenoiseEngine, TTSEngine, VADEngine
-from module_ai.utils.voice.tts import QwenTTS, SherpaTTS
+from module_ai.utils.voice.tts import LocalTTS, OnlineTTS
 from module_ai.utils.voice.vad import SherpaVAD
 
 logger = logging.getLogger(__name__)
 
 # 引擎类映射(model_type -> {server_type -> 类})
 _ENGINE_CLASSES: dict[str, dict[str, type]] = {
-    "asr": {VoiceEngine.SHERPA.value: SherpaASR, VoiceEngine.QWEN.value: QwenASR},
-    "tts": {VoiceEngine.SHERPA.value: SherpaTTS, VoiceEngine.QWEN.value: QwenTTS},
-    # vad/denoise 仅 sherpa(CPU) 方案
-    "vad": {VoiceEngine.SHERPA.value: SherpaVAD},
-    "denoise": {VoiceEngine.SHERPA.value: SherpaDenoise},
+    "asr": {
+        VoiceEngine.ONLINE.value: OnlineASR,
+        VoiceEngine.LOCAL.value: LocalASR,
+    },
+    "tts": {
+        VoiceEngine.ONLINE.value: OnlineTTS,
+        VoiceEngine.LOCAL.value: LocalTTS,
+    },
+    # vad/denoise 仅 local(sherpa onnx) 方案
+    "vad": {VoiceEngine.LOCAL.value: SherpaVAD},
+    "denoise": {VoiceEngine.LOCAL.value: SherpaDenoise},
 }
 
 
 def _engine_conf(config: ModelConfig | None) -> dict:
-    """ModelConfig -> 引擎配置字典(model/extra 展平)"""
+    """ModelConfig -> 引擎配置字典(extra 展平, model 字段优先)"""
     if config is None:
         return {}
     conf = dict(config.extra or {})
@@ -63,15 +71,15 @@ class VoiceService:
         config = await self.model_config_dao.get_first_by_type(
             model_type, server_type=engine.value if engine else None
         )
-        # 实际生效的方案(未指定时取配置自身的 server_type; 无配置时回落 sherpa)
+        # 实际生效的方案(未指定时取配置自身的 server_type; 无配置时回落 local)
         effective = engine
         if config is not None:
             try:
                 effective = VoiceEngine(config.server_type)
             except ValueError:
-                effective = VoiceEngine.SHERPA
+                effective = VoiceEngine.LOCAL
         elif effective is None:
-            effective = VoiceEngine.SHERPA
+            effective = VoiceEngine.LOCAL
 
         # 缓存键: 配置ID + updated_at(配置变更自动失效)
         cache_key = "static"
@@ -110,6 +118,48 @@ class VoiceService:
         asr = await self.get_asr(engine)
         return asr.recognize(audio_bytes)
 
+    async def asr_preprocess(
+        self, audio_bytes: bytes, steps: list[str], engine: VoiceEngine | None = None
+    ) -> str:
+        """带前置处理的语音识别管线: denoise(降噪) -> vad(切段) -> 逐段识别 -> 合并
+
+        :param steps: 前置步骤列表(支持 "denoise"/"vad" 任意组合, 顺序固定为 denoise 先于 vad)
+        :return: 合并后的识别文本
+        """
+        from module_ai.utils.voice.audio import load_audio, resample_linear
+
+        samples, sr = load_audio(audio_bytes)
+        if sr != VOICE_ASR_SAMPLE_RATE:
+            samples = resample_linear(samples, sr, VOICE_ASR_SAMPLE_RATE)
+
+        # 步骤1: 降噪(仅 local 方案可用)
+        if "denoise" in steps:
+            denoiser = await self.get_denoise()
+            samples, sr = denoiser.enhance(samples, sr)
+
+        # 无 vad: 处理后音频整段直接识别
+        if "vad" not in steps:
+            return await self.asr(_seg_wav(samples), engine)
+
+        # 步骤2: VAD 切段 -> 逐段识别 -> 按序合并
+        vad = await self.get_vad()
+        vad.accept_waveform(samples)
+        vad.flush()
+        texts: list[str] = []
+        try:
+            while vad.is_speech_detected():
+                segment = vad.pop_speech_segment()
+                if segment is None:
+                    break
+                seg, _start = segment
+                wav = _seg_wav(seg)
+                text = await self.asr(wav, engine)
+                if text.strip():
+                    texts.append(text.strip())
+        finally:
+            vad.reset()
+        return "".join(texts)
+
     async def tts(
         self,
         text: str,
@@ -131,24 +181,47 @@ class VoiceService:
         sample_rate: int = 22050,
     ) -> Tuple[Iterator[Tuple[bytes, int, bool]], VoiceEngine]:
         """
-        流式语音合成
+        流式语音合成(同步 iterator 路径)
         :return: (PCM 分块迭代器, 实际生效的引擎)
         """
         # 先同步解析引擎(生成器内不能 await)
         tts = await self.get_tts(engine)
-        # 计算实际生效的方案(用于响应头回显)
-        effective = engine
-        if effective is None:
-            config = await self.model_config_dao.get_first_by_type("tts")
-            try:
-                effective = VoiceEngine(config.server_type) if config else VoiceEngine.SHERPA
-            except ValueError:
-                effective = VoiceEngine.SHERPA
+        effective = await self._effective_engine("tts", engine)
         return tts.synthesize_stream(text, speaker, speed, sample_rate), effective
+
+    async def tts_stream_async(
+        self,
+        text: str,
+        engine: VoiceEngine | None = None,
+        speaker: int = 0,
+        speed: float = 1.0,
+        sample_rate: int = 22050,
+    ) -> Tuple[AsyncIterator[Tuple[bytes, int, bool]] | Iterator[Tuple[bytes, int, bool]], VoiceEngine, bool]:
+        """
+        流式语音合成(优先真异步路径)
+        :return: (分块迭代器[Async|Sync], 实际生效引擎, 是否异步迭代器)
+        """
+        tts = await self.get_tts(engine)
+        effective = await self._effective_engine("tts", engine)
+        # 异步生成器函数调用时不会执行方法体, NotImplementedError 要到首个 __anext__ 才抛出,
+        # 因此通过"是否覆写基类方法"判断真异步支持(如 LocalTTS 未覆写则回退同步切片路径)
+        if type(tts).synthesize_stream_async is not TTSEngine.synthesize_stream_async:
+            return tts.synthesize_stream_async(text, speaker, speed, sample_rate), effective, True
+        return tts.synthesize_stream(text, speaker, speed, sample_rate), effective, False
+
+    async def _effective_engine(self, model_type: str, engine: VoiceEngine | None) -> VoiceEngine:
+        """计算实际生效方案(未指定时取配置自身的 server_type; 无配置时回落 local)"""
+        if engine is not None:
+            return engine
+        config = await self.model_config_dao.get_first_by_type(model_type)
+        try:
+            return VoiceEngine(config.server_type) if config else VoiceEngine.LOCAL
+        except ValueError:
+            return VoiceEngine.LOCAL
 
     async def get_vad(self, engine: VoiceEngine | None = None) -> VADEngine:
         """
-        获取 VAD 引擎(实时语音活动检测, 仅 sherpa CPU 方案)
+        获取 VAD 引擎(实时语音活动检测, 仅 local sherpa onnx 方案)
         :param engine: 指定方案(None 时取第一条 vad 配置)
         """
         result = await self._resolve_engine("vad", engine)
@@ -156,7 +229,7 @@ class VoiceService:
 
     async def get_denoise(self, engine: VoiceEngine | None = None) -> DenoiseEngine:
         """
-        获取降噪引擎(实时语音降噪, 仅 sherpa CPU 方案)
+        获取降噪引擎(实时语音降噪, 仅 local sherpa onnx 方案)
         :param engine: 指定方案(None 时取第一条 denoise 配置)
         """
         result = await self._resolve_engine("denoise", engine)
@@ -201,3 +274,10 @@ class VoiceService:
         from module_ai.utils.voice.audio import to_pcm16
 
         return to_pcm16(enhanced), out_sr
+
+
+def _seg_wav(seg) -> bytes:
+    """语音段 float32 样本 -> WAV 字节(供逐段识别)"""
+    from module_ai.utils.voice.audio import pcm_to_wav_bytes, to_pcm16
+
+    return pcm_to_wav_bytes(to_pcm16(seg), VOICE_ASR_SAMPLE_RATE)

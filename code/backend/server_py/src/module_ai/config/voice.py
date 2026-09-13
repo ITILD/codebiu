@@ -70,4 +70,18 @@ QWEN_TTS_MODEL_DIR: Path = DIR_VOICE_MODEL / conf_voice_qwen.get(
 # Qwen 设备/cpu 线程
 QWEN_DEVICE: str = conf_voice_qwen.get("device", "cpu")
 
+# ---------- Online 引擎配置(远程API或本地vllm发布) ----------
+conf_voice_online = conf_voice.get("online", {}) if conf_voice else {}
+
+# DashScope WebSocket 推理端点(实时 ASR / 流式 TTS 共用)
+VOICE_ONLINE_WS_URL: str = conf_voice_online.get(
+    "ws_url", "wss://dashscope.aliyuncs.com/api-ws/v1/inference/"
+)
+# 命中实时系列的模型名前缀(走真 WS 流式), 其余在线模型走伪流式(缓冲切片调同步接口)
+VOICE_ONLINE_REALTIME_ASR_MODELS: list[str] = list(
+    conf_voice_online.get("realtime_asr_models", ["paraformer-realtime", "gummy"])
+)
+# 伪流式切片时长(秒): 缓冲达到该时长即提交后台识别
+VOICE_ONLINE_PSEUDO_CHUNK_SECONDS: float = float(conf_voice_online.get("pseudo_chunk_seconds", 2.5))
+
 logger.info("ok...voice 语音配置加载完成")

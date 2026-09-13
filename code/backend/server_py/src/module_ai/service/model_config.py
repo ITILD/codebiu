@@ -311,13 +311,15 @@ class ModelConfigService:
         self, configs: ModelConfig | list[ModelConfig] | None, user_id: str, is_admin: bool = False
     ) -> None:
         """
-        敏感信息脱敏(就地修改): 仅本人私有模型(scope=user 且 user_id==本人)保留 url/api_key 明文,
-        公共/部门/他人私有一律脱敏(v4 4.1/4.2: admin 可见全量元数据用于运维, 但密钥除本人私有配置外脱敏)
+        敏感信息脱敏(就地修改):
+        - 全局管理员: 后台运维需要账号/密码明文(url/api_key), 一律不脱敏
+        - 其他用户: 仅本人私有模型(scope=user 且 user_id==本人)保留明文,
+          公共/部门/他人私有一律脱敏(v4 4.1/4.2)
         :param configs: 单个或多个模型配置对象(None 忽略)
         :param user_id: 当前用户ID
-        :param is_admin: 兼容参数(已忽略, v4 后 admin 不再有密钥豁免)
+        :param is_admin: 全局管理员豁免脱敏(可见全部 url/api_key 明文)
         """
-        if configs is None:
+        if configs is None or is_admin:
             return
         items = configs if isinstance(configs, list) else [configs]
         for config in items:

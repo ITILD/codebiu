@@ -3,10 +3,13 @@
 - ChatQwenWithReasoning: 兼容 OpenAI 协议中 reasoning_content 思考字段的 Chat 模型
 - NoThinkTagsParser: 移除 <think></think> 标签及内容的输出解析器(支持流式)
 """
+from typing import Any
+
 from langchain_core.messages import BaseMessage
 from langchain_core.output_parsers import BaseTransformOutputParser
 from langchain_core.outputs import ChatGenerationChunk
-from langchain_core.runnables import RunnableLambda
+from langchain_core.runnables import Runnable, RunnableLambda
+from langchain_core.tools import BaseTool
 from langchain_openai import ChatOpenAI
 
 
@@ -39,6 +42,37 @@ class ChatQwenWithReasoning(ChatOpenAI):
                 gen_chunk.message.reasoning_content = reasoning
 
         return gen_chunk
+
+    @staticmethod
+    def _is_forced_tool_choice(tool_choice: Any) -> bool:
+        """判断是否强制指定工具(required/any/True/指定工具名或对象)
+
+        auto/none/None/False 交给模型自选, 不属于强制调用
+        """
+        return tool_choice not in (None, False, "auto", "none")
+
+    def bind_tools(
+        self,
+        tools: list | tuple | dict | BaseTool,
+        **kwargs: Any,
+    ) -> Runnable:
+        """重写工具绑定: 思考模式下出现强制 tool_choice 时, 该次调用自动关闭思考
+
+        DashScope 思考模式(enable_thinking=True)不支持强制 tool_choice
+        (required 或指定工具对象), 直接触发 400:
+        "The tool_choice parameter does not support being set to required or object
+        in thinking mode"(结构化输出 create_agent/with_structured_output 均会强制)。
+        普通工具调用(tool_choice=auto)与思考模式兼容, 不受影响。
+        """
+        if (self.extra_body or {}).get("enable_thinking") and self._is_forced_tool_choice(
+            kwargs.get("tool_choice")
+        ):
+            # 复制实例并关闭思考后重绑, 保证强制工具调用(结构化输出)可用
+            cloned = self.model_copy(
+                update={"extra_body": {**(self.extra_body or {}), "enable_thinking": False}}
+            )
+            return cloned.bind_tools(tools, **kwargs)
+        return super().bind_tools(tools, **kwargs)
 
 
 class NoThinkTagsParser(BaseTransformOutputParser):

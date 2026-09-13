@@ -61,6 +61,7 @@ class RagChatState(MessagesState):
     knowledge_context_list: list[ProjectDocumentChunkSearchResponse] | None
     deep_thinking: bool
     rerank_limit: int  # Rerank 精排返回的最大结果数
+    search_error: str | None  # 知识库检索失败原因(None=检索正常), 供过程区块区分"失败"与"无结果"
 
 
 class StreamOne(BaseModel):

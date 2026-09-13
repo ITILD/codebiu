@@ -123,9 +123,9 @@ class LLMService:
         targets = all_caps if not capabilities else [c for c in all_caps if c[0] in set(capabilities)]
         if not targets:
             return []
-        # chat 类构建实例一次复用; 构建失败则全部能力标记失败
+        # chat/embeddings 类构建实例一次复用(rerank 由测试方法自行构建); 构建失败则全部能力标记失败
         llm = None
-        if type_key == ModelType.CHAT.value:
+        if type_key in (ModelType.CHAT.value, ModelType.EMBEDDINGS.value):
             try:
                 llm = build_model(config, streaming=False)
             except Exception as e:

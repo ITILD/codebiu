@@ -62,10 +62,29 @@ export const API_CASES: ApiCase[] = [
   c('ai', 'ocr.ts', 'listOcrLanguages', 'GET', '/ai/ocr/languages'),
   c('ai', 'ocr.ts', 'recognizeText', 'POST', '/ai/ocr/all', { skip: true, note: '需图片文件, 手动验证' }),
   // 语音(需音频/文本参数, 手动验证)
-  c('ai', 'voice.ts', 'recognizeAudio', 'POST', '/ai/voice/asr', { skip: true, note: '需音频文件, 手动验证' }),
+  c('ai', 'voice.ts', 'recognizeAudio', 'POST', '/ai/voice/asr', { skip: true, note: '需音频文件; engine=online/local, preprocess 可选 denoise,vad 前置管线' }),
   c('ai', 'voice.ts', 'synthesizeAudioFile', 'POST', '/ai/voice/tts/file', { skip: true, note: '真实调用 TTS 模型, 手动验证' }),
-  c('ai', 'voice.ts', 'synthesizeAudioStream', 'POST', '/ai/voice/tts/stream', { skip: true, note: '流式 PCM + 真实调用 TTS 模型, 手动验证' }),
-  c('ai', 'voice.ts', 'buildAsrStreamUrl', 'GET', '/ai/voice/asr/stream', { skip: true, note: 'WebSocket 接口, 手动验证' }),
+  c('ai', 'voice.ts', 'synthesizeAudioStream', 'POST', '/ai/voice/tts/stream', { skip: true, note: '流式 PCM + 真实调用 TTS 模型(online 走 CosyVoice 流式 WS), 手动验证' }),
+  c('ai', 'voice.ts', 'buildAsrStreamUrl', 'GET', '/ai/voice/asr/stream', { skip: true, note: 'WebSocket 接口; query 可选 vad=true 启用服务端静音过滤, 手动验证' }),
+  // 模型能力测试(真实调用模型)
+  c('ai', 'model_config.ts', 'testModelCapability', 'POST', '/ai/llm/test-by-model-id', { skip: true, note: '真实调用模型校验, 仅手动验证' }),
+
+  // ==================== 智能体 ====================
+  // 管理(内置公共 + 本人创建)
+  c('agent', 'agent.ts', 'listAgents', 'GET', '/agent/agents'),
+  c('agent', 'agent.ts', 'getAgent', 'GET', '/agent/agents/{agentId}', { allow404: true }),
+  c('agent', 'agent.ts', 'createAgent', 'POST', '/agent/agents', { note: '创建自定义简单智能体' }),
+  c('agent', 'agent.ts', 'updateAgent', 'PUT', '/agent/agents/{agentId}', { allow404: true }),
+  c('agent', 'agent.ts', 'deleteAgent', 'DELETE', '/agent/agents/{agentId}', { allow404: true, note: '内置智能体不可删' }),
+  // 对话(会话 CRUD 复用 /rag/conversations, 携带 agent_id)
+  c('agent', 'agent.ts', 'listMyAgentConversations', 'GET', '/agent/conversations/my'),
+  c('agent', 'agent.ts', 'createAgentConversation', 'POST', '/rag/conversations', { note: '复用知识库会话接口(携带 agent_id)' }),
+  c('agent', 'agent.ts', 'getAgentConversation', 'GET', '/rag/conversations/{conversationId}', { allow404: true }),
+  c('agent', 'agent.ts', 'deleteAgentConversation', 'DELETE', '/rag/conversations/{conversationId}', { allow404: true }),
+  c('agent', 'agent.ts', 'listAgentConversationMessages', 'GET', '/rag/conversations/{conversationId}/messages', { allow404: true }),
+  c('agent', 'agent.ts', 'sendAgentChatStream', 'POST', '/agent/agent-chat/{conversationId}/chat', { skip: true, note: 'SSE 流式, 请在智能体对话页测试' }),
+  c('agent', 'agent.ts', 'runAgent', 'POST', '/agent/agents/{agentId}/run', { note: 'LLM 调用, 需已配置模型与结构体智能体' }),
+  c('agent', 'agent.ts', 'listAgentRuns', 'GET', '/agent/agents/{agentId}/runs', { allow404: true, note: '仅本人运行历史' }),
 
   // ==================== 权限管理 ====================
   // 认证
@@ -79,6 +98,7 @@ export const API_CASES: ApiCase[] = [
   c('authorization', 'auth.ts', 'updateMyProfile', 'PUT', '/authorization/auth/me', { note: '自助更新个人资料' }),
   c('authorization', 'auth.ts', 'changeMyPassword', 'PUT', '/authorization/auth/me/password', { note: '自助修改密码(需旧密码)' }),
   c('authorization', 'auth.ts', 'uploadMyAvatar', 'POST', '/authorization/auth/me/avatar', { note: '上传当前用户头像(需图片文件, 经统一文件服务存储)' }),
+  c('authorization', 'auth.ts', 'deleteMyAvatar', 'DELETE', '/authorization/auth/me/avatar', { note: '删除当前用户头像' }),
   // 用户
   c('authorization', 'user.ts', 'createUser', 'POST', '/authorization/users', { note: '创建用户' }),
   c('authorization', 'user.ts', 'deleteUser', 'DELETE', '/authorization/users/{userId}', { allow404: true }),
@@ -130,9 +150,6 @@ export const API_CASES: ApiCase[] = [
   c('authorization', 'casbin.ts', 'getRolePermCodes', 'GET', '/authorization/casbin-rules/role-perms/{roleKey}', { allow404: true }),
   c('authorization', 'casbin.ts', 'syncRolePermissions', 'POST', '/authorization/casbin-rules/role-perms', { note: '覆盖式同步角色权限' }),
 
-  // ==================== 数据清洗 ====================
-  c('data_clean', 'data_clean.ts', 'cleanData', 'POST', '/data-clean/clean', { note: 'LLM 调用, 需文本与清洗方案' }),
-
   // ==================== 文件管理 ====================
   c('file', 'filesystem.ts', 'getUploadMode', 'GET', '/file/filesystem/upload-mode'),
   c('file', 'filesystem.ts', 'listDir', 'GET', '/file/filesystem/list-dir'),
@@ -144,12 +161,14 @@ export const API_CASES: ApiCase[] = [
   c('file', 'filesystem.ts', 'uploadFile', 'POST', '/file/filesystem/upload', { note: '直传, 需文件' }),
   c('file', 'filesystem.ts', 'createFolder', 'POST', '/file/filesystem/folder', { note: '新建文件夹' }),
   c('file', 'filesystem.ts', 'getFileEntry', 'GET', '/file/filesystem/entries/{entryId}', { allow404: true }),
+  c('file', 'filesystem.ts', 'getFileEntryDetail', 'GET', '/file/filesystem/entries/{entryId}/detail', { allow404: true }),
   c('file', 'filesystem.ts', 'getFileDownloadUrl', 'GET', '/file/filesystem/download/{entryId}', { allow404: true, note: '文件流下载' }),
   c('file', 'filesystem.ts', 'updateFileEntry', 'PUT', '/file/filesystem/entries/{entryId}', { allow404: true }),
   c('file', 'filesystem.ts', 'renameEntry', 'PUT', '/file/filesystem/entries/{entryId}/rename', { allow404: true }),
   c('file', 'filesystem.ts', 'moveEntry', 'PUT', '/file/filesystem/entries/{entryId}/move', { allow404: true }),
   c('file', 'filesystem.ts', 'deleteFile', 'DELETE', '/file/filesystem/files/{entryId}', { allow404: true }),
   c('file', 'filesystem.ts', 'deleteFolder', 'DELETE', '/file/filesystem/folders/{folderId}', { allow404: true }),
+  c('file', 'filesystem.ts', 'batchDeleteEntries', 'POST', '/file/filesystem/entries/batch-delete', { note: '批量删除条目(目录递归删除子树)' }),
   c('file', 'filesystem.ts', 'getEntryByPath', 'GET', '/file/filesystem/path', { note: '需 path 查询参数' }),
   c('file', 'filesystem.ts', 'listByPath', 'GET', '/file/filesystem/list-by-path', { note: '需 path 查询参数' }),
   c('file', 'filesystem.ts', 'mkdirP', 'POST', '/file/filesystem/mkdir-p', { note: '需 path 参数' }),

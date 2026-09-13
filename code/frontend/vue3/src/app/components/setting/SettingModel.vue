@@ -3,7 +3,7 @@
     <div>
       <h3 text-lg font-medium text-note m-0>模型设置</h3>
       <p text-sm text-note-sub mt-1 mb-0>
-        为对话/向量化/重排选择个人默认模型(可选用公共/本部门/自己的模型); 未选择时使用系统默认公共模型
+        为对话/向量化/重排选择个人默认模型(可选用公共/本部门/自己的模型); 未选择时自动跟随系统默认公共模型(下拉回显其模型名)
       </p>
     </div>
 
@@ -11,7 +11,7 @@
       <!-- 对话模型绑定 -->
       <el-form-item label="对话模型">
         <div class="w-full flex flex-col gap-1">
-          <el-select v-model="binding.chat_model_id" placeholder="暂无系统默认公共模型, 请联系管理员配置" clearable w-full>
+          <el-select v-model="displayChat" placeholder="暂无系统默认公共模型, 请联系管理员配置" clearable w-full>
             <!-- 选中态自定义展示: 模型名 + 系统默认tag(与下拉选项一致) -->
             <template #label="{ value }">
               <span flex items-center gap-1>
@@ -34,7 +34,7 @@
             </el-option>
           </el-select>
           <!-- 能力标签: 最近一次测试结果(通过=能力色/失败=红), 常驻展示 -->
-          <div v-if="binding.chat_model_id" class="flex items-center gap-1 flex-wrap">
+          <div v-if="selectedModel('chat')" class="flex items-center gap-1 flex-wrap">
             <el-tooltip v-for="cap in testedCapabilities(selectedModel('chat'))" :key="cap.key"
               :content="cap.ok ? (cap.detail || '测试通过') : (cap.error || '测试未通过')" placement="top">
               <el-tag :type="cap.ok ? (capabilityTagType[cap.key] ?? 'success') : 'danger'" size="small" effect="light">
@@ -51,7 +51,7 @@
       <!-- 向量化模型绑定 -->
       <el-form-item label="向量化模型">
         <div class="w-full flex flex-col gap-1">
-          <el-select v-model="binding.embedding_model_id" placeholder="暂无系统默认公共模型, 请联系管理员配置" clearable w-full>
+          <el-select v-model="displayEmbedding" placeholder="暂无系统默认公共模型, 请联系管理员配置" clearable w-full>
             <!-- 选中态自定义展示: 模型名 + 系统默认tag(与下拉选项一致) -->
             <template #label="{ value }">
               <span flex items-center gap-1>
@@ -74,7 +74,7 @@
             </el-option>
           </el-select>
           <!-- 能力标签: 最近一次测试结果(通过=能力色/失败=红), 常驻展示 -->
-          <div v-if="binding.embedding_model_id" class="flex items-center gap-1 flex-wrap">
+          <div v-if="selectedModel('embeddings')" class="flex items-center gap-1 flex-wrap">
             <el-tooltip v-for="cap in testedCapabilities(selectedModel('embeddings'))" :key="cap.key"
               :content="cap.ok ? (cap.detail || '测试通过') : (cap.error || '测试未通过')" placement="top">
               <el-tag :type="cap.ok ? (capabilityTagType[cap.key] ?? 'success') : 'danger'" size="small" effect="light">
@@ -91,7 +91,7 @@
       <!-- 重排模型绑定 -->
       <el-form-item label="重排模型">
         <div class="w-full flex flex-col gap-1">
-          <el-select v-model="binding.rerank_model_id" placeholder="暂无系统默认公共模型, 请联系管理员配置" clearable w-full>
+          <el-select v-model="displayRerank" placeholder="暂无系统默认公共模型, 请联系管理员配置" clearable w-full>
             <!-- 选中态自定义展示: 模型名 + 系统默认tag(与下拉选项一致) -->
             <template #label="{ value }">
               <span flex items-center gap-1>
@@ -114,7 +114,7 @@
             </el-option>
           </el-select>
           <!-- 能力标签: 最近一次测试结果(通过=能力色/失败=红), 常驻展示 -->
-          <div v-if="binding.rerank_model_id" class="flex items-center gap-1 flex-wrap">
+          <div v-if="selectedModel('rerank')" class="flex items-center gap-1 flex-wrap">
             <el-tooltip v-for="cap in testedCapabilities(selectedModel('rerank'))" :key="cap.key"
               :content="cap.ok ? (cap.detail || '测试通过') : (cap.error || '测试未通过')" placement="top">
               <el-tag :type="cap.ok ? (capabilityTagType[cap.key] ?? 'success') : 'danger'" size="small" effect="light">
@@ -202,9 +202,25 @@ const BINDING_KEYS = {
 /** 绑定字段名映射(类型 -> binding 键) */
 const bindingKeyOf = (type: BindableType): (typeof BINDING_KEYS)[BindableType] => BINDING_KEYS[type]
 
-/** 当前选中的模型配置对象(按类型) */
+/** 当前展示的模型ID: 未绑定(null)时回显系统默认公共模型(与后端实际生效一致) */
+const displayValue = (type: BindableType) => binding[bindingKeyOf(type)] ?? defaultModelId(type)
+
+/** 双向展示值: 选中默认公共模型/清除 均归一化为 null(跟随默认, 管理员更换默认后无缝切换) */
+const displayBindingOf = (type: BindableType) =>
+  computed<string | null>({
+    get: () => displayValue(type),
+    set: (v) => {
+      binding[bindingKeyOf(type)] = v && v !== defaultModelId(type) ? v : null
+    },
+  })
+// 三个下拉的 v-model 绑定(展示层回显默认公共模型, 存储层保持"null=跟随默认")
+const displayChat = displayBindingOf('chat')
+const displayEmbedding = displayBindingOf('embeddings')
+const displayRerank = displayBindingOf('rerank')
+
+/** 当前生效的模型配置对象(按类型, 未绑定时即默认公共模型) */
 const selectedModel = (type: BindableType): ModelConfig | undefined =>
-  modelMap[type].find((m) => m.id === binding[bindingKeyOf(type)])
+  modelMap[type].find((m) => m.id === displayValue(type))
 
 // ################ 能力测试 ################
 const testingType = ref<BindableType | null>(null)
@@ -241,7 +257,7 @@ const fetchModels = async (type: BindableType) => {
   }
 }
 
-/** 初始化: 并行拉取绑定 + 三类模型列表, 未绑定时默认展示系统默认公共模型 */
+/** 初始化: 并行拉取绑定 + 三类模型列表(存储保持 null=跟随默认, 展示层负责回显默认公共模型) */
 const init = async () => {
   loading.value = true
   try {
@@ -249,9 +265,9 @@ const init = async () => {
       getMyModelBinding(),
       ...BINDABLE_TYPES.map((t) => fetchModels(t)),
     ])
-    binding.chat_model_id = bind.chat_model_id ?? defaultModelId('chat')
-    binding.embedding_model_id = bind.embedding_model_id ?? defaultModelId('embeddings')
-    binding.rerank_model_id = bind.rerank_model_id ?? defaultModelId('rerank')
+    binding.chat_model_id = bind.chat_model_id ?? null
+    binding.embedding_model_id = bind.embedding_model_id ?? null
+    binding.rerank_model_id = bind.rerank_model_id ?? null
   } catch (error) {
     console.error('获取模型绑定失败:', error)
     ElMessage.error('获取模型绑定失败')

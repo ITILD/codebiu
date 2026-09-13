@@ -363,7 +363,6 @@ const validateFile = (file: File): boolean => {
 
   return true
 }
-const model_id = '2229c9a3fcc54d1d83d0636a7398b62e'
 // 开始识别
 const startRecognition = async () => {
   if (!targetFile.value) return
@@ -373,7 +372,6 @@ const startRecognition = async () => {
   const formData = new FormData()
   formData.append('image', targetFile.value)
   formData.append('lang', selectedLang.value)
-  formData.append('model_id', model_id)
 
 
   isProcessing.value = true

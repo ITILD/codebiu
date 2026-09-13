@@ -117,22 +117,22 @@ _SEED_ALLOWED_FIELDS = set(ModelConfigCreate.model_fields.keys()) - {"model_type
 def _load_default_models_config() -> tuple[bool, dict[str, dict]]:
     """
     从配置文件读取默认公共模型配置(default_models 节)
-    :return: (reset_model 总开关, {model_type: 配置dict}); 未配置返回 (False, {})
+    :return: (reset_models 总开关, {model_type: 配置dict}); 未配置返回 (False, {})
     :raises: 解析失败时返回 (False, {}), 不抛出
     """
     if "default_models" not in conf or not conf.default_models:
         return False, {}
     raw = conf.default_models
     try:
-        # reset_model 为布尔总开关(false=启动不做任何处理); 其余仅接受 dict 类型节
+        # reset_models 为布尔总开关(false=启动不做任何处理); 其余仅接受 dict 类型节
         # (布尔/None 等非法值跳过, 避免一个无效节拖垮整个默认模型 seed)
-        reset_model = bool(raw.get("reset_model", False))
+        reset_models = bool(raw.get("reset_models", False))
         sections = {
             str(k).lower(): dict(v)
             for k, v in raw.items()
-            if k != "reset_model" and isinstance(v, dict)
+            if k != "reset_models" and isinstance(v, dict)
         }
-        return reset_model, sections
+        return reset_models, sections
     except Exception as e:
         logger.error(f"读取 default_models 配置失败: {e}")
         return False, {}
@@ -163,19 +163,65 @@ def _config_matches(existing, section: dict) -> bool:
 
 
 @register_init_hook
-async def ensure_default_models():
-    """启动时按 config.dev.yaml default_models 补种默认公共模型(幂等, reset_model 总开关控制)
+async def ensure_voice_server_type():
+    """语音模型 server_type 归一化迁移: dashscope->online, sherpa/qwen->local(幂等)
 
-    - reset_model=false(或缺省): 什么都不做, 库中模型配置完全保留
-    - reset_model=true 且类型 enabled=true:
+    - 历史方案值写入 extra.legacy_server_type 保留(前端/日志可溯源)
+    - 必须先于 ensure_default_models 执行: seed 会比对 server_type, 若旧值未归一化
+      会误判"配置不一致"导致旧默认转私有 + 重复建新默认
+    """
+    if db_manager.db_rel is None:
+        return
+    import json as _json
+
+    _MIGRATE_MAP = {"dashscope": "online", "sherpa": "local", "qwen": "local"}
+    engine = db_manager.db_rel.engine
+    async with engine.begin() as conn:
+        rows = (
+            await conn.execute(
+                text(
+                    "SELECT id, server_type, extra FROM model_config "
+                    "WHERE model_type IN ('asr', 'tts', 'vad', 'denoise') "
+                    "AND server_type IN ('dashscope', 'sherpa', 'qwen')"
+                )
+            )
+        ).fetchall()
+        if not rows:
+            return
+        for row in rows:
+            row_id, server_type, extra = row[0], row[1], row[2]
+            # extra 可能是 dict(json 列)或 str, 防御性归一
+            if isinstance(extra, str):
+                try:
+                    extra = _json.loads(extra) if extra else {}
+                except Exception:
+                    extra = {}
+            extra = dict(extra or {})
+            extra["legacy_server_type"] = server_type
+            await conn.execute(
+                text("UPDATE model_config SET server_type = :st, extra = CAST(:extra AS JSON) WHERE id = :id"),
+                {"st": _MIGRATE_MAP[server_type], "extra": _json.dumps(extra, ensure_ascii=False), "id": row_id},
+            )
+        logger.info(
+            f"语音模型 server_type 已归一化: {len(rows)} 条记录迁移为 online/local"
+            f"(原值保留在 extra.legacy_server_type)"
+        )
+
+
+@register_init_hook
+async def ensure_default_models():
+    """启动时按 config.dev.yaml default_models 补种默认公共模型(幂等, reset_models 总开关控制)
+
+    - reset_models=false(或缺省): 什么都不做, 库中模型配置完全保留
+    - reset_models=true 且类型 enabled=true:
       - 库中无该类型默认公共模型: 按配置创建(scope=public/is_default/is_active=True)
       - 已有默认公共模型且与配置一致(配置写出的字段全部相同): 保持不变
       - 不一致(如 model/url/api_key 变更): 原默认模型转为私有(scope=user)保留,
         再按配置创建新的默认公共模型
-    - reset_model=true 但类型 enabled=false/未配置: 该类型不做任何处理
+    - reset_models=true 但类型 enabled=false/未配置: 该类型不做任何处理
     """
-    reset_model, seed_config = _load_default_models_config()
-    if not reset_model or not seed_config:
+    reset_models, seed_config = _load_default_models_config()
+    if not reset_models or not seed_config:
         return
     service = ModelConfigService()
     owner_id = await _resolve_seed_owner_id()

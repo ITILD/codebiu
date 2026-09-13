@@ -1,15 +1,15 @@
 <script setup lang="ts">
 // 助手消息"过程区块"折叠展示: 推理过程/意图分析/知识检索引用溯源等
-// - 按 stream_event_type 显示小标题与图标
-// - 知识检索(tool_call)解析引用条目: 来源文件 + 相关度 + 摘要
+// - 展开后为低调的"日志流"样式: 每条事件为 [图标] 事件：内容 同行排布, 无卡片
+// - 知识检索(tool_call)解析引用条目: 来源 + 相关度 + 摘要, 单行省略(悬停看全文)
+// - 字号小、色彩暗淡, 弱化过程信息避免喧宾夺主
 // - 流式进行中默认展开, 结束后自动折叠为单行入口
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { MessageBlock } from '@/common/types/chat'
 import { StreamEventType, STREAM_TYPE_LABELS } from '@/common/types/chat'
 import {
   MagicStick, Search, DataLine, Link, Document, Warning, ArrowRight,
 } from '@element-plus/icons-vue'
-import MarkdownContent from './MarkdownContent.vue'
 
 interface Props {
   /** 该条助手消息的过程区块列表 */
@@ -37,6 +37,9 @@ const blockTitle = (block: MessageBlock): string =>
 const blockIcon = (block: MessageBlock): unknown =>
   TYPE_ICONS[block.stream_event_type ?? ''] ?? Link
 
+/** 过程内容按纯文本紧凑展示: 仅去掉首尾空白, 正文不改动 */
+const plainContent = (content: string): string => (content ?? '').trim()
+
 /* ===== 知识检索引用解析 ===== */
 /** 单条引用: 来源文档 + 相关度 + 内容摘要 */
 interface Citation {
@@ -45,11 +48,17 @@ interface Citation {
   summary: string
 }
 
+/** 引用组: 概述行(检索到 N 条) + 引用列表 */
+interface CitationGroup {
+  overview: string
+  citations: Citation[]
+}
+
 // 匹配后端检索输出行: "1. [来源] (相关度 0.872) 摘要…"
 const CITATION_LINE_RE = /^\d+\.\s*\[(.*?)\]\s*\(相关度\s*([\d.\-*]+)\)\s*(.*)$/
 
-/** 从 tool_call 文本解析引用列表(解析失败返回 null, 走通用 markdown 渲染) */
-const parseCitations = (content: string): Citation[] | null => {
+/** 从 tool_call 文本解析引用列表(解析失败返回 null, 走通用文本渲染) */
+const parseCitations = (content: string): CitationGroup | null => {
   const lines = content
     .split('\n')
     .map((l) => l.trim())
@@ -61,31 +70,25 @@ const parseCitations = (content: string): Citation[] | null => {
     const m = line.match(CITATION_LINE_RE)
     if (m) citations.push({ source: m[1], score: m[2], summary: m[3] })
   }
-  return citations.length > 0 ? citations : null
+  return citations.length > 0 ? { overview: lines[0], citations } : null
 }
 
-/** 各区块的引用解析结果(type → citations) */
+/** 各区块的引用解析结果(type → group) */
 const citationMap = computed(() => {
-  const map = new Map<string, Citation[]>()
+  const map = new Map<string, CitationGroup>()
   for (const block of props.blocks ?? []) {
     if (block.stream_event_type === StreamEventType.TOOL_CALL) {
-      const citations = parseCitations(block.content)
-      if (citations) map.set(block.id, citations)
+      const group = parseCitations(block.content)
+      if (group) map.set(block.id, group)
     }
   }
   return map
 })
 
-/** 相关度 → 进度条百分比 */
-const scorePercent = (score: string): number => {
-  const n = parseFloat(score)
-  return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) * 100 : 0
-}
-
 /** 某区块是否有引用解析结果 */
 const hasCitations = (blockId: string): boolean => citationMap.value.has(blockId)
 
-const getCitations = (blockId: string): Citation[] => citationMap.value.get(blockId) ?? []
+const getCitations = (blockId: string): CitationGroup => citationMap.value.get(blockId) ?? { overview: '', citations: [] }
 
 /* ===== 折叠状态 ===== */
 const collapsed = ref(true)
@@ -104,48 +107,44 @@ const toggle = () => { collapsed.value = !collapsed.value }
   <div v-if="blocks?.length" class="pb-wrap">
     <!-- 折叠头: 摘要入口(点击展开/收起) -->
     <button class="pb-head" :class="{ open: !collapsed }" @click="toggle">
-      <el-icon :size="14" class="pb-icon"><MagicStick /></el-icon>
+      <el-icon :size="12" class="pb-icon"><MagicStick /></el-icon>
       <span class="pb-label">思考与检索过程</span>
       <span class="pb-count">{{ blocks.length }} 个步骤</span>
-      <el-icon :size="12" class="pb-arrow" :class="{ open: !collapsed }">
+      <el-icon :size="11" class="pb-arrow" :class="{ open: !collapsed }">
         <ArrowRight />
       </el-icon>
     </button>
 
-    <!-- 展开内容: 每个过程区块一张小卡 -->
+    <!-- 展开内容: 低调日志流, 每条 "事件：内容" 同行 -->
     <div v-show="!collapsed" class="pb-body">
-      <div v-for="block in blocks" :key="block.id" class="pb-item">
-        <div class="pb-item-title">
-          <el-icon :size="13">
-            <component :is="blockIcon(block)" />
-          </el-icon>
-          <span>{{ blockTitle(block) }}</span>
-        </div>
+      <div v-for="block in blocks" :key="block.id" class="pb-line">
+        <el-icon :size="11" class="pb-line-icon">
+          <component :is="blockIcon(block)" />
+        </el-icon>
 
-        <!-- 引用溯源卡片(知识检索) -->
+        <!-- 知识检索: 标签 + 概述行 + 单行引用条(悬停看全文) -->
         <template v-if="hasCitations(block.id)">
-          <div
-            v-for="(c, i) in getCitations(block.id)"
-            :key="i"
-            class="pb-citation"
-          >
-            <div class="pb-cite-head">
-              <el-icon :size="12"><Document /></el-icon>
-              <span class="pb-cite-source" :title="c.source">{{ c.source }}</span>
+          <span class="pb-line-label">知识检索：</span>
+          <div class="pb-cites">
+            <div class="pb-cite-overview">{{ getCitations(block.id).overview }}</div>
+            <div
+              v-for="(c, i) in getCitations(block.id).citations"
+              :key="i"
+              class="pb-cite"
+              :title="`${c.source}（相关度 ${c.score}）${c.summary}`"
+            >
+              <span class="pb-cite-source">{{ c.source }}</span>
               <span class="pb-cite-score">{{ c.score }}</span>
+              <span class="pb-cite-summary">{{ c.summary }}</span>
             </div>
-            <el-progress
-              :percentage="scorePercent(c.score)"
-              :stroke-width="3"
-              :show-text="false"
-              class="pb-cite-bar"
-            />
-            <p class="pb-cite-summary">{{ c.summary }}</p>
           </div>
         </template>
 
-        <!-- 通用 markdown 内容(推理/意图分析等) -->
-        <MarkdownContent v-else :content="block.content" :block-id="`pb-${block.id}`" />
+        <!-- 其他事件: 事件标签与内容同行, 内容原样保留可换行 -->
+        <template v-else>
+          <span class="pb-line-label">{{ blockTitle(block) }}：</span>
+          <span class="pb-line-content">{{ plainContent(block.content) }}</span>
+        </template>
       </div>
     </div>
   </div>
@@ -163,13 +162,13 @@ const toggle = () => { collapsed.value = !collapsed.value }
 .pb-head {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   width: 100%;
-  padding: 6px 12px;
+  padding: 5px 12px;
   border: none;
   background: transparent;
   color: var(--note-sub, #6b7f6e);
-  font-size: 12px;
+  font-size: 11px;
   cursor: pointer;
   transition: background 0.15s;
 }
@@ -182,6 +181,7 @@ const toggle = () => { collapsed.value = !collapsed.value }
 
 .pb-icon {
   flex-shrink: 0;
+  opacity: 0.8;
 }
 
 .pb-label {
@@ -189,7 +189,7 @@ const toggle = () => { collapsed.value = !collapsed.value }
 }
 
 .pb-count {
-  opacity: 0.7;
+  opacity: 0.65;
 }
 
 .pb-arrow {
@@ -201,77 +201,90 @@ const toggle = () => { collapsed.value = !collapsed.value }
   transform: rotate(90deg);
 }
 
+/* 展开区: 纯文本日志流, 无卡片无边框, 整体压暗 */
 .pb-body {
-  padding: 6px 10px 10px;
+  padding: 2px 12px 8px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 3px;
+  opacity: 0.92;
 }
 
-.pb-item {
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: var(--note-card, #fdfefc);
-}
-
-.pb-item-title {
+.pb-line {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 5px;
-  margin-bottom: 4px;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  line-height: 1.65;
+  color: var(--el-text-color-secondary, #7c8b80);
+}
+
+.pb-line-icon {
+  flex-shrink: 0;
+  margin-top: 3px;
+  color: var(--note-sub, #6b7f6e);
+  opacity: 0.7;
+}
+
+/* 事件标签: 保留淡绿倾向但压低存在感 */
+.pb-line-label {
+  flex-shrink: 0;
   color: var(--note-green-deep, #3f7a52);
+  opacity: 0.72;
 }
 
-/* 引用溯源卡片 */
-.pb-citation {
-  padding: 6px 8px;
-  border-radius: 6px;
-  background: var(--note-soft, #f6faf5);
-  margin-top: 6px;
+/* 内容: 原样保留(可换行), 短内容自然成单行 */
+.pb-line-content {
+  flex: 1;
+  min-width: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  opacity: 0.88;
 }
 
-.pb-cite-head {
+/* 知识检索: 概述 + 单行引用条 */
+.pb-cites {
+  flex: 1;
+  min-width: 0;
   display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 12px;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.pb-cite-overview {
+  opacity: 0.7;
+}
+
+.pb-cite {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .pb-cite-source {
-  flex: 1;
-  min-width: 0;
+  flex-shrink: 0;
+  max-width: 38%;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
   color: var(--note-green-deep, #3f7a52);
-  font-weight: 500;
+  opacity: 0.72;
 }
 
 .pb-cite-score {
   flex-shrink: 0;
-  font-size: 11px;
-  color: var(--note-sub, #6b7f6e);
+  font-size: 10px;
   font-family: ui-monospace, Consolas, monospace;
-}
-
-.pb-cite-bar {
-  margin: 4px 0 2px;
-}
-
-.pb-cite-bar :deep(.el-progress-bar__outer) {
-  background: var(--note-border, #e2e8e3);
+  opacity: 0.6;
 }
 
 .pb-cite-summary {
-  margin: 2px 0 0;
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--el-text-color-regular, #4e5f52);
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.8;
 }
 </style>

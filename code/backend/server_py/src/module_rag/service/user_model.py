@@ -14,10 +14,16 @@ logger = logging.getLogger(__name__)
 
 
 class ResolvedModel(NamedTuple):
-    """模型解析结果(v4 4.3 兜底链可感知): fallback_used=True 表示绑定失效/未绑定, 已回退默认公共模型"""
+    """模型解析结果(v4 4.3 兜底链可感知)
+
+    - fallback_used=True: 走了默认公共模型回退
+    - binding_unset=True: 用户本就未设置该类型模型, 使用默认公共模型属正常默认行为(前端无需告警)
+    - fallback_used=True 且 binding_unset=False: 绑定失效(被删/停用/无权), 数据流向已变化需提示
+    """
 
     model_id: str | None
     fallback_used: bool = False
+    binding_unset: bool = False
 
 
 class UserModelService:
@@ -76,16 +82,45 @@ class UserModelService:
         """
         return await self.user_model_dao.get_by_user(user_id)
 
+    async def _normalize_default_bindings(self, user_model: UserModelUpdate) -> UserModelUpdate:
+        """
+        归一化绑定: 选中"默认公共模型"视为未绑定(存 None)
+        前端会把默认公共模型预填/展示为选中项, 若原样入库, 管理员更换默认公共模型后
+        用户仍指向旧模型; 归一化为未绑定后, 解析链路统一走默认公共模型回退, 换模型全体用户无缝跟随
+        :param user_model: 更新数据
+        :return: 归一化后的更新数据(未提交字段保持未设置语义)
+        """
+        pairs = (
+            (ModelType.CHAT, "chat_model_id"),
+            (ModelType.EMBEDDINGS, "embedding_model_id"),
+            (ModelType.RERANK, "rerank_model_id"),
+        )
+        data = user_model.model_dump(exclude_unset=True)
+        changed = False
+        for model_type, key in pairs:
+            model_id = data.get(key)
+            if not model_id:
+                continue
+            default = await self.llm_service.model_config_service.model_config_dao.get_default_by_type(
+                model_type.value
+            )
+            if default is not None and default.id == model_id:
+                data[key] = None
+                changed = True
+                logger.info(f"绑定 {model_type.value} 命中默认公共模型({default.model}), 归一化为未绑定")
+        return UserModelUpdate(**data) if changed else user_model
+
     async def upsert(self, user_id: str, user_model: UserModelUpdate) -> UserModel:
         """
         新增或更新用户的模型绑定(存在则更新，不存在则创建)
-        绑定前校验各模型配置的归属/共享权限
+        绑定前归一化(默认公共模型→未绑定)并校验各模型配置的归属/共享权限
         :param user_id: 用户ID
         :param user_model: 更新数据
         :return: 绑定记录
         :raises ValueError: 任一模型配置不存在或无权使用
         """
-        # 绑定校验: 仅校验本次提交的 model_id(未提交字段保持原值不动)
+        # 先归一化(默认公共模型→未绑定), 再校验本次提交的 model_id(未提交字段保持原值不动)
+        user_model = await self._normalize_default_bindings(user_model)
         for model_id in (
             user_model.chat_model_id,
             user_model.embedding_model_id,
@@ -151,25 +186,30 @@ class UserModelService:
         """
         model_id: str | None = None
         binding_valid = False
+        binding_unset = True  # 未设置(无绑定记录或该类型未绑定); 绑定存在但校验失败时置 False
         try:
             binding = await self.get_by_user(user_id)
-            if binding is not None:
-                match model_type:
-                    case ModelType.CHAT:
-                        model_id = binding.chat_model_id
-                    case ModelType.EMBEDDINGS:
-                        model_id = binding.embedding_model_id
-                    case ModelType.RERANK:
-                        model_id = binding.rerank_model_id
-            # 使用时兜底校验(绑定后配置被转手/取消共享的场景)
-            await self._validate_model_access(model_id, user_id)
-            binding_valid = model_id is not None
-        except ValueError as e:
-            logger.warning(f"用户 {user_id} 模型绑定校验失败, 尝试默认公共模型回退: {e}")
-            model_id = None
         except Exception as e:
             logger.warning(f"获取用户绑定模型失败, 尝试默认公共模型回退: {e}")
-            model_id = None
+            binding = None
+        if binding is not None:
+            match model_type:
+                case ModelType.CHAT:
+                    model_id = binding.chat_model_id
+                case ModelType.EMBEDDINGS:
+                    model_id = binding.embedding_model_id
+                case ModelType.RERANK:
+                    model_id = binding.rerank_model_id
+            binding_unset = model_id is None
+        if model_id is not None:
+            try:
+                # 使用时兜底校验(绑定后配置被转手/取消共享的场景)
+                await self._validate_model_access(model_id, user_id)
+                binding_valid = True
+            except ValueError as e:
+                logger.warning(f"用户 {user_id} 模型绑定校验失败, 尝试默认公共模型回退: {e}")
+                model_id = None
+                binding_unset = False
         if binding_valid:
             return ResolvedModel(model_id=model_id)
         # 绑定失效/未绑定: 用户级开关允许时才回退默认公共模型
@@ -177,7 +217,11 @@ class UserModelService:
             logger.info(f"用户 {user_id} 已关闭模型回退, {model_type.value} 绑定失效不回退")
             return ResolvedModel(model_id=None)
         fallback_id = await self._get_fallback_model_id(model_type)
-        return ResolvedModel(model_id=fallback_id, fallback_used=fallback_id is not None)
+        return ResolvedModel(
+            model_id=fallback_id,
+            fallback_used=fallback_id is not None,
+            binding_unset=binding_unset,
+        )
 
     async def resolve_model_id(self, user_id: str, model_type: ModelType) -> str | None:
         """解析用户可用的模型ID(resolve_model 的便捷封装, 供模型存在性预检等场景)
@@ -211,7 +255,7 @@ class UserModelService:
         if not model_id:
             logger.warning(f"用户 {user_id} 无可用 {model_type.value} 模型(未绑定且无生效的默认公共模型)")
             return None
-        if resolved.fallback_used:
+        if resolved.fallback_used and not resolved.binding_unset:
             # 兜底链可感知: 数据流向已改变, 记录告警(调用方依据 resolve_model 在响应 meta 提示)
             logger.warning(
                 f"用户 {user_id} 的 {model_type.value} 绑定模型不可用, 已回退系统默认公共模型 "

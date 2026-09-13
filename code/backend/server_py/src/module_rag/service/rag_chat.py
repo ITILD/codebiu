@@ -6,6 +6,7 @@
 - 对话总结: 压缩历史 + 生成标题
 """
 
+import asyncio
 import logging
 from typing import AsyncGenerator
 
@@ -89,7 +90,7 @@ class RagChatService:
     # ──────────────────────────────────────────────
 
     def _build_chat_graph(self) -> StateGraph:
-        """构建聊天 graph: [intent_analysis] → [knowledge_search] → chat → END"""
+        """构建聊天 graph: [intent_analysis] → (需检索?) [knowledge_search] → chat → END"""
 
         graph = StateGraph(RagChatState)
         graph.add_node(GraphNode.INTENT, self._intent_analysis_node)
@@ -103,10 +104,21 @@ class RagChatService:
                 GraphNode.INTENT if state.get("project_ids") else GraphNode.CHAT
             ),
         )
-        graph.add_edge(GraphNode.INTENT, GraphNode.SEARCH)
+        # 条件路由: 意图分析判定需要外部信息才进入检索节点,
+        # 否则直接对话(不执行检索, 也就不会产生"正在检索知识库…"/"未检索到相关片段"等过程事件)
+        graph.add_conditional_edges(GraphNode.INTENT, self._route_after_intent)
         graph.add_edge(GraphNode.SEARCH, GraphNode.CHAT)
         graph.add_edge(GraphNode.CHAT, END)
         return graph
+
+    @staticmethod
+    def _route_after_intent(state: RagChatState) -> GraphNode:
+        """意图分析后的路由: 判定需要外部信息且有知识库才检索, 否则直接对话"""
+        info: RagHelpInfo | None = state.get("rag_help_info")
+        need_search = bool(state.get("project_ids")) and bool(
+            info and info.is_need_external_info
+        )
+        return GraphNode.SEARCH if need_search else GraphNode.CHAT
 
     async def _intent_analysis_node(self, state: RagChatState) -> dict:
         """意图分析: 提取检索关键词 & 判断是否需要外部知识"""
@@ -163,10 +175,13 @@ class RagChatService:
         try:
             knowledge_context_list = await self.project_document_chunk_service.search(request, user_id)
         except Exception as e:
+            # 检索失败(模型网络错误/无 embedding 模型等)与"确实无相关片段"语义不同,
+            # 错误原因写入 state, 由 SEARCH 节点结束事件透传到前端过程区块
             logger.warning(f"知识库检索失败: {e}")
             knowledge_context_list = []
+            return {"knowledge_context_list": knowledge_context_list, "search_error": str(e)}
 
-        return {"knowledge_context_list": knowledge_context_list}
+        return {"knowledge_context_list": knowledge_context_list, "search_error": None}
 
     async def _chat_node(self, state: RagChatState) -> dict:
         """LLM 对话节点: 拼接 system prompt + 历史消息 → 生成回复"""
@@ -240,7 +255,8 @@ class RagChatService:
             resolved = await self.user_model_service.resolve_model(
                 user_id, ModelType.CHAT
             )
-            if resolved.fallback_used:
+            if resolved.fallback_used and not resolved.binding_unset:
+                # 绑定失效(被删/停用/无权)才提示数据流向变化; 未设置模型走默认公共模型属正常行为, 静默
                 yield StreamOne(
                     content="绑定的对话模型不可用，已回退系统公共模型（数据将由公共模型处理，可在设置中调整）",
                     stream_event_type=StreamEventType.STATUS,
@@ -275,8 +291,10 @@ class RagChatService:
             # 客户端中止(停止生成)时生成器被 GeneratorExit 关闭, except Exception 捕获不到,
             # 必须放 finally 才能保证已生成的部分回答落库
             if full_response:
-                try:
-                    await self.chat_message_service.add(
+                # 落库协程用 shield 脱离外层取消: 客户端断开时 sse-starlette 会取消流式任务,
+                # finally 里直接 await 会被再次注入的 CancelledError 打断导致部分回答丢失
+                persist_task = asyncio.create_task(
+                    self.chat_message_service.add(
                         ChatMessageCreate(
                             conversation_id=conversation_id,
                             role=RoleType.ASSISTANT,
@@ -284,6 +302,16 @@ class RagChatService:
                             blocks=process_blocks or None,
                         )
                     )
+                )
+                try:
+                    await asyncio.shield(persist_task)
+                except asyncio.CancelledError:
+                    # 本任务被取消(客户端断开): 等落库协程完成后再传播取消
+                    try:
+                        await persist_task
+                    except Exception as e:
+                        logger.error(f"助手消息持久化失败: {e}", exc_info=True)
+                    raise
                 except Exception as e:
                     logger.error(f"助手消息持久化失败: {e}", exc_info=True)
 

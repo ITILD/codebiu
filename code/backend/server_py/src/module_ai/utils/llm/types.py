@@ -3,9 +3,12 @@ from enum import Enum
 
 class ModelServerType(str, Enum):
     """
-    模型服务类型枚举 openai vllm ollama sherpa qwen
+    模型服务类型枚举 openai vllm ollama sherpa qwen paddle online local
     - chat/embeddings/rerank 类: openai/dashscope/vllm/ollama/aws
-    - asr/tts/ocr 类: sherpa/qwen(本地推理方案, 模型路径等放 extra)
+    - asr/tts 类: online(远程API或本地vllm发布, 协议细节放 extra.protocol) / local(本机onnx或qwen推理, 框架放 extra.engine)
+    - ocr 类: dashscope(阿里云在线) / paddle(本地 PP-OCR onnx)
+    - vad/denoise 类: local(本机 sherpa-onnx)
+    - dashscope/sherpa/qwen 为语音历史方案值: ORM 存量行仍按值读取, 禁止删除
     """
 
     OPENAI = "openai"
@@ -15,6 +18,9 @@ class ModelServerType(str, Enum):
     AWS = "aws"
     SHERPA = "sherpa"
     QWEN = "qwen"
+    PADDLE = "paddle"
+    ONLINE = "online"
+    LOCAL = "local"
 
 
 class ModelType(str, Enum):
@@ -35,16 +41,19 @@ class ModelType(str, Enum):
 def server_types_for(model_type: "ModelType | str") -> list[ModelServerType]:
     """
     按模型类型返回可用的服务方案(前端下拉/后端校验共用)
-    - asr/tts: sherpa(轻量 CPU) 与 qwen(大模型 GPU) 双方案
-    - vad/denoise/ocr: 本地 sherpa-onnx 实时/轻量推理, 仅 sherpa 方案
+    - asr/tts: online(远程API或本地vllm发布, 优先 qwen3 系列) / local(本机 onnx 或 qwen 推理)
+    - ocr: dashscope(阿里云在线) + paddle(本地 PP-OCR onnx)
+    - vad/denoise: 本地 sherpa-onnx 实时/轻量推理, 仅 local 方案
     :param model_type: 模型类型
     :return: 服务方案列表
     """
     value = model_type.value if isinstance(model_type, ModelType) else str(model_type)
     if value in ("asr", "tts"):
-        return [ModelServerType.SHERPA, ModelServerType.QWEN]
-    if value in ("vad", "denoise", "ocr"):
-        return [ModelServerType.SHERPA]
+        return [ModelServerType.ONLINE, ModelServerType.LOCAL]
+    if value == "ocr":
+        return [ModelServerType.DASHSCOPE, ModelServerType.PADDLE]
+    if value in ("vad", "denoise"):
+        return [ModelServerType.LOCAL]
     return [
         ModelServerType.OPENAI,
         ModelServerType.DASHSCOPE,

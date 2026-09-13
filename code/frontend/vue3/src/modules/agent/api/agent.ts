@@ -10,9 +10,13 @@ import type {
   Agent,
   AgentCreate,
   AgentUpdate,
+  AgentWorkflowSaveRequest,
   AgentConversation,
   AgentConversationCreate,
   AgentChatRequest,
+  AgentRunRequest,
+  AgentRunResponse,
+  AgentRunRecord,
 } from '../types';
 
 // ==================== 智能体管理 ====================
@@ -57,6 +61,49 @@ export const updateAgent = (agentId: string, data: AgentUpdate) => {
  */
 export const deleteAgent = (agentId: string) => {
   return http_base_server.delete<void>(`/agent/agents/${agentId}`);
+};
+
+// ==================== 智能体运行(结构体配置驱动) ====================
+
+/**
+ * 运行智能体(按结构体配置执行一次输入→输出, 仅公共或本人创建的智能体)
+ * @param agentId 智能体ID
+ * @param data 运行请求(模型配置ID + 输入数据)
+ */
+export const runAgent = (agentId: string, data: AgentRunRequest) => {
+  return http_base_server.post<AgentRunResponse>(`/agent/agents/${agentId}/run`, data);
+};
+
+/**
+ * 获取智能体运行历史(仅本人记录, 按时间倒序)
+ * @param agentId 智能体ID
+ * @param params 分页参数
+ */
+export const listAgentRuns = (agentId: string, params: PaginationParams) => {
+  return http_base_server.get<PaginationResponse<AgentRunRecord>>(
+    `/agent/agents/${agentId}/runs`,
+    { params }
+  );
+};
+
+/**
+ * 获取单条运行详情(含工作流节点轨迹, 仅本人)
+ * @param agentId 智能体ID
+ * @param runId 运行记录ID
+ */
+export const getAgentRunDetail = (agentId: string, runId: string) => {
+  return http_base_server.get<AgentRunRecord>(`/agent/agents/${agentId}/runs/${runId}`);
+};
+
+// ==================== 工作流配置 ====================
+
+/**
+ * 保存工作流配置(切换智能体类型 + 保存图; 后端先静态校验, 失败返回 400)
+ * @param agentId 智能体ID
+ * @param data 类型与工作流图
+ */
+export const saveAgentWorkflow = (agentId: string, data: AgentWorkflowSaveRequest) => {
+  return http_base_server.put<void>(`/agent/agents/${agentId}/workflow`, data);
 };
 
 // ==================== 智能体对话 ====================

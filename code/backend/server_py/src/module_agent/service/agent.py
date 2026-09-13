@@ -3,7 +3,9 @@ from common.utils.fastapiEX.exceptions import NotFoundError, BusinessError
 from module_authorization.config.casbin_rule import auth_manager
 from module_agent.config.agent_seed import BUILTIN_AGENTS
 from module_agent.dao.agent import AgentDao
-from module_agent.do.agent import Agent, AgentCreate, AgentUpdate
+from module_agent.do.agent import Agent, AgentCreate, AgentUpdate, AgentWorkflowSaveRequest
+from module_agent.do.agent import AgentType
+from module_agent.service.workflow import validate_workflow
 
 import logging
 
@@ -60,11 +62,16 @@ class AgentService:
         return await self.agent_dao.get(agent_id)
 
     async def create(self, user_id: str, data: AgentCreate) -> str:
-        """创建自定义简单智能体(私有, 仅创建者可用)"""
+        """创建自定义智能体(私有, 仅创建者可用; 含类型与可选结构体配置)"""
         agent = Agent(
             name=data.name.strip(),
             description=data.description.strip(),
             system_prompt=data.system_prompt.strip(),
+            agent_type=data.agent_type,
+            input_type=data.input_type,
+            output_type=data.output_type,
+            input_schema=data.input_schema,
+            output_schema=data.output_schema,
             is_public=False,
             is_builtin=False,
             created_by=user_id,
@@ -84,6 +91,25 @@ class AgentService:
         if agent.is_builtin:
             raise BusinessError("内置智能体不可删除")
         await self.agent_dao.delete(agent.id)
+
+    async def save_workflow(
+        self, agent_id: str, user_id: str, data: AgentWorkflowSaveRequest
+    ) -> None:
+        """保存工作流配置(切换智能体类型 + 保存图; 图先静态校验通过才落库)
+
+        - agent_type=workflow: workflow 图必填且须通过校验(节点/连线/引用/环检测)
+        - agent_type=simple: 不允许携带工作流图(切回简单类型即视为清除图)
+        """
+        agent = await self._get_for_manage(agent_id, user_id)
+        if data.agent_type == AgentType.WORKFLOW:
+            errors = validate_workflow(data.workflow)
+            if errors:
+                raise BusinessError("工作流校验失败: " + "; ".join(errors))
+        elif data.workflow:
+            raise BusinessError("简单智能体不支持工作流图, 请先切换为工作流类型")
+        await self.agent_dao.update(
+            agent.id, AgentUpdate(agent_type=data.agent_type, workflow=data.workflow)
+        )
 
     async def _get_for_manage(self, agent_id: str, user_id: str) -> Agent:
         """获取待管理智能体并校验归属(创建者或管理员)"""

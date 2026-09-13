@@ -42,7 +42,8 @@ class ProjectDocumentChunkService:
                 raise ValueError("向量化模型返回空结果")
         except Exception as e:
             logger.warning(f"查询文本向量化失败: {e}")
-            raise ValueError("文本向量化失败") from e
+            # 根因附在消息里(如 Connection error), 检索节点会将原因透传到前端过程区块
+            raise ValueError(f"文本向量化失败: {e}") from e
 
         # 4. 调用 DAO 层执行 Milvus 检索
         results: list[ProjectDocumentChunkSearchResponse] = (

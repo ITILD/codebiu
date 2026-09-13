@@ -10,6 +10,9 @@ enum ModelServerType {
   AWS = "aws",
   SHERPA = "sherpa",
   QWEN = "qwen",
+  PADDLE = "paddle",
+  ONLINE = "online",
+  LOCAL = "local",
 }
 
 /** 模型类型(与后端 ModelType 对齐) */
@@ -20,6 +23,8 @@ enum ModelType {
   OCR = "ocr",
   ASR = "asr",
   TTS = "tts",
+  VAD = "vad",
+  DENOISE = "denoise",
 }
 
 /** 模型归属/可见范围(与后端 ModelScope 对齐) */
@@ -63,6 +68,8 @@ const modelTypeOptions: { label: string; value: ModelType }[] = [
   { label: 'OCR', value: ModelType.OCR },
   { label: '语音识别', value: ModelType.ASR },
   { label: '语音合成', value: ModelType.TTS },
+  { label: 'VAD断句', value: ModelType.VAD },
+  { label: '降噪', value: ModelType.DENOISE },
 ]
 
 /** 模型类型标签样式(element-plus tag type) */
@@ -73,6 +80,8 @@ const modelTypeTagType: Record<string, 'primary' | 'success' | 'warning' | 'info
   [ModelType.OCR]: 'danger',
   [ModelType.ASR]: 'info',
   [ModelType.TTS]: 'info',
+  [ModelType.VAD]: 'success',
+  [ModelType.DENOISE]: 'success',
 }
 
 /** API 类方案(远程推理: 需要 url/api_key) */
@@ -88,17 +97,41 @@ const API_SERVER_OPTIONS = [
 const LOCAL_SERVER_OPTIONS = [
   { label: 'Sherpa-ONNX', value: ModelServerType.SHERPA },
   { label: 'Qwen(Transformers)', value: ModelServerType.QWEN },
+  { label: 'Paddle(PP-OCR onnx)', value: ModelServerType.PADDLE },
+]
+
+/** 语音方案: 在线(远程API或本地vllm发布的OpenAI兼容接口) */
+const VOICE_ONLINE_OPTIONS = [
+  { label: '在线(远程API/本地vllm发布)', value: ModelServerType.ONLINE },
+]
+
+/** 语音方案: 本地(嵌入onnx或qwen3 asr/tts推理) */
+const VOICE_LOCAL_OPTIONS = [
+  { label: '本地(onnx/qwen推理)', value: ModelServerType.LOCAL },
 ]
 
 /**
  * 按模型类型返回可用的服务方案(与后端 server_types_for 对齐)
- * - 语音/OCR 类(asr/tts/ocr): sherpa/qwen 本地推理
+ * - asr/tts: online(远程API/本地vllm发布) + local(嵌入onnx/qwen推理)
+ * - vad/denoise: 仅 local(onnx 前置处理模型)
+ * - ocr: dashscope(阿里云在线) + paddle(本地 PP-OCR onnx)
  * - 其余(chat/embeddings/rerank): openai/dashscope/vllm/ollama/aws
  */
-const serverTypeOptionsFor = (modelType: string) =>
-  [ModelType.ASR, ModelType.TTS, ModelType.OCR].includes(modelType as ModelType)
-    ? LOCAL_SERVER_OPTIONS
-    : API_SERVER_OPTIONS
+const serverTypeOptionsFor = (modelType: string) => {
+  if ([ModelType.ASR, ModelType.TTS].includes(modelType as ModelType)) {
+    return [...VOICE_ONLINE_OPTIONS, ...VOICE_LOCAL_OPTIONS]
+  }
+  if ([ModelType.VAD, ModelType.DENOISE].includes(modelType as ModelType)) {
+    return VOICE_LOCAL_OPTIONS
+  }
+  if (modelType === ModelType.OCR) {
+    return [
+      { label: 'DashScope(阿里云在线)', value: ModelServerType.DASHSCOPE },
+      { label: 'Paddle(PP-OCR onnx)', value: ModelServerType.PADDLE },
+    ]
+  }
+  return API_SERVER_OPTIONS
+}
 
 /** 模型类型中文标签 */
 const modelTypeLabel = (type: string) =>
@@ -106,7 +139,8 @@ const modelTypeLabel = (type: string) =>
 
 /** 方案中文标签 */
 const serverTypeLabel = (type: string) =>
-  [...API_SERVER_OPTIONS, ...LOCAL_SERVER_OPTIONS].find(o => o.value === type)?.label ?? type
+  [...API_SERVER_OPTIONS, ...LOCAL_SERVER_OPTIONS, ...VOICE_ONLINE_OPTIONS, ...VOICE_LOCAL_OPTIONS]
+    .find(o => o.value === type)?.label ?? type
 
 interface ModelConfigBase {
   model_type: ModelType;
@@ -255,6 +289,21 @@ const extraKeyHints: Record<string, string[]> = {
   ],
   [ModelServerType.QWEN]: [
     'device: 推理设备(cpu/cuda)',
+  ],
+  [ModelServerType.ONLINE]: [
+    'protocol: 上游协议(dashscope=阿里云WebSocket / openai=OpenAI兼容HTTP)',
+    'asr: language(语种提示) / enable_itn(逆文本正则化)',
+    'tts: voice(音色 ID, 如 longxiaochun)',
+  ],
+  [ModelServerType.LOCAL]: [
+    'engine: 本地引擎(sherpa=sherpa-onnx / qwen=qwen3 transformers)',
+    'device: 推理设备(cpu/cuda)',
+    'num_threads: 推理线程数',
+  ],
+  [ModelServerType.DASHSCOPE]: [
+    'asr: language(语种提示) / enable_itn(逆文本正则化)',
+    'tts: voice(音色 ID, 如 longxiaochun)',
+    'ocr: prompt(在线识别指令, 返回整图纯文本无坐标框)',
   ],
 }
 

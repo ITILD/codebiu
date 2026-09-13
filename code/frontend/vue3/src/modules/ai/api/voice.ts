@@ -15,12 +15,18 @@ const authHeader = (): Record<string, string> => {
 /**
  * 语音识别(音频上传)
  * @param audio 音频文件
- * @param engine 引擎 sherpa/qwen; 传空串时后端按 model_config 解析默认方案
+ * @param engine 引擎方案 online/local; 传空串时后端按 model_config 解析默认方案
+ * @param preprocess 前置处理步骤(逗号组合): denoise(降噪)/vad(切段逐段识别), 如 'denoise,vad'
  */
-export const recognizeAudio = async (audio: File | Blob, engine: VoiceEngine = '') => {
+export const recognizeAudio = async (
+  audio: File | Blob,
+  engine: VoiceEngine = '',
+  preprocess = ''
+) => {
   const formData = new FormData()
   formData.append('audio', audio)
   if (engine) formData.append('engine', engine)
+  if (preprocess) formData.append('preprocess', preprocess)
   return http_base_server.post<ASRResponse>('/ai/voice/asr', formData)
 }
 
@@ -119,13 +125,15 @@ export const synthesizeAudioStream = async (
 
 /**
  * 构建 ASR 流式识别 WebSocket 地址
- * @param engine 引擎; 传空串时后端按 model_config 解析默认方案
+ * @param engine 引擎方案 online/local; 传空串时后端按 model_config 解析默认方案
+ * @param vad 是否启用服务端 VAD 静音过滤(仅语音段送识别)
  */
-export const buildAsrStreamUrl = (engine: VoiceEngine = '') => {
+export const buildAsrStreamUrl = (engine: VoiceEngine = '', vad = false) => {
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   const token = useAuthStore().authState.tokens.access.token
   const params = new URLSearchParams()
   if (engine) params.append('engine', engine)
+  if (vad) params.append('vad', 'true')
   if (token) params.append('token', token)
   return `${proto}//${window.location.host}${API_PREFIX}/ai/voice/asr/stream?${params.toString()}`
 }

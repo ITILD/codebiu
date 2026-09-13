@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, status
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
 from module_authorization.dependencies.permission import require_permission
 from module_agent.dependencies.agent import get_agent_service
-from module_agent.do.agent import Agent, AgentCreate, AgentUpdate
+from module_agent.do.agent import Agent, AgentCreate, AgentUpdate, AgentWorkflowSaveRequest
 from module_agent.service.agent import AgentService
 
 router = APIRouter()
@@ -54,6 +54,25 @@ async def update_agent(
 ):
     """更新智能体(仅创建者或管理员)"""
     await service.update(agent_id, current_user_id, data)
+
+
+@router.put(
+    "/{agent_id}/workflow",
+    summary="保存工作流配置(切换类型+保存图, 校验通过才落库)",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def save_agent_workflow(
+    agent_id: str,
+    data: AgentWorkflowSaveRequest,
+    current_user_id: str = Depends(require_permission("agent", "manage", "update")),
+    service: AgentService = Depends(get_agent_service),
+):
+    """保存智能体的工作流配置
+
+    - agent_type=workflow 时工作流图必填且须通过静态校验(节点/连线/引用/环检测)
+    - agent_type=simple 时不可携带工作流图(切回简单类型即清除图)
+    """
+    await service.save_workflow(agent_id, current_user_id, data)
 
 
 @router.delete("/{agent_id}", summary="删除智能体", status_code=status.HTTP_204_NO_CONTENT)

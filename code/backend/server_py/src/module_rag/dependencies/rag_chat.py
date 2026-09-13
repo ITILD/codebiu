@@ -35,13 +35,16 @@ async def get_rag_chat_service_single(
     global _rag_chat_service_instance
     async with _service_init_lock:
         if _rag_chat_service_instance is None:
-            _rag_chat_service_instance = RagChatService(
+            instance = RagChatService(
                 llm_service=llm_service,
                 user_model_service=user_model_service,
                 chat_message_service=chat_message_service,
                 project_document_chunk_service=project_document_chunk_service,
                 conversation_service=conversation_service,
             )
-            # 编译一次图
-            await _rag_chat_service_instance._init_compiled_graphs()
+            # 先编译图再落单例: 初始化失败/被取消(如建流前客户端断开触发请求取消)时
+            # 不缓存半成品实例, 下次请求自动重试(否则 chat_compiled_graph 永久为 None,
+            # 所有问答请求都会流式返回 astream_events AttributeError)
+            await instance._init_compiled_graphs()
+            _rag_chat_service_instance = instance
     return _rag_chat_service_instance

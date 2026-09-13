@@ -56,19 +56,25 @@ export default defineConfig(
           ],
           // 路由 meta 标记(登录拦截与侧边栏显示的依据):
           // 1. 首页与 404 为公开页, 不加标记
-          // 2. 三大前台应用模块(site/rag/geometry)标记 app: 需登录, 但无侧边栏,
+          // 2. 四大前台应用模块(site/rag/geometry/agent)标记 app: 需登录, 但无侧边栏,
           //    从首页直接进入, 模块内孙页面导航由各模块页面自行承担
           // 3. 其余(后台工作台/账户设置/后台管理模块页面)标记 admin: 需登录 + 显示侧边栏,
           //    仅经头像下拉"后台管理"入口可达
           extendRoute: (route) => {
             const file = (route.component ?? '').replace(/\\/g, '/')
             const isPublic = file.endsWith('/src/pages/index.vue') || file.includes('/[..all].vue')
-            const isMainApp = /\/src\/modules\/(site|rag|geometry)\//.test(file)
+            const isMainApp = /\/src\/modules\/(site|rag|geometry|agent)\//.test(file)
             if (file && !isPublic) route.addToMeta(isMainApp ? { app: true } : { admin: true })
             // 独立页面(如账户设置): 属后台路由(需登录), 但页面自带导航, 不渲染侧边栏
             if (file.endsWith('/src/pages/setting.vue')) route.addToMeta({ standalone: true })
             // 全屏页面(如三维地球): 锁定文档滚动, 页面内容占满视口剩余高度
-            if (file.endsWith('/modules/geometry/pages/earth.vue')) route.addToMeta({ fullpage: true })
+            // 工作流编辑器: 画布需要固定视口高度
+            if (
+              file.endsWith('/modules/geometry/pages/earth.vue') ||
+              file.endsWith('/modules/agent/pages/workflow/[id].vue')
+            ) {
+              route.addToMeta({ fullpage: true })
+            }
           },
         }),
         vueDevTools(),
@@ -160,6 +166,8 @@ export default defineConfig(
                 return 'mermaid'
               }
               if (id.includes('monaco-editor')) return 'monaco'
+              // Vue Flow 工作流编辑器(仅 /agent/workflow 页面用)
+              if (id.includes('@vue-flow')) return 'vue-flow'
               if (id.includes('babylonjs')) return 'babylon'
               if (id.includes('katex')) return 'katex'
               if (id.includes('exceljs')) return 'exceljs'

@@ -213,3 +213,55 @@ async def test_baby_name_predict_validation(client: httpx.AsyncClient):
     # /predict-name-info-preference-meaning 缺少必填的 name
     resp = await client.post(f"{BASE}/predict-name-info-preference-meaning", json={})
     assert resp.status_code == 422, resp.text
+
+
+async def test_baby_name_reference_catalog(client: httpx.AsyncClient):
+    """/references: 返回 8 个参考体系目录, strict 标记正确"""
+    resp = await client.get(f"{BASE}/references")
+    assert resp.status_code == 200, resp.text
+    catalog = resp.json()
+    assert isinstance(catalog, list) and len(catalog) == 8
+    strict_keys = {item["key"] for item in catalog if item["strict"]}
+    assert strict_keys == {"wuxing", "sancai", "constellation", "zodiac", "tarot"}
+
+
+async def test_baby_name_calculate_reference(client: httpx.AsyncClient):
+    """/calculate-reference: 严格推算选中项, 未选项为 null(2026-09-13 08:00 已由单测互证)"""
+    payload = {
+        "birth_date": "2026-09-13",
+        "birth_time": "08:00",
+        "gender": "girl",
+        "surname": "王",
+        "references": ["wuxing", "constellation", "zodiac", "tarot", "sancai"],
+    }
+    resp = await client.post(f"{BASE}/calculate-reference", json=payload)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    # 五行: 庚金日主, 缺水
+    assert body["wuxing"]["day_master"] == "金"
+    assert body["wuxing"]["counts"]["水"] == 0
+    # 星座: 9/13 处女座
+    assert body["constellation"]["name"] == "处女座"
+    # 生肖: 丙午年 → 马
+    assert body["zodiac"]["name"] == "马"
+    assert body["zodiac"]["year_ganzhi"] == "丙午"
+    # 塔罗: 生命灵数 5
+    assert body["tarot"]["number"] == 5
+    # 姓氏五格基准: 王 4 画, 天格 5
+    assert body["sancai"]["surname_strokes"] == {"王": 4}
+    assert body["sancai"]["tian_ge"] == 5
+
+
+async def test_baby_name_calculate_reference_empty(client: httpx.AsyncClient):
+    """/calculate-reference: 不选参考 → 全部字段为 null"""
+    payload = {
+        "birth_date": "2026-09-13",
+        "birth_time": "08:00",
+        "gender": "boy",
+        "surname": "李",
+        "references": [],
+    }
+    resp = await client.post(f"{BASE}/calculate-reference", json=payload)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert all(body[k] is None for k in ("wuxing", "constellation", "zodiac", "tarot", "sancai"))

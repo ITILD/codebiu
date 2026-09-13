@@ -6,8 +6,8 @@
         <span text-sm font-medium text-note>语音引擎:</span>
         <el-radio-group v-model="engine">
           <el-radio-button value="">自动(模型配置)</el-radio-button>
-          <el-radio-button value="sherpa">Sherpa</el-radio-button>
-          <el-radio-button value="qwen">Qwen3-ASR/TTS-1.7B</el-radio-button>
+          <el-radio-button value="online">在线(远程API/本地vllm发布)</el-radio-button>
+          <el-radio-button value="local">本地(onnx/qwen推理)</el-radio-button>
         </el-radio-group>
         <el-tooltip
           v-if="engine === ''"

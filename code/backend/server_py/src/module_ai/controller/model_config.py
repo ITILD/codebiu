@@ -118,7 +118,7 @@ async def list_model_configs(
         is_admin=is_admin,
         filter_user_ids=filter_user_ids,
     )
-    # 脱敏: 仅本人私有模型保留明文, 公共/部门/他人私有(含 admin)一律清空 url/api_key
+    # 脱敏: 管理员豁免(可见明文账号/密码); 其他用户仅本人私有模型保留明文
     service.mask_secrets(result.items, current_user.id, is_admin)
     return result
 
@@ -142,7 +142,7 @@ async def infinite_scroll_model_configs(
         dept_id=current_user.dept_id,
         is_admin=is_admin,
     )
-    # 脱敏: 仅本人私有模型保留明文, 公共/部门/他人私有(含 admin)一律清空 url/api_key
+    # 脱敏: 管理员豁免(可见明文账号/密码); 其他用户仅本人私有模型保留明文
     service.mask_secrets(result.items, current_user.id, is_admin)
     return result
 
@@ -154,12 +154,12 @@ async def get_model_config(
     service: ModelConfigService = Depends(get_model_config_service),
 ) -> ModelConfig:
     """
-    获取指定ID的模型配置(url/api_key 仅本人私有模型可见明文, 其余一律脱敏)
+    获取指定ID的模型配置(管理员可见 url/api_key 明文; 其他用户仅本人私有模型可见明文)
     """
     model_config = await service.get(id)
     if not model_config:
         raise NotFoundError(f"未找到ID为 {id} 的模型配置")
-    # 脱敏: 仅本人私有模型保留明文, 公共/部门/他人私有(含 admin)一律清空 url/api_key
+    # 脱敏: 管理员豁免(可见明文账号/密码); 其他用户仅本人私有模型保留明文
     service.mask_secrets(model_config, current_user.id, _is_admin(current_user.id))
     return model_config
 

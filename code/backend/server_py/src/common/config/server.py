@@ -83,3 +83,16 @@ async def dealToken(request: Request, response: Response):
     return
 
 logger.info("ok...server服务配置")
+
+
+############################### uvicorn 事件循环工厂 ###############################
+def selector_event_loop_factory() -> "asyncio.AbstractEventLoop":
+    """uvicorn 自定义事件循环工厂(Windows 必需, 自定义 loop 为无参调用需返回循环实例)
+
+    psycopg 异步模式不支持 ProactorEventLoop(checkpointer 连接池会 PoolTimeout),
+    而 uvicorn>=0.40 在 win32 硬编码 Proactor 工厂且忽略事件循环策略设置,
+    故启动时经 uvicorn.run(loop="common.config.server:selector_event_loop_factory") 显式切换 Selector
+    """
+    import asyncio
+
+    return asyncio.SelectorEventLoop()

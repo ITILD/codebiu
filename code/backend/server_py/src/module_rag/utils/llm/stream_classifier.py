@@ -186,6 +186,12 @@ class StreamEventClassifier:
     @staticmethod
     def _format_search(output: dict) -> str:
         """格式化知识库检索结果(含引用溯源: 来源/得分/片段摘要, 供前端折叠区展示)"""
+        # 检索失败(模型网络错误/无 embedding 模型等)时显示真实原因,
+        # 避免"未检索到相关片段"误导用户以为是知识库内容不匹配
+        search_error = output.get("search_error")
+        if search_error:
+            return f"知识库检索失败: {search_error}"
+
         knowledge_context_list = output.get("knowledge_context_list") or []
 
         hit_count = len(knowledge_context_list)

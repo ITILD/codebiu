@@ -11,8 +11,9 @@ import time
 from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile, status
 
 from module_ai.config.server import module_app
+from module_ai.controller.voice.common import resolve_engine
 from module_ai.dependencies.voice import get_voice_service
-from module_ai.do.voice import VADResponse, VoiceEngine
+from module_ai.do.voice import VADResponse
 from module_ai.service.voice import VoiceService
 
 logger = logging.getLogger(__name__)
@@ -27,7 +28,7 @@ router = APIRouter()
 )
 async def vad_detect(
     audio: UploadFile,
-    engine: VoiceEngine | None = Form(None, description="VAD 引擎，缺省时按模型配置自动选择(仅 sherpa)"),
+    engine: str | None = Form(None, description="VAD 引擎方案 local(兼容旧值 sherpa/qwen), 缺省时按模型配置自动选择"),
     voice_service: VoiceService = Depends(get_voice_service),
 ):
     """上传音频检测其中的语音段，返回各段的起止时间
@@ -38,7 +39,7 @@ async def vad_detect(
     if not audio_bytes:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "音频文件为空")
     start = time.time()
-    segments = await voice_service.vad_segments(audio_bytes, engine)
+    segments = await voice_service.vad_segments(audio_bytes, resolve_engine(engine))
     return VADResponse(segments=segments, elapsed=round(time.time() - start, 3))
 
 

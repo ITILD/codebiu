@@ -38,13 +38,22 @@
       >
         <!-- 头部: 图标 + 名称 + 标签 -->
         <div flex items-center gap-2.5>
-          <div w-10 h-10 rounded-xl bg-note-tint flex-center shrink-0>
-            <el-icon :size="20" text-note-green><MagicStick /></el-icon>
+          <div
+            w-10 h-10 rounded-xl flex-center shrink-0
+            :class="agent.agent_type === 'workflow' ? 'bg-sky-500/10' : 'bg-note-tint'"
+          >
+            <el-icon :size="20" :class="agent.agent_type === 'workflow' ? 'text-sky-600' : 'text-note-green'">
+              <Share v-if="agent.agent_type === 'workflow'" />
+              <MagicStick v-else />
+            </el-icon>
           </div>
           <div min-w-0 flex-1>
             <div font-medium text-note truncate>{{ agent.name }}</div>
             <div text-xs text-note-sub mt-0.5>{{ formatDate(agent.updated_at) }} 更新</div>
           </div>
+          <el-tag v-if="agent.agent_type === 'workflow'" size="small" effect="plain" type="primary">
+            工作流
+          </el-tag>
         </div>
         <!-- 描述 -->
         <p text-sm text-note-sub leading-relaxed line-clamp-2 min-h-10 m-0>
@@ -63,6 +72,10 @@
             {{ agent.is_builtin ? '内置公共' : agent.is_public ? '公共' : '我的' }}
           </el-tag>
           <div v-if="isMine(agent)" flex items-center gap-1>
+            <el-button size="small" text bg :type="agent.agent_type === 'workflow' ? 'primary' : 'default'" @click="goWorkflow(agent)">
+              <el-icon class="mr-0.5"><Share /></el-icon>
+              {{ agent.agent_type === 'workflow' ? '编辑工作流' : '配置工作流' }}
+            </el-button>
             <el-button size="small" text bg type="primary" @click="handleEdit(agent)">编辑</el-button>
             <el-button size="small" text bg type="danger" :disabled="agent.is_builtin" @click="handleDelete(agent)">
               删除
@@ -87,8 +100,8 @@
       />
     </div>
 
-    <!-- 新建/编辑智能体对话框(简单 agent: 名称+描述+系统提示词) -->
-    <el-dialog v-model="dialogVisible" :title="editingId ? '编辑智能体' : '新建智能体'" width="90%" class="max-w-[560px]">
+    <!-- 新建/编辑智能体对话框(基础配置 + 可选结构体配置) -->
+    <el-dialog v-model="dialogVisible" :title="editingId ? '编辑智能体' : '新建智能体'" width="90%" class="max-w-[720px]">
       <el-form :model="form" :rules="rules" ref="formRef" label-width="90px">
         <el-form-item label="名称" prop="name">
           <el-input v-model="form.name" placeholder="如: 产品文案助手" maxlength="100" />
@@ -98,9 +111,51 @@
         </el-form-item>
         <el-form-item label="系统提示词" prop="system_prompt">
           <el-input
-            v-model="form.system_prompt" type="textarea" :rows="8" maxlength="4000" show-word-limit
-            placeholder="定义智能体的角色、能力与行为规则，如：你是一位资深产品文案，擅长…"
+            v-model="form.system_prompt" type="textarea" :rows="6" maxlength="4000" show-word-limit
+            placeholder="定义智能体的角色、能力与行为规则，如：你是一位数据清洗专家，擅长…"
           />
+        </el-form-item>
+
+        <!-- 智能体类型: 简单(单轮对话/运行) 或 工作流(Vue Flow 节点编排) -->
+        <el-form-item label="智能体类型">
+          <div class="w-full">
+            <el-radio-group v-model="form.agent_type">
+              <el-radio value="simple" border>简单智能体</el-radio>
+              <el-radio value="workflow" border>工作流智能体</el-radio>
+            </el-radio-group>
+            <p class="text-xs text-note-sub m-0 mt-1.5 leading-relaxed">
+              {{ form.agent_type === 'workflow'
+                ? '创建后在卡片上点击「编辑工作流」，用可视化画布编排 LLM / 条件 / 模板节点'
+                : '单次提示词驱动，适合对话与简单任务' }}
+            </p>
+          </div>
+        </el-form-item>
+
+        <!-- 结构体配置(可选, 默认字符串输入/输出) -->
+        <el-divider class="my-2">
+          <span class="text-xs text-note-sub font-normal">结构体配置(可选, 默认字符串输入 / 字符串输出)</span>
+        </el-divider>
+        <el-form-item label="输入类型">
+          <el-radio-group v-model="form.input_type">
+            <el-radio value="str" border>字符串</el-radio>
+            <el-radio value="json" border>JSON 结构体</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item v-if="form.input_type === 'json'" label="输入结构">
+          <div class="w-full">
+            <TreeSchemaEditor v-model="form.input_schema" />
+          </div>
+        </el-form-item>
+        <el-form-item label="输出类型">
+          <el-radio-group v-model="form.output_type">
+            <el-radio value="str" border>字符串</el-radio>
+            <el-radio value="json" border>JSON 结构体</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item v-if="form.output_type === 'json'" label="输出结构">
+          <div class="w-full">
+            <TreeSchemaEditor v-model="form.output_schema" />
+          </div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -116,19 +171,21 @@
 </template>
 
 <script setup lang="ts">
-import { Plus, MagicStick, ChatDotRound } from '@element-plus/icons-vue'
+import { Plus, MagicStick, ChatDotRound, Share } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
 import { useAuthStore } from '@/common/stores/auth'
 import type { PaginationParams } from '@/common/types/common'
+import TreeSchemaEditor from '../components/TreeSchemaEditor.vue'
 import {
   listAgents,
   createAgent,
   updateAgent,
   deleteAgent,
 } from '../api/agent'
-import type { Agent } from '../types'
+import type { Agent, AgentIOType, AgentType } from '../types'
 
 const authStore = useAuthStore()
+const router = useRouter()
 const currentUserId = computed(() => authStore.authState.user.id)
 
 // ==================== 列表 ====================
@@ -166,14 +223,24 @@ const fetchData = async () => {
   }
 }
 
-// ==================== 新建/编辑(动态添加简单 agent) ====================
+// ==================== 新建/编辑(基础配置 + 可选结构体配置) ====================
 
 const dialogVisible = ref(false)
 const submitting = ref(false)
 const editingId = ref<string | null>(null)
 const formRef = ref<FormInstance>()
 
-const formBase = { name: '', description: '', system_prompt: '' }
+// 表单基础值(结构体不配置 = 默认字符串输入/输出)
+const formBase = {
+  name: '',
+  description: '',
+  system_prompt: '',
+  agent_type: 'simple' as AgentType,
+  input_type: 'str' as AgentIOType,
+  output_type: 'str' as AgentIOType,
+  input_schema: null as Record<string, unknown> | null,
+  output_schema: null as Record<string, unknown> | null,
+}
 const form = reactive({ ...formBase })
 
 const rules = {
@@ -193,8 +260,18 @@ const handleEdit = (agent: Agent) => {
     name: agent.name,
     description: agent.description,
     system_prompt: agent.system_prompt,
+    agent_type: agent.agent_type ?? 'simple',
+    input_type: agent.input_type ?? 'str',
+    output_type: agent.output_type ?? 'str',
+    input_schema: agent.input_schema ?? null,
+    output_schema: agent.output_schema ?? null,
   })
   dialogVisible.value = true
+}
+
+// 跳转工作流可视化编辑器(保存时会把类型切换为 workflow)
+const goWorkflow = (agent: Agent) => {
+  router.push(`/agent/workflow/${agent.id}`)
 }
 
 const handleSubmit = async () => {
@@ -204,11 +281,17 @@ const handleSubmit = async () => {
 
   try {
     submitting.value = true
+    // 字符串类型不携带结构(schema 置空, 避免遗留脏配置)
+    const payload = {
+      ...form,
+      input_schema: form.input_type === 'json' ? form.input_schema : null,
+      output_schema: form.output_type === 'json' ? form.output_schema : null,
+    }
     if (editingId.value) {
-      await updateAgent(editingId.value, { ...form })
+      await updateAgent(editingId.value, payload)
       ElMessage.success('智能体已更新')
     } else {
-      await createAgent({ ...form })
+      await createAgent(payload)
       ElMessage.success('智能体已创建')
     }
     dialogVisible.value = false

@@ -10,8 +10,8 @@ import logging
 from fastapi import APIRouter, Depends, Form, HTTPException, Response, UploadFile, status
 
 from module_ai.config.server import module_app
+from module_ai.controller.voice.common import resolve_engine
 from module_ai.dependencies.voice import get_voice_service
-from module_ai.do.voice import VoiceEngine
 from module_ai.service.voice import VoiceService
 from module_ai.utils.voice.audio import pcm_to_wav_bytes
 
@@ -26,7 +26,7 @@ router = APIRouter()
 )
 async def denoise_audio(
     audio: UploadFile,
-    engine: VoiceEngine | None = Form(None, description="降噪引擎，缺省时按模型配置自动选择(仅 sherpa)"),
+    engine: str | None = Form(None, description="降噪引擎方案 local(兼容旧值 sherpa/qwen), 缺省时按模型配置自动选择"),
     voice_service: VoiceService = Depends(get_voice_service),
 ):
     """上传含噪音频执行降噪，返回降噪后的 WAV 音频
@@ -36,7 +36,7 @@ async def denoise_audio(
     audio_bytes = await audio.read()
     if not audio_bytes:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "音频文件为空")
-    pcm, sr = await voice_service.denoise(audio_bytes, engine)
+    pcm, sr = await voice_service.denoise(audio_bytes, resolve_engine(engine))
     wav_bytes = pcm_to_wav_bytes(pcm, sr)
     return Response(
         content=wav_bytes,

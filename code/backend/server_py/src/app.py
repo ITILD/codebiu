@@ -14,8 +14,7 @@ from module_websearch.controller import websearch
 from module_authorization.controller import token, casbin_rule, permission, role, user,auth,dept
 # # 业务模块
 from module_template.controller import static,template,template_ex,template_async_learn
-from module_ai.controller import static as ai_static,model_config,llm,rerank,voice
-# # ,ocr 
+from module_ai.controller import static as ai_static,model_config,llm,rerank,voice,ocr
 from module_dev_tools.controller import template_string
 # # 个人小站模块(博客/备忘/记账 三条业务线, 由原 module_blog + module_little_utils 合并)
 from module_site.controller import blog, todolist, ledger
@@ -36,8 +35,9 @@ from module_rag.controller import (
 )
 # # 知识库模块: 权限声明注册保持权限表与声明一致
 from module_rag.config import permissions as rag_permissions  # noqa: F401
-# # 智能体模块(内置公共 agent + 动态添加简单 agent, langgraph 驱动)
-from module_agent.controller import agent, agent_chat, agent_conversation
+# # 智能体模块(内置公共 agent + 动态添加自定义 agent, langgraph 驱动;
+# # 原数据清洗能力已并入: agent 结构体配置(输入/输出 JSON Schema) + 运行历史)
+from module_agent.controller import agent, agent_chat, agent_conversation, agent_run
 from module_agent.config import permissions as agent_permissions  # noqa: F401
 # # 地理空间模块(Babylon 地球绘制 + PostGIS 点线面存储)
 from module_geometry.controller import feature
@@ -45,28 +45,26 @@ from module_geometry.config import permissions as geometry_permissions  # noqa: 
 # # 任务队列模块(Celery+Redis 异步任务: 创建/轮询/取消/重试)
 from module_task.controller import task
 from module_task.config import permissions as task_permissions  # noqa: F401
-# # AI 模块: 模型配置管理(model_config) + LLM 调用(llm) + 重排序(rerank) + 语音(voice) + OCR(ocr, 待启用)
-# # 数据清洗模块: 独立模块, 复用 module_ai 的 LLM 服务
-from module_data_clean.controller import data_clean
+# # AI 模块: 模型配置管理(model_config) + LLM 调用(llm) + 重排序(rerank) + 语音(voice) + OCR(ocr)
 
 if __name__ == "__main__":
     import sys
     import uvicorn
     from common.utils.sys.kill_process import find_and_kill_process
 
-    # Windows 下切换 Selector 事件循环(psycopg 异步模式不支持 ProactorEventLoop)
-    if sys.platform == "win32":
-        import asyncio
-
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-
     # 关闭之前运行的进程
     find_and_kill_process(conf.server.port)
-    
-    # from fastmcp import FastMCP
-    # mcp = FastMCP.from_fastapi(app=app)
-    # mcp.run(transport="http", host="127.0.0.1", port=9001)
 
     # dev启动服务
-    uvicorn.run(app, host=conf.server.host, port=conf.server.port)
+    # Windows: psycopg 异步模式不支持 ProactorEventLoop, uvicorn>=0.40 在 win32
+    # 硬编码 Proactor 循环工厂(策略设置不生效), 经 loop 参数显式切换 Selector
+    if sys.platform == "win32":
+        uvicorn.run(
+            app,
+            host=conf.server.host,
+            port=conf.server.port,
+            loop="common.config.server:selector_event_loop_factory",
+        )
+    else:
+        uvicorn.run(app, host=conf.server.host, port=conf.server.port)
     # uvicorn.run("src.app:app", host=conf.server.host, port=conf.server.port, reload=True)

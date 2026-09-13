@@ -18,6 +18,9 @@ from module_life.utils.baby_name.do.baby_name import (
     NameInfoEX,
     NameInfoPredictFull,
     NameInfoPredictFullRequest,
+    ReferenceCalculateRequest,
+    ReferenceCalculateResult,
+    BabyNameGenerateRequest,
 )
 from common.utils.db.schema.pagination import (
     InfiniteScrollParams,
@@ -35,6 +38,78 @@ from sse_starlette import EventSourceResponse
 router = APIRouter()
 
 
+# ==================== 参考体系目录与推算 ====================
+
+@router.get(
+    "/references",
+    summary="获取起名参考体系目录",
+    status_code=status.HTTP_200_OK,
+)
+async def get_references(
+    service: BabyNameService = Depends(get_baby_name_service),
+) -> list[dict]:
+    """
+    返回全部起名参考体系(五行八字/三才五格/星座/生肖/塔罗/基督/佛教/道教),
+    供前端多选卡片渲染; strict 标记该项是否有经典程序化计算
+    :param service: 宝宝名字服务依赖注入
+    :return: 参考体系目录列表
+    """
+    return await service.get_reference_catalog()
+
+
+@router.post(
+    "/calculate-reference",
+    summary="推算选中参考体系的严格信息",
+    status_code=status.HTTP_200_OK,
+    response_model=ReferenceCalculateResult,
+)
+async def calculate_reference(
+    request: ReferenceCalculateRequest,
+    service: BabyNameService = Depends(get_baby_name_service),
+) -> ReferenceCalculateResult:
+    """
+    按选中的参考体系做经典严格程序推算(五行八字/星座/生肖/塔罗/姓氏五格基准),
+    风格类参考(基督/佛教/道教)无量化计算, 仅在起名时作为约束注入
+    :param request: 宝宝天生信息与参考体系列表
+    :param service: 宝宝名字服务依赖注入
+    :return: 各参考体系推算结果(未选为 null)
+    """
+    return await service.calculate_reference(request)
+
+
+# ==================== AI 起名(流式) ====================
+
+@router.post(
+    "/generate",
+    summary="按参考配置流式起名",
+    status_code=status.HTTP_200_OK,
+)
+async def generate_baby_names(
+    request: BabyNameGenerateRequest,
+    service: BabyNameService = Depends(get_baby_name_service),
+):
+    """
+    流式起名: 先推送选中参考的严格计算结果(calc_* 节点), 再流式生成候选名字
+    (generate_name_result 节点), 结束时推送程序评定的名字清单 JSON
+    (names_evaluated 节点, 含三才五格评分); exclude_names 用于"生成更多"防重复
+    :param request: 宝宝信息+参考配置+数量+排除名单
+    :param service: 宝宝名字服务依赖注入
+    :return: SSE 事件流
+    """
+    # SSE 流式端点: 响应开始后无法再转 JSON, 端点体内的异常处理保留
+    try:
+        responses = await service.generate_names_stream(request, model_id=request.model_id)
+        return EventSourceResponse(
+            event_generator(responses), media_type="text/event-stream"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+
+# ==================== 兼容旧端点 ====================
+
 # 根据name_info推测五行和星座等偏好信息
 @router.post(
     "/predict-name-info-preference",
@@ -47,7 +122,7 @@ async def predict_name_info_preference(
     service: BabyNameService = Depends(get_baby_name_service),
 ) -> NameInfoPreference:
     """
-    根据宝宝天生信息推测适合的五行、星座等名字偏好，用于缩小取名范围
+    根据宝宝天生信息严格推算五行喜用与星座(经典算法, 非LLM估算)
     :param name_info_base: 姓名信息基础数据(宝宝天生信息)
     :param service: 宝宝名字服务依赖注入
     :return: 推测的偏好信息(单个对象)

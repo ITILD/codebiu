@@ -23,6 +23,7 @@ declare module 'vue-router/auto-routes' {
     '/admin': RouteRecordInfo<'/admin', '/admin', Record<never, never>, Record<never, never>>,
     '/agent/chat': RouteRecordInfo<'/agent/chat', '/agent/chat', Record<never, never>, Record<never, never>>,
     '/agent/manage': RouteRecordInfo<'/agent/manage', '/agent/manage', Record<never, never>, Record<never, never>>,
+    '/agent/workflow/[id]': RouteRecordInfo<'/agent/workflow/[id]', '/agent/workflow/:id', { id: ParamValue<true> }, { id: ParamValue<false> }>,
     '/ai/chat': RouteRecordInfo<'/ai/chat', '/ai/chat', Record<never, never>, Record<never, never>>,
     '/ai/model_config': RouteRecordInfo<'/ai/model_config', '/ai/model_config', Record<never, never>, Record<never, never>>,
     '/ai/ocr': RouteRecordInfo<'/ai/ocr', '/ai/ocr', Record<never, never>, Record<never, never>>,
@@ -33,7 +34,6 @@ declare module 'vue-router/auto-routes' {
     '/authorization/permission': RouteRecordInfo<'/authorization/permission', '/authorization/permission', Record<never, never>, Record<never, never>>,
     '/authorization/role': RouteRecordInfo<'/authorization/role', '/authorization/role', Record<never, never>, Record<never, never>>,
     '/authorization/user': RouteRecordInfo<'/authorization/user', '/authorization/user', Record<never, never>, Record<never, never>>,
-    '/data_clean/': RouteRecordInfo<'/data_clean/', '/data_clean', Record<never, never>, Record<never, never>>,
     '/file/': RouteRecordInfo<'/file/', '/file', Record<never, never>, Record<never, never>>,
     '/geometry/earth': RouteRecordInfo<'/geometry/earth', '/geometry/earth', Record<never, never>, Record<never, never>>,
     '/life/baby_name': RouteRecordInfo<'/life/baby_name', '/life/baby_name', Record<never, never>, Record<never, never>>,
@@ -91,6 +91,10 @@ declare module 'vue-router/auto-routes' {
       routes: '/agent/manage'
       views: never
     }
+    'src/modules/agent/pages/workflow/[id].vue': {
+      routes: '/agent/workflow/[id]'
+      views: never
+    }
     'src/modules/ai/pages/chat.vue': {
       routes: '/ai/chat'
       views: never
@@ -129,10 +133,6 @@ declare module 'vue-router/auto-routes' {
     }
     'src/modules/authorization/pages/user.vue': {
       routes: '/authorization/user'
-      views: never
-    }
-    'src/modules/data_clean/pages/index.vue': {
-      routes: '/data_clean/'
       views: never
     }
     'src/modules/file/pages/index.vue': {

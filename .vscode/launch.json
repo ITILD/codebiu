@@ -1,4 +1,6 @@
 {
+    "//1": "调试启动配置: 调试单文件 / 后端 FastAPI (UBUNTU & WIN 双平台) / 前端 Vite",
+    "//2": "F5 默认启动第一个配置; 选 \"前后端一起 (全栈)\" 可一键启动全部服务",
     "version": "0.2.0",
     "configurations": [
         {
@@ -51,6 +53,16 @@
                 // 桌面图标启动 IDE 时 PATH 可能不含 fnm，显式补上其 default 版本目录
                 "PATH": "/home/here/.local/share/fnm/aliases/default/bin:${env:PATH}"
             }
+        }
+    ],
+    "compounds": [
+        {
+            "name": "前后端一起 (全栈)",
+            "configurations": [
+                "▶ WIN Backend: app.py (server_py)",
+                "▶ Frontend: pnpm run dev (vue3)"
+            ],
+            "stopAll": true
         }
     ]
 }

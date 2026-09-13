@@ -58,7 +58,7 @@
       </el-table-column>
       <el-table-column label="URL" min-width="160" show-overflow-tooltip>
         <template #default="{ row }">
-          <!-- v4 4.2: url/api_key 仅本人私有模型保留明文, 其余(含管理员看公共/部门模型)一律脱敏 -->
+          <!-- url/api_key: 管理员可见明文; 其他用户仅本人私有模型保留明文, 其余脱敏 -->
           {{ row.url || '已脱敏' }}
         </template>
       </el-table-column>
@@ -115,9 +115,9 @@
         </el-form-item>
 
         <!-- 模型标识(API 类=模型名; 本地类=模型目录名/路径) -->
-        <el-form-item :label="isLocalType ? '模型目录' : '模型标识'" prop="model">
+        <el-form-item :label="isLocalServer ? '模型目录' : '模型标识'" prop="model">
           <el-input v-model="form.model"
-            :placeholder="isLocalType ? '模型目录名(相对 voice 模型根目录)或绝对路径' : '如 qwen3-vl:235b'" />
+            :placeholder="isLocalServer ? '模型目录名(相对 voice 模型根目录)或绝对路径' : '如 qwen3-asr-flash'" />
         </el-form-item>
 
         <!-- 归属范围: 公共/部门/个人 -->
@@ -142,8 +142,8 @@
             placeholder="可留空, 用于区分同名但不同来源/配置的模型" maxlength="100" />
         </el-form-item>
 
-        <!-- API 类: url / api_key -->
-        <template v-if="!isLocalType">
+        <!-- API 类: url / api_key(语音 online 方案同样适用) -->
+        <template v-if="!isLocalServer">
           <el-form-item label="API URL" prop="url">
             <el-input v-model="form.url" placeholder="https://api.openai.com/v1" />
           </el-form-item>
@@ -195,7 +195,7 @@
         </template>
 
         <!-- 超时与成本(API 类) -->
-        <template v-if="!isLocalType">
+        <template v-if="!isLocalServer">
           <el-form-item label="超时(秒)" prop="timeout">
             <el-input-number v-model="form.timeout" :min="1" :max="600" w-full />
           </el-form-item>
@@ -281,6 +281,7 @@ import { usePermission } from '@/common/composables/usePermission'
 import {
   ModelType,
   ModelScope,
+  ModelServerType,
   modelTypeOptions,
   modelTypeTagType,
   serverTypeOptionsFor,
@@ -290,6 +291,7 @@ import {
   scopeShortLabel,
   modelMainLabel,
   extraKeyHints,
+  LOCAL_SERVER_OPTIONS,
   capabilityTagType,
   testedCapabilities,
   type ModelConfig,
@@ -582,9 +584,16 @@ const rules = {
   ],
 }
 
-/** 当前类型是否本地推理(ocr/asr/tts) */
-const isLocalType = computed(() =>
-  [ModelType.OCR, ModelType.ASR, ModelType.TTS].includes(form.model_type))
+/** 当前所选方案是否本地推理(本地方案不传 url/api_key/成本等; 语音 online 方案视为远程API) */
+const isLocalServer = computed(() => {
+  // vad/denoise 仅本地 onnx 前置处理模型
+  if ([ModelType.VAD, ModelType.DENOISE].includes(form.model_type)) return true
+  if ([ModelType.ASR, ModelType.TTS].includes(form.model_type)) {
+    return form.server_type !== ModelServerType.ONLINE
+  }
+  if (form.model_type === ModelType.OCR) return form.server_type === ModelServerType.PADDLE
+  return LOCAL_SERVER_OPTIONS.some(o => o.value === form.server_type)
+})
 
 /** 当前类型可用方案选项 */
 const serverTypeOptions = computed(() => serverTypeOptionsFor(form.model_type))
@@ -709,7 +718,7 @@ const handleSubmit = async () => {
   }
 
   // 组装载荷(API 类传 url/api_key 等, 本地类不传)
-  const isLocal = isLocalType.value
+  const isLocal = isLocalServer.value
   const payload: ModelConfigCreate | ModelConfigUpdate = {
     model_type: form.model_type,
     server_type: form.server_type as ModelConfigCreate['server_type'],
@@ -748,7 +757,8 @@ const handleSubmit = async () => {
   }
   catch (error) {
     console.error('保存模型配置失败:', error)
-    ElMessage.error('保存失败, 请重试')
+    // 透出后端校验失败的具体原因(如: 模型 url 仅支持 http/https 协议)
+    ElMessage.error((error as Error)?.message || '保存失败, 请重试')
   }
   finally {
     submitting.value = false

@@ -67,6 +67,10 @@ def register_exception_handlers(target: FastAPI) -> None:
     @target.exception_handler(ValueError)
     async def value_error_handler(request: Request, exc: ValueError):
         """历史遗留 ValueError -> 400(DAO/Service 层 not-found 迁移到 NotFoundError 后可收紧)"""
+        # 400 此前无日志导致问题难定位(如模型 url 协议校验失败), 此处补一条 warning
+        logger.warning(
+            "业务校验失败(400) %s %s: %s", request.method, request.url.path, exc
+        )
         return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"detail": str(exc)})
 
     @target.exception_handler(Exception)

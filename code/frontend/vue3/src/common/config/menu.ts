@@ -14,7 +14,7 @@ import {
   HomeFilled, UserFilled, Document,
   Monitor, ChatDotRound,
   Files, Collection, FolderOpened,
-  Location, Sunny, Timer, Brush, Connection, Notebook, MagicStick,
+  Location, Sunny, Timer, Connection, Notebook, MagicStick,
 } from '@element-plus/icons-vue'
 
 /** 菜单项定义(perm 为权限码:与后端模块权限声明一致;缺省表示登录即可见) */
@@ -77,7 +77,7 @@ export const menuItems: MenuItem[] = [
     title: '智能体',
     perm: 'agent',
     mainApp: true,
-    desc: '内置翻译/写作/代码智能体, 支持自定义简单智能体。',
+    desc: '内置与自定义智能体, 支持对话与结构化输入输出运行。',
     children: [
       { index: '/agent/chat', title: '智能体对话', perm: 'agent:chat' },
       { index: '/agent/manage', title: '智能体管理', perm: 'agent:manage' },
@@ -94,12 +94,6 @@ export const menuItems: MenuItem[] = [
       { index: '/ai/ocr', title: 'OCR 识别' },
       { index: '/ai/voice', title: '语音识别' },
     ],
-  },
-  {
-    index: '/data_clean',
-    icon: markRaw(Brush),
-    title: '数据清洗',
-    desc: 'LLM 驱动的数据清洗与结构化转换。',
   },
   {
     index: '/file',

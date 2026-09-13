@@ -91,6 +91,11 @@
         </h2>
       </header>
 
+      <!-- 结构体运行模式: 选中配置了 JSON 输入/输出的智能体时, 消息区切换为运行面板 -->
+      <AgentRunPanel v-if="structAgent" :agent="structAgent" />
+
+      <!-- 聊天模式: 消息流(过程区块) + 悬浮输入卡 -->
+      <template v-else>
       <!-- 消息流: 居中阅读宽度(过程区块 + 富文本) -->
       <ChatMessageList
         ref="messageListRef"
@@ -157,6 +162,7 @@
           </ChatComposer>
         </div>
       </div>
+      </template>
     </section>
     </div>
   </div>
@@ -178,6 +184,7 @@ import {
 } from '../api/agent'
 import ChatMessageList from '@/common/components/chat/ChatMessageList.vue'
 import ChatComposer from '@/common/components/chat/ChatComposer.vue'
+import AgentRunPanel from '../components/AgentRunPanel.vue'
 import { StreamEventType } from '@/common/types/chat'
 import type { MessageBlock } from '@/common/types/chat'
 import type { ChatMessage } from '../../rag/types'
@@ -191,6 +198,18 @@ const agents = ref<Agent[]>([])
 const selectedAgentId = ref<string | null>(null)
 // 内置公共智能体(空状态选择卡片)
 const builtinAgents = computed(() => agents.value.filter((a) => a.is_builtin))
+// 当前选中智能体(对话上下文跟随)
+const currentAgent = computed(() =>
+  agents.value.find((a) => a.id === selectedAgentId.value),
+)
+// 结构体运行模式: 选中配置了 JSON 输入/输出的智能体或工作流智能体时, 消息区切换为运行面板
+const structAgent = computed<Agent | null>(() => {
+  const agent = currentAgent.value
+  if (!agent) return null
+  return agent.agent_type === 'workflow' || agent.input_type === 'json' || agent.output_type === 'json'
+    ? agent
+    : null
+})
 
 // ===== 会话列表 =====
 const conversations = ref<AgentConversation[]>([])
