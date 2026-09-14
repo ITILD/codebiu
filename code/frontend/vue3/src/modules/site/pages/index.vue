@@ -1,171 +1,234 @@
 <template>
   <div class="p-4 md:p-6 w-full">
-    <!-- 模块内页导航(应用页无侧边栏, 孙页面切换在此) -->
-    <SitePageNav class="mb-4" />
-
-    <!-- 顶部概览条: 三业务线速览(点击切换面板) -->
-    <div class="mb-4 grid grid-cols-3 gap-2 md:gap-4">
-      <button
-        v-for="chip in overviewChips"
-        :key="chip.key"
-        type="button"
-        class="note-glow-hover rounded-xl bg-note-card p-3 text-left shadow-note hover:-translate-y-0.5 md:p-4"
-        @click="active = chip.key"
+    <!-- 顶部操作条: 站点管理入口(后台工作台经设置按钮进入, 无权限不显示) -->
+    <div v-if="canManage" class="mb-3 flex justify-end">
+      <RouterLink
+        to="/site/manage"
+        class="note-glow-hover flex items-center gap-1.5 rounded-full border border-note bg-note-card px-3.5 py-1.5 text-sm text-note transition-colors hover:border-note-green hover:text-note-green"
+        title="进入站点管理"
       >
-        <div class="flex items-center gap-1.5 text-xs text-note-sub">
-          <el-icon><component :is="chip.icon" /></el-icon>
-          {{ chip.label }}
-        </div>
-        <!-- 数据未到: 与数值等高骨架条, 避免 '-'→数字 的抖动 -->
-        <div class="mt-1 truncate text-base font-bold text-note md:text-xl">
-          <span v-if="!overviewLoaded" class="note-sk inline-block h-5 w-12 align-middle md:h-6 md:w-14" />
-          <template v-else>{{ chip.value }}</template>
-        </div>
-      </button>
+        <i class="i-ep-setting" />
+        站点管理
+      </RouterLink>
     </div>
 
-    <!-- 待办提醒横幅(仅当今日有待办时渲染) -->
-    <div
-      v-if="todayTodos.length > 0"
-      class="mb-4 flex flex-wrap items-center gap-2 rounded-lg bg-green-600/5 px-3 py-2"
+    <div class="flex flex-col lg:flex-row gap-4 items-start">
+      <!-- 主内容区: 文章列表 / 阅读视图 -->
+      <div class="w-full min-w-0 flex-1">
+        <!-- 阅读视图: 点击文章进入 -->
+        <article v-if="reading" class="rounded-xl border border-note bg-note-card shadow-note p-5 md:p-8">
+          <el-button size="small" text :icon="ArrowLeft" @click="closeRead">返回列表</el-button>
+          <h1 class="mt-3 text-2xl font-bold text-note">{{ reading.title }}</h1>
+          <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-note-sub">
+            <el-tag v-if="reading.category" size="small" effect="plain">{{ reading.category }}</el-tag>
+            <span>{{ formatDateTime(reading.updated_at) }}</span>
+            <span v-if="reading.source_type === 'url'" class="flex items-center gap-1">
+              <i class="i-ep-link" /> 外链文章
+            </span>
+          </div>
+          <el-divider />
+
+          <!-- 外链文章: 跳转卡片 -->
+          <div
+            v-if="reading.source_type === 'url'"
+            class="rounded-lg border border-dashed border-note-green bg-note-tint/50 p-4 text-center"
+          >
+            <p class="text-sm text-note-sub">本文为外部链接文章</p>
+            <p class="mt-1 truncate text-xs text-note-green">{{ reading.url }}</p>
+            <el-button class="mt-3" type="primary" plain @click="openUrl(reading.url)">
+              访问原文 <i class="i-ep-top-right ml-1" />
+            </el-button>
+          </div>
+          <!-- markdown 正文渲染 -->
+          <MarkdownView v-else :content="reading.content" class="mt-4" />
+        </article>
+
+        <!-- 列表视图: 已发布文章卡片流 -->
+        <template v-else>
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-lg font-bold text-note">博文</h2>
+            <el-input
+              v-model="keyword"
+              placeholder="搜索文章..."
+              clearable
+              class="max-w-[220px]"
+              :prefix-icon="Search"
+              @input="debouncedFetch"
+            />
+          </div>
+
+          <!-- 首屏加载: 与卡片流同网格的骨架, 避免遮罩闪烁与布局抖动 -->
+          <div
+            v-if="loading && posts.length === 0"
+            class="grid grid-cols-1 md:grid-cols-2 gap-3"
+            aria-busy="true"
+            aria-label="文章加载中"
+          >
+            <NoteSkeleton v-for="i in 6" :key="i" variant="post" />
+          </div>
+
+          <!-- 搜索/翻页时保留已有卡片, 仅叠加轻量 loading -->
+          <div v-else v-loading="loading" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <button
+              v-for="post in posts"
+              :key="post.id"
+              type="button"
+              class="note-glow-hover rounded-xl border border-note bg-note-card shadow-note p-4 text-left hover:-translate-y-0.5"
+              @click="openRead(post)"
+            >
+              <div class="flex items-center gap-2">
+                <h3 class="truncate text-base font-bold text-note">{{ post.title }}</h3>
+                <i v-if="post.source_type === 'url'" class="i-ep-link shrink-0 text-note-green" />
+              </div>
+              <p class="mt-1.5 text-sm text-note-sub line-clamp-2">
+                {{ post.source_type === 'url' ? post.url : excerpt(post.content, 120) }}
+              </p>
+              <div class="mt-2 flex items-center gap-2 text-xs text-note-sub/80">
+                <el-tag v-if="post.category" size="small" effect="plain">{{ post.category }}</el-tag>
+                <span>{{ formatDate(post.updated_at) }}</span>
+              </div>
+            </button>
+          </div>
+          <el-empty v-if="!loading && posts.length === 0" description="暂无已发布文章" />
+
+          <!-- 加载更多 -->
+          <div v-if="hasMore" class="mt-4 text-center">
+            <el-button :loading="loadingMore" plain @click="loadMore">加载更多</el-button>
+          </div>
+        </template>
+      </div>
+
+      <!-- 右上角备忘日历 + 记账迷你卡: 桌面侧栏(sticky), 移动端抽屉 -->
+      <aside class="hidden lg:block w-[360px] shrink-0 sticky top-20 space-y-4">
+        <MemoCalendar />
+        <LedgerMiniCard />
+      </aside>
+    </div>
+
+    <!-- 移动端浮动按钮 → 日历抽屉 -->
+    <el-button
+      class="lg:hidden fixed bottom-6 right-6 z-50!"
+      type="primary"
+      circle
+      size="large"
+      :icon="Calendar"
+      @click="calendarDrawer = true"
+    />
+    <!-- append-to-body 避免父容器 transform/overflow 影响弹出层; 手机按屏宽自适应 -->
+    <el-drawer
+      v-model="calendarDrawer"
+      title="备忘日历"
+      :size="isMd ? '440px' : '94%'"
+      append-to-body
     >
-      <i class="i-ep-bell text-green-700 dark:text-green-400" />
-      <span class="text-sm text-note">
-        今日 <b>{{ todayTodos.length }}</b> 件待办：{{ todayTitles }}
-      </span>
-      <el-button size="small" text type="primary" class="ml-auto" @click="active = 'memo'">
-        去处理 →
-      </el-button>
-    </div>
-
-    <!-- 工作台: 左侧导航 + 右侧面板(移动端横向滚动) -->
-    <div class="flex flex-col md:flex-row gap-4">
-      <nav
-        class="flex md:flex-col gap-1 md:w-44 shrink-0 bg-note-card rounded-lg shadow-note p-2 overflow-x-auto md:overflow-visible"
-      >
-        <button
-          v-for="tab in tabs"
-          :key="tab.key"
-          class="flex items-center gap-2 rounded px-3 py-2 text-sm whitespace-nowrap transition-colors cursor-pointer"
-          :class="active === tab.key
-            ? 'bg-green-600/10 text-green-700 dark:text-green-400 font-medium'
-            : 'text-note-sub hover:bg-note-glass'"
-          @click="active = tab.key"
-        >
-          <el-icon><component :is="tab.icon" /></el-icon>
-          {{ tab.label }}
-        </button>
-      </nav>
-
-      <!-- 面板区: 首次激活才挂载(避免无权限/未使用面板的无效请求) -->
-      <section class="flex-1 min-w-0">
-        <Transition name="fade" mode="out-in">
-          <BlogPanel v-if="active === 'blog'" key="blog" />
-          <MemoPanel v-else-if="active === 'memo'" key="memo" />
-          <LedgerPanel v-else-if="active === 'ledger'" key="ledger" />
-        </Transition>
-      </section>
-    </div>
+      <div class="space-y-4">
+        <MemoCalendar />
+        <LedgerMiniCard />
+      </div>
+    </el-drawer>
   </div>
 </template>
 
 <script setup lang="ts">
-import { markRaw } from 'vue'
-import dayjs from 'dayjs'
-import { EditPen, Bell, Wallet } from '@element-plus/icons-vue'
-import SitePageNav from '../components/SitePageNav.vue'
-import BlogPanel from '../components/panels/BlogPanel.vue'
-import MemoPanel from '../components/panels/MemoPanel.vue'
-import LedgerPanel from '../components/panels/LedgerPanel.vue'
-import { listMyPosts } from '../api/blog'
-import { listMemosByRange } from '../api/todolist'
-import { getLedgerStats } from '../api/ledger'
-import { localIsoStartOfDay, localIsoEndOfDay } from '../composables/useCalendar'
-import type { Todolist } from '../types/todolist'
+import { ArrowLeft, Calendar, Search } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import { useDebounceFn } from '@vueuse/core'
+import { listPublishedPosts } from '../api/blog'
+import type { BlogPost } from '../types/blog'
+import { excerpt } from '../composables/useCalendar'
+import MarkdownView from '../components/MarkdownView.vue'
+import MemoCalendar from '../components/MemoCalendar.vue'
+import LedgerMiniCard from '../components/LedgerMiniCard.vue'
+import { useResponsive } from '@/common/composables/useResponsive'
+import { usePermission } from '@/common/composables/usePermission'
 
-/**
- * 个人小站工作台: 博客/备忘/记账 三条业务线一页管理
- * 概览条与提醒横幅数据静默降级(部分业务线无权限时显示 '-')
- */
+// 响应式断点(手机抽屉宽度自适应)
+const { isMd } = useResponsive()
 
-/** 面板分组(tab 同步到 ?tab= 查询参数, 刷新/分享保持) */
-const tabs = [
-  { key: 'blog', label: '博客管理', icon: markRaw(EditPen) },
-  { key: 'memo', label: '备忘', icon: markRaw(Bell) },
-  { key: 'ledger', label: '记账本', icon: markRaw(Wallet) },
-] as const
+// 站点管理入口权限(与菜单配置一致: 工作台需 site 权限)
+const { hasPerm } = usePermission()
+const canManage = hasPerm('site')
 
-type TabKey = (typeof tabs)[number]['key']
+// 列表状态
+const posts = ref<BlogPost[]>([])
+const total = ref(0)
+const page = ref(1)
+const pageSize = 10
+const keyword = ref('')
+const loading = ref(false)
+const loadingMore = ref(false)
 
+const hasMore = computed(() => posts.value.length < total.value)
+
+// 拉取已发布文章(page=1 重新加载; 追加模式用于加载更多)
+async function fetchPosts(append = false) {
+  if (append) loadingMore.value = true
+  else loading.value = true
+  try {
+    const resp = await listPublishedPosts({
+      page: page.value,
+      size: pageSize,
+      keyword: keyword.value.trim() || undefined,
+    })
+    posts.value = append ? [...posts.value, ...resp.items] : resp.items
+    total.value = resp.total
+  } catch (error) {
+    console.error('获取文章列表失败:', error)
+    ElMessage.error('获取文章列表失败，请重试')
+  } finally {
+    loading.value = false
+    loadingMore.value = false
+  }
+}
+
+const debouncedFetch = useDebounceFn(() => {
+  page.value = 1
+  fetchPosts()
+}, 300)
+
+function loadMore() {
+  page.value += 1
+  fetchPosts(true)
+}
+
+// 阅读视图(支持 ?id= 直接定位文章)
 const route = useRoute()
 const router = useRouter()
-const validTabs = tabs.map((t) => t.key) as string[]
-const active = ref<TabKey>(
-  validTabs.includes(route.query.tab as string) ? (route.query.tab as TabKey) : 'blog',
-)
+const reading = ref<BlogPost | null>(null)
 
-// tab 切换同步 URL 查询参数
-watch(active, (tab) => {
-  router.replace({ query: { ...route.query, tab } })
-  // 切换时刷新概览, 反映其他面板产生的数据变化
-  loadOverview()
+/** 移动端日历/记账抽屉开关 */
+const calendarDrawer = ref(false)
+
+async function openRead(post: BlogPost) {
+  reading.value = post
+  // 同步 URL 查询参数, 便于分享/刷新定位
+  await router.replace({ query: { id: post.id } })
+}
+
+function closeRead() {
+  reading.value = null
+  router.replace({ query: {} })
+}
+
+/** 外链文章跳转(新窗口) */
+function openUrl(url: string | null) {
+  if (url) window.open(url, '_blank', 'noopener')
+}
+
+const formatDate = (v: string) => new Date(v).toLocaleDateString('zh-CN')
+const formatDateTime = (v: string) => new Date(v).toLocaleString('zh-CN')
+
+onMounted(async () => {
+  fetchPosts()
+  // URL 带 id 时直接进入阅读视图
+  const id = route.query.id as string | undefined
+  if (id) {
+    try {
+      const { getBlogPost } = await import('../api/blog')
+      reading.value = await getBlogPost(id)
+    } catch {
+      // 文章不可见/不存在时保持列表视图
+    }
+  }
 })
-
-// ---------- 概览条 + 今日待办 ----------
-const postCount = ref<number | null>(null)
-const todoCount = ref<number | null>(null)
-const monthExpense = ref<number | null>(null)
-const todayTodos = ref<Todolist[]>([])
-/** 首轮概览是否全部落地(失败也算落地, 展示 '-' 而非永久骨架) */
-const overviewLoaded = ref(false)
-
-const overviewChips = computed(() => [
-  { key: 'blog' as TabKey, icon: markRaw(EditPen), label: '我的文章', value: postCount.value === null ? '-' : `${postCount.value} 篇` },
-  { key: 'memo' as TabKey, icon: markRaw(Bell), label: '今日待办', value: todoCount.value === null ? '-' : `${todoCount.value} 件` },
-  { key: 'ledger' as TabKey, icon: markRaw(Wallet), label: '本月支出', value: monthExpense.value === null ? '-' : `¥${monthExpense.value.toFixed(2)}` },
-])
-
-const todayTitles = computed(() =>
-  todayTodos.value.slice(0, 3).map((t) => t.name).join('、') +
-  (todayTodos.value.length > 3 ? ' 等' : ''),
-)
-
-/** 拉取概览数据(各业务线独立静默降级, 无权限不互相影响) */
-async function loadOverview() {
-  // 文章数
-  const p1 = listMyPosts({ page: 1, size: 1 })
-    .then((resp) => { postCount.value = resp.total })
-    .catch(() => { postCount.value = null })
-  // 今日待办(今日 0 点 ~ 明日 0 点, 过滤未完成)
-  const p2 = listMemosByRange(localIsoStartOfDay(new Date()), localIsoEndOfDay(new Date()))
-    .then((items) => {
-      todayTodos.value = items.filter((t) => t.status === 'todo')
-      todoCount.value = todayTodos.value.length
-    })
-    .catch(() => {
-      todayTodos.value = []
-      todoCount.value = null
-    })
-  // 本月支出
-  const p3 = getLedgerStats(dayjs().format('YYYY-MM'))
-    .then((stats) => { monthExpense.value = stats.expense_total })
-    .catch(() => { monthExpense.value = null })
-  // 首轮全部结束(无论成败)即收骨架; 后续 tab 刷新不再显示骨架
-  await Promise.allSettled([p1, p2, p3])
-  overviewLoaded.value = true
-}
-
-onMounted(loadOverview)
 </script>
-
-<style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.15s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-</style>

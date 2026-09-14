@@ -1,12 +1,12 @@
 <template>
   <!-- append-to-body: 吸顶 header 带 backdrop-filter 会成为 fixed 后代的包含块,
        不传送门到 body 弹窗会被困在顶栏内 -->
-  <el-dialog v-model="visible" :title="$t('sign_in')" width="90%" class="max-w-[400px]" :modal="true" :close-on-click-modal="true"
+  <el-dialog v-model="visible" width="90%" class="auth-note-dialog max-w-[400px]" :modal="true" :close-on-click-modal="true"
     append-to-body draggable @close="handleClose">
-    <template #header="{  titleId, titleClass }">
-      <div flex justify-between items-center>
-        <span :id="titleId" :titleClass>{{ $t('sign_in') }}</span>
-
+    <template #header>
+      <div class="auth-head">
+        <span class="auth-title">{{ $t('sign_in') }}</span>
+        <span class="auth-seal" aria-hidden="true">憩</span>
       </div>
     </template>
 

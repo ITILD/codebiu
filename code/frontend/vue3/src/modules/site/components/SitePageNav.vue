@@ -31,8 +31,8 @@ import { usePermission } from '@/common/composables/usePermission'
 
 /** 个人小站模块孙页面定义(perm 与菜单配置一致, 无权限不显示入口) */
 const tabs = [
-  { index: '/site', title: '工作台', icon: markRaw(Notebook), perm: 'site' },
-  { index: '/site/blog_view', title: '博客展示', icon: markRaw(Reading), perm: 'site:blog' },
+  { index: '/site', title: '博客', icon: markRaw(Reading), perm: 'site:blog' },
+  { index: '/site/manage', title: '工作台', icon: markRaw(Notebook), perm: 'site' },
 ]
 
 const route = useRoute()

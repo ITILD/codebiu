@@ -573,6 +573,94 @@ html.dark .note-sk::after {
 }
 
 /* ============================================
+   登录/注册弹窗: 自然笔记风
+   (append-to-body 传送门脱离组件样式作用域, 需全局命名空间样式)
+   ============================================ */
+.auth-note-dialog {
+    position: relative;
+    --el-dialog-border-radius: 18px;
+    background: linear-gradient(165deg, var(--note-grad-from) 0%, var(--note-grad-via) 46%, var(--note-grad-to) 100%);
+    box-shadow: 0 24px 60px -24px rgba(63, 83, 72, 0.4);
+}
+
+/* 纸纤维顶盖: 纹理"印"进表单, 与全站纸片一致 */
+.auth-note-dialog::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background-image: var(--note-grain);
+    background-size: 260px 260px;
+    mix-blend-mode: overlay;
+    opacity: 0.4;
+}
+
+.auth-note-dialog .el-dialog__header {
+    padding: 22px 24px 12px;
+    margin-right: 0;
+}
+
+/* 题下渐隐分隔线(替代生硬边线) */
+.auth-note-dialog .el-dialog__header::after {
+    content: '';
+    display: block;
+    height: 1px;
+    margin-top: 12px;
+    background: linear-gradient(
+        to right,
+        transparent,
+        var(--note-edge-soft) 12%,
+        var(--note-edge-soft) 88%,
+        transparent
+    );
+}
+
+.auth-note-dialog .el-dialog__body {
+    padding: 16px 24px 24px;
+}
+
+/* 标题: 手写体 + 朱砂闲章 */
+.auth-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    /* 避让右上关闭键 */
+    padding-right: 2rem;
+}
+
+.auth-title {
+    font-family: var(--note-font-hand);
+    font-size: 1.45rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--note-green-deep);
+}
+
+.auth-seal {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.9rem;
+    height: 1.9rem;
+    border-radius: 6px;
+    background: var(--note-seal);
+    color: #f8f1e6;
+    font-family: var(--note-font-hand);
+    font-size: 1rem;
+    line-height: 1;
+    transform: rotate(-5deg);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+    opacity: 0.92;
+}
+
+/* 表单标签与底注: 淡绿灰, 融入纸面 */
+.auth-note-dialog .el-form-item__label {
+    color: var(--note-sub);
+    font-size: 13px;
+}
+
+/* ============================================
    动效偏好: 用户系统要求减弱动画时, 关闭装饰性运动
    ============================================ */
 @media (prefers-reduced-motion: reduce) {

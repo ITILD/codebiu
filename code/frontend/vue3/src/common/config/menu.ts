@@ -129,10 +129,11 @@ export const menuItems: MenuItem[] = [
     title: '个人小站',
     perm: 'site',
     mainApp: true,
-    desc: '博客、备忘与记账的一站式工作台。',
+    desc: '博客、备忘与记账的个人小站。',
     children: [
-      { index: '/site', title: '工作台', perm: 'site' },
-      { index: '/site/blog_view', title: '博客展示', perm: 'site:blog' },
+      // 首页入口卡取 children[0] 跳转, 博客展示为主入口(站点管理经展示页设置按钮进入)
+      { index: '/site', title: '博客', perm: 'site:blog' },
+      { index: '/site/manage', title: '工作台', perm: 'site' },
     ],
   },
   {
