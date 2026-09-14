@@ -14,6 +14,10 @@ class UserModelBase(SQLModel):
     rerank_model_id: str | None = Field(
         default=None, max_length=50, description="Rerank模型配置ID"
     )
+    asr_model_id: str | None = Field(default=None, max_length=50, description="语音识别(ASR)模型配置ID")
+    tts_model_id: str | None = Field(default=None, max_length=50, description="语音合成(TTS)模型配置ID")
+    vad_model_id: str | None = Field(default=None, max_length=50, description="VAD断句模型配置ID")
+    denoise_model_id: str | None = Field(default=None, max_length=50, description="语音降噪模型配置ID")
     # 用户级回退开关(v4 4.3): True=绑定失效时不回退默认公共模型,直接报错(数据流向可感知)
     fallback_disabled: bool = Field(
         default=False, description="绑定失效时不回退默认公共模型(直接报错)"
@@ -53,6 +57,10 @@ class UserModelUpdate(SQLModel):
     chat_model_id: str | None = Field(None, description="对话模型配置ID")
     embedding_model_id: str | None = Field(None, description="向量化模型配置ID")
     rerank_model_id: str | None = Field(None, description="Rerank模型配置ID")
+    asr_model_id: str | None = Field(None, description="语音识别(ASR)模型配置ID")
+    tts_model_id: str | None = Field(None, description="语音合成(TTS)模型配置ID")
+    vad_model_id: str | None = Field(None, description="VAD断句模型配置ID")
+    denoise_model_id: str | None = Field(None, description="语音降噪模型配置ID")
     fallback_disabled: bool | None = Field(
         None, description="绑定失效时不回退默认公共模型(直接报错)"
     )
@@ -66,6 +74,10 @@ class UserModelResponse(SQLModel):
     chat_model_id: str | None = Field(default=None, description="对话模型配置ID")
     embedding_model_id: str | None = Field(default=None, description="向量化模型配置ID")
     rerank_model_id: str | None = Field(default=None, description="Rerank模型配置ID")
+    asr_model_id: str | None = Field(default=None, description="语音识别(ASR)模型配置ID")
+    tts_model_id: str | None = Field(default=None, description="语音合成(TTS)模型配置ID")
+    vad_model_id: str | None = Field(default=None, description="VAD断句模型配置ID")
+    denoise_model_id: str | None = Field(default=None, description="语音降噪模型配置ID")
     fallback_disabled: bool = Field(
         default=False, description="绑定失效时不回退默认公共模型(直接报错)"
     )

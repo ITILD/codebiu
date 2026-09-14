@@ -63,8 +63,8 @@
         </el-menu>
       </el-scrollbar>
 
-      <!-- 底部装饰小语(note-edge-t: 内阴影替代实线) -->
-      <div v-if="!isCollapse" px-4 py-3 text-xs text-note-sub note-edge-t shrink-0>
+      <!-- 底部装饰小语(note-edge-t: 内阴影替代实线; 自定义类必须写进 class) -->
+      <div v-if="!isCollapse" class="note-edge-t" px-4 py-3 text-xs text-note-sub shrink-0>
         🌿 记录每一份数据
       </div>
     </div>

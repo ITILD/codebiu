@@ -1,5 +1,5 @@
-﻿﻿<template>
-  <!-- 取名参考体系多选卡片(民俗/神话), 选中态用主题强调色描边+浅底 -->
+﻿<template>
+  <!-- 取名参考体系多选卡片(民俗/神话), 选中态以浅底色差+光晕环高亮(无描边) -->
   <div>
     <!-- 快捷操作行 -->
     <div flex flex-wrap items-center gap-2 mb-2>
@@ -15,34 +15,25 @@
       </el-button>
     </div>
 
-    <!-- 多选卡片栅格 -->
+    <!-- 多选卡片栅格: 无描边, 选中仅以浅底+光晕环高亮 -->
     <div grid grid-cols-2 gap-2>
       <button
         v-for="ref in catalog" :key="ref.key"
         type="button"
-        class="reference-card note-transition text-left rounded-xl p-2.5 border cursor-pointer"
+        class="reference-card note-transition text-left rounded-xl p-2.5 cursor-pointer"
         :class="isSelected(ref.key)
-          ? 'border-note-green bg-note-tint shadow-note'
-          : 'border-note bg-note-card hover:border-note-green hover:bg-note-tint/60'"
+          ? 'bg-note-tint shadow-note'
+          : 'bg-note-card hover:bg-note-tint/60'"
         :disabled="disabled"
         @click="toggle(ref.key)"
       >
         <div flex items-center gap-1.5>
           <span text-base leading-none>{{ ref.icon }}</span>
           <span text-sm font-medium text-note>{{ ref.label }}</span>
-          <span
-            ml-auto text-[10px] px-1.5 py-0.5 rounded-md border border-dashed whitespace-nowrap
-            :class="ref.strict
-              ? 'text-note-green border-note-green bg-note-card/60'
-              : 'text-note-sub border-note'"
-          >
+          <span ml-auto text-10px leading-none py-0.5 whitespace-nowrap
+            :class="ref.strict ? 'text-note-green' : 'text-note-sub'">
             {{ ref.strict ? '严格推算' : '风格参考' }}
           </span>
-          <!-- 选中对勾 -->
-          <span
-            v-if="isSelected(ref.key)"
-            class="i-ep-check text-note-green shrink-0" text-sm leading-none
-          />
         </div>
         <div mt-1 text-xs text-note-sub leading-snug>{{ ref.desc }}</div>
       </button>

@@ -3,11 +3,11 @@
     <!-- 页面级落叶: 自右上枝冠飘落, 一直落到页尾池塘水面 -->
     <FallingLeaves />
 
-    <!-- Hero: 自然笔记大纸片(苔绿渐变+格线+纸纤维顶盖), 分形悬枝垂落, 登录态感知 -->
+    <!-- Hero: 自然笔记大纸片(苔绿渐变+格线+纸纤维顶盖), 登录态感知;
+         不裁剪溢出 —— 水墨生长枝(Canvas)自卡内右上生发并垂出卡底 -->
     <section
       class="paper-sheet"
       relative
-      overflow-hidden
       rounded-2xl
       border-note
       bg-note-gradient
@@ -15,9 +15,9 @@
       md:p-14
       mb-10
     >
-      <!-- 笔记本横线纹理 -->
-      <div absolute inset-0 note-lined-paper pointer-events-none />
-      <!-- 分形悬枝(右上角, 每次刷新随机形态并缓慢生长) -->
+      <!-- 笔记本横线纹理(卡片已不裁剪, 纹理层自行圆角+裁剪; 自定义类必须写进 class, 裸属性不会被 attributify 转换) -->
+      <div class="note-lined-paper" absolute inset-0 pointer-events-none rounded-2xl overflow-hidden />
+      <!-- 水墨生长枝: 右上入笔向左下生长, 最细枝垂出卡底 -->
       <FractalBranch />
 
       <!-- 注意: 含方括号的任意值类名必须写进 class(attributify 陷阱: 裸属性名含 [] 会使 setAttribute 抛 InvalidCharacterError, 整页渲染失败) -->
@@ -79,8 +79,6 @@
           :to="app.children?.length ? app.children[0].index : app.index"
           class="paper-grain note-glow-hover"
           bg-note-card
-          border
-          border-note
           rounded-3xl
           p-7
           overflow-hidden

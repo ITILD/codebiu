@@ -23,11 +23,12 @@ from fastapi import (
 )
 
 from module_ai.config.server import module_app
-from module_ai.controller.voice.common import resolve_engine
+from module_ai.controller.voice.common import resolve_engine, ws_user_id
 from module_ai.dependencies.voice import get_voice_service
 from module_ai.do.voice import ASRResponse, ASRStreamMessage, VoiceEngine, normalize_engine
 from module_ai.service.voice import VoiceService
 from module_ai.utils.voice.audio import pcm16_to_float32
+from module_authorization.dependencies.auth import get_current_user_id_optional
 
 logger = logging.getLogger(__name__)
 
@@ -58,11 +59,12 @@ async def asr_upload(
     engine: str | None = Form(None, description="引擎方案 online/local(兼容旧值 dashscope/sherpa/qwen), 缺省按模型配置自动选择"),
     preprocess: str = Form("", description="前置处理步骤(逗号组合): denoise(降噪)/vad(切段逐段识别), 如 'denoise,vad'"),
     voice_service: VoiceService = Depends(get_voice_service),
+    current_user_id: str | None = Depends(get_current_user_id_optional),
 ):
     """上传音频文件进行语音识别
 
     - **audio**: 音频文件(WAV/MP3 等可被解码格式)
-    - **engine**: 引擎方案 online/local(缺省按模型配置自动选择)
+    - **engine**: 引擎方案 online/local(缺省按用户绑定/模型配置自动选择)
     - **preprocess**: 前置处理管线(denoise→vad→逐段识别→合并), 与 engine 无关(VAD/降噪仅本地方案)
     """
     audio_bytes = await audio.read()
@@ -71,9 +73,11 @@ async def asr_upload(
     steps = _parse_preprocess(preprocess)
     start = time.time()
     if steps:
-        text = await voice_service.asr_preprocess(audio_bytes, steps, resolve_engine(engine))
+        text = await voice_service.asr_preprocess(
+            audio_bytes, steps, resolve_engine(engine), user_id=current_user_id
+        )
     else:
-        text = await voice_service.asr(audio_bytes, resolve_engine(engine))
+        text = await voice_service.asr(audio_bytes, resolve_engine(engine), user_id=current_user_id)
     return ASRResponse(
         text=text,
         engine=normalize_engine(engine) or VoiceEngine.LOCAL,
@@ -94,11 +98,12 @@ async def asr_stream(ws: WebSocket):
     """
     engine = resolve_engine(ws.query_params.get("engine"))
     use_vad = str(ws.query_params.get("vad") or "").lower() in ("1", "true", "yes")
+    user_id = await ws_user_id(ws.query_params.get("token"))
 
     await ws.accept()
     service = get_voice_service()
     try:
-        asr = await service.get_asr(engine)
+        asr = await service.get_asr(engine, user_id)
     except Exception as e:
         logger.error(f"ASR 引擎获取失败: {e}")
         await _send_and_close(ws, f"引擎初始化失败: {e}", engine)
@@ -108,7 +113,7 @@ async def asr_stream(ws: WebSocket):
     vad = None
     if use_vad:
         try:
-            vad = await service.get_vad()
+            vad = await service.get_vad(user_id=user_id)
         except Exception as e:
             logger.warning(f"VAD 引擎获取失败, 忽略 vad 参数: {e}")
             await ws.send_text(

@@ -12,6 +12,14 @@ export interface UserModelBinding {
   embedding_model_id: string | null;
   /** 绑定的重排模型配置ID */
   rerank_model_id: string | null;
+  /** 绑定的语音识别(ASR)模型配置ID */
+  asr_model_id: string | null;
+  /** 绑定的语音合成(TTS)模型配置ID */
+  tts_model_id: string | null;
+  /** 绑定的VAD断句模型配置ID */
+  vad_model_id: string | null;
+  /** 绑定的语音降噪模型配置ID */
+  denoise_model_id: string | null;
   /** 回退开关: true=绑定失效时不回退默认公共模型(直接报错) */
   fallback_disabled: boolean;
   created_at: string | null;
@@ -23,6 +31,10 @@ export interface UserModelBindingUpdate {
   chat_model_id?: string | null;
   embedding_model_id?: string | null;
   rerank_model_id?: string | null;
+  asr_model_id?: string | null;
+  tts_model_id?: string | null;
+  vad_model_id?: string | null;
+  denoise_model_id?: string | null;
   fallback_disabled?: boolean;
 }
 

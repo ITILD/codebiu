@@ -2,7 +2,7 @@
  * 全局菜单配置(RuoYi 式目录)
  * 共用方: SysSidebar(后台侧边栏) / SysBreadcrumb(面包屑) / 主页主应用入口卡 / 头像下拉
  * 菜单分两类:
- * - 主应用(mainApp: true): 个人小站/知识库/地球绘制, 从首页直接进入, 无侧边栏,
+ * - 主应用(mainApp: true): 个人小站/知识库/地球绘制/智能体/宝宝取名, 从首页直接进入, 无侧边栏,
  *   模块内孙页面导航由各模块页面自行承担
  * - 后台管理(其余): 仅经头像下拉"后台管理"入口进入, 显示侧边栏
  * 分组与后端 module_* 一一对应: authorization/rag/ai/file/geometry/site/main,
@@ -139,8 +139,9 @@ export const menuItems: MenuItem[] = [
   {
     index: '/life',
     icon: markRaw(Sunny),
-    title: '生活工具',
-    desc: '宝宝取名等轻量生活工具。',
+    title: '宝宝取名',
+    mainApp: true,
+    desc: '生辰参考严格推算, AI 结合民俗与神话为宝宝起好名。',
     children: [
       { index: '/life/baby_name', title: '宝宝取名' },
     ],

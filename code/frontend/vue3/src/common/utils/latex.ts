@@ -138,10 +138,10 @@ export const restoreMathHtml = (
         })
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err)
-        // 失败时降级展示原始公式 + 错误说明
+        // 失败时降级展示原始公式 + 错误说明(取色走 --note-* 变量, 暗色模式自适应)
         return item.displayMode
-          ? `<div class="katex-error" style="color:#c0453e;text-align:center;padding:8px 12px;border:1px dashed #e6b8b4;border-radius:6px;margin:8px 0;background:#fbf6f4;">${escapeHtml(`$$${item.latex}$$`)}<div style="font-size:12px;margin-top:4px;color:#c0453e;">${escapeHtml(message)}</div></div>`
-          : `<span class="katex-error" style="color:#c0453e;background:#fbf6f4;padding:1px 4px;border-radius:4px;border:1px dashed #e6b8b4;" title="${escapeHtml(message)}">${escapeHtml(`$${item.latex}$`)}</span>`
+          ? `<div class="katex-error" style="color:var(--note-seal,#ad563e);text-align:center;padding:8px 12px;border:1px dashed color-mix(in srgb, var(--note-seal,#ad563e) 38%, transparent);border-radius:6px;margin:8px 0;background:color-mix(in srgb, var(--note-seal,#ad563e) 7%, var(--note-card,#fff));">${escapeHtml(`$$${item.latex}$$`)}<div style="font-size:12px;margin-top:4px;color:var(--note-seal,#ad563e);">${escapeHtml(message)}</div></div>`
+          : `<span class="katex-error" style="color:var(--note-seal,#ad563e);background:color-mix(in srgb, var(--note-seal,#ad563e) 7%, var(--note-card,#fff));padding:1px 4px;border-radius:4px;border:1px dashed color-mix(in srgb, var(--note-seal,#ad563e) 38%, transparent);" title="${escapeHtml(message)}">${escapeHtml(`$${item.latex}$`)}</span>`
       }
     },
   )

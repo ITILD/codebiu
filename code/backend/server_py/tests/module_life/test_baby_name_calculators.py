@@ -83,6 +83,56 @@ def test_zodiac_lichun_boundary():
     assert get_zodiac("2026-01-01") == "蛇"
 
 
+def test_solar_term_time_anchors():
+    """节气天文解锚点(寿星通式曾出错的年份, 日期以紫金山天文台历表为准):
+    2022/2026 立春=2/4(通式误算2/3), 2024 小寒=1/6(通式误算1/5), 其余抽检"""
+    from module_life.utils.baby_name.almanac import _solar_term_time
+
+    anchors = {
+        ("立春", 2022): (2, 4), ("立春", 2024): (2, 4),
+        ("立春", 2025): (2, 3), ("立春", 2026): (2, 4),
+        ("小寒", 2021): (1, 5), ("小寒", 2024): (1, 6),
+        ("小寒", 2026): (1, 5), ("大寒", 2024): (1, 20),
+        ("冬至", 2025): (12, 21), ("白露", 2026): (9, 7),
+    }
+    for (term, year), (m, d) in anchors.items():
+        t = _solar_term_time(year, term)
+        assert (t.month, t.day) == (m, d), f"{year}{term} 应为 {m}/{d}, 实得 {t}"
+
+
+def test_year_pillar_lichun_day_boundary():
+    """立春当日年柱按时刻分界: 2026-02-04 04:02 立春, 03点仍乙巳年、06点起丙午年;
+    前一日(2/3)整日属乙巳年"""
+    assert year_pillar(dt.date(2026, 2, 4), 3) == year_pillar(dt.date(2026, 2, 3))
+    assert year_pillar(dt.date(2026, 2, 4), 6) == year_pillar(dt.date(2026, 2, 10))
+
+
+def test_month_pillar_xiaohan_boundary():
+    """小寒分界回归(2024 小寒=1/6 04:49, 通式曾误算 1/5):
+    1/5→上一年癸卯年甲子月, 1/6→癸卯年乙丑月(年柱仍以立春分界)"""
+    y = year_pillar(dt.date(2024, 1, 5))
+    assert GAN[y[0]] + ZHI[y[1]] == "癸卯"
+    gan, zhi = month_pillar(dt.date(2024, 1, 5))
+    assert GAN[gan] + ZHI[zhi] == "甲子"
+    gan, zhi = month_pillar(dt.date(2024, 1, 6))
+    assert GAN[gan] + ZHI[zhi] == "乙丑"
+
+
+def test_month_pillar_time_boundary():
+    """月柱按节气时刻分界: 2026 白露=9/7 22:41, 当日 20点仍申月(丙申)、23点起酉月(丁酉)"""
+    gan, zhi = month_pillar(dt.date(2026, 9, 7), 20)
+    assert GAN[gan] + ZHI[zhi] == "丙申"
+    gan, zhi = month_pillar(dt.date(2026, 9, 7), 23)
+    assert GAN[gan] + ZHI[zhi] == "丁酉"
+
+
+def test_four_pillars_late_zi_day_carry():
+    """晚子时日柱同步进位: 2026-09-13(庚寅日)23:30 → 日柱辛卯、时柱戊子;
+    22:30(亥时)不进位 → 庚寅/丁亥"""
+    assert get_four_pillars("2026-09-13", "23:30").names() == ["丙午", "丁酉", "辛卯", "戊子"]
+    assert get_four_pillars("2026-09-13", "22:30").names() == ["丙午", "丁酉", "庚寅", "丁亥"]
+
+
 # ==================== 五行喜用 ====================
 
 def test_analyze_wuxing_counts_and_favorable():

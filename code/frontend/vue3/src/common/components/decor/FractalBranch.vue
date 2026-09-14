@@ -1,61 +1,39 @@
 <template>
-  <!-- 分形悬枝: 每次进入以随机种子生成形态, rAF 驱动缓慢随机生长(总长预算耗尽即止);
-       末梢叶簇随枝条长成渐次舒展, 生长完成后转入 SMIL 轻风摇摆
-       (均可用 prefers-reduced-motion 关闭) -->
-  <div class="fractal-branch pointer-events-none absolute inset-0 z-[1] overflow-hidden" aria-hidden="true">
-    <!-- 悬枝本体: 外层 g 负责定位, 内层 g 绕枝基(0,0)摇摆 -->
-    <svg class="absolute -top-1 right-0 w-40 sm:w-52 md:w-64" viewBox="0 0 240 270" fill="none">
-      <g transform="translate(228 -8) rotate(-150)">
-        <g>
-          <animateTransform
-            v-if="!reducedMotion && settled"
-            attributeName="transform"
-            type="rotate"
-            values="-1.6 0 0; 1.3 0 0; -1.6 0 0"
-            keyTimes="0; 0.5; 1"
-            calcMode="spline"
-            keySplines="0.45 0 0.55 1; 0.45 0 0.55 1"
-            dur="8.5s"
-            repeatCount="indefinite"
-          />
-          <!-- 枝条: 末梢细淡、枝基粗实; 生长中的段按进度截断绘制 -->
-          <path
-            v-for="(s, i) in segViews"
-            :key="`s${i}`"
-            :d="s.d"
-            :stroke-width="s.width"
-            :stroke-opacity="s.opacity"
-            stroke="var(--note-green-deep)"
-            stroke-linecap="round"
-          />
-          <!-- 叶簇: 内层 g 用 CSS transform 舒展(与定位用的属性 transform 解耦) -->
-          <g
-            v-for="(l, i) in leaves"
-            :key="`l${i}`"
-            :transform="`translate(${l.x.toFixed(1)} ${l.y.toFixed(1)}) rotate(${l.angle.toFixed(1)}) scale(${l.size.toFixed(2)})`"
-          >
-            <g class="leaf" :class="{ 'leaf-in': grown >= l.born }">
-              <path d="M0 0 C 5 -5 7 -11 0 -16 C -7 -11 -5 -5 0 0 Z" :fill="l.color" :fill-opacity="l.opacity.toFixed(2)" />
-              <path d="M0 -1.5 V-14" stroke="var(--note-paper)" stroke-width="0.7" :stroke-opacity="(l.opacity * 0.8).toFixed(2)" />
-            </g>
-          </g>
-        </g>
-      </g>
-    </svg>
+  <!-- 水墨生长枝: Canvas 2D 双层——静态层增量累积已完成笔画(永不重绘),
+       动态层每帧只画"生长中的枝 + 舒展中的叶"后清空; rAF 驱动、dt 钳制,
+       生长结束取消 rAF 并清空动态层(常驻开销归零)。
+       结构生成为无 DOM 纯函数, 在 inline Blob Worker 中执行(失败回落 requestIdleCallback)。
+       容器锚在卡片右上, 宽≈卡片 54%, 高随机 120%~150%, 墨枝垂出卡底;
+       IntersectionObserver 进入视口播放一次; prefers-reduced-motion 直接一次成图 -->
+  <div
+    ref="rootEl"
+    class="ink-branch pointer-events-none absolute z-[1] -top-4 -right-2 md:-top-6 md:-right-6 w-[54%]"
+    :style="{ height: `${boxH}%` }"
+    aria-hidden="true"
+  >
+    <canvas ref="staticEl" class="absolute inset-0 h-full w-full" />
+    <canvas ref="dynamicEl" class="absolute inset-0 h-full w-full" />
   </div>
 </template>
 
 <script setup lang="ts">
-// 分形树思路: 每根枝条末端随机分生两(偶发三)根子枝, 角度张开、长度递减;
-// 生长节奏 = 每段耗时随段长随机, 子枝在母枝长成后才抽芽, 末梢节点生叶
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+// 分形规范: 深度≤6, 折线段≈14px, 每段向重力(90°)收敛 0.045×(0.5+depth×0.35) + 随机扰动;
+// 子枝长衰减 0.70~0.84、粗细衰减 0.58~0.72、张角 0.30~0.78rad, 末端 2~3 叉, 中段侧枝概率 0.55;
+// 出生时刻 = 父枝长成 + 40~200ms, 单枝时长 ∝ 枝长 → P1 抽主干(叶≤0.07) → P2 二级枝(0.28)
+// → P3 细枝成簇(0.62) → P4 最细枝垂出卡底、叶收定型, 总时长≈4.5~6s
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 
-/** 用户开启"减少动态效果"时, 跳过生长动画直接呈现完成形态 */
-const reducedMotion = ref(false)
-/** 生长是否完成(完成后才启用摇摆) */
-const settled = ref(false)
+interface InkBranch {
+  pts: number[]; birth: number; dur: number; depth: number
+  width: number; coreA: number; haloA: number
+}
+interface InkLeaf {
+  x: number; y: number; angle: number; len: number
+  a: number; tone: number; born: number
+}
+interface InkStructure { branches: InkBranch[]; leaves: InkLeaf[] }
 
-/** 确定性伪随机: 种子取自 Math.random, 每次刷新形态随机 */
+/** 确定性伪随机(纯函数, 随 Worker 入驻) */
 function mulberry32(seed: number) {
   return () => {
     seed |= 0
@@ -65,178 +43,466 @@ function mulberry32(seed: number) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296
   }
 }
-const rand = mulberry32((Math.random() * 0x7fffffff) | 0)
 
-/** 叶色限定在苔绿色板内, 与全站主题一致 */
-const LEAF_COLORS = ['var(--note-green)', 'var(--note-accent)', 'var(--note-green-deep)']
-const pickColor = () => LEAF_COLORS[Math.floor(rand() * LEAF_COLORS.length)]
+/** 纯函数: 生成分形水墨枝(无 DOM 依赖, 可整体移入 Worker); w/h 为容器像素尺寸 */
+function generateStructure(seed: number, w: number, h: number): InkStructure {
+  const rng = mulberry32(seed)
+  const branches: InkBranch[] = []
+  const leaves: InkLeaf[] = []
+  const DOWN = Math.PI / 2
+  const SPEED = 0.0056 + rng() * 0.0012 // s/px: 单枝生长时长 ∝ 枝长
+  const SEG = 14
 
-interface Segment {
-  x1: number; y1: number; x2: number; y2: number
-  width: number; opacity: number
-  start: number; dur: number
-}
-interface Leaf {
-  x: number; y: number; angle: number; size: number
-  color: string; opacity: number
-  born: number
-}
-
-// ---- 形态参数(魔法值收敛为常量) ----
-const MAX_DEPTH = 7          // 侧枝递归深度上限
-const LENGTH_BUDGET = 780 + rand() * 280 // 总长预算: 耗尽即停止分生(随机 780~1060)
-const START_LEN = 44 + rand() * 8      // 主干首段长度
-const START_WIDTH = 3.6                // 枝基线宽
-const GROW_SPEED = 0.03                // 每像素生长耗时(秒)
-/** 重力方向(局部坐标): 枝基经 rotate(-150) 定位后, -PI/2 映射为屏幕左下 */
-const GRAVITY = -Math.PI / 2
-/** 枝条绝对朝向夹角(局部坐标): 将树冠收束在可视区内且不过分横向铺开 */
-const ANGLE_MIN = -2.2
-const ANGLE_MAX = -0.45
-/** 主干段数: 前 1~2 段不分叉, 走满即分出主树杈 */
-const TRUNK_SEGS = 1 + (rand() < 0.5 ? 1 : 0)
-
-const segments: Segment[] = []
-const leaves: Leaf[] = []
-let budget = LENGTH_BUDGET
-
-/** 向重力方向轻拉并收束到夹角区间(垂柳式弯垂, 防横向逸出) */
-function bend(a: number, droop: number) {
-  let d = a - GRAVITY
-  if (d > Math.PI) d -= 2 * Math.PI
-  if (d < -Math.PI) d += 2 * Math.PI
-  return Math.min(ANGLE_MAX, Math.max(ANGLE_MIN, a - d * droop))
-}
-
-/** 递归分生枝条; angle 为弧度, -PI/2 表示向上; start 为该段开始生长的时刻(秒);
- *  trunk 为剩余主干段数(主干不分叉, 走满后一次分出主树杈) */
-function grow(x: number, y: number, angle: number, len: number, width: number, depth: number, start: number, trunk = TRUNK_SEGS) {
-  if (budget <= 0) return
-  budget -= len
-
-  const x2 = x + Math.cos(angle) * len
-  const y2 = y + Math.sin(angle) * len
-  const dur = len * GROW_SPEED * (0.8 + rand() * 0.5)
-  const end = start + dur
-  segments.push({ x1: x, y1: y, x2, y2, width, opacity: 0.26 + (depth / MAX_DEPTH) * 0.3, start, dur })
-
-  const addLeaf = (born: number, angleJitter = true, sizeMin = 0.4) => {
-    leaves.push({
-      x: x2, y: y2,
-      angle: angleJitter ? rand() * 360 : (angle * 180) / Math.PI + 90,
-      size: sizeMin + rand() * 0.5,
-      color: pickColor(),
-      opacity: 0.5 + rand() * 0.35,
-      born,
-    })
+  const leaf = (x: number, y: number, angle: number, born: number) => {
+    leaves.push({ x, y, angle, born, len: 13 + rng() * 11, a: 0.18 + rng() * 0.34, tone: rng() })
   }
 
-  // ---- 主干: 沿途零星小叶, 走满后一次分出 2~3 根粗壮主树杈 ----
-  if (trunk > 0) {
-    if (rand() < 0.35) addLeaf(end, true, 0.28)
-    if (trunk > 1) {
-      grow(x2, y2, angle + (rand() - 0.5) * 0.16, len * (0.9 + rand() * 0.12), width * 0.92, depth, end, trunk - 1)
+  const branch = (x: number, y: number, angle: number, len: number, width: number, depth: number, birth: number) => {
+    if (branches.length >= 900 || len < 10) return
+    const segs = Math.max(2, Math.round(len / SEG))
+    const gGain = 0.045 * (0.5 + depth * 0.35) // 重力项: 越细越垂
+    const pts: number[] = [x, y]
+    let a = angle
+    let cx = x
+    let cy = y
+    for (let i = 0; i < segs; i++) {
+      a += (DOWN - a) * gGain + (rng() - 0.5) * 0.24
+      if (cx < w * 0.05) a -= 0.3 // 左缘内侧回摆, 防止出画被裁
+      if (cx > w * 0.985) a += 0.3
+      cx += Math.cos(a) * SEG
+      cy += Math.sin(a) * SEG
+      pts.push(cx, cy)
+    }
+    const dur = len * SPEED * (0.85 + rng() * 0.3)
+    const coreA = Math.min(0.62, Math.max(0.2, 0.6 - depth * 0.06)) * (0.85 + rng() * 0.3)
+    branches.push({ pts, birth, dur, depth, width, coreA, haloA: 0.06 + rng() * 0.05 })
+    const end = birth + dur
+
+    // 沿途挂叶: P1 稀(≤0.07) → P2 中(0.28) → P3 成簇(0.62);
+    // 叶尖整体垂坠(参考竹叶): 以重力 90° 为主, 混入枝条走向与随机扰动
+    const leafProb = depth <= 1 ? 0.06 : depth === 2 ? 0.28 : 0.62
+    for (let i = 1; i < segs; i++) {
+      if (rng() < leafProb) {
+        leaf(
+          pts[i * 2], pts[i * 2 + 1],
+          55.8 + (a * 180) / Math.PI * 0.38 + (rng() - 0.5) * 72,
+          birth + (i / segs) * dur + 0.05,
+        )
+      }
+    }
+
+    // 末梢: 端簇叶收笔(垂坠展开)
+    if (depth >= 6) {
+      const n = 2 + Math.floor(rng() * 3)
+      for (let i = 0; i < n; i++) {
+        leaf(cx, cy, 55.8 + (a * 180) / Math.PI * 0.38 + (rng() - 0.5) * 130, end + rng() * 0.3)
+      }
       return
     }
-    const n = 2 + (rand() < 0.55 ? 1 : 0)
-    const base = angle + (rand() - 0.5) * 0.1
-    const spread = 0.4 + rand() * 0.25
-    for (let i = 0; i < n; i++) {
-      grow(
-        x2, y2,
-        bend(base + (i - (n - 1) / 2) * spread + (rand() - 0.5) * 0.12, 0.08),
-        len * (0.6 + rand() * 0.14), width * 0.8, depth - 1, end + rand() * 0.2, 0
+
+    const childBirth = end + 0.04 + rng() * 0.16 // 出生 = 父枝长成 + 40~200ms
+    const lenDecay = 0.7 + rng() * 0.14
+    const widthDecay = 0.58 + rng() * 0.14
+    const fork = 0.3 + rng() * 0.48
+
+    // 中段侧枝: 自 55%~80% 处斜出
+    if (depth >= 1 && rng() < 0.55) {
+      const idx = Math.max(1, Math.floor(segs * (0.55 + rng() * 0.25)))
+      branch(
+        pts[idx * 2], pts[idx * 2 + 1],
+        a + fork * (rng() < 0.5 ? -1 : 1),
+        len * lenDecay * 0.72, width * widthDecay, depth + 1,
+        birth + (idx / segs) * dur + 0.04 + rng() * 0.12,
       )
     }
-    // 中央领导枝继续抽长, 保持主势
-    if (rand() < 0.7) {
-      grow(x2, y2, bend(base, 0.1), len * (0.5 + rand() * 0.1), width * 0.6, depth - 1, end, 0)
+
+    // 末端 2~3 叉
+    const n = 2 + (rng() < 0.2 ? 1 : 0)
+    const base = a + (rng() - 0.5) * 0.2
+    for (let i = 0; i < n; i++) {
+      branch(cx, cy, base + (i - (n - 1) / 2) * fork + (rng() - 0.5) * 0.14, len * lenDecay, width * widthDecay, depth + 1, childBirth + i * 0.05)
     }
-    return
   }
 
-  // ---- 侧枝: 末梢收笔; 沿途各节均可能出叶(近根稀疏小巧, 越往外越密) ----
-  if (depth <= 0 || budget <= 0) {
-    addLeaf(end, false)
-    return
-  }
-  const nearRoot = depth >= MAX_DEPTH - 2
-  if (rand() < (nearRoot ? 0.3 : depth <= 3 ? 0.55 : 0.42)) {
-    addLeaf(end, true, nearRoot ? 0.28 : 0.4)
-  }
+  // 入笔: 容器右上外侧, 初始方向左下≈115°, 主干长度决定整体垂坠幅度
+  branch(w - 6, 4, (115 * Math.PI) / 180, h * (0.26 + rng() * 0.05), 3.2, 0, 0.05)
 
-  // 不对称张角: 两子枝开合程度随机错开, 分型更自然; 越到末梢越下垂
-  const spread = 0.34 + rand() * 0.26
-  const asym = 0.55 + rand() * 0.9
-  const droop = 0.06 + (1 - depth / MAX_DEPTH) * 0.12
-  const shrink = () => len * (0.74 + rand() * 0.12)
-  const childStart = end + rand() * 0.2
-  grow(x2, y2, bend(angle - spread * asym, droop), shrink(), width * 0.72, depth - 1, childStart)
-  grow(x2, y2, bend(angle + spread * (2 - asym), droop), shrink(), width * 0.72, depth - 1, childStart)
+  // 归一化: 树冠过浅时整体等比放大, 保证最深梢垂到容器底缘(即卡片下端之外)
+  let maxY = 0
+  for (const b of branches) {
+    for (let i = 1; i < b.pts.length; i += 2) maxY = Math.max(maxY, b.pts[i])
+  }
+  const s = Math.min((h - 6) / Math.max(maxY, 1), 1.35)
+  if (s > 1.002) {
+    for (const b of branches) {
+      for (let i = 0; i < b.pts.length; i += 2) {
+        b.pts[i] *= s
+        b.pts[i + 1] *= s
+      }
+    }
+    for (const l of leaves) {
+      l.x *= s
+      l.y *= s
+    }
+  }
+  return { branches, leaves }
 }
 
-grow(0, 0, -Math.PI / 2, START_LEN, START_WIDTH, MAX_DEPTH, 0.15)
+const rootEl = ref<HTMLElement | null>(null)
+const staticEl = ref<HTMLCanvasElement | null>(null)
+const dynamicEl = ref<HTMLCanvasElement | null>(null)
 
-/** 全树长成所需总时长(叶簇再留 0.4s 舒展) */
-const totalTime = segments.reduce((m, s) => Math.max(m, s.start + s.dur), 0) + 0.4
+/** 容器高: 卡片的 120%~150%(随机), 允许墨枝垂出卡底 */
+const boxH = 122 + Math.floor(Math.random() * 26)
 
-// ---- 生长驱动: rAF 逐帧推进 grown(秒), 完成后停止 ----
-const grown = ref(0)
+/** Worker 源码(inline Blob): 仅注入两个纯函数 + 消息分发 */
+const WORKER_SRC = `
+${mulberry32.toString()}
+${generateStructure.toString()}
+self.onmessage = (e) => {
+  const d = e.data
+  self.postMessage(generateStructure(d.seed, d.w, d.h))
+}
+`
+
+// ---- 运行时结构(含主线程预计算) ----
+interface RTBranch extends InkBranch { cum: number[]; total: number; done: boolean }
+interface RTLeaf extends InkLeaf { done: boolean }
+
+let rt: { branches: RTBranch[]; leaves: RTLeaf[]; total: number } | null = null
+let sctx: CanvasRenderingContext2D | null = null
+let dctx: CanvasRenderingContext2D | null = null
+let boxW = 0
+let boxHpx = 0
+let dpr = 1
 let raf = 0
+let lastT = 0
+let elapsed = 0 // 已播放毫秒(visibilitychange 暂停时冻结)
+let bi = 0 // 首个未完成的枝(按 birth 排序)
+let li = 0 // 首个未完成的叶(按 born 排序)
+let status: 'idle' | 'playing' | 'settled' = 'idle'
+let hadStarted = false
+let reducedMotion = false
+let dark = false
+let inkRGB = '26,30,36'
+let sageA = '96,116,102'
+let sageB = '118,140,118'
+let worker: Worker | null = null
+let workerURL = ''
+let io: IntersectionObserver | null = null
+let ro: ResizeObserver | null = null
+let resizeTimer = 0
+let genToken = 0
+const seed = (Math.random() * 0x7fffffff) | 0
 
-function tick(now: number, t0: number) {
-  const t = (now - t0) / 1000
-  grown.value = Math.min(t, totalTime)
-  if (t >= totalTime) {
-    settled.value = true
-    return
+/** 尺寸画布(DPR 上限 2); 仅在挂载/重建时读布局, 帧循环内不读 */
+function sizeCanvases() {
+  const root = rootEl.value
+  const s = staticEl.value
+  const d = dynamicEl.value
+  if (!root || !s || !d) return
+  const rect = root.getBoundingClientRect()
+  dpr = Math.min(window.devicePixelRatio || 1, 2)
+  boxW = Math.max(1, rect.width)
+  boxHpx = Math.max(1, rect.height)
+  s.width = Math.round(boxW * dpr)
+  s.height = Math.round(boxHpx * dpr)
+  d.width = s.width
+  d.height = s.height
+  sctx = s.getContext('2d')
+  dctx = d.getContext('2d')
+  sctx?.setTransform(dpr, 0, 0, dpr, 0, 0)
+  dctx?.setTransform(dpr, 0, 0, dpr, 0, 0)
+}
+
+/** 预计算: 排序 + 逐枝累积段长(供按进度截断绘制) */
+function prepare(data: InkStructure) {
+  const branches: RTBranch[] = data.branches.map(b => ({ ...b, cum: [], total: 0, done: false }))
+  branches.sort((a, b) => a.birth - b.birth)
+  for (const b of branches) {
+    const cum: number[] = [0]
+    for (let i = 2; i < b.pts.length; i += 2) {
+      cum.push(cum[cum.length - 1] + Math.hypot(b.pts[i] - b.pts[i - 2], b.pts[i + 1] - b.pts[i - 1]))
+    }
+    b.cum = cum
+    b.total = cum[cum.length - 1] || 1
   }
-  raf = requestAnimationFrame((n) => tick(n, t0))
+  const leaves: RTLeaf[] = data.leaves.map(l => ({ ...l, done: false })).sort((a, b) => a.born - b.born)
+  const total = Math.max(
+    branches.reduce((m, b) => Math.max(m, b.birth + b.dur), 0),
+    leaves.reduce((m, l) => Math.max(m, l.born), 0),
+  ) + 0.4
+  return { branches, leaves, total }
+}
+
+/** 双描一笔: 淡宽墨晕(×2.8) + 浓细墨骨, 渗化全靠双描; t01 为生长进度 */
+function strokeBranch(ctx: CanvasRenderingContext2D, b: RTBranch, t01: number) {
+  const target = b.total * t01
+  const pts = b.pts
+  ctx.beginPath()
+  ctx.moveTo(pts[0], pts[1])
+  for (let i = 1; i < b.cum.length; i++) {
+    if (b.cum[i] <= target) {
+      ctx.lineTo(pts[i * 2], pts[i * 2 + 1])
+      continue
+    }
+    const prev = b.cum[i - 1]
+    const k = (target - prev) / Math.max(b.cum[i] - prev, 1e-6)
+    ctx.lineTo(pts[(i - 1) * 2] + (pts[i * 2] - pts[(i - 1) * 2]) * k, pts[(i - 1) * 2 + 1] + (pts[i * 2 + 1] - pts[(i - 1) * 2 + 1]) * k)
+    break
+  }
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  ctx.strokeStyle = `rgba(${inkRGB},${b.haloA.toFixed(3)})`
+  ctx.lineWidth = b.width * 2.8
+  ctx.stroke()
+  ctx.strokeStyle = `rgba(${inkRGB},${b.coreA.toFixed(3)})`
+  ctx.lineWidth = b.width
+  ctx.stroke()
+}
+
+/** 叶: 两段贝塞尔尖椭圆, 灰绿浓淡随机; scale 供舒展动画 */
+function drawLeaf(ctx: CanvasRenderingContext2D, lf: RTLeaf, scale: number) {
+  ctx.save()
+  ctx.translate(lf.x, lf.y)
+  ctx.rotate((lf.angle * Math.PI) / 180)
+  ctx.scale(scale, scale)
+  ctx.beginPath()
+  ctx.moveTo(0, 0)
+  ctx.quadraticCurveTo(lf.len * 0.45, -lf.len * 0.18, lf.len, 0)
+  ctx.quadraticCurveTo(lf.len * 0.45, lf.len * 0.18, 0, 0)
+  ctx.closePath()
+  ctx.fillStyle = `rgba(${lf.tone < 0.5 ? sageA : sageB},${lf.a.toFixed(3)})`
+  ctx.fill()
+  ctx.restore()
+}
+
+/** easeOutBack: 叶舒展 300ms 带轻微回弹 */
+function easeOutBack(t: number) {
+  const c1 = 1.70158
+  const c3 = c1 + 1
+  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2)
+}
+
+function finish() {
+  if (raf) {
+    cancelAnimationFrame(raf)
+    raf = 0
+  }
+  if (rt && sctx && dctx) {
+    for (const b of rt.branches) {
+      if (!b.done) {
+        strokeBranch(sctx, b, 1)
+        b.done = true
+      }
+    }
+    for (const lf of rt.leaves) {
+      if (!lf.done) {
+        drawLeaf(sctx, lf, 1)
+        lf.done = true
+      }
+    }
+    dctx.clearRect(0, 0, boxW, boxHpx)
+  }
+  status = 'settled'
+}
+
+function play() {
+  if (!rt || reducedMotion || status !== 'idle') return
+  status = 'playing'
+  elapsed = 0
+  bi = 0
+  li = 0
+  lastT = performance.now()
+  raf = requestAnimationFrame(frame)
+}
+
+/** 帧循环: 静态层只增量盖戳, 动态层每帧清空后仅画生长中枝叶 */
+function frame(now: number) {
+  raf = requestAnimationFrame(frame)
+  const dt = Math.min(now - lastT, 50) // dt 钳制≤50ms
+  lastT = now
+  elapsed += dt
+  if (!rt || !sctx || !dctx) return
+  const es = elapsed / 1000
+  dctx.clearRect(0, 0, boxW, boxHpx)
+
+  for (let i = bi; i < rt.branches.length; i++) {
+    const b = rt.branches[i]
+    if (b.birth > es) break
+    if (b.done) continue
+    const t = (es - b.birth) / b.dur
+    if (t >= 1) {
+      strokeBranch(sctx, b, 1) // 长成即盖戳进静态层
+      b.done = true
+    } else {
+      strokeBranch(dctx, b, 1 - Math.pow(1 - t, 1.6)) // 运笔渐缓
+    }
+  }
+  while (bi < rt.branches.length && rt.branches[bi].done) bi++
+
+  for (let i = li; i < rt.leaves.length; i++) {
+    const lf = rt.leaves[i]
+    if (lf.born > es) break
+    if (lf.done) continue
+    const t = (es - lf.born) / 0.3
+    if (t >= 1) {
+      drawLeaf(sctx, lf, 1)
+      lf.done = true
+    } else {
+      drawLeaf(dctx, lf, 0.15 + 0.85 * easeOutBack(t))
+    }
+  }
+  while (li < rt.leaves.length && rt.leaves[li].done) li++
+
+  if (es >= rt.total) finish()
+}
+
+/** 请求结构: Worker 优先, 失败回落 requestIdleCallback/setTimeout */
+function requestStructure() {
+  const w = boxW
+  const h = boxHpx
+  if (w < 60 || h < 60) return
+  const token = genToken
+  const apply = (data: InkStructure) => {
+    if (token !== genToken) return
+    rt = prepare(data)
+    if (reducedMotion) {
+      finish()
+      return
+    }
+    if (hadStarted) play()
+  }
+  const fallback = () => {
+    if (typeof requestIdleCallback === 'function') requestIdleCallback(() => apply(generateStructure(seed, w, h)), { timeout: 300 })
+    else window.setTimeout(() => apply(generateStructure(seed, w, h)), 30)
+  }
+  try {
+    if (!worker) {
+      const blob = new Blob([WORKER_SRC], { type: 'text/javascript' })
+      workerURL = URL.createObjectURL(blob)
+      worker = new Worker(workerURL)
+      worker.onmessage = (e: MessageEvent<InkStructure>) => apply(e.data)
+      worker.onerror = () => {
+        worker?.terminate()
+        worker = null
+        fallback()
+      }
+    }
+    worker.postMessage({ seed, w, h })
+  } catch {
+    fallback()
+  }
+}
+
+/** 重建: 防抖 200ms 后触发; 同 seed 重生成 → 形态一致; 已定型则直接成图 */
+function rebuild() {
+  genToken++
+  if (raf) {
+    cancelAnimationFrame(raf)
+    raf = 0
+  }
+  const wasSettled = status === 'settled'
+  status = 'idle'
+  rt = null
+  bi = 0
+  li = 0
+  sizeCanvases()
+  sctx?.clearRect(0, 0, boxW, boxHpx)
+  dctx?.clearRect(0, 0, boxW, boxHpx)
+  const token = genToken
+  const apply = (data: InkStructure) => {
+    if (token !== genToken) return
+    rt = prepare(data)
+    if (reducedMotion || wasSettled || !hadStarted) {
+      if (reducedMotion || wasSettled) finish()
+      return
+    }
+    play()
+  }
+  try {
+    worker?.postMessage({ seed, w: boxW, h: boxHpx })
+    if (worker) {
+      worker.onmessage = (e: MessageEvent<InkStructure>) => apply(e.data)
+      return
+    }
+  } catch {
+    /* 落到下方回落 */
+  }
+  const w = boxW
+  const h = boxHpx
+  const run = () => apply(generateStructure(seed, w, h))
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(run, { timeout: 300 })
+  else window.setTimeout(run, 30)
+}
+
+function onResize() {
+  window.clearTimeout(resizeTimer)
+  resizeTimer = window.setTimeout(rebuild, 200)
+}
+
+/** 页面隐藏暂停 / 回来恢复(elapsed 冻结, 时间轴不跳变) */
+function onVisibility() {
+  if (document.hidden) {
+    if (raf) {
+      cancelAnimationFrame(raf)
+      raf = 0
+    }
+  } else if (status === 'playing' && !raf && rt) {
+    lastT = performance.now()
+    raf = requestAnimationFrame(frame)
+  }
 }
 
 onMounted(() => {
-  reducedMotion.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  if (reducedMotion.value) {
-    grown.value = totalTime
-    settled.value = true
-    return
+  dark = document.documentElement.classList.contains('dark')
+  // 暗色纸面: 墨色反转为浅色纸墨, 叶用浅灰绿
+  if (dark) {
+    inkRGB = '218,226,216'
+    sageA = '150,170,152'
+    sageB = '186,200,180'
   }
-  raf = requestAnimationFrame((n) => tick(n, performance.now()))
+  reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  sizeCanvases()
+  requestStructure()
+
+  // 进入视口播放一次
+  io = new IntersectionObserver(
+    (entries) => {
+      if (entries.some(e => e.isIntersecting)) {
+        hadStarted = true
+        play()
+        io?.disconnect()
+        io = null
+      }
+    },
+    { threshold: 0.05 },
+  )
+  if (rootEl.value) io.observe(rootEl.value)
+
+  // 容器尺寸随卡片变化 → 防抖重建
+  ro = new ResizeObserver(onResize)
+  if (rootEl.value) ro.observe(rootEl.value)
+  window.addEventListener('resize', onResize)
+  document.addEventListener('visibilitychange', onVisibility)
 })
 
-onBeforeUnmount(() => cancelAnimationFrame(raf))
-
-/** 按生长进度截断各段: 末段用缓出曲线, 梢部渐缓更自然 */
-const segViews = computed(() => {
-  const out: { d: string; width: string; opacity: string }[] = []
-  for (const s of segments) {
-    const raw = (grown.value - s.start) / s.dur
-    if (raw <= 0) continue
-    const p = raw >= 1 ? 1 : 1 - (1 - raw) * (1 - raw)
-    const x2 = s.x1 + (s.x2 - s.x1) * p
-    const y2 = s.y1 + (s.y2 - s.y1) * p
-    out.push({
-      d: `M${s.x1.toFixed(1)} ${s.y1.toFixed(1)} L${x2.toFixed(1)} ${y2.toFixed(1)}`,
-      width: s.width.toFixed(2),
-      opacity: s.opacity.toFixed(2),
-    })
-  }
-  return out
+onBeforeUnmount(() => {
+  if (raf) cancelAnimationFrame(raf)
+  window.clearTimeout(resizeTimer)
+  io?.disconnect()
+  ro?.disconnect()
+  window.removeEventListener('resize', onResize)
+  document.removeEventListener('visibilitychange', onVisibility)
+  worker?.terminate()
+  worker = null
+  if (workerURL) URL.revokeObjectURL(workerURL)
 })
 </script>
 
 <style scoped>
-/* 叶簇舒展: 从叶柄处放大淡入(内层 g 与定位 transform 解耦后由 CSS 驱动) */
-.leaf {
-  transform-box: fill-box;
-  transform-origin: 50% 100%;
-  transform: scale(0);
-  opacity: 0;
-  transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.9s ease;
-}
-
-.leaf-in {
-  transform: scale(1);
-  opacity: 1;
+/* 画布叠放: 动态层在上, 静态层累积成画 */
+canvas {
+  display: block;
 }
 </style>

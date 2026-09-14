@@ -2,7 +2,7 @@
 // Mermaid 图表渲染区块: 防抖串行渲染 + 缩放拖拽 + 导出PNG/复制/编辑源码
 // 渲染使用离屏容器, 避免临时 SVG 挂到 body 引起页面闪烁
 import {
-  Camera, CopyDocument, ZoomIn, ZoomOut, Check, Close, FullScreen, Aim, EditPen,
+  Camera, CopyDocument, ZoomIn, ZoomOut, Check, Close, FullScreen, Aim, EditPen, Lock, Unlock,
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { copyToClipboard, svgElementToPngDataUrl, triggerDownload } from '@/common/utils/export'
@@ -185,6 +185,14 @@ onBeforeUnmount(() => {
 })
 
 /* ===== 缩放 & 拖拽 ===== */
+// 交互锁定(默认锁定): 滚轮留给页面滚动, 避免浏览页面时误触缩放; 工具栏缩放/全屏仍可用
+const locked = ref(true)
+/** 切换锁定: 锁定时回到自适应位置, 解锁后自由缩放拖拽 */
+const toggleLock = () => {
+  locked.value = !locked.value
+  if (locked.value) fitToScreen()
+}
+
 const transformStyle = computed(() => ({
   transform: `translate(${tx.value}px,${ty.value}px) scale(${scale.value})`,
   transformOrigin: '0 0',
@@ -206,15 +214,18 @@ const zoomBy = (f: number) => {
 }
 
 const onWheel = (e: WheelEvent) => {
-  if (!wrapperRef.value) return
+  // 锁定时不拦截滚轮, 事件自然冒泡交给页面滚动
+  if (locked.value) return
   e.preventDefault()
-  const r = wrapperRef.value.getBoundingClientRect()
+  // 卸载瞬间 wrapper 可能已不存在, 判空防抖
+  const r = wrapperRef.value?.getBoundingClientRect()
+  if (!r) return
   zoomAt(e.clientX - r.left, e.clientY - r.top, scale.value * (e.deltaY < 0 ? 1.1 : 1 / 1.1))
 }
 
 let sx = 0, sy = 0, stx = 0, sty = 0
 const onPointerDown = (e: PointerEvent) => {
-  if (e.button !== 0) return
+  if (locked.value || e.button !== 0) return
   dragging.value = true
   sx = e.clientX
   sy = e.clientY
@@ -291,6 +302,11 @@ const cancelEdit = () => { editing.value = false }
           </el-tooltip>
         </template>
         <template v-else>
+          <el-tooltip :content="locked ? '解锁缩放拖拽' : '锁定并回到自适应'" placement="top">
+            <button class="mm-btn" :class="{ active: !locked }" @click="toggleLock">
+              <el-icon><Lock v-if="locked" /><Unlock v-else /></el-icon>
+            </button>
+          </el-tooltip>
           <el-tooltip content="导出图片" placement="top">
             <button class="mm-btn" @click="exportPng"><el-icon><Camera /></el-icon></button>
           </el-tooltip>
@@ -323,12 +339,12 @@ const cancelEdit = () => { editing.value = false }
       <textarea v-model="editCode" class="mm-textarea" spellcheck="false" placeholder="请输入 mermaid 源码" />
     </div>
 
-    <!-- 查看态: 画布(滚轮缩放 + 拖拽平移) -->
+    <!-- 查看态: 画布(锁定=滚轮交给页面滚动; 解锁后滚轮缩放 + 拖拽平移) -->
     <div
       v-else
       ref="wrapperRef"
       class="mm-canvas-wrap"
-      :class="{ dragging }"
+      :class="{ dragging, locked }"
       @wheel="onWheel"
       @pointerdown="onPointerDown"
       @pointermove="onPointerMove"
@@ -417,6 +433,11 @@ const cancelEdit = () => { editing.value = false }
 
 .mm-canvas-wrap.dragging {
   cursor: grabbing;
+}
+
+/* 锁定态: 不提示可拖拽, 滚轮交给页面滚动 */
+.mm-canvas-wrap.locked {
+  cursor: default;
 }
 
 .mm-canvas {

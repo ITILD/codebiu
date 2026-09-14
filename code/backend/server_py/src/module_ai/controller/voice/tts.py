@@ -18,6 +18,7 @@ from module_ai.dependencies.voice import get_voice_service
 from module_ai.do.voice import TTSRequest
 from module_ai.service.voice import VoiceService
 from module_ai.utils.voice.audio import pcm_to_wav_bytes
+from module_authorization.dependencies.auth import get_current_user_id_optional
 
 logger = logging.getLogger(__name__)
 
@@ -31,11 +32,12 @@ router = APIRouter()
 async def tts_file(
     req: TTSRequest,
     voice_service: VoiceService = Depends(get_voice_service),
+    current_user_id: str | None = Depends(get_current_user_id_optional),
 ):
     """文本合成语音，返回完整 WAV 音频文件
 
     - **text**: 待合成文本
-    - **engine**: 引擎方案 online/local(兼容旧值 dashscope/sherpa/qwen, 缺省按模型配置自动选择)
+    - **engine**: 引擎方案 online/local(兼容旧值 dashscope/sherpa/qwen, 缺省按用户绑定/模型配置自动选择)
     """
     if not req.text.strip():
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "文本内容为空")
@@ -45,6 +47,7 @@ async def tts_file(
         req.speaker,
         req.speed,
         req.sample_rate,
+        user_id=current_user_id,
     )
 
     wav_bytes = pcm_to_wav_bytes(pcm, sr)
@@ -65,20 +68,22 @@ async def tts_file(
 async def tts_stream(
     req: TTSRequest,
     voice_service: VoiceService = Depends(get_voice_service),
+    current_user_id: str | None = Depends(get_current_user_id_optional),
 ):
     """文本合成语音，流式返回裸 PCM(16bit 单声道)
 
     通过响应头 X-Sample-Rate 返回采样率，客户端可边收边播。
     online 方案(dashscope 协议)走 CosyVoice 流式 WebSocket 真流式; 其余回退同步切片路径。
     - **text**: 待合成文本
-    - **engine**: 引擎方案 online/local(兼容旧值 dashscope/sherpa/qwen, 缺省按模型配置自动选择)
+    - **engine**: 引擎方案 online/local(兼容旧值 dashscope/sherpa/qwen, 缺省按用户绑定/模型配置自动选择)
     """
     if not req.text.strip():
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "文本内容为空")
 
     # 先解析引擎与实际生效方案(生成器内不能 await; 失败由全局异常处理器统一返回)
     iterator, effective, is_async = await voice_service.tts_stream_async(
-        req.text, resolve_engine(req.engine), req.speaker, req.speed, req.sample_rate
+        req.text, resolve_engine(req.engine), req.speaker, req.speed, req.sample_rate,
+        user_id=current_user_id,
     )
 
     if is_async:

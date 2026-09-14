@@ -1,5 +1,8 @@
 <template>
   <div p-4 md:p-6 w-full flex flex-col gap-4>
+    <!-- 水墨页头 -->
+    <InkPageHead title="任务队列" sub="后台任务执行、重试与日志的流水账" seal="队" />
+
     <!-- 状态统计卡片(轮询刷新): 手机 2 列 / 平板及以上 4 列 -->
     <div grid grid-cols-2 md:grid-cols-4 gap-3>
       <div

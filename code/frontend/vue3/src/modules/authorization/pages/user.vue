@@ -1,5 +1,8 @@
 <template>
   <div p-4 md:p-6 w-full>
+    <!-- 水墨页头 -->
+    <InkPageHead title="用户管理" sub="账户、部门与角色授权的台账" seal="员" />
+
     <!-- 统一搜索栏: 多字段筛选 -->
     <TableSearchBar
       v-model="queryParams"

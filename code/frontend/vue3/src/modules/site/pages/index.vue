@@ -4,7 +4,7 @@
     <div v-if="canManage" class="mb-3 flex justify-end">
       <RouterLink
         to="/site/manage"
-        class="note-glow-hover flex items-center gap-1.5 rounded-full border border-note bg-note-card px-3.5 py-1.5 text-sm text-note transition-colors hover:border-note-green hover:text-note-green"
+        class="note-glow-hover flex items-center gap-1.5 rounded-full bg-note-card px-3.5 py-1.5 text-sm text-note shadow-note transition-colors hover:text-note-green"
         title="进入站点管理"
       >
         <i class="i-ep-setting" />
@@ -73,7 +73,7 @@
               v-for="post in posts"
               :key="post.id"
               type="button"
-              class="note-glow-hover rounded-xl border border-note bg-note-card shadow-note p-4 text-left hover:-translate-y-0.5"
+              class="note-glow-hover rounded-xl bg-note-card shadow-note p-4 text-left hover:-translate-y-0.5"
               @click="openRead(post)"
             >
               <div class="flex items-center gap-2">

@@ -1,12 +1,19 @@
 <template>
-  <!-- 页面级落叶: 自右上枝冠区域飘落, 贯穿整页直至页尾池塘水面渐隐;
-       纵向飘落轨道 + 横移摆动, 叶体自身旋转(可用 prefers-reduced-motion 关闭) -->
-  <div class="falling-leaves pointer-events-none absolute inset-0 z-[1] overflow-hidden" aria-hidden="true">
+  <!-- 页面级落叶: 自右上悬枝梢腹一带现身, 分段缓动飘落, 至池塘水面渐隐消失;
+       轨道高度铺满页面根, 终点按池塘实测位置回写 --fall-to
+       (prefers-reduced-motion 关闭) -->
+  <div ref="rootEl" class="falling-leaves pointer-events-none absolute inset-0 z-[1] overflow-hidden" aria-hidden="true">
     <span
       v-for="(f, i) in fallers"
       :key="`f${i}`"
       class="leaf-fall"
-      :style="{ left: `${f.left}%`, animationDuration: `${f.duration}s`, animationDelay: `${f.delay}s` }"
+      :style="{
+        left: `${f.left}%`,
+        top: `${f.top}%`,
+        '--fall-to': `${f.fallTo}%`,
+        animationDuration: `${f.duration}s`,
+        animationDelay: `${f.delay}s`,
+      }"
     >
       <i class="leaf-body">
         <svg
@@ -23,8 +30,12 @@
 </template>
 
 <script setup lang="ts">
-// 落叶参数每次刷新随机; 轨道高度铺满页面根容器,
-// 位移百分比即相对整页高度 —— 100% 处恰为页尾池塘水面
+import { onBeforeUnmount, onMounted, ref } from 'vue'
+
+// 落叶参数每次刷新随机; 轨道锚在悬枝梢腹一带(页高 6%~15%),
+// 坠落终点由池塘顶缘实测回写 —— 100% 处恰为水面
+const rootEl = ref<HTMLElement | null>(null)
+
 function mulberry32(seed: number) {
   return () => {
     seed |= 0
@@ -44,31 +55,63 @@ const pickColor = () => LEAF_COLORS[Math.floor(rand() * LEAF_COLORS.length)]
 const props = withDefaults(defineProps<{ falling?: number }>(), { falling: 5 })
 
 interface Faller {
-  left: number; size: number; duration: number; delay: number; spin: number
-  color: string
+  left: number; top: number; size: number; duration: number; delay: number; spin: number
+  color: string; fallTo: number
 }
 
-/** 落叶轨道参数(集中在右上枝冠区域生成) */
-const fallers: Faller[] = Array.from({ length: props.falling }, () => ({
+const fallers = ref<Faller[]>(Array.from({ length: props.falling }, () => ({
   left: 58 + rand() * 36,
+  top: 6 + rand() * 9, // 自悬枝梢腹现身
   size: 11 + rand() * 7,
-  duration: 14 + rand() * 8,
-  delay: -rand() * 20,
+  duration: 13 + rand() * 7,
+  delay: -rand() * 24, // 负延迟: 页面打开即处于飘落中途, 不齐步
   spin: 7 + rand() * 6,
   color: pickColor(),
-}))
+  fallTo: 74, // 占位, 挂载后按池塘位置修正
+})))
+
+/** 实测池塘顶缘占页高百分比, 修正每片叶的坠落终点 */
+function measure() {
+  const root = rootEl.value
+  if (!root) return
+  const rootRect = root.getBoundingClientRect()
+  const h = rootRect.height || 1
+  const pond = document.querySelector('.pond-stage')
+  const pondPct = pond
+    ? ((pond.getBoundingClientRect().top - rootRect.top) / h) * 100
+    : 82
+  for (const f of fallers.value) {
+    const target = Math.max(30, pondPct + 1.5 - f.top)
+    if (Math.abs(target - f.fallTo) > 2) {
+      f.fallTo = +target.toFixed(1) // 变化过小不重设, 避免动画中途跳变
+    }
+  }
+}
+
+let ro: ResizeObserver | null = null
+
+onMounted(() => {
+  measure()
+  if ('ResizeObserver' in window) {
+    ro = new ResizeObserver(measure)
+    ro.observe(document.body)
+  }
+})
+
+onBeforeUnmount(() => ro?.disconnect())
 </script>
 
 <style scoped>
-/* 落叶轨道: 高度铺满父容器(页面根), 位移百分比即相对整页高度 */
+/* 落叶轨道: 高度铺满父容器(页面根); 每段 keyframe 自带 ease-in-out,
+   形成缓降—摆动—再缓降的呼吸节奏, 而非匀速直坠 */
 .leaf-fall {
   position: absolute;
-  top: 0;
   height: 100%;
   width: 0;
   animation-name: leaf-fall;
-  animation-timing-function: linear;
+  animation-timing-function: ease-in-out;
   animation-iteration-count: infinite;
+  will-change: transform, opacity;
 }
 
 .leaf-body {
@@ -76,15 +119,31 @@ const fallers: Faller[] = Array.from({ length: props.falling }, () => ({
   inset: 0;
 }
 
-/* 飘落: 缓降 + 左右摆动 + 末端沉入水面渐隐 */
+/* 飘落: 各段横移错开成 S 形轨迹; 末端缩小渐隐(远去 + 沉入水面) */
 @keyframes leaf-fall {
-  0%   { transform: translate3d(0, -4%, 0); opacity: 0; }
-  6%   { opacity: 0.75; }
-  22%  { transform: translate3d(-18px, 24%, 0); }
-  46%  { transform: translate3d(14px, 52%, 0); }
-  70%  { transform: translate3d(-16px, 78%, 0); }
-  88%  { opacity: 0.55; }
-  100% { transform: translate3d(10px, 103%, 0); opacity: 0; }
+  0% {
+    transform: translate3d(0, -3%, 0) scale(1);
+    opacity: 0;
+  }
+  6% {
+    opacity: 0.72;
+  }
+  24% {
+    transform: translate3d(-18px, calc(var(--fall-to) * 0.24), 0);
+  }
+  48% {
+    transform: translate3d(15px, calc(var(--fall-to) * 0.48), 0);
+  }
+  72% {
+    transform: translate3d(-14px, calc(var(--fall-to) * 0.72), 0);
+  }
+  86% {
+    opacity: 0.55;
+  }
+  100% {
+    transform: translate3d(9px, var(--fall-to), 0) scale(0.82);
+    opacity: 0;
+  }
 }
 
 /* 叶体自身旋转, 与轨道解耦 */
@@ -98,8 +157,12 @@ const fallers: Faller[] = Array.from({ length: props.falling }, () => ({
 }
 
 @keyframes leaf-spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

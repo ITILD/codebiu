@@ -9,7 +9,7 @@
         v-for="chip in overviewChips"
         :key="chip.key"
         type="button"
-        class="note-glow-hover rounded-xl border border-note bg-note-card p-3 text-left shadow-note hover:-translate-y-0.5 md:p-4"
+        class="note-glow-hover rounded-xl bg-note-card p-3 text-left shadow-note hover:-translate-y-0.5 md:p-4"
         @click="active = chip.key"
       >
         <div class="flex items-center gap-1.5 text-xs text-note-sub">

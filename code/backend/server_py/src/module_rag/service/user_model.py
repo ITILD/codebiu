@@ -94,6 +94,10 @@ class UserModelService:
             (ModelType.CHAT, "chat_model_id"),
             (ModelType.EMBEDDINGS, "embedding_model_id"),
             (ModelType.RERANK, "rerank_model_id"),
+            (ModelType.ASR, "asr_model_id"),
+            (ModelType.TTS, "tts_model_id"),
+            (ModelType.VAD, "vad_model_id"),
+            (ModelType.DENOISE, "denoise_model_id"),
         )
         data = user_model.model_dump(exclude_unset=True)
         changed = False
@@ -113,7 +117,8 @@ class UserModelService:
     async def upsert(self, user_id: str, user_model: UserModelUpdate) -> UserModel:
         """
         新增或更新用户的模型绑定(存在则更新，不存在则创建)
-        绑定前归一化(默认公共模型→未绑定)并校验各模型配置的归属/共享权限
+        绑定前归一化(默认公共模型→未绑定)并校验各模型配置的归属/共享权限;
+        无存量记录且未选择任何模型时不落库(不选=跟随系统默认公共模型)
         :param user_id: 用户ID
         :param user_model: 更新数据
         :return: 绑定记录
@@ -125,6 +130,10 @@ class UserModelService:
             user_model.chat_model_id,
             user_model.embedding_model_id,
             user_model.rerank_model_id,
+            user_model.asr_model_id,
+            user_model.tts_model_id,
+            user_model.vad_model_id,
+            user_model.denoise_model_id,
         ):
             await self._validate_model_access(model_id, user_id)
         # fallback_disabled 仅接受布尔值: 显式传 null 时过滤掉(其余 None 字段为解绑语义, 保留)
@@ -136,8 +145,15 @@ class UserModelService:
         if existing:
             await self.user_model_dao.update_by_user(user_id, user_model)
             return await self.user_model_dao.get_by_user(user_id)
-        # 不存在则创建
+        # 无存量记录且本次未选择任何模型: 不选=跟随系统默认公共模型, 无需落库记录
         create_data = user_model.model_dump(exclude_unset=True)
+        has_binding = any(
+            v for k, v in create_data.items() if k.endswith("_model_id")
+        ) or bool(create_data.get("fallback_disabled"))
+        if not has_binding:
+            logger.info(f"用户 {user_id} 未选择任何模型, 跳过创建绑定记录(跟随系统默认公共模型)")
+            return UserModel(user_id=user_id)
+        # 不存在则创建
         new_record = UserModel(user_id=user_id, **create_data)
         await self.user_model_dao.add(new_record)
         # 重新查询以确保返回数据库生成的字段(id/created_at/updated_at)
@@ -200,6 +216,14 @@ class UserModelService:
                     model_id = binding.embedding_model_id
                 case ModelType.RERANK:
                     model_id = binding.rerank_model_id
+                case ModelType.ASR:
+                    model_id = binding.asr_model_id
+                case ModelType.TTS:
+                    model_id = binding.tts_model_id
+                case ModelType.VAD:
+                    model_id = binding.vad_model_id
+                case ModelType.DENOISE:
+                    model_id = binding.denoise_model_id
             binding_unset = model_id is None
         if model_id is not None:
             try:

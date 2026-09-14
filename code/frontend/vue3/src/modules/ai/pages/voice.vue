@@ -1,7 +1,7 @@
 <template>
   <div flex flex-col h-app w-full bg-note-paper>
-    <!-- 顶部引擎选择栏(方案来自 AI 服务 → 模型配置) -->
-    <div p-4 border-b bg-note-card shadow-note>
+    <!-- 顶部引擎选择栏(方案来自 AI 服务 → 模型配置); 内阴影替代硬边线 -->
+    <div class="note-edge-b" p-4 bg-note-soft>
       <div flex flex-wrap items-center gap-4>
         <span text-sm font-medium text-note>语音引擎:</span>
         <el-radio-group v-model="engine">
