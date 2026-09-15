@@ -49,5 +49,5 @@ docker run -d --name pg \
 | Docker | 数据库/部署 |
 
 <div class="note-tip">
-详细安装步骤见 <code>doc/doc_ch/开发部署/环境配置/</code> 目录。
+详细安装步骤见 <code>doc/doc_ch/01-入门/</code> 目录。
 </div>

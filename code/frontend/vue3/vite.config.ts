@@ -1,4 +1,6 @@
 import { fileURLToPath, URL } from 'node:url'
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
@@ -15,6 +17,20 @@ import IconsResolver from 'unplugin-icons/resolver' //图标插件
 // 代码根路径
 import path from 'path'
 const pathSrc = path.resolve(__dirname, 'src')
+// 打包时从 package.json 读取版本号: 注入 __APP_VERSION__ 常量 + 构建产物 version.json
+const pkgVersion = JSON.parse(readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8')).version as string
+// 构建结束把版本写入产物根目录 version.json, 供线上前端轮询检测新版本
+const versionFilePlugin = {
+  name: 'write-version-file',
+  apply: 'build' as const,
+  closeBundle() {
+    mkdirSync(resolve(__dirname, 'dist'), { recursive: true })
+    writeFileSync(
+      resolve(__dirname, 'dist', 'version.json'),
+      JSON.stringify({ version: pkgVersion }),
+    )
+  },
+}
 // 代理
 import { createProxy } from './tools/vite/proxy'; // 代理
 import { killPort } from './tools/vite/kill_port';
@@ -30,8 +46,14 @@ export default defineConfig(
       // 设置基础路径
       base: env.BASE_URL,
 
+      // 打包时注入 package.json 版本号(运行时与 version.json 比对判断是否有新版本)
+      define: {
+        __APP_VERSION__: JSON.stringify(pkgVersion),
+      },
+
       // 插件配置
       plugins: [
+        versionFilePlugin,
         vue(),
         // 自动路由(特性/模块化架构):
         // 1. src/pages            —— 全局页面(首页/后台工作台/账户设置/404 等)
