@@ -4,9 +4,9 @@
  * / 首页主应用入口卡(useVisibleApps)
  */
 import { computed } from 'vue'
-import { adminMenuItems, mainApps } from '@/common/config/menu'
-import type { MenuItem } from '@/common/config/menu'
-import { usePermission } from './usePermission'
+import { adminMenuItems, mainApps } from '@/app/config/menu'
+import type { MenuItem } from '@/app/config/menu'
+import { usePermission } from '@/common/composables/usePermission'
 import { useAuthStore } from '@/common/stores/auth'
 
 /** 按权限码过滤后的可见后台菜单(未声明 perm 的项登录即可见) */

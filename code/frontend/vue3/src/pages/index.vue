@@ -131,8 +131,8 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/common/stores/auth'
-import { useVisibleApps } from '@/common/composables/useMenu'
-import { useRecentPages } from '@/common/composables/useRecentPages'
+import { useVisibleApps } from '@/app/composables/useMenu'
+import { useRecentPages } from '@/app/composables/useRecentPages'
 // 诗意场景装饰: 分形悬枝与涟漪小池(纯 SVG, 零图片依赖) + 页面级落叶
 import FractalBranch from '@/common/components/decor/FractalBranch.vue'
 import FallingLeaves from '@/common/components/decor/FallingLeaves.vue'

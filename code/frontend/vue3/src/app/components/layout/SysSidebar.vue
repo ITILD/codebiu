@@ -111,14 +111,14 @@ import { Expand, Fold } from '@element-plus/icons-vue'
 import { RouterStore } from '@/common/stores/router'
 import { SysSettingStore } from '@/common/stores/sys'
 import { useResponsive } from '@/common/composables/useResponsive'
-import { useVisibleMenu } from '@/common/composables/useMenu'
+import { useVisibleMenu } from '@/app/composables/useMenu'
 
 const routerStore = RouterStore()
 const sysSettingStore = SysSettingStore()
 // 响应式断点: 常驻侧边栏仅平板及以上显示, 折叠态跟随桌面档
 const { isMd, isLg } = useResponsive()
 const TITLE = import.meta.env.VITE_GLOB_APP_TITLE
-// 菜单数据与权限过滤统一来自共享层(common/config/menu.ts + useMenu)
+// 菜单数据与权限过滤统一来自应用外壳层(app/config/menu.ts + app/composables/useMenu)
 const { visibleMenuItems } = useVisibleMenu()
 
 // 三档响应式折叠: 手机(<768)抽屉 / 平板(768-1023)默认折叠图标栏 / 桌面(>=1024)默认展开

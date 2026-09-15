@@ -31,7 +31,7 @@ import { markRaw, computed } from 'vue'
 import { Monitor, Setting, SwitchButton } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/common/stores/auth'
 import { logoutUser } from '@/modules/authorization/api/auth'
-import { useVisibleMenu } from '@/common/composables/useMenu'
+import { useVisibleMenu } from '@/app/composables/useMenu'
 import UserLoginIcon from './UserLoginIcon.vue'
 
 const router = useRouter()
