@@ -17,10 +17,10 @@
 </template>
 
 <script setup lang="ts">
-// 分形规范: 深度≤6, 折线段≈14px, 每段向重力(90°)收敛 0.045×(0.5+depth×0.35) + 随机扰动;
-// 子枝长衰减 0.70~0.84、粗细衰减 0.58~0.72、张角 0.30~0.78rad, 末端 2~3 叉, 中段侧枝概率 0.55;
-// 出生时刻 = 父枝长成 + 40~200ms, 单枝时长 ∝ 枝长 → P1 抽主干(叶≤0.07) → P2 二级枝(0.28)
-// → P3 细枝成簇(0.62) → P4 最细枝垂出卡底、叶收定型, 总时长≈4.5~6s
+// 分形规范: 深度≤6, 每枝折线段 11~18px(逐枝随机), 段向重力(90°)收敛 0.045×(0.5+depth×0.35) + 随机扰动;
+// 子枝长/粗衰减逐子独立抽取: 长 0.58~0.95、粗 0.55~0.75, 兄弟枝长短错落; 张角 0.30~0.78rad, 末端 2~3 叉, 中段侧枝概率 0.55;
+// 叶: 沿途基准 P1 稀(0.06) → P2(0.26) → P3(0.48) → P4+(0.34), 每枝再乘独立疏密因子 0.5~1.5;
+// 末梢端簇 0~3 片强随机(三成枝头留白); 归一化双向缩放, 保证最深梢连同下垂叶尖(≤26px)全部落在容器内(杜绝底缘平切)
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 
 interface InkBranch {
@@ -51,7 +51,6 @@ function generateStructure(seed: number, w: number, h: number): InkStructure {
   const leaves: InkLeaf[] = []
   const DOWN = Math.PI / 2
   const SPEED = 0.0056 + rng() * 0.0012 // s/px: 单枝生长时长 ∝ 枝长
-  const SEG = 14
 
   const leaf = (x: number, y: number, angle: number, born: number) => {
     leaves.push({ x, y, angle, born, len: 13 + rng() * 11, a: 0.18 + rng() * 0.34, tone: rng() })
@@ -59,7 +58,8 @@ function generateStructure(seed: number, w: number, h: number): InkStructure {
 
   const branch = (x: number, y: number, angle: number, len: number, width: number, depth: number, birth: number) => {
     if (branches.length >= 900 || len < 10) return
-    const segs = Math.max(2, Math.round(len / SEG))
+    const seg = 11 + rng() * 7 // 每枝折线段长随机 → 运笔节奏枝枝不同
+    const segs = Math.max(2, Math.round(len / seg))
     const gGain = 0.045 * (0.5 + depth * 0.35) // 重力项: 越细越垂
     const pts: number[] = [x, y]
     let a = angle
@@ -69,8 +69,8 @@ function generateStructure(seed: number, w: number, h: number): InkStructure {
       a += (DOWN - a) * gGain + (rng() - 0.5) * 0.24
       if (cx < w * 0.05) a -= 0.3 // 左缘内侧回摆, 防止出画被裁
       if (cx > w * 0.985) a += 0.3
-      cx += Math.cos(a) * SEG
-      cy += Math.sin(a) * SEG
+      cx += Math.cos(a) * seg
+      cy += Math.sin(a) * seg
       pts.push(cx, cy)
     }
     const dur = len * SPEED * (0.85 + rng() * 0.3)
@@ -78,9 +78,10 @@ function generateStructure(seed: number, w: number, h: number): InkStructure {
     branches.push({ pts, birth, dur, depth, width, coreA, haloA: 0.06 + rng() * 0.05 })
     const end = birth + dur
 
-    // 沿途挂叶: P1 稀(≤0.07) → P2 中(0.28) → P3 成簇(0.62);
+    // 沿途挂叶: P1 稀(0.06) → P2 中(0.26) → P3 偏密(0.48) → P4+ 疏(0.34);
+    // 每枝再乘独立疏密因子 0.5~1.5 → 枝与枝之间忽疏忽密;
     // 叶尖整体垂坠(参考竹叶): 以重力 90° 为主, 混入枝条走向与随机扰动
-    const leafProb = depth <= 1 ? 0.06 : depth === 2 ? 0.28 : 0.62
+    const leafProb = (depth <= 1 ? 0.06 : depth === 2 ? 0.26 : depth === 3 ? 0.48 : 0.34) * (0.5 + rng())
     for (let i = 1; i < segs; i++) {
       if (rng() < leafProb) {
         leaf(
@@ -91,9 +92,10 @@ function generateStructure(seed: number, w: number, h: number): InkStructure {
       }
     }
 
-    // 末梢: 端簇叶收笔(垂坠展开)
+    // 末梢: 端簇叶收笔(垂坠展开); 数量强随机 —— 三成枝头留白, 其余 1~3 片
     if (depth >= 6) {
-      const n = 2 + Math.floor(rng() * 3)
+      const r = rng()
+      const n = r < 0.32 ? 0 : r < 0.72 ? 1 + Math.floor(rng() * 2) : 2 + Math.floor(rng() * 2)
       for (let i = 0; i < n; i++) {
         leaf(cx, cy, 55.8 + (a * 180) / Math.PI * 0.38 + (rng() - 0.5) * 130, end + rng() * 0.3)
       }
@@ -101,39 +103,39 @@ function generateStructure(seed: number, w: number, h: number): InkStructure {
     }
 
     const childBirth = end + 0.04 + rng() * 0.16 // 出生 = 父枝长成 + 40~200ms
-    const lenDecay = 0.7 + rng() * 0.14
-    const widthDecay = 0.58 + rng() * 0.14
     const fork = 0.3 + rng() * 0.48
 
-    // 中段侧枝: 自 55%~80% 处斜出
+    // 中段侧枝: 自 55%~80% 处斜出(长度/粗细独立随机, 与末端子枝错落)
     if (depth >= 1 && rng() < 0.55) {
       const idx = Math.max(1, Math.floor(segs * (0.55 + rng() * 0.25)))
       branch(
         pts[idx * 2], pts[idx * 2 + 1],
         a + fork * (rng() < 0.5 ? -1 : 1),
-        len * lenDecay * 0.72, width * widthDecay, depth + 1,
+        len * (0.42 + rng() * 0.3), width * (0.55 + rng() * 0.2), depth + 1,
         birth + (idx / segs) * dur + 0.04 + rng() * 0.12,
       )
     }
 
-    // 末端 2~3 叉
+    // 末端 2~3 叉: 每个子枝长/粗独立抽取(长 0.58~0.95), 兄弟枝长短参差
     const n = 2 + (rng() < 0.2 ? 1 : 0)
     const base = a + (rng() - 0.5) * 0.2
     for (let i = 0; i < n; i++) {
-      branch(cx, cy, base + (i - (n - 1) / 2) * fork + (rng() - 0.5) * 0.14, len * lenDecay, width * widthDecay, depth + 1, childBirth + i * 0.05)
+      branch(cx, cy, base + (i - (n - 1) / 2) * fork + (rng() - 0.5) * 0.14, len * (0.58 + rng() * 0.37), width * (0.55 + rng() * 0.2), depth + 1, childBirth + i * 0.05)
     }
   }
 
   // 入笔: 容器右上外侧, 初始方向左下≈115°, 主干长度决定整体垂坠幅度
   branch(w - 6, 4, (115 * Math.PI) / 180, h * (0.26 + rng() * 0.05), 3.2, 0, 0.05)
 
-  // 归一化: 树冠过浅时整体等比放大, 保证最深梢垂到容器底缘(即卡片下端之外)
+  // 归一化: 双向等比缩放(树冠过浅放大、过深缩小), 保证最深梢连同其下垂叶尖
+  // (叶长≤24px, 留 26px 底部余量)全部落在容器内 —— 树冠超出容器时若不缩,
+  // 枝叶会在 Canvas 底缘被齐切出一条水平断口, 视觉上像被下方内容截断
   let maxY = 0
   for (const b of branches) {
     for (let i = 1; i < b.pts.length; i += 2) maxY = Math.max(maxY, b.pts[i])
   }
-  const s = Math.min((h - 6) / Math.max(maxY, 1), 1.35)
-  if (s > 1.002) {
+  const s = Math.min((h - 26) / Math.max(maxY, 1), 1.35)
+  if (s > 1.002 || s < 0.998) {
     for (const b of branches) {
       for (let i = 0; i < b.pts.length; i += 2) {
         b.pts[i] *= s

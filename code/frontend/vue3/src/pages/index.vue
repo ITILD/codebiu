@@ -6,7 +6,7 @@
     <!-- Hero: 自然笔记大纸片(苔绿渐变+格线+纸纤维顶盖), 登录态感知;
          不裁剪溢出 —— 水墨生长枝(Canvas)自卡内右上生发并垂出卡底 -->
     <section
-      class="paper-sheet"
+      class="paper-sheet z-10"
       relative
       rounded-2xl
       border-note
