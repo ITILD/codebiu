@@ -9,6 +9,9 @@ class EmailConfig(BaseModel):
     sender_email: str = Field(..., description="发件人邮箱")
     sender_password: SecretStr = Field(..., description="SMTP授权码(敏感字段)")
     sender_name: str = Field(default="系统通知", description="发件人显示名称")
+    use_for_register: bool = Field(
+        default=False, description="是否用于注册(开启后注册需邮箱验证码确认)"
+    )
 
     class Config:
         json_encoders = {

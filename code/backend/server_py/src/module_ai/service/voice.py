@@ -11,11 +11,14 @@ import logging
 from collections.abc import AsyncIterator
 from typing import Iterator, Tuple
 
+import numpy as np
+
 from module_ai.config.voice import VOICE_ASR_SAMPLE_RATE
 from module_ai.dao.model_config import ModelConfigDao
 from module_ai.do.model_config import ModelConfig
 from module_ai.do.voice import VoiceEngine
 from module_ai.utils.voice.asr import LocalASR, OnlineASR
+from module_ai.utils.voice.audio import pcm16_to_float32
 from module_ai.utils.voice.denoise import SherpaDenoise
 from module_ai.utils.voice.interface import ASREngine, DenoiseEngine, TTSEngine, VADEngine
 from module_ai.utils.voice.tts import LocalTTS, OnlineTTS
@@ -40,13 +43,76 @@ _ENGINE_CLASSES: dict[str, dict[str, type]] = {
 
 
 def _engine_conf(config: ModelConfig | None) -> dict:
-    """ModelConfig -> 引擎配置字典(extra 展平, model 字段优先)"""
+    """ModelConfig -> 引擎配置字典(extra 展平, 顶层字段回填, extra 可显式覆盖)"""
     if config is None:
         return {}
     conf = dict(config.extra or {})
-    # model 字段优先(extra 中可被显式覆盖)
+    # 顶层字段回填(extra 中同名键优先): model/api_key/url/timeout 均为引擎所需
     conf.setdefault("model", config.model)
+    conf.setdefault("api_key", config.api_key)
+    conf.setdefault("url", config.url)
+    conf.setdefault("timeout", config.timeout)
     return conf
+
+
+class ASRStreamSession:
+    """流式 ASR 会话: 封装 ASR 流式会话 + 可选服务端 VAD 静音过滤
+
+    音频格式: 16kHz 16bit 单声道 PCM(与前端麦克风采集一致)
+    """
+
+    # 流式 ASR 期望的 PCM 采样率(sherpa 流式识别固定 16kHz)
+    SAMPLE_RATE = VOICE_ASR_SAMPLE_RATE
+
+    def __init__(self, asr: ASREngine, stream, vad: VADEngine | None = None):
+        self._asr = asr
+        self._stream = stream
+        self._vad = vad
+        # VAD 构建失败原因(None 表示 VAD 正常或未启用; 供上层提示客户端)
+        self.vad_error: str | None = None
+
+    async def accept(self, pcm_bytes: bytes) -> None:
+        """送入一帧 16kHz 16bit 单声道 PCM(启用 VAD 时仅语音段入流, 静音丢弃)"""
+        if self._vad is not None:
+            samples = pcm16_to_float32(pcm_bytes)
+            self._vad.accept_waveform(samples)
+            await self._feed_segments()
+        else:
+            await self._asr.stream_accept_async(self._stream, pcm_bytes, self.SAMPLE_RATE)
+
+    async def result(self, is_final: bool = False) -> str:
+        """获取当前识别文本"""
+        return await self._asr.stream_result_async(self._stream, is_final=is_final)
+
+    async def finish(self) -> str:
+        """结束识别: flush 尾部未决语音段并返回最终文本"""
+        if self._vad is not None:
+            self._vad.flush()  # 弹出尾部未决语音段送识别
+            await self._feed_segments()
+        return await self.result(is_final=True)
+
+    async def close(self) -> None:
+        """销毁流式会话并重置 VAD(幂等, 异常静默)"""
+        try:
+            await self._asr.stream_destroy_async(self._stream)
+        except Exception:
+            pass
+        if self._vad is not None:
+            try:
+                self._vad.reset()
+            except Exception:
+                pass
+        self._stream = None
+
+    async def _feed_segments(self) -> None:
+        """弹出 VAD 已检测到的全部语音段送入 ASR 流式会话"""
+        while self._vad.is_speech_detected():
+            segment = self._vad.pop_speech_segment()
+            if segment is None:
+                break
+            seg, _start = segment
+            pcm16 = np.clip(seg, -1.0, 1.0).astype(np.int16).tobytes()
+            await self._asr.stream_accept_async(self._stream, pcm16, self.SAMPLE_RATE)
 
 
 class VoiceService:
@@ -137,6 +203,27 @@ class VoiceService:
         result = await self._resolve_engine("asr", engine, user_id)
         return result  # type: ignore[return-value]
 
+    async def create_asr_stream(
+        self, engine: VoiceEngine | None = None, user_id: str | None = None, use_vad: bool = False
+    ) -> ASRStreamSession:
+        """创建流式 ASR 会话(可选服务端 VAD 静音过滤)
+
+        :param use_vad: 启用 VAD 时仅语音段送识别(VAD 构建失败自动降级为无 VAD, 原因记录在 session.vad_error)
+        :raises Exception: ASR 引擎/流式会话初始化失败时抛出(交由调用方处理)
+        """
+        asr = await self.get_asr(engine, user_id)
+        stream = await asr.create_stream_async()
+        vad = None
+        if use_vad:
+            try:
+                vad = await self.get_vad(user_id=user_id)
+            except Exception as e:
+                logger.warning(f"VAD 引擎获取失败, 忽略 vad 参数: {e}")
+                session = ASRStreamSession(asr, stream, None)
+                session.vad_error = str(e)
+                return session
+        return ASRStreamSession(asr, stream, vad)
+
     async def get_tts(
         self, engine: VoiceEngine | None = None, user_id: str | None = None
     ) -> TTSEngine:
@@ -212,6 +299,9 @@ class VoiceService:
     ) -> Tuple[bytes, int]:
         """语音合成(未指定 engine 时按用户绑定/全局配置自动选择方案)"""
         tts = await self.get_tts(engine, user_id)
+        # 在线引擎优先走异步路径(dashscope 协议经 CosyVoice WebSocket, HTTP 端点已不支持)
+        if hasattr(tts, "synthesize_async"):
+            return await tts.synthesize_async(text, speaker, speed, sample_rate)  # type: ignore[attr-defined]
         return tts.synthesize(text, speaker, speed, sample_rate)
 
     async def tts_stream(
@@ -229,7 +319,7 @@ class VoiceService:
         """
         # 先同步解析引擎(生成器内不能 await)
         tts = await self.get_tts(engine, user_id)
-        effective = await self._effective_engine("tts", engine, user_id)
+        effective = await self.effective_engine("tts", engine, user_id)
         return tts.synthesize_stream(text, speaker, speed, sample_rate), effective
 
     async def tts_stream_async(
@@ -246,17 +336,22 @@ class VoiceService:
         :return: (分块迭代器[Async|Sync], 实际生效引擎, 是否异步迭代器)
         """
         tts = await self.get_tts(engine, user_id)
-        effective = await self._effective_engine("tts", engine, user_id)
+        effective = await self.effective_engine("tts", engine, user_id)
         # 异步生成器函数调用时不会执行方法体, NotImplementedError 要到首个 __anext__ 才抛出,
         # 因此通过"是否覆写基类方法"判断真异步支持(如 LocalTTS 未覆写则回退同步切片路径)
         if type(tts).synthesize_stream_async is not TTSEngine.synthesize_stream_async:
             return tts.synthesize_stream_async(text, speaker, speed, sample_rate), effective, True
         return tts.synthesize_stream(text, speaker, speed, sample_rate), effective, False
 
-    async def _effective_engine(
+    async def effective_engine(
         self, model_type: str, engine: VoiceEngine | None, user_id: str | None = None
     ) -> VoiceEngine:
-        """计算实际生效方案(用户绑定 → 全局配置自身方案; 无配置时回落 local)"""
+        """计算实际生效方案(用户绑定 → 全局配置自身方案; 无配置时回落 local)
+
+        :param model_type: 模型类型(asr/tts/vad/denoise)
+        :param engine: 请求指定的方案(None 时按用户绑定/全局配置推导)
+        :return: 实际生效的引擎方案(供响应回显真实方案)
+        """
         if engine is not None:
             return engine
         config = await self._resolve_user_config(model_type, user_id)

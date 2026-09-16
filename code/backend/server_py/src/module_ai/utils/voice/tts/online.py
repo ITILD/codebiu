@@ -1,7 +1,7 @@
 """在线(online) TTS 引擎
 
 protocol 分派(配置 extra.protocol, 缺省 dashscope):
-- dashscope: 百炼 CosyVoice 流式 WebSocket(逐块返回 PCM) / 非流式回退现有 HTTP 实现
+- dashscope: 百炼 CosyVoice WebSocket(逐块返回 PCM), 整段合成亦经 WS 收集(HTTP 端点已不支持 cosyvoice 系模型)
 - openai: OpenAI 兼容 /v1/audio/speech(本地 vllm 等发布端), 仅整段合成
 """
 import logging
@@ -46,6 +46,24 @@ class OnlineTTS(TTSEngine):
         """同步流式(dashscope 整段切片; controller 优先走 synthesize_stream_async)"""
         yield from self._sync_engine.synthesize_stream(text, speaker, speed, sample_rate)
 
+    async def synthesize_async(
+        self, text: str, speaker: int = 0, speed: float = 1.0, sample_rate: int = 22050
+    ) -> Tuple[bytes, int]:
+        """整段合成(异步优先): dashscope 协议经 CosyVoice WebSocket 收集全量 PCM"""
+        if self._protocol != "dashscope":
+            import asyncio
+
+            return await asyncio.to_thread(self.synthesize, text, speaker, speed, sample_rate)
+        chunks: list[bytes] = []
+        out_sr = sample_rate
+        async for pcm, sr, _is_final in self.synthesize_stream_async(
+            text, speaker, speed, sample_rate
+        ):
+            if pcm:
+                chunks.append(pcm)
+            out_sr = sr
+        return b"".join(chunks), out_sr
+
     async def synthesize_stream_async(
         self, text: str, speaker: int = 0, speed: float = 1.0, sample_rate: int = 22050
     ) -> AsyncIterator[Tuple[bytes, int, bool]]:
@@ -62,7 +80,8 @@ class OnlineTTS(TTSEngine):
         ws_conf = dict(self._conf)
         from module_ai.config.voice import VOICE_ONLINE_WS_URL
 
-        ws_conf.setdefault("url", VOICE_ONLINE_WS_URL)
+        # 配置 url 为 REST 端点, WS 端点单独取默认值(仅 extra.ws_url 可覆盖)
+        ws_conf["url"] = ws_conf.pop("ws_url", None) or VOICE_ONLINE_WS_URL
         ws_conf["rate"] = speed
         if speaker:
             ws_conf.setdefault("voice", str(speaker))

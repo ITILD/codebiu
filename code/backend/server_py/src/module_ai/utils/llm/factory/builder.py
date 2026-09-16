@@ -160,9 +160,10 @@ def build_rerank_model(config: ModelConfig) -> Rerank:
             score_min=score_min,
             score_max=score_max,
         )
-    if config.server_type == ModelServerType.VLLM:
+    if config.server_type in (ModelServerType.VLLM, ModelServerType.OPENAI):
         from module_ai.utils.llm.rerank.impl.vllm import VllmRerank
 
+        # openai 兼容 rerank 协议(query/documents 顶层传)与 vLLM /v1/rerank 同构, 复用 VllmRerank
         return VllmRerank(
             model=config.model,
             base_url=config.url or "http://localhost:10002/v1/rerank",

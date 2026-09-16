@@ -13,5 +13,6 @@ if conf.email:
         sender_email=conf.email.sender_email,
         sender_password=conf.email.sender_password,
         sender_name=conf.email.sender_name,
+        use_for_register=conf.email.get("use_for_register", False),
     )
 

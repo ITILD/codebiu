@@ -21,6 +21,15 @@
           <el-input v-model="registerForm.email" :placeholder="$t('email')" autocomplete="email" />
         </el-form-item>
 
+        <el-form-item v-if="emailVerify" label="邮箱验证码" prop="code">
+          <div flex gap-8px w-full>
+            <el-input v-model="registerForm.code" placeholder="请输入邮箱验证码" autocomplete="one-time-code" />
+            <el-button :disabled="countdown > 0" :loading="codeSending" @click="handleSendCode">
+              {{ countdown > 0 ? `${countdown}s 后重发` : '发送验证码' }}
+            </el-button>
+          </div>
+        </el-form-item>
+
         <el-form-item label="密码" prop="password">
           <el-input v-model="registerForm.password" type="password" placeholder="请输入密码" autocomplete="new-password"
             show-password />
@@ -50,7 +59,7 @@
 <script setup lang="ts">
 import { ElMessage } from 'element-plus'
 import type { FormInstance } from 'element-plus'
-import { registerUser } from '../api/auth'
+import { getRegisterConfig, registerUser, sendRegisterCode } from '../api/auth'
 import type { AuthRegisterRequest, AuthResponse } from '../types/auth'
 // 定义组件属性
 const props = defineProps<{
@@ -76,12 +85,21 @@ const registerFormRef = ref<FormInstance>()
 // 加载状态
 const loading = ref(false)
 
+// 注册是否需要邮箱验证码(由后端 email.use_for_register 决定)
+const emailVerify = ref(false)
+// 验证码发送中
+const codeSending = ref(false)
+// 验证码重发倒计时(秒)
+const countdown = ref(0)
+let countdownTimer: ReturnType<typeof setInterval> | undefined
+
 // 注册表单数据
 const registerForm = reactive({
   username: '',
   email: '',
   password: '',
-  confirmPassword: ''
+  confirmPassword: '',
+  code: ''
 })
 
 // 表单验证规则
@@ -93,6 +111,10 @@ const registerRules = {
   email: [
     { required: true, message: '请输入邮箱地址', trigger: 'blur' },
     { type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' }
+  ],
+  // 未开启邮箱验证时该表单项不渲染, 规则不会生效
+  code: [
+    { required: true, message: '请输入邮箱验证码', trigger: 'blur' }
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
@@ -113,10 +135,59 @@ const registerRules = {
   ]
 }
 
+// 获取注册配置(是否开启邮箱验证码)
+const loadRegisterConfig = async () => {
+  try {
+    const config = await getRegisterConfig()
+    emailVerify.value = config.email_verify
+  } catch (error) {
+    // 配置获取失败时按无需验证码处理, 避免阻塞注册
+    console.error('获取注册配置失败:', error)
+    emailVerify.value = false
+  }
+}
+
+// 打开弹窗时同步注册配置
+watch(visible, (val) => {
+  if (val) loadRegisterConfig()
+})
+
+// 启动验证码重发倒计时
+const startCountdown = () => {
+  countdown.value = 60
+  countdownTimer = setInterval(() => {
+    countdown.value -= 1
+    if (countdown.value <= 0) clearInterval(countdownTimer)
+  }, 1000)
+}
+
+// 发送邮箱验证码
+const handleSendCode = async () => {
+  if (!registerFormRef.value) return
+  // 先校验邮箱格式, 校验不通过不发送
+  try {
+    await registerFormRef.value.validateField('email')
+  } catch {
+    return
+  }
+  codeSending.value = true
+  try {
+    await sendRegisterCode(registerForm.email)
+    ElMessage.success('验证码已发送，请查收邮箱')
+    startCountdown()
+  } catch (error) {
+    ElMessage.error((error as { message?: string }).message || '验证码发送失败')
+  } finally {
+    codeSending.value = false
+  }
+}
+
 // 关闭弹窗
 const handleClose = () => {
   visible.value = false
-  // 重置表单
+  // 停止倒计时并重置表单
+  clearInterval(countdownTimer)
+  countdown.value = 0
   registerFormRef.value?.resetFields()
 }
 
@@ -132,7 +203,9 @@ const handleRegister = async () => {
         const registerData: AuthRegisterRequest = {
           username: registerForm.username,
           password: registerForm.password,
-          email: registerForm.email
+          email: registerForm.email,
+          // 开启邮箱验证时需携带验证码
+          ...(emailVerify.value ? { code: registerForm.code } : {})
         }
         // 调用注册API
         const authResponse: AuthResponse = await registerUser(registerData)
@@ -157,6 +230,9 @@ const handleBackToLogin = () => {
   handleClose()
   emit('back-to-login')
 }
+
+// 组件卸载时清理倒计时
+onBeforeUnmount(() => clearInterval(countdownTimer))
 
 
 </script>

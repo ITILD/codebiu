@@ -92,12 +92,17 @@ class _FakeConfig:
 
     def __init__(self, server_type, model: str = "qwen3-asr-flash",
                  extra: dict | None = None, cfg_id: str = "cfg_1",
-                 updated_at: str = "2026-01-01T00:00:00"):
+                 updated_at: str = "2026-01-01T00:00:00",
+                 api_key: str = "", url: str | None = None, timeout: int = 60):
         self.id = cfg_id
         self.updated_at = updated_at
         self.server_type = server_type
         self.model = model
         self.extra = extra or {}
+        # 顶层字段回填所需(service._engine_conf 读取)
+        self.api_key = api_key
+        self.url = url
+        self.timeout = timeout
 
 
 # ==================== OnlineASR: 协议分派与伪流式 ====================
@@ -319,13 +324,13 @@ async def test_asr_preprocess_denoise_vad_pipeline():
     seen_amplitudes: list[float] = []
     call_index = {"n": 0}
 
-    async def _fake_denoise():
+    async def _fake_denoise(user_id=None):
         return _StubDenoise()
 
-    async def _fake_vad():
+    async def _fake_vad(user_id=None):
         return _StubVAD()
 
-    async def _fake_asr(audio_bytes: bytes, engine=None) -> str:
+    async def _fake_asr(audio_bytes: bytes, engine=None, user_id=None) -> str:
         decoded, _sr = load_audio(audio_bytes)
         seen_amplitudes.append(float(np.abs(decoded).max()))
         text = f"T{call_index['n']}"
@@ -352,10 +357,10 @@ async def test_asr_preprocess_without_vad():
     service = VoiceService(model_config_dao=_StubDao({}))
     calls: list[bytes] = []
 
-    async def _fake_denoise():
+    async def _fake_denoise(user_id=None):
         return _StubDenoise()
 
-    async def _fake_asr(audio_bytes: bytes, engine=None) -> str:
+    async def _fake_asr(audio_bytes: bytes, engine=None, user_id=None) -> str:
         calls.append(audio_bytes)
         return "整段结果"
 
