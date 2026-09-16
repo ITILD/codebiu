@@ -1,0 +1,56 @@
+/* ============================================
+   登录/注册弹窗: 自然笔记风(模块级样式)
+   - 弹窗为 append-to-body 传送门, 脱离组件样式作用域, 需全局命名空间样式;
+     集中放在 authorization 模块内, 由 LoginDialog/RegisterDialog 按需引入,
+     不再占用 base.css 全局位, 避免污染其他页面。
+   - 可原子化的部分(auth-head/auth-title/auth-seal)已改用模板内 UnoCSS 原子类。
+   ============================================ */
+.auth-note-dialog {
+    position: relative;
+    --el-dialog-border-radius: 18px;
+    background: linear-gradient(165deg, var(--note-grad-from) 0%, var(--note-grad-via) 46%, var(--note-grad-to) 100%);
+    box-shadow: 0 24px 60px -24px rgba(63, 83, 72, 0.4);
+}
+
+/* 纸纤维顶盖: 纹理"印"进表单, 与全站纸片一致 */
+.auth-note-dialog::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background-image: var(--note-grain);
+    background-size: 260px 260px;
+    mix-blend-mode: overlay;
+    opacity: 0.4;
+}
+
+.auth-note-dialog .el-dialog__header {
+    padding: 22px 24px 12px;
+    margin-right: 0;
+}
+
+/* 题下渐隐分隔线(替代生硬边线) */
+.auth-note-dialog .el-dialog__header::after {
+    content: '';
+    display: block;
+    height: 1px;
+    margin-top: 12px;
+    background: linear-gradient(
+        to right,
+        transparent,
+        var(--note-edge-soft) 12%,
+        var(--note-edge-soft) 88%,
+        transparent
+    );
+}
+
+.auth-note-dialog .el-dialog__body {
+    padding: 16px 24px 24px;
+}
+
+/* 表单标签与底注: 淡绿灰, 融入纸面 */
+.auth-note-dialog .el-form-item__label {
+    color: var(--note-sub);
+    font-size: 13px;
+}

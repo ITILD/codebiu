@@ -196,12 +196,16 @@ async def update_task_fields(
     """
     from datetime import datetime, timezone
 
-    from module_task.do.task import TaskQueue
+    from module_task.do.task import QueueTaskStatus, TaskQueue
 
     async with db_manager.db_rel.session_factory() as session:
         async with session.begin():
             task = await session.get(TaskQueue, task_id)
             if task is None:
+                return
+            # 终态保护: 取消/撤销后 worker 的后续回写不再生效(防止取消被进度/收尾回写复活),
+            # 成功/失败终态同样不回退(避免旧 worker 晚到覆盖新状态)
+            if task.status not in (QueueTaskStatus.PENDING, QueueTaskStatus.RUNNING):
                 return
             if status is not None:
                 task.status = status

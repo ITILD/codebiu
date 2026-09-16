@@ -113,6 +113,11 @@ MODEL_CAPABILITIES: dict[str, list[tuple[str, str]]] = {
     ModelType.CHAT.value: [("chat", "问答"), ("structured", "结构化"), ("vision", "多模态")],
     ModelType.EMBEDDINGS.value: [("embedding", "向量化")],
     ModelType.RERANK.value: [("rerank", "重排")],
+    # 语音类: 用模拟音频对引擎做冒烟验证(通过=引擎可用不抛异常)
+    ModelType.ASR.value: [("asr", "识别")],
+    ModelType.TTS.value: [("tts", "合成")],
+    ModelType.VAD.value: [("vad", "断句")],
+    ModelType.DENOISE.value: [("denoise", "降噪")],
 }
 
 

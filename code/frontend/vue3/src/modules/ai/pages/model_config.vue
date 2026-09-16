@@ -39,11 +39,11 @@
               <span>{{ modelMainLabel(row) }}</span>
               <el-tag v-if="row.is_default" type="warning" size="small">默认</el-tag>
               <el-tag v-if="row.is_active === false" type="info" size="small">不生效</el-tag>
-              <!-- 能力标签: 最近一次测试结果持久化展示(通过=能力色, 失败=红); 未测试过回退旧校验字段 -->
+              <!-- 能力标签: 最近一次测试结果持久化展示(通过=绿色, 失败=红色, 仅颜色区分); 未测试过回退旧校验字段 -->
               <template v-if="row.check_result">
                 <el-tooltip v-for="cap in testedCapabilities(row)" :key="cap.key"
                   :content="cap.ok ? (cap.detail || '测试通过') : (cap.error || '测试未通过')" placement="top">
-                  <el-tag :type="cap.ok ? (capabilityTagType[cap.key] ?? 'success') : 'danger'" size="small" effect="light">
+                  <el-tag :type="cap.ok ? 'success' : 'danger'" size="small" effect="light">
                     {{ cap.label }}
                   </el-tag>
                 </el-tooltip>
@@ -295,7 +295,6 @@ import {
   modelMainLabel,
   extraKeyHints,
   LOCAL_SERVER_OPTIONS,
-  capabilityTagType,
   testedCapabilities,
   type ModelConfig,
   type ModelConfigCreate,

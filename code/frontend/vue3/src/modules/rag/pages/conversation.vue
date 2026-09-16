@@ -159,6 +159,9 @@
                 <button
                   class="think-btn"
                   :class="{ active: deepThinking }"
+                  flex items-center gap-1 py-1.5 px-3 rounded-full border border-transparent
+                  bg-note-tint text-note-sub hover:text-note text-xs whitespace-nowrap cursor-pointer
+                  note-transition
                   @click="deepThinking = !deepThinking"
                 >
                   <el-icon :size="13"><MagicStick /></el-icon>
@@ -531,26 +534,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* 深度思考胶囊按钮(与输入卡内知识库选择器统一风格) */
-.think-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 12px;
-  border-radius: 9999px;
-  border: 1px solid transparent;
-  background: var(--note-tint, #e7f3e9);
-  color: var(--note-sub, #6b7f6e);
-  font-size: 12px;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.think-btn:hover {
-  color: var(--note, #2f5d43);
-}
-
+/* 深度思考胶囊按钮: 静态样式已 UnoCSS 化到模板, 此处仅保留依赖 JS 状态类的激活态 */
 .think-btn.active {
   background: var(--el-bg-color, #fff);
   border-color: var(--note-green, #6cbf8f);

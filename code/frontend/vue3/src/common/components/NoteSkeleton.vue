@@ -19,7 +19,7 @@ const props = withDefaults(defineProps<Props>(), {
   <!-- 文章卡片骨架: 与博客列表卡(p-4, 标题+两行摘要+元信息)同尺寸 -->
   <div
     v-if="variant === 'post'"
-    class="rounded-xl bg-note-card shadow-note p-4 overflow-hidden"
+    class="rounded-note-md bg-note-card shadow-note p-4 overflow-hidden"
     aria-hidden="true"
   >
     <div class="flex items-center gap-2">

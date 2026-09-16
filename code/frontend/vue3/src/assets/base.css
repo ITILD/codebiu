@@ -258,26 +258,12 @@ html.dark .paper-sheet::after {
     background: var(--note-scrollbar-hover);
 }
 
-/* 笔记本格线背景(横线纸) */
-.note-lined-paper {
-    background-image: repeating-linear-gradient(
-        transparent,
-        transparent 27px,
-        rgba(107, 158, 120, 0.1) 28px
-    );
-}
-
-/* 笔记本侧边装订线(红色竖线太重,用苔绿竖虚线) */
-.note-margin-line {
-    background-image: linear-gradient(to right, transparent 40px, rgba(107, 158, 120, 0.22) 40px, rgba(107, 158, 120, 0.22) 41px, transparent 41px);
-}
-
 /* ---- Element Plus 组件笔记风微调 ---- */
 
 /* 侧边菜单: 激活项呈淡绿胶囊 */
 .el-menu-item.is-active {
     background-color: var(--el-color-primary-light-8);
-    border-radius: 8px;
+    border-radius: 6px;
     color: var(--el-color-primary-dark-2);
 }
 
@@ -285,7 +271,7 @@ html.dark .paper-sheet::after {
 .el-menu-item:hover,
 .el-sub-menu__title:hover {
     background-color: var(--el-color-primary-light-9);
-    border-radius: 8px;
+    border-radius: 6px;
 }
 
 /* 菜单弹出层圆角 */
@@ -356,9 +342,9 @@ html.dark .paper-sheet::after {
     --el-pagination-button-bg-color: transparent;
 }
 
-/* ---- 标签: 圆角胶囊 ---- */
+/* ---- 标签: 利落小圆角, 淡底色差即可辨识, 去掉描边 ---- */
 .el-tag {
-    --el-tag-border-radius: 10px;
+    --el-tag-border-radius: 6px;
 }
 
 /* ---- 按钮: 统一交互动效手感 ---- */
@@ -490,7 +476,7 @@ html.dark ::selection {
 .note-sk {
     position: relative;
     display: block;
-    border-radius: 8px;
+    border-radius: 6px;
     overflow: hidden;
     background-color: var(--note-soft);
 }
@@ -530,7 +516,7 @@ html.dark .note-sk::after {
 
 /* 骨架卡片/图面的圆角档位 */
 .note-sk-card {
-    border-radius: 14px;
+    border-radius: 10px;
 }
 
 .note-sk-circle {
@@ -598,117 +584,10 @@ html.dark .note-sk::after {
     mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='12' viewBox='0 0 600 12' preserveAspectRatio='none'%3E%3Cfilter id='b' x='-5%25' y='-60%25' width='110%25' height='220%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.012 0.35' numOctaves='3' seed='11' result='n'/%3E%3CfeDisplacementMap in='SourceGraphic' in2='n' scale='7'/%3E%3C/filter%3E%3Cg filter='url(%23b)' fill='none' stroke-linecap='round'%3E%3Cpath d='M4 6 C 90 4.4, 210 7.4, 320 6 S 520 4.6, 596 6' stroke='%23000' stroke-width='2.8'/%3E%3Cpath d='M10 6.5 C 120 7.6, 260 4.8, 380 6.2 S 540 7, 592 5.6' stroke='%23000' stroke-width='1.1' opacity='0.55'/%3E%3C/g%3E%3C/svg%3E") no-repeat center / 100% 12px;
 }
 
-/* 朱砂闲章(全局版): 手写体单字小印, 微斜如手钤纸面 */
-.note-seal {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    width: 1.9rem;
-    height: 1.9rem;
-    border-radius: 6px;
-    background: var(--note-seal);
-    color: #f8f1e6;
-    font-family: var(--note-font-hand);
-    font-size: 1.05rem;
-    line-height: 1;
-    transform: rotate(-5deg);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
-    opacity: 0.92;
-}
-
 /* 屏外长区块跳过渲染(含 intrinsic 尺寸, 出现时不挤动布局) */
 .cv-auto {
     content-visibility: auto;
     contain-intrinsic-size: auto 360px;
-}
-
-/* ============================================
-   登录/注册弹窗: 自然笔记风
-   (append-to-body 传送门脱离组件样式作用域, 需全局命名空间样式)
-   ============================================ */
-.auth-note-dialog {
-    position: relative;
-    --el-dialog-border-radius: 18px;
-    background: linear-gradient(165deg, var(--note-grad-from) 0%, var(--note-grad-via) 46%, var(--note-grad-to) 100%);
-    box-shadow: 0 24px 60px -24px rgba(63, 83, 72, 0.4);
-}
-
-/* 纸纤维顶盖: 纹理"印"进表单, 与全站纸片一致 */
-.auth-note-dialog::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    pointer-events: none;
-    background-image: var(--note-grain);
-    background-size: 260px 260px;
-    mix-blend-mode: overlay;
-    opacity: 0.4;
-}
-
-.auth-note-dialog .el-dialog__header {
-    padding: 22px 24px 12px;
-    margin-right: 0;
-}
-
-/* 题下渐隐分隔线(替代生硬边线) */
-.auth-note-dialog .el-dialog__header::after {
-    content: '';
-    display: block;
-    height: 1px;
-    margin-top: 12px;
-    background: linear-gradient(
-        to right,
-        transparent,
-        var(--note-edge-soft) 12%,
-        var(--note-edge-soft) 88%,
-        transparent
-    );
-}
-
-.auth-note-dialog .el-dialog__body {
-    padding: 16px 24px 24px;
-}
-
-/* 标题: 手写体 + 朱砂闲章 */
-.auth-head {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    /* 避让右上关闭键 */
-    padding-right: 2rem;
-}
-
-.auth-title {
-    font-family: var(--note-font-hand);
-    font-size: 1.45rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    color: var(--note-green-deep);
-}
-
-.auth-seal {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.9rem;
-    height: 1.9rem;
-    border-radius: 6px;
-    background: var(--note-seal);
-    color: #f8f1e6;
-    font-family: var(--note-font-hand);
-    font-size: 1rem;
-    line-height: 1;
-    transform: rotate(-5deg);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
-    opacity: 0.92;
-}
-
-/* 表单标签与底注: 淡绿灰, 融入纸面 */
-.auth-note-dialog .el-form-item__label {
-    color: var(--note-sub);
-    font-size: 13px;
 }
 
 /* ============================================
@@ -719,9 +598,12 @@ html.dark .note-sk::after {
         scroll-behavior: auto;
     }
 
-    *,
-    *::before,
-    *::after {
+    /* 渲染期豁免(html.mm-rendering, 由 MermaidBlock 在 mermaid.render 期间挂到 html 上):
+       mermaid 依赖真实的动画/过渡环境测量文本与节点, 全局压到 0.01ms 会使其
+       测得巨型节点尺寸、布局间距爆炸(图内节点缩成小点) */
+    html:not(.mm-rendering) *,
+    html:not(.mm-rendering) *::before,
+    html:not(.mm-rendering) *::after {
         animation-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;

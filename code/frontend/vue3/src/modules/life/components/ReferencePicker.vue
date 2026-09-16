@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <!-- 取名参考体系多选卡片(民俗/神话), 选中态以浅底色差+光晕环高亮(无描边) -->
   <div>
     <!-- 快捷操作行 -->
@@ -20,7 +20,7 @@
       <button
         v-for="ref in catalog" :key="ref.key"
         type="button"
-        class="reference-card note-transition text-left rounded-xl p-2.5 cursor-pointer"
+        class="note-transition text-left rounded-note-md p-2.5 cursor-pointer"
         :class="isSelected(ref.key)
           ? 'bg-note-tint shadow-note'
           : 'bg-note-card hover:bg-note-tint/60'"

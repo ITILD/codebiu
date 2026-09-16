@@ -68,8 +68,8 @@ async def calculate_reference(
     service: BabyNameService = Depends(get_baby_name_service),
 ) -> ReferenceCalculateResult:
     """
-    按选中的参考体系做经典严格程序推算(五行八字/星座/生肖/塔罗/姓氏五格基准),
-    风格类参考(基督/佛教/道教)无量化计算, 仅在起名时作为约束注入
+    按选中的参考体系做经典严格程序推算(五行八字/星座/生肖/塔罗/姓氏五格基准/
+    佛教本命佛/道教本命太岁/基督季节圣经意象), 全部基于出生日期等信息计算
     :param request: 宝宝天生信息与参考体系列表
     :param service: 宝宝名字服务依赖注入
     :return: 各参考体系推算结果(未选为 null)

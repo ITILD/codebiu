@@ -2,7 +2,7 @@
   <!-- 水墨页头: serif 标题 + 朱砂闲章 + 淡墨晕染底纹 + 枯笔分隔线(garden 技法本地化) -->
   <header relative mb-5>
     <!-- 淡墨晕染: 外扩一点, 模拟墨在宣纸上洇开 -->
-    <div class="ink-wash" absolute -inset-x-3 -top-4 -bottom-1 pointer-events-none aria-hidden="true" />
+    <div class="ink-wash absolute -inset-x-3 -top-4 -bottom-1" pointer-events-none aria-hidden="true" />
 
     <div relative flex flex-wrap items-end justify-between gap-x-4 gap-y-2>
       <div min-w-0>
@@ -29,7 +29,8 @@
 <script setup lang="ts">
 // 页面标题头(自然笔记 · 水墨风): 统一 CRUD/工具页的页头观感
 // 亮暗自适应: 全部取值来自 base.css 的 --note-* 变量, 无硬编码色
-// 注意: 自定义类(ink-wash/ink-divider/note-seal)必须写进 class="", 裸属性不会被 attributify 转换
+// 注意: 自定义类(ink-wash/ink-divider/note-seal)与负值工具类(-top-4 等)必须写进 class="",
+// 裸属性名不能以 - 开头, 否则 setAttribute 抛 InvalidCharacterError
 withDefaults(defineProps<{
   /** 页面标题 */
   title: string

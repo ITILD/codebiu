@@ -4,9 +4,11 @@
   <el-dialog v-model="visible" width="90%" class="auth-note-dialog max-w-[400px]" :modal="true" :close-on-click-modal="true"
     append-to-body draggable @close="handleClose">
     <template #header>
-      <div class="auth-head">
-        <span class="auth-title">{{ $t('sign_up') }}</span>
-        <span class="auth-seal" aria-hidden="true">憩</span>
+      <!-- 标题行: 手写体标题 + 朱砂闲章(pr-8 避让右上关闭键) -->
+      <div class="flex items-center gap-12px pr-8">
+        <span class="font-hand text-[1.45rem] font-semibold tracking-[0.08em] text-[var(--note-green-deep)]">{{
+          $t('sign_up') }}</span>
+        <span class="note-seal" aria-hidden="true">憩</span>
       </div>
     </template>
 
@@ -57,6 +59,8 @@
 </template>
 
 <script setup lang="ts">
+// 弹窗样式(渐变/纸纤维顶盖/EP 内部类覆盖)集中在模块内, 不污染全局
+import '../styles/auth-dialog.css'
 import { ElMessage } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import { getRegisterConfig, registerUser, sendRegisterCode } from '../api/auth'

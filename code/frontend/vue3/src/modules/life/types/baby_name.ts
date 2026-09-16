@@ -147,6 +147,33 @@ export interface SancaiBaseInfo {
   note: string
 }
 
+/** 佛教本命佛推算结果(按生肖取守护佛) */
+export interface BuddhismInfo {
+  zodiac: string // 生肖(立春分界)
+  buddha: string // 本命佛名
+  meaning: string // 本命佛寓意
+  hint_chars: string // 佛家意趣宜用字
+  summary: string
+}
+
+/** 道教本命太岁推算结果(按年柱干支取值年太岁) */
+export interface TaoismInfo {
+  year_ganzhi: string // 年柱干支(立春分界)
+  taishi: string // 本命太岁星君
+  meaning: string // 太岁文化寓意
+  hint_chars: string // 道家意趣宜用字
+  summary: string
+}
+
+/** 基督圣经意象推算结果(按出生季节取主题经文) */
+export interface ChristianInfo {
+  season: string // 出生季节(春夏秋冬)
+  theme: string // 圣经主题意象
+  verse: string // 对应经文(含出处)
+  hint_chars: string // 祝福意趣宜用字
+  summary: string
+}
+
 /** 参考体系推算请求 */
 export interface ReferenceCalculateRequest extends NameInfoBase {
   references: ReferenceKey[] // 要推算的参考体系(strict 项才参与计算)
@@ -159,6 +186,9 @@ export interface ReferenceCalculateResult {
   zodiac: ZodiacInfo | null
   tarot: TarotInfo | null
   sancai: SancaiBaseInfo | null
+  buddhism: BuddhismInfo | null // 佛教本命佛结果
+  taoism: TaoismInfo | null // 道教本命太岁结果
+  christian: ChristianInfo | null // 基督圣经意象结果
 }
 
 /** 单个名字的三才五格评分 */

@@ -98,7 +98,7 @@ const handleMermaidUpdate = (payload: { id: string; code: string }) => {
 </script>
 
 <template>
-  <div class="md-rich">
+  <div class="md-rich text-[0.9rem] leading-[1.75] text-[color:var(--el-text-color-primary,#2b3a30)] break-words">
     <template v-for="seg in segments" :key="seg.id">
       <!-- 文本段: 已是 HTML(含 katex 恢复), 直接渲染 -->
       <div v-if="seg.type === 'text'" class="markdown-body" v-html="seg.content" />
@@ -118,13 +118,8 @@ const handleMermaidUpdate = (payload: { id: string; code: string }) => {
 </template>
 
 <style scoped>
-.md-rich {
-  font-size: 0.9rem;
-  line-height: 1.75;
-  color: var(--el-text-color-primary, #2b3a30);
-  word-break: break-word;
-}
-
+/* 富文本排版: 全部针对 v-html 生成的子元素, 依赖 :deep() 穿透, 保留在 style。
+   根元素静态样式已转 uno 原子类 */
 .md-rich :deep(> :first-child) {
   margin-top: 0;
 }

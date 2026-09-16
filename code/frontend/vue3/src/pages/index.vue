@@ -8,7 +8,7 @@
     <section
       class="paper-sheet z-10"
       relative
-      rounded-2xl
+      rounded-note-lg
       border-note
       bg-note-gradient
       p-8
@@ -16,7 +16,7 @@
       mb-10
     >
       <!-- 笔记本横线纹理(卡片已不裁剪, 纹理层自行圆角+裁剪; 自定义类必须写进 class, 裸属性不会被 attributify 转换) -->
-      <div class="note-lined-paper" absolute inset-0 pointer-events-none rounded-2xl overflow-hidden />
+      <div class="note-lined-paper" absolute inset-0 pointer-events-none rounded-note-lg overflow-hidden />
       <!-- 水墨生长枝: 右上入笔向左下生长, 最细枝垂出卡底 -->
       <FractalBranch />
 
@@ -79,7 +79,7 @@
           :to="app.children?.length ? app.children[0].index : app.index"
           class="paper-grain note-glow-hover"
           bg-note-card
-          rounded-3xl
+          rounded-note-lg
           p-7
           overflow-hidden
           duration-300
@@ -92,7 +92,7 @@
             justify-center
             w-14
             h-14
-            rounded-2xl
+            rounded-note-lg
             bg-note-tint
             text-note-green
             mb-5
@@ -118,7 +118,7 @@
     <!-- 页尾小池: 题句浮于水雾之上, 页尽如水边 -->
     <section relative mt-10>
       <div absolute inset-x-0 top-0 flex justify-center pointer-events-none>
-        <p class="pond-quote font-hand text-xs md:text-base text-note-sub">
+        <p class="font-hand text-xs md:text-base text-note-sub mt-[2px] px-[1.1rem] py-[0.3rem] rounded-full bg-note-card/78 shadow-note tracking-[0.08em] whitespace-nowrap backdrop-blur-sm">
           「 淡淡的绿意，是数据生长的样子 」
         </p>
       </div>
@@ -167,45 +167,18 @@ const recentAppPages = computed(() =>
 </script>
 
 <style scoped>
-/* 朱砂闲章: 手写体单字小印, 微斜如手钤纸面 */
-.note-seal {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.1rem;
-  height: 2.1rem;
-  border-radius: 6px;
-  background: var(--note-seal);
-  color: #f8f1e6;
-  font-family: var(--note-font-hand);
-  font-size: 1.15rem;
-  line-height: 1;
-  transform: rotate(-5deg);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
-  opacity: 0.92;
+/* 笔记本格线背景(横线纸): 首页 Hero 专用, 从 base.css 迁入。
+   note-seal(朱砂闲章)已改用 uno.config 的全局 shortcut, pond-quote 已转 uno 原子类 */
+.note-lined-paper {
+  background-image: repeating-linear-gradient(
+    transparent,
+    transparent 27px,
+    rgba(107, 158, 120, 0.1) 28px
+  );
 }
 
-@media (min-width: 768px) {
-  .note-seal {
-    width: 2.5rem;
-    height: 2.5rem;
-    font-size: 1.35rem;
-  }
-}
-
-/* 池畔题句: 半透纸丸托底, 如雾中题签 */
-.pond-quote {
-  margin-top: 2px;
-  padding: 0.3rem 1.1rem;
-  /* 无描边: 半透纸丸以底色差 + note-shadow 光晕环成形 */
-  border-radius: 999px;
-  /* 不支持 color-mix 的旧引擎回退为实底纸色 */
-  background: var(--note-card);
-  background: color-mix(in srgb, var(--note-card) 78%, transparent);
-  box-shadow: var(--note-shadow);
-  letter-spacing: 0.08em;
-  white-space: nowrap;
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
+/* 笔记本侧边装订线(红色竖线太重, 用苔绿竖虚线): 首页专用 */
+.note-margin-line {
+  background-image: linear-gradient(to right, transparent 40px, rgba(107, 158, 120, 0.22) 40px, rgba(107, 158, 120, 0.22) 41px, transparent 41px);
 }
 </style>

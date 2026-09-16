@@ -48,60 +48,126 @@ const handleSend = () => {
 const handleStop = () => emit('stop')
 
 const onInput = (value: string) => emit('update:modelValue', value)
+
+// ===== 多行检测: 文字到达按钮区域(需要换行)时, 按键自动下移一行 =====
+const inputRef = ref<{ textarea?: HTMLTextAreaElement } | null>(null)
+const mirrorRef = ref<HTMLElement | null>(null)
+const isMultiline = ref(false)
+// 行布局下的可用输入宽度缓存(避免两种布局间来回抖动)
+let rowAvail = 0
+
+// ===== 高度自适应: 手动计算, 不用 EP autosize =====
+// autosize 在挂载时测量, 早于 scoped 样式注入(padding 未生效), 会漏算上下 padding 导致空内容就溢出出滚动条
+const resizeInput = () => {
+  const el = inputRef.value?.textarea
+  if (!el) return
+  // 清除 EP 挂载时(样式注入前)误算的内联 min-height, 交由 CSS 的 1 行高度(35px)兜底
+  el.style.minHeight = ''
+  // 先归零再读 scrollHeight, 拿到内容真实需要的高度(含 padding)
+  el.style.height = 'auto'
+  const h = el.scrollHeight
+  const maxH = parseFloat(getComputedStyle(el).maxHeight) || 150
+  el.style.height = `${h}px`
+  // 未到封顶行数时隐藏溢出(防亚像素误差产生幻影滚动条); 封顶后才允许滚动
+  el.style.overflowY = h > maxH ? 'auto' : 'hidden'
+}
+
+/** 同步布局状态: 有显式换行或实测换行行数 > 1 → 按键下移 */
+const syncMultiline = () => {
+  const el = inputRef.value?.textarea
+  const mirror = mirrorRef.value
+  if (!el || !mirror) return
+  const cs = getComputedStyle(el)
+  const text = props.modelValue
+  // 行布局时刷新可用宽度缓存; 已下移时沿用缓存, 同一段文本状态保持稳定不抖动
+  if (!isMultiline.value) {
+    rowAvail = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)
+  }
+  if (text.includes('\n')) {
+    isMultiline.value = true
+    return
+  }
+  if (rowAvail <= 0) return
+  // 隐藏镜像元素按行布局宽度实测换行行数(与浏览器实际渲染一致)
+  mirror.style.width = `${rowAvail}px`
+  mirror.style.fontFamily = cs.fontFamily
+  mirror.style.fontSize = cs.fontSize
+  mirror.style.fontWeight = cs.fontWeight
+  mirror.style.fontStyle = cs.fontStyle
+  mirror.style.letterSpacing = cs.letterSpacing
+  mirror.textContent = text
+  const lh = parseFloat(cs.lineHeight) || 21
+  isMultiline.value = mirror.offsetHeight / lh > 1.5
+}
+
+watch(
+  () => props.modelValue,
+  () => nextTick(() => {
+    resizeInput()
+    syncMultiline()
+  }),
+  { immediate: true },
+)
+onMounted(() => {
+  resizeInput()
+  syncMultiline()
+  // 尺寸变化时重新评估: 覆盖窗口缩放/样式延迟注入(此时 padding 生效会引起尺寸变化)等场景
+  const el = inputRef.value?.textarea
+  if (el && typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(() => {
+      resizeInput()
+      syncMultiline()
+    }).observe(el)
+  }
+})
 </script>
 
 <template>
-  <div class="cc-card">
-    <!-- 同行布局: 输入在左自适应, 控制区(工具栏+发送)在右底部对齐 -->
-    <div class="cc-row">
-    <el-input
-      :model-value="modelValue"
-      type="textarea"
-      :autosize="{ minRows: 1, maxRows: 8 }"
-      :placeholder="placeholder"
-      :disabled="disabled"
-      resize="none"
-      @update:model-value="onInput"
-      @keydown="onKeydown"
-    />
-    <div class="cc-side">
-      <div class="cc-toolbar">
-        <slot name="toolbar">
-          <span class="cc-hint">{{ hint || 'Enter 发送 · Shift+Enter 换行' }}</span>
-        </slot>
+  <div class="cc-card relative rounded-note-lg bg-[var(--el-bg-color,#fff)] shadow-note transition-shadow duration-200 px-2.5 py-2">
+    <!-- 同行布局: 输入在左控制区在右; 文字多到换行时按键自动下移一行(stacked 复合态样式保留在 scoped style) -->
+    <div class="cc-row flex items-center gap-1.5" :class="{ stacked: isMultiline }">
+      <el-input
+        ref="inputRef"
+        :model-value="modelValue"
+        type="textarea"
+        :rows="1"
+        :placeholder="placeholder"
+        :disabled="disabled"
+        resize="none"
+        @update:model-value="onInput"
+        @keydown="onKeydown"
+      />
+      <div class="cc-side flex items-center gap-2 shrink-0">
+        <div class="cc-toolbar flex items-center gap-1.5 min-w-0">
+          <slot name="toolbar">
+            <span class="text-xs text-note-sub whitespace-nowrap">{{ hint || 'Enter 发送 · Shift+Enter 换行' }}</span>
+          </slot>
+        </div>
+        <!-- 停止生成 / 发送 -->
+        <el-tooltip v-if="isSending" content="停止生成" placement="top">
+          <button class="cc-btn stop flex items-center justify-center w-9 h-9 rounded-full border border-transparent bg-note-card text-note-sub cursor-pointer note-transition shadow-[0_0_0_1px_var(--note-edge-soft,rgba(107,158,120,0.16))]" @click="handleStop">
+            <el-icon :size="16"><VideoPause /></el-icon>
+          </button>
+        </el-tooltip>
+        <el-tooltip v-else content="发送" placement="top">
+          <button class="cc-btn flex items-center justify-center w-9 h-9 rounded-full border border-transparent bg-note-card text-note-sub cursor-pointer note-transition shadow-[0_0_0_1px_var(--note-edge-soft,rgba(107,158,120,0.16))]" :class="{ enabled: canSend }" :disabled="!canSend" @click="handleSend">
+            <el-icon :size="16"><Promotion /></el-icon>
+          </button>
+        </el-tooltip>
       </div>
-      <!-- 停止生成 / 发送 -->
-      <el-tooltip v-if="isSending" content="停止生成" placement="top">
-        <button class="cc-btn stop" @click="handleStop">
-          <el-icon :size="16"><VideoPause /></el-icon>
-        </button>
-      </el-tooltip>
-      <el-tooltip v-else content="发送" placement="top">
-        <button class="cc-btn" :class="{ enabled: canSend }" :disabled="!canSend" @click="handleSend">
-          <el-icon :size="16"><Promotion /></el-icon>
-        </button>
-      </el-tooltip>
     </div>
-    </div>
+    <!-- 行宽镜像(隐藏): 按行布局宽度实测文本换行行数, 决定按键是否下移 -->
+    <div ref="mirrorRef" class="cc-mirror absolute top-0 left-0 invisible pointer-events-none whitespace-pre-wrap break-words text-[0.9rem] leading-[23px]" aria-hidden="true"></div>
   </div>
 </template>
 
 <style scoped>
-/* 悬浮纸片输入卡: 无描边, 以光晕环+纸影定义边缘 */
-.cc-card {
-  position: relative;
-  border-radius: 1rem;
-  background: var(--el-bg-color, #fff);
-  box-shadow: var(--note-shadow, 0 0 0 1px rgba(107, 158, 120, 0.16), 0 2px 12px rgba(108, 191, 143, 0.14));
-  transition: box-shadow 0.2s;
-}
-
-/* 聚焦: 光晕环收拢变亮, 提示输入中 */
+/* 聚焦: 光晕环收拢变亮, 提示输入中(状态选择器, 保留在 style) */
 .cc-card:focus-within {
   box-shadow: 0 0 0 2px var(--note-edge-soft, rgba(107, 158, 120, 0.16)), 0 6px 20px -6px var(--note-glow, rgba(107, 158, 120, 0.22));
 }
 
-/* 聚焦时的淡渐变光晕: 几乎不可见的流动微光, 表示正在输入 */
+/* 聚焦时的淡渐变光晕: 几乎不可见的流动微光(伪元素 + 动画, 保留在 style) */
 .cc-card::before {
   content: '';
   position: absolute;
@@ -127,7 +193,7 @@ const onInput = (value: string) => emit('update:modelValue', value)
   opacity: 1;
 }
 
-/* 光晕之上内容保持可交互 */
+/* 光晕之上内容保持可交互(子元素选择器, 保留在 style) */
 .cc-card > * {
   position: relative;
   z-index: 1;
@@ -138,27 +204,39 @@ const onInput = (value: string) => emit('update:modelValue', value)
   100% { background-position: -150% 0; }
 }
 
-/* 同行布局: 输入在左自适应, 控制区在右底部对齐(多行时输入向上生长) */
-.cc-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 6px;
-  padding: 8px 10px;
-}
-
+/* 同行布局下 el-textarea 占满剩余宽度(子元素选择器, 保留在 style) */
 .cc-row > .el-textarea {
   flex: 1;
   min-width: 0;
 }
 
-/* textarea 无边框融入卡片 */
+/* 多行布局: 输入占满整行, 按键下移一行(动态态 + 子元素联动, 保留在 style) */
+.cc-row.stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.cc-row.stacked .cc-side {
+  justify-content: space-between;
+}
+
+/* textarea 无边框融入卡片; 行高用整数像素, 避免自适应高度出现亚像素溢出(幻影滚动条) */
+/* 高度范围 1~6 行(23px 行高 + 上下 12px padding → 35px/150px), 实际高度由 JS 按内容设置 */
 .cc-card :deep(.el-textarea__inner) {
   box-shadow: none !important;
   background: transparent;
   padding: 6px 8px;
   font-size: 0.9rem;
-  line-height: 1.6;
+  line-height: 23px;
   border-radius: 0.75rem;
+  min-height: 35px;
+  max-height: 150px;
+}
+
+/* 行宽镜像(隐藏): z 层压到卡片之下(负 z-index, 保留在 style) */
+.cc-mirror {
+  z-index: -1;
 }
 
 .cc-card :deep(.el-textarea__inner)::placeholder {
@@ -166,29 +244,7 @@ const onInput = (value: string) => emit('update:modelValue', value)
   opacity: 0.7;
 }
 
-/* 右侧控制区: 工具栏 + 发送按钮水平排列 */
-.cc-side {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding-bottom: 2px;
-  flex-shrink: 0;
-}
-
-.cc-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
-.cc-hint {
-  font-size: 12px;
-  color: var(--note-sub, #6b7f6e);
-  white-space: nowrap;
-}
-
-/* 胶囊形下拉选择器(与思考模式按钮统一风格) */
+/* 胶囊形下拉选择器(与思考模式按钮统一风格): :deep 穿透, 保留在 style */
 .cc-toolbar :deep(.el-select) {
   width: 150px;
 }
@@ -225,38 +281,7 @@ const onInput = (value: string) => emit('update:modelValue', value)
   color: var(--note-green, #6cbf8f);
 }
 
-/* 小屏: 输入占满一行, 工具栏与发送按钮换行到下方 */
-@media (max-width: 640px) {
-  .cc-row {
-    flex-wrap: wrap;
-  }
-
-  .cc-row > .el-textarea {
-    flex: 1 1 100%;
-  }
-
-  .cc-side {
-    width: 100%;
-    justify-content: space-between;
-  }
-}
-
-.cc-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 9999px;
-  border: 1px solid transparent;
-  /* 极淡光晕环替代描边 */
-  box-shadow: 0 0 0 1px var(--note-edge-soft, rgba(107, 158, 120, 0.16));
-  background: var(--note-card, #fff);
-  color: var(--note-sub, #6b7f6e);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
+/* 发送/停止按钮状态样式(enabled/stop/disabled, scoped 特异性覆盖 uno 基础类, 保留在 style) */
 .cc-btn.enabled {
   background: var(--note-green, #6cbf8f);
   border-color: var(--note-green, #6cbf8f);
@@ -285,5 +310,42 @@ const onInput = (value: string) => emit('update:modelValue', value)
   color: var(--note-sub, #6b7f6e);
   cursor: not-allowed;
   box-shadow: none;
+}
+</style>
+
+<style>
+/* ---- textarea 滚动条(全局作用域, 避免 scoped 穿透编译差异导致样式失效) ---- */
+/* 标准属性(Chromium 121+/Firefox 均支持): 细条无上下箭头; 设置后自动覆盖下方 webkit 规则 */
+/* 旧 Chromium 不认识标准属性会忽略, 回退到下方 webkit 自定义规则 */
+.cc-card .el-textarea__inner {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--note-green, #6cbf8f) 40%, transparent) transparent;
+}
+
+/* 仅当内容超过6行可滚动时才出现; 细窄圆角、无上下箭头 */
+.cc-card .el-textarea__inner::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+/* 显式隐藏上下左右箭头按钮 */
+.cc-card .el-textarea__inner::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.cc-card .el-textarea__inner::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--note-green, #6cbf8f) 25%, transparent);
+  border-radius: 9999px;
+}
+
+.cc-card .el-textarea__inner::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--note-green, #6cbf8f) 45%, transparent);
+}
+
+.cc-card .el-textarea__inner::-webkit-scrollbar-track,
+.cc-card .el-textarea__inner::-webkit-scrollbar-corner {
+  background: transparent;
 }
 </style>

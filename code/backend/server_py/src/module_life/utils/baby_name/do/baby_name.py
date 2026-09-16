@@ -147,6 +147,36 @@ class ReferenceCalculateRequest(NameInfoBase):
     )
 
 
+class BuddhismInfo(BaseModel):
+    """佛教本命佛推算结果(按生肖取守护佛)"""
+
+    zodiac: str = Field(description="生肖(立春分界)")
+    buddha: str = Field(description="本命佛名")
+    meaning: str = Field(description="本命佛寓意")
+    hint_chars: str = Field(description="佛家意趣宜用字")
+    summary: str = Field(description="一句话总结")
+
+
+class TaoismInfo(BaseModel):
+    """道教本命太岁推算结果(按年柱干支取值年太岁)"""
+
+    year_ganzhi: str = Field(description="年柱干支(立春分界)")
+    taishi: str = Field(description="本命太岁星君")
+    meaning: str = Field(description="太岁文化寓意")
+    hint_chars: str = Field(description="道家意趣宜用字")
+    summary: str = Field(description="一句话总结")
+
+
+class ChristianInfo(BaseModel):
+    """基督圣经意象推算结果(按出生季节取主题经文)"""
+
+    season: str = Field(description="出生季节(春夏秋冬)")
+    theme: str = Field(description="圣经主题意象")
+    verse: str = Field(description="对应经文(含出处)")
+    hint_chars: str = Field(description="祝福意趣宜用字")
+    summary: str = Field(description="一句话总结")
+
+
 class ReferenceCalculateResult(BaseModel):
     """参考体系推算结果(按选择返回对应子对象, 未选为 None)"""
 
@@ -155,6 +185,9 @@ class ReferenceCalculateResult(BaseModel):
     zodiac: ZodiacInfo | None = Field(None, description="生肖结果")
     tarot: TarotInfo | None = Field(None, description="塔罗牌结果")
     sancai: SancaiBaseInfo | None = Field(None, description="姓氏五格基准结果")
+    buddhism: BuddhismInfo | None = Field(None, description="佛教本命佛结果")
+    taoism: TaoismInfo | None = Field(None, description="道教本命太岁结果")
+    christian: ChristianInfo | None = Field(None, description="基督圣经意象结果")
 
 
 class SancaiScore(BaseModel):

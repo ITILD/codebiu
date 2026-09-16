@@ -9,7 +9,7 @@
         <button v-for="tab in tabs" :key="tab.key"
           class="flex items-center gap-2 rounded px-3 py-2 text-sm whitespace-nowrap transition-colors cursor-pointer"
           :class="active === tab.key
-            ? 'bg-green-600/10 text-green-700 dark:text-green-400 font-medium'
+            ? 'bg-note-green/10 text-note-green font-medium'
             : 'text-note-sub hover:bg-note-glass'"
           @click="active = tab.key">
           <el-icon><component :is="tab.icon" /></el-icon>

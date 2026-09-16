@@ -1,7 +1,7 @@
 <template>
   <!-- 主题根容器: style 注入 CSS 变量, 整页 Element Plus 组件自动换肤 -->
   <div :style="{ ...theme.vars, fontFamily: 'var(--el-font-family)' }" :class="theme.rootClass"
-    class="rounded-lg p-4 md:p-6 overflow-hidden">
+    class="rounded-note-sm p-4 md:p-6 overflow-hidden">
     <!-- 主题横幅 -->
     <div :class="theme.bannerClass" rounded p-4 mb-4>
       <h3 text-lg font-bold>{{ theme.name }}</h3>

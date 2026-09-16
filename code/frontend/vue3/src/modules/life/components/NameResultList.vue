@@ -12,8 +12,8 @@
     <div v-else grid grid-cols-1 sm:grid-cols-2 gap-3>
       <div
         v-for="(item, i) in names" :key="`${item.name}-${i}`"
-        class="name-card note-transition rounded-xl bg-note-card border border-note p-3.5 shadow-note"
-        :class="{ expanded: isExpanded(i) }"
+        class="name-card note-transition rounded-xl border p-3.5 shadow-note"
+        :class="isExpanded(i) ? 'border-note-green bg-note-soft' : 'border-note bg-note-card'"
         hover:shadow-note-hover hover:-translate-y-0.5
       >
         <!-- 名字行 + 评分 -->
@@ -29,7 +29,7 @@
             :class="scoreClass(item.score)"
           >
             <span text-sm font-bold leading-none>{{ item.score }}</span>
-            <span text-[10px] leading-none mt-0.5>评分</span>
+            <span class="text-[10px]" leading-none mt-0.5>评分</span>
           </span>
         </div>
 
@@ -46,7 +46,7 @@
         <!-- 展开指示(仅寓意被截断时显示) -->
         <div
           v-if="item.meaning && isTruncated(item) && !isExpanded(i)"
-          text-right text-[10px] text-note-green
+          text-right class="text-[10px]" text-note-green
         >
           点击展开寓意 ▾
         </div>
@@ -54,10 +54,10 @@
         <!-- 三才五格明细 -->
         <div v-if="showSancai && item.sancai" mt-2 pt-2 border-t border-dashed border-note>
           <div flex items-center gap-1.5 flex-wrap>
-            <span text-[10px] text-note-sub>五格</span>
+            <span class="text-[10px]" text-note-sub>五格</span>
             <span
               v-for="g in GRIDS" :key="g.key"
-              text-[10px] px-1.5 py-0.5 rounded
+              class="text-[10px]" px-1.5 py-0.5 rounded
               :class="item.sancai.grid_lucks[g.label] === '吉' || item.sancai.grid_lucks[g.label] === '大吉'
                 ? 'bg-note-tint text-note-green'
                 : 'bg-note-card border border-dashed border-note text-note-sub'"
@@ -66,9 +66,9 @@
             </span>
           </div>
           <div flex items-center gap-1.5 mt-1.5>
-            <span text-[10px] text-note-sub>三才</span>
-            <span text-[10px] px-1.5 py-0.5 rounded bg-note-tint text-note>{{ item.sancai.sancai }}</span>
-            <span v-if="item.sancai.estimated_chars.length" text-[10px] text-note-sub>
+            <span class="text-[10px]" text-note-sub>三才</span>
+            <span class="text-[10px]" px-1.5 py-0.5 rounded bg-note-tint text-note>{{ item.sancai.sancai }}</span>
+            <span v-if="item.sancai.estimated_chars.length" class="text-[10px]" text-note-sub>
               笔画估计:{{ item.sancai.estimated_chars.join('') }}
             </span>
           </div>
@@ -131,7 +131,7 @@ watch(
 </script>
 
 <style scoped>
-/* 名字卡片渐入动画(新批次名字追加时依次浮现) */
+/* 名字卡片渐入动画(新批次名字追加时依次浮现); 展开态描边/底色由模板条件 uno 类承载 */
 .name-card {
   animation: card-fade-up 0.45s ease both;
 }
@@ -144,10 +144,5 @@ watch(
     opacity: 1;
     transform: translateY(0);
   }
-}
-/* 展开态的卡片: 描边用强调色, 提示当前聚焦 */
-.name-card.expanded {
-  border-color: var(--note-border-green);
-  background: var(--note-soft);
 }
 </style>

@@ -52,6 +52,8 @@ export const generateBabyNamesStream = async (
 ) => {
   await fetchEventSource(`/base_server/life/baby-names/generate`, {
     method: 'POST',
+    // 页面隐藏(切窗口/切标签/最小化)时不中断流, 避免起名中途被 abort
+    openWhenHidden: true,
     headers: {
       'Content-Type': 'application/json',
     },
@@ -103,6 +105,8 @@ export const predictBabyNameStream = async (
 ) => {
   await fetchEventSource(`/base_server/life/baby-names/predict-baby-info-base`, {
     method: 'POST',
+    // 页面隐藏时不中断流(与 generate 保持一致)
+    openWhenHidden: true,
     headers: {
       'Content-Type': 'application/json',
     },

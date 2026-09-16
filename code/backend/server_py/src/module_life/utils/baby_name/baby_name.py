@@ -6,9 +6,12 @@
    - calc_constellation: 公历严格划分星座
    - calc_zodiac: 立春分界生肖 + 宜用字根
    - calc_tarot: 生命灵数 → 生命塔罗牌
+   - calc_buddhism: 生肖本命佛(按出生日期)
+   - calc_taoism: 年柱本命太岁星君(按出生日期)
+   - calc_christian: 出生季节圣经意象(按出生日期)
    计算结果实时推送前端(node_name=calc_*), 同时汇总注入起名提示词。
-2. generate_name_result: LLM 结合宝宝信息 + 严格计算结果 + 风格类参考
-   (基督/佛教/道教等文化约束)流式生成候选名字。
+2. generate_name_result: LLM 结合宝宝信息 + 严格计算结果 + 宗教文化意趣
+   流式生成候选名字。
 3. finalize: 解析 LLM 输出中的名字清单, 程序计算每个名字的三才五格评分,
    以结构化 JSON 推送(node_name=names_evaluated), 供前端渲染名字卡片。
 """
@@ -31,6 +34,11 @@ from module_life.utils.baby_name.folklore import (
     FOLK_REFERENCES,
     ReferenceEnum,
 )
+from module_life.utils.baby_name.religion import (
+    get_benming_buddha,
+    get_christian_theme,
+    get_taishi,
+)
 from module_life.utils.baby_name.sancai import evaluate_name
 from module_life.utils.baby_name.strokes import stroke_of
 from module_life.utils.baby_name.tarot import get_tarot
@@ -45,6 +53,9 @@ STRICT_REFERENCES = [
     ReferenceEnum.CONSTELLATION,
     ReferenceEnum.ZODIAC,
     ReferenceEnum.TAROT,
+    ReferenceEnum.CHRISTIAN,
+    ReferenceEnum.BUDDHISM,
+    ReferenceEnum.TAOISM,
 ]
 
 
@@ -151,6 +162,57 @@ async def calc_tarot(state: BabyNameState, config: RunnableConfig) -> dict:
     return {"calc_texts": {**state.get("calc_texts", {}), "tarot": info["summary"]}}
 
 
+async def calc_buddhism(state: BabyNameState, config: RunnableConfig) -> dict:
+    """佛教: 生肖本命佛(立春分界)"""
+    if ReferenceEnum.BUDDHISM not in state.get("references", []):
+        return {}
+    info = get_benming_buddha(state["birth_date"])
+    text = (
+        "### 佛教(生肖本命佛)\n\n"
+        f"- **生肖**: {info['zodiac']}\n"
+        f"- **本命佛**: {info['buddha']}\n"
+        f"- **寓意**: {info['meaning']}\n"
+        f"- **佛家意趣宜用字**: {info['hint_chars']}"
+    )
+    writer = get_stream_writer()
+    writer(StreamOne(content=text, node_name="calc_buddhism"))
+    return {"calc_texts": {**state.get("calc_texts", {}), "buddhism": info["summary"]}}
+
+
+async def calc_taoism(state: BabyNameState, config: RunnableConfig) -> dict:
+    """道教: 年柱本命太岁(六十甲子值年太岁星君)"""
+    if ReferenceEnum.TAOISM not in state.get("references", []):
+        return {}
+    info = get_taishi(state["birth_date"])
+    text = (
+        "### 道教(本命太岁)\n\n"
+        f"- **年柱干支**: {info['year_ganzhi']}\n"
+        f"- **本命太岁**: {info['taishi']}\n"
+        f"- **寓意**: {info['meaning']}\n"
+        f"- **道家意趣宜用字**: {info['hint_chars']}"
+    )
+    writer = get_stream_writer()
+    writer(StreamOne(content=text, node_name="calc_taoism"))
+    return {"calc_texts": {**state.get("calc_texts", {}), "taoism": info["summary"]}}
+
+
+async def calc_christian(state: BabyNameState, config: RunnableConfig) -> dict:
+    """基督: 出生季节圣经意象"""
+    if ReferenceEnum.CHRISTIAN not in state.get("references", []):
+        return {}
+    info = get_christian_theme(state["birth_date"])
+    text = (
+        "### 基督(出生季节圣经意象)\n\n"
+        f"- **出生季节**: {info['season']}\n"
+        f"- **主题意象**: {info['theme']}\n"
+        f"- **祝福经文**: {info['verse']}\n"
+        f"- **祝福意趣宜用字**: {info['hint_chars']}"
+    )
+    writer = get_stream_writer()
+    writer(StreamOne(content=text, node_name="calc_christian"))
+    return {"calc_texts": {**state.get("calc_texts", {}), "christian": info["summary"]}}
+
+
 # ==================== LLM 起名节点 ====================
 
 def _build_prompt(state: BabyNameState) -> str:
@@ -180,18 +242,12 @@ def _build_prompt(state: BabyNameState) -> str:
         if ReferenceEnum.WUXING in refs and "wuxing" in calc_texts:
             prompt += "\n注意: 名字用字的五行属性应优先补益上述喜用五行(按偏旁、部首或字义判断)。\n"
 
-    # 风格类参考(文化约束)
-    style_refs = [FOLK_REFERENCES[r] for r in refs if r in FOLK_REFERENCES and not FOLK_REFERENCES[r].strict]
-    if style_refs:
-        prompt += "\n## 文化风格参考(请将以下风格意趣融入名字寓意)\n"
-        for ref in style_refs:
+    # 各参考体系的起名意趣提示(与严格计算结果配合)
+    ref_hints = [FOLK_REFERENCES[r] for r in refs if r in FOLK_REFERENCES]
+    if ref_hints:
+        prompt += "\n## 起名意趣(结合以上推算结果择字)\n"
+        for ref in ref_hints:
             prompt += f"- [{ref.label}] {ref.prompt_hint}\n"
-
-    # 三才五格约束
-    if ReferenceEnum.SANCAI in refs:
-        prompt += (
-            "- [三才五格] 注意用字康熙笔画, 尽量使人格、地格、总格数理为吉, 三才配置相生比和。\n"
-        )
 
     # 补充要求与排除名单
     if state.get("other"):
@@ -314,12 +370,23 @@ def create_baby_name_graph() -> StateGraph:
     workflow.add_node("calc_constellation", calc_constellation)
     workflow.add_node("calc_zodiac", calc_zodiac)
     workflow.add_node("calc_tarot", calc_tarot)
+    workflow.add_node("calc_buddhism", calc_buddhism)
+    workflow.add_node("calc_taoism", calc_taoism)
+    workflow.add_node("calc_christian", calc_christian)
     workflow.add_node("generate_name_result", generate_name_result)
     workflow.add_node("finalize_result", finalize_result)
 
-    # 四个严格计算节点并行扇出, 汇聚后进入起名
+    # 七个严格计算节点并行扇出, 汇聚后进入起名
     workflow.add_edge(START, "start")
-    for node in ("calc_wuxing", "calc_constellation", "calc_zodiac", "calc_tarot"):
+    for node in (
+        "calc_wuxing",
+        "calc_constellation",
+        "calc_zodiac",
+        "calc_tarot",
+        "calc_buddhism",
+        "calc_taoism",
+        "calc_christian",
+    ):
         workflow.add_edge("start", node)
         workflow.add_edge(node, "generate_name_result")
     workflow.add_edge("generate_name_result", "finalize_result")

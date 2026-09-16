@@ -6,7 +6,7 @@
     <span
       v-for="(f, i) in fallers"
       :key="`f${i}`"
-      class="leaf-fall"
+      class="leaf-fall absolute h-full w-0 [will-change:transform,opacity]"
       :style="{
         left: `${f.left}%`,
         top: `${f.top}%`,
@@ -15,10 +15,10 @@
         animationDelay: `${f.delay}s`,
       }"
     >
-      <i class="leaf-body">
+      <i class="absolute inset-0">
         <svg
           viewBox="0 0 16 16"
-          class="leaf-spin"
+          class="leaf-spin absolute top-0 left-0"
           :style="{ width: `${f.size}px`, height: `${f.size}px`, marginLeft: `${-f.size / 2}px`, color: f.color, animationDuration: `${f.spin}s` }"
         >
           <path d="M8 2 C 12 6 12 11 8 14 C 4 11 4 6 8 2 Z" fill="currentColor" opacity="0.85" />
@@ -102,21 +102,12 @@ onBeforeUnmount(() => ro?.disconnect())
 </script>
 
 <style scoped>
-/* 落叶轨道: 高度铺满父容器(页面根); 每段 keyframe 自带 ease-in-out,
-   形成缓降—摆动—再缓降的呼吸节奏, 而非匀速直坠 */
+/* 落叶轨道: 静态定位/尺寸已转 uno 原子类; 每段 keyframe 自带 ease-in-out,
+   形成缓降—摆动—再缓降的呼吸节奏(动画声明依赖 JS 注入的 --fall-to/duration, 保留在 style) */
 .leaf-fall {
-  position: absolute;
-  height: 100%;
-  width: 0;
   animation-name: leaf-fall;
   animation-timing-function: ease-in-out;
   animation-iteration-count: infinite;
-  will-change: transform, opacity;
-}
-
-.leaf-body {
-  position: absolute;
-  inset: 0;
 }
 
 /* 飘落: 各段横移错开成 S 形轨迹; 末端缩小渐隐(远去 + 沉入水面) */
@@ -146,11 +137,8 @@ onBeforeUnmount(() => ro?.disconnect())
   }
 }
 
-/* 叶体自身旋转, 与轨道解耦 */
+/* 叶体自身旋转, 与轨道解耦(动画声明保留, 静态定位已转 uno) */
 .leaf-spin {
-  position: absolute;
-  top: 0;
-  left: 0;
   animation-name: leaf-spin;
   animation-timing-function: linear;
   animation-iteration-count: infinite;

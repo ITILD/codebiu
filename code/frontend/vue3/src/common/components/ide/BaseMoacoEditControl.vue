@@ -1,8 +1,8 @@
 <template>
   <div bg-note-soft>
-    <div flex gap-2>
+    <div flex gap-2 p-2 flex-wrap>
       <!-- 语言选择 -->
-      <select v-model="selectedLanguage">
+      <select v-model="selectedLanguage" class="rounded-note-sm border border-note bg-note-card px-2 py-1 text-sm text-note cursor-pointer note-transition hover:border-note-green">
         <option v-for="(value, key) in codeTypeOptions" :key="key" :value="value">
           {{ value }}
         </option>
@@ -19,7 +19,7 @@
 
       <!-- 主题选择 -->
 
-      <select v-model="selectedTheme">
+      <select v-model="selectedTheme" class="rounded-note-sm border border-note bg-note-card px-2 py-1 text-sm text-note cursor-pointer note-transition hover:border-note-green">
         <option value="vs">Light</option>
         <option value="vs-dark">Dark</option>
         <option value="hc-black">High Contrast</option>

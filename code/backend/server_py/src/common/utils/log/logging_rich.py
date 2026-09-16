@@ -117,7 +117,8 @@ class LoggingRich:
             return
 
         root.propagate = False
-        root.setLevel(logging.DEBUG)
+        # root.setLevel(logging.DEBUG)
+        root.setLevel(logging.INFO)
         # 屏蔽 markdown_it 解析器的 DEBUG 噪音
         logging.getLogger("markdown_it").setLevel(logging.WARNING)
         # echo=True 时 SQLAlchemy 会在 sqlalchemy.engine.Engine 子 logger 上自加

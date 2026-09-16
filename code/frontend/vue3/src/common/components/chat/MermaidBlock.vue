@@ -1,6 +1,13 @@
+<script lang="ts">
+// 模块级(所有实例共享): 渲染守卫引用计数。
+// 同页多个图并发渲染时, 先完成的实例不能把 html.mm-rendering 守卫提前撤掉
+let guardCount = 0
+</script>
+
 <script setup lang="ts">
 // Mermaid 图表渲染区块: 防抖串行渲染 + 缩放拖拽 + 导出PNG/复制/编辑源码
 // 渲染使用离屏容器, 避免临时 SVG 挂到 body 引起页面闪烁
+// 流式输出时按"稳定前缀"一段段渲染, 代码稳定后补一次全量渲染
 import {
   Camera, CopyDocument, ZoomIn, ZoomOut, Check, Close, FullScreen, Aim, EditPen, Lock, Unlock,
 } from '@element-plus/icons-vue'
@@ -39,10 +46,11 @@ const emit = defineEmits<{ (e: 'update:code', code: string): void }>()
 // ===== DOM 引用 =====
 const containerRef = ref<HTMLDivElement>()   // 图表显示容器
 const wrapperRef = ref<HTMLDivElement>()     // 缩放/拖拽画布
-const offscreenRef = ref<HTMLDivElement>()   // 离屏渲染容器
+const offscreenRef = ref<HTMLDivElement>()   // 离屏渲染容器: 承接 mermaid 临时 DOM
 
 // ===== 状态 =====
 const renderError = ref('')
+const busy = ref(false)          // 渲染进行中(流式跟随的"生成中"指示)
 const scale = ref(1)
 const tx = ref(0)
 const ty = ref(0)
@@ -79,9 +87,23 @@ let dirty = false
 let disposed = false
 let hasRendered = false
 let lastChangeTime = 0
+let lastRenderedCode = ''        // 上次实际渲染的代码(去重, 省流式期 CPU)
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
+let stableTimer: ReturnType<typeof setTimeout> | null = null
 
 const isCodeChanging = () => Date.now() - lastChangeTime < 1200
+
+/** 流式结束后补一次全量渲染(流式截断丢掉的最后一行要渲出来) */
+const scheduleStableRender = () => {
+  if (stableTimer) clearTimeout(stableTimer)
+  stableTimer = setTimeout(() => {
+    stableTimer = null
+    if (disposed) return
+    // 正在渲染上一帧: 完成后由 dirty 机制自动接续
+    if (rendering) dirty = true
+    else doRender()
+  }, 1500)
+}
 
 /** 图表是否超出可视范围(用于判断是否需要重新自适应) */
 const isOutOfBounds = () => {
@@ -111,25 +133,39 @@ const fitToScreen = () => {
     scale.value = 1
     return
   }
-  const s = Math.min(aw / w, ah / h, 1)
+  // 全屏时允许放大铺满(矢量图放大不失真, 上限 4x 防小图过分放大), 普通模式最高 1:1
+  const s = Math.min(aw / w, ah / h, fullscreen.value ? 4 : 1)
   scale.value = s
   tx.value = Math.round((aw - w * s) / 2 + 16)
   ty.value = Math.round((ah - h * s) / 2 + 16)
 }
 
-/** 执行一次渲染(mermaid.parse 校验 → render 出 SVG → 注入容器) */
+/** 执行一次渲染(流式中渲稳定前缀, 稳定后全量) */
 const doRender = async () => {
   if (rendering || disposed) return
   rendering = true
+  busy.value = true
+  let guarded = false
 
-  const code = currentCode.value.trim()
-  if (!code || !looksRenderable(code)) {
-    rendering = false
-    return
-  }
-
-  const id = `mm-${props.blockId}-${Date.now()}`
   try {
+    const full = currentCode.value.trim()
+    if (!full || !looksRenderable(full)) return
+
+    // 一段段生成: 流式中只渲染到上一个换行前的"稳定前缀"。
+    // 正在写入的最后一行常是残缺语法, 直接渲染会报错闪烁;
+    // 前缀始终语法完整, 图表随流式逐段长出, 稳定后由 trailing 渲染补全
+    const streaming = isCodeChanging()
+    const code = (streaming ? full.slice(0, full.lastIndexOf('\n') + 1) : full).trim()
+    if (streaming) scheduleStableRender()
+    if (!code || !looksRenderable(code) || code === lastRenderedCode) return
+    lastRenderedCode = code
+
+    const id = `mm-${props.blockId}-${Date.now()}`
+    // 渲染期间挂起全局 reduced-motion 动画压缩(见 base.css 的 html.mm-rendering 豁免):
+    // 动画时长被强压到 0.01ms 会破坏 mermaid 的文本测量, 导致布局间距爆炸、节点缩成小点
+    if (++guardCount === 1) document.documentElement.classList.add('mm-rendering')
+    guarded = true
+
     const mermaid = await ensureMermaid()
     await mermaid.parse(code)
     const { svg } = await mermaid.render(id, code, offscreenRef.value)
@@ -141,10 +177,9 @@ const doRender = async () => {
     const el = containerRef.value.querySelector('svg')
     if (el) {
       const [w, h] = getSvgSize()
-      el.style.cssText = 'max-width:none;width:auto;height:auto'
-      // 写入 DOM 的宽高取整, 辅助浏览器正确计算比例
-      el.setAttribute('width', `${Math.round(w)}`)
-      el.setAttribute('height', `${Math.round(h)}`)
+      // 必须写显式像素尺寸: 内联样式优先级高于宽高属性,
+      // 若用 auto, 浏览器会按容器百分比/默认尺寸解释 SVG 宽高, 导致显示大小不对
+      el.style.cssText = `max-width:none;width:${Math.round(w)}px;height:${Math.round(h)}px`
     }
 
     await raf()
@@ -157,6 +192,9 @@ const doRender = async () => {
     if (!disposed && !isCodeChanging())
       renderError.value = e instanceof Error ? e.message : String(e)
   } finally {
+    if (guarded && --guardCount === 0)
+      document.documentElement.classList.remove('mm-rendering')
+    busy.value = false
     rendering = false
     if (dirty && !disposed) {
       dirty = false
@@ -175,13 +213,14 @@ const scheduleRender = () => {
   }, 33)
 }
 
-onMounted(doRender)
 watch(currentCode, scheduleRender)
 watch(() => props.code, (v) => { currentCode.value = v })
-watch(editing, (v) => { if (!v) nextTick(doRender) })
-onBeforeUnmount(() => {
-  disposed = true
-  if (debounceTimer) clearTimeout(debounceTimer)
+watch(editing, (v) => {
+  if (!v) nextTick(() => {
+    // 退出编辑后画布 DOM 重建, 重新挂尺寸监听(observe 对同一元素自动去重)
+    if (wrapperRef.value) resizeObserver.observe(wrapperRef.value)
+    doRender()
+  })
 })
 
 /* ===== 缩放 & 拖拽 ===== */
@@ -245,11 +284,10 @@ const onPointerUp = () => { dragging.value = false }
 const fullscreen = ref(false)
 const toggleFullscreen = async () => {
   fullscreen.value = !fullscreen.value
-  if (fullscreen.value) {
-    await nextTick()
-    await raf()
-    fitToScreen()
-  }
+  // 进入/退出全屏后容器尺寸都变了, 统一等 DOM 更新后重新自适应
+  await nextTick()
+  await raf()
+  fitToScreen()
 }
 
 const handleCopy = async () => {
@@ -285,48 +323,80 @@ const commitEdit = () => {
   ElMessage.success('已更新图表')
 }
 const cancelEdit = () => { editing.value = false }
+
+/* ===== 画布尺寸监听 + 生命周期 ===== */
+// 全屏切换把区块从文档流切到 fixed, 布局完成时机可能晚于 nextTick+rAF
+// (后台标签页下 rAF 甚至不会触发), 用 ResizeObserver 监听画布实际尺寸兜底,
+// 确保全屏/窗口缩放后必然重新自适应
+const resizeObserver = new ResizeObserver(() => {
+  // 锁定态/全屏态: 尺寸变化自动重新自适应; 解锁态尊重用户手动缩放拖拽
+  if (disposed || editing.value || (!locked.value && !fullscreen.value)) return
+  fitToScreen()
+})
+
+onMounted(() => {
+  // observe 首次会立即触发一次回调, 相当于挂载即自适应一轮
+  if (wrapperRef.value) resizeObserver.observe(wrapperRef.value)
+  doRender()
+})
+
+onBeforeUnmount(() => {
+  disposed = true
+  resizeObserver.disconnect()
+  if (debounceTimer) clearTimeout(debounceTimer)
+  if (stableTimer) clearTimeout(stableTimer)
+})
 </script>
 
 <template>
-  <div class="mm-block" :class="{ 'is-fullscreen': fullscreen }">
+  <!-- 样式已 UnoCSS 化: 静态原子类直接写, 状态分支(全屏/拖拽/锁定)走条件绑定,
+       scoped 仅保留伪元素动画与 :deep SVG 渲染质量微调 -->
+  <div
+    class="relative my-3 overflow-hidden rounded-note-md bg-note-card shadow-note"
+    :class="fullscreen ? 'fixed inset-0 z-9999 m-0 rounded-none flex flex-col' : ''"
+  >
     <!-- 工具栏 -->
-    <div class="mm-head">
-      <span class="mm-title">流程图</span>
-      <div class="mm-tools">
+    <div class="flex items-center justify-between px-3 py-1.5 bg-note-soft">
+      <div class="flex items-center gap-2">
+        <span class="text-[13px] font-semibold text-note-green">流程图</span>
+        <!-- 流式跟随渲染指示 -->
+        <span v-if="busy" class="mm-live inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs text-note-green bg-note-tint">生成中…</span>
+      </div>
+      <div class="flex items-center gap-0.5">
         <template v-if="editing">
           <el-tooltip content="确认" placement="top">
-            <button class="mm-btn primary" @click="commitEdit"><el-icon><Check /></el-icon></button>
+            <button class="note-icon-btn bg-note-green text-white" @click="commitEdit"><el-icon><Check /></el-icon></button>
           </el-tooltip>
           <el-tooltip content="取消" placement="top">
-            <button class="mm-btn" @click="cancelEdit"><el-icon><Close /></el-icon></button>
+            <button class="note-icon-btn" @click="cancelEdit"><el-icon><Close /></el-icon></button>
           </el-tooltip>
         </template>
         <template v-else>
           <el-tooltip :content="locked ? '解锁缩放拖拽' : '锁定并回到自适应'" placement="top">
-            <button class="mm-btn" :class="{ active: !locked }" @click="toggleLock">
+            <button class="note-icon-btn" :class="!locked && 'bg-note-green text-white'" @click="toggleLock">
               <el-icon><Lock v-if="locked" /><Unlock v-else /></el-icon>
             </button>
           </el-tooltip>
           <el-tooltip content="导出图片" placement="top">
-            <button class="mm-btn" @click="exportPng"><el-icon><Camera /></el-icon></button>
+            <button class="note-icon-btn" @click="exportPng"><el-icon><Camera /></el-icon></button>
           </el-tooltip>
           <el-tooltip content="复制源码" placement="top">
-            <button class="mm-btn" @click="handleCopy"><el-icon><CopyDocument /></el-icon></button>
+            <button class="note-icon-btn" @click="handleCopy"><el-icon><CopyDocument /></el-icon></button>
           </el-tooltip>
           <el-tooltip content="编辑源码" placement="top">
-            <button class="mm-btn" @click="startEdit"><el-icon><EditPen /></el-icon></button>
+            <button class="note-icon-btn" @click="startEdit"><el-icon><EditPen /></el-icon></button>
           </el-tooltip>
           <el-tooltip content="自适应" placement="top">
-            <button class="mm-btn" @click="fitToScreen"><el-icon><Aim /></el-icon></button>
+            <button class="note-icon-btn" @click="fitToScreen"><el-icon><Aim /></el-icon></button>
           </el-tooltip>
           <el-tooltip content="放大" placement="top">
-            <button class="mm-btn" @click="zoomBy(1.2)"><el-icon><ZoomIn /></el-icon></button>
+            <button class="note-icon-btn" @click="zoomBy(1.2)"><el-icon><ZoomIn /></el-icon></button>
           </el-tooltip>
           <el-tooltip content="缩小" placement="top">
-            <button class="mm-btn" @click="zoomBy(1 / 1.2)"><el-icon><ZoomOut /></el-icon></button>
+            <button class="note-icon-btn" @click="zoomBy(1 / 1.2)"><el-icon><ZoomOut /></el-icon></button>
           </el-tooltip>
           <el-tooltip :content="fullscreen ? '退出全屏' : '全屏'" placement="top">
-            <button class="mm-btn" :class="{ active: fullscreen }" @click="toggleFullscreen">
+            <button class="note-icon-btn" :class="fullscreen && 'bg-note-green text-white'" @click="toggleFullscreen">
               <el-icon><FullScreen /></el-icon>
             </button>
           </el-tooltip>
@@ -335,117 +405,55 @@ const cancelEdit = () => { editing.value = false }
     </div>
 
     <!-- 编辑态: 源码编辑 -->
-    <div v-if="editing" class="mm-edit">
-      <textarea v-model="editCode" class="mm-textarea" spellcheck="false" placeholder="请输入 mermaid 源码" />
+    <div v-if="editing" class="bg-[#10241a]">
+      <textarea
+        v-model="editCode"
+        class="w-full min-h-[280px] max-h-[500px] p-3 border-none outline-none resize-y box-border font-mono text-[13px] leading-[1.6] text-[#dcebe0] bg-transparent"
+        spellcheck="false"
+        placeholder="请输入 mermaid 源码"
+      />
     </div>
 
     <!-- 查看态: 画布(锁定=滚轮交给页面滚动; 解锁后滚轮缩放 + 拖拽平移) -->
     <div
       v-else
       ref="wrapperRef"
-      class="mm-canvas-wrap"
-      :class="{ dragging, locked }"
+      class="relative p-4 overflow-hidden min-h-[420px] max-h-[70vh] select-none"
+      :class="[
+        dragging ? 'cursor-grabbing' : locked ? 'cursor-default' : 'cursor-grab',
+        fullscreen ? 'flex-1 max-h-none' : '',
+      ]"
       @wheel="onWheel"
       @pointerdown="onPointerDown"
       @pointermove="onPointerMove"
       @pointerup="onPointerUp"
     >
-      <div ref="containerRef" class="mm-canvas" :style="transformStyle" />
+      <div ref="containerRef" class="mm-canvas absolute top-0 left-0 min-h-20 will-change-transform" :style="transformStyle" />
     </div>
 
     <!-- 渲染错误提示 -->
-    <div v-if="renderError && !editing" class="mm-error">
+    <div v-if="renderError && !editing" class="px-3 py-2 text-xs text-[#c0453e] bg-[#fbf6f4]">
       图表格式错误: {{ renderError }}
     </div>
 
-    <!-- 离屏渲染容器: mermaid 临时 DOM 仅在此, 不污染页面 -->
-    <div ref="offscreenRef" class="mm-offscreen" aria-hidden="true" />
+    <!-- 离屏渲染容器: mermaid 临时 DOM 仅挂在此, 移出屏幕不影响页面 -->
+    <div ref="offscreenRef" class="absolute -left-[9999px] -top-[9999px] w-[1200px] h-[800px] overflow-hidden pointer-events-none" aria-hidden="true" />
   </div>
 </template>
 
 <style scoped>
-.mm-block {
-  position: relative;
-  margin: 12px 0;
-  /* 描边改为极淡光晕环, 边缘更柔 */
-  border-radius: 12px;
-  overflow: hidden;
-  background: var(--note-card, #fdfefc);
-  box-shadow: 0 0 0 1px var(--note-edge-soft, rgba(107, 158, 120, 0.16));
+/* 流式生成中指示: 苔绿小胶囊脉动圆点(伪元素, UnoCSS 无法表达) */
+.mm-live::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: mm-pulse 1s ease-in-out infinite;
 }
 
-.mm-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 12px;
-  background: var(--note-soft, #f2f7f0);
-}
-
-.mm-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--note-green-deep, #3f7a52);
-}
-
-.mm-tools {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.mm-btn {
-  min-width: 28px;
-  height: 28px;
-  padding: 0 6px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--note-sub, #6b7f6e);
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.15s;
-}
-
-.mm-btn:hover {
-  background: var(--note-tint, #e7f3e9);
-  color: var(--note-green, #6cbf8f);
-}
-
-.mm-btn.active,
-.mm-btn.primary {
-  background: var(--note-green, #6cbf8f);
-  color: #fff;
-}
-
-.mm-canvas-wrap {
-  position: relative;
-  padding: 16px;
-  overflow: hidden;
-  min-height: 420px;
-  max-height: 70vh;
-  cursor: grab;
-  user-select: none;
-}
-
-.mm-canvas-wrap.dragging {
-  cursor: grabbing;
-}
-
-/* 锁定态: 不提示可拖拽, 滚轮交给页面滚动 */
-.mm-canvas-wrap.locked {
-  cursor: default;
-}
-
-.mm-canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
-  min-height: 80px;
-  will-change: transform;
+@keyframes mm-pulse {
+  50% { opacity: 0.3; }
 }
 
 /* 增强字体与形状渲染质量 */
@@ -455,56 +463,5 @@ const cancelEdit = () => { editing.value = false }
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   shape-rendering: geometricPrecision;
-}
-
-.mm-block.is-fullscreen {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  margin: 0;
-  border-radius: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.mm-block.is-fullscreen .mm-canvas-wrap {
-  flex: 1;
-  max-height: none;
-}
-
-.mm-error {
-  padding: 8px 12px;
-  font-size: 12px;
-  color: #c0453e;
-  background: #fbf6f4;
-}
-
-.mm-edit {
-  background: #10241a;
-}
-
-.mm-textarea {
-  width: 100%;
-  min-height: 280px;
-  max-height: 500px;
-  padding: 12px;
-  border: none;
-  outline: none;
-  resize: vertical;
-  box-sizing: border-box;
-  font: 13px/1.6 ui-monospace, Consolas, monospace;
-  color: #dcebe0;
-  background: transparent;
-}
-
-.mm-offscreen {
-  position: absolute;
-  left: -9999px;
-  top: -9999px;
-  width: 0;
-  height: 0;
-  overflow: hidden;
-  visibility: hidden;
-  pointer-events: none;
 }
 </style>

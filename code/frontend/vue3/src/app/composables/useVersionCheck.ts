@@ -39,6 +39,8 @@ export function useVersionCheck() {
 
   /** 拉取服务器 version.json(带时间戳防 nginx/浏览器缓存)并比对 */
   const check = async () => {
+    // 开发环境无 version.json(仅构建产物含), 跳过检测避免控制台网络报错噪音
+    if (import.meta.env.DEV) return
     try {
       const res = await fetch(
         `${import.meta.env.BASE_URL}version.json?t=${Date.now()}`,

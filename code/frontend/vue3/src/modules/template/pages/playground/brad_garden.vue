@@ -1,8 +1,8 @@
 <template>
   <!-- 数字花园主题子页: 每个区块演示 garden.bradwoods.io 中一种巧妙的可视化技巧(数据驱动渲染) -->
-  <div :style="{ ...theme.vars, fontFamily: 'var(--el-font-family)' }" :class="theme.rootClass" class="rounded-lg p-4 md:p-6">
+  <div :style="{ ...theme.vars, fontFamily: 'var(--el-font-family)' }" :class="theme.rootClass" class="rounded-note-sm p-4 md:p-6">
     <!-- 顶栏: 与 PaperCard 同源的纸张配方(噪声 + 渐晕 + 内阴影, overlay 混合) -->
-    <div class="relative isolate mb-4 overflow-hidden rounded-lg border border-[#cfc9b8]">
+    <div class="relative isolate mb-4 overflow-hidden rounded-note-sm border border-[#cfc9b8]">
       <div class="bg-[#e7dfc8] p-5 md:p-7">
         <h3 class="text-xl font-bold text-[#2f3a2c] md:text-2xl">数字花园 · 可视化技巧温室</h3>
         <p class="mt-2 max-w-3xl text-sm leading-6 text-[#4d5548]">

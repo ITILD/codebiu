@@ -7,12 +7,12 @@
         <!-- 无边线纸片: 色差+光晕环成形, hover 抬升(garden PaperCard 纸纤维顶盖) -->
         <div
           class="paper-grain note-glow-hover"
-          bg-note-card rounded-2xl p-5 cursor-pointer overflow-hidden
+          bg-note-card rounded-note-lg p-5 cursor-pointer overflow-hidden
           duration-300 hover:-translate-y-0.5
           @click="router.push(item.path)"
         >
           <div flex items-center gap-3>
-            <div flex items-center justify-center w-12 h-12 rounded-xl bg-note-tint shrink-0 :class="item.color">
+            <div flex items-center justify-center w-12 h-12 rounded-note-md bg-note-tint shrink-0 :class="item.color">
               <el-icon :size="24">
                 <component :is="item.icon" />
               </el-icon>

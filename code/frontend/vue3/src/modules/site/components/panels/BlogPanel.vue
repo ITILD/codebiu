@@ -134,7 +134,7 @@
                   v-model="form.content"
                   type="textarea"
                   placeholder="支持 markdown 语法，可插入 mermaid 图表..."
-                  class="editor-input"
+                  class="editor-input h-full"
                 />
               </div>
               <div ref="previewEl" class="h-full min-w-0 overflow-y-auto px-4 py-3">
@@ -491,10 +491,7 @@ onMounted(fetchData)
 </script>
 
 <style scoped>
-/* 编辑器 textarea 填满左栏(无边框融入卡片容器) */
-.editor-input {
-  height: 100%;
-}
+/* 编辑器 textarea 填满左栏(无边框融入卡片容器, 容器高度由模板 h-full 撑满) */
 .editor-input :deep(.el-textarea__inner) {
   height: 100%;
   resize: none;

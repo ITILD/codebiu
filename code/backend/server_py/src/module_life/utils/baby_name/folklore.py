@@ -1,8 +1,7 @@
 """起名参考体系注册表
 
-两类参考:
-- strict=True: 有经典严格计算方法, 由后端程序精确推算(五行八字/三才五格/星座/生肖/塔罗);
-- strict=False: 文化风格类参考(基督/佛教/道教), 无量化计算, 转化为起名风格约束注入提示词。
+strict=True: 有经典严格计算方法, 由后端程序按出生日期精确推算
+(五行八字/三才五格/星座/生肖/塔罗/基督季节意象/佛教本命佛/道教本命太岁)。
 """
 
 from dataclasses import dataclass
@@ -79,25 +78,25 @@ FOLK_REFERENCES: dict[str, FolkReference] = {
         key=ReferenceEnum.CHRISTIAN,
         label="基督",
         icon="✝",
-        desc="圣经美好品德与恩典意象",
-        strict=False,
-        prompt_hint="可参考圣经中的美好品德与意象(恩典、光、平安、喜乐), 寓意温和祝福",
+        desc="按出生季节取圣经意象与祝福经文",
+        strict=True,
+        prompt_hint="名字寓意呼应出生季节的圣经意象(新生/丰盛/感恩/平安), 气质温和祝福",
     ),
     ReferenceEnum.BUDDHISM: FolkReference(
         key=ReferenceEnum.BUDDHISM,
         label="佛教",
         icon="☸",
-        desc="慈悲智慧清净的禅意用字",
-        strict=False,
-        prompt_hint="可参考佛教慈悲、智慧、清净的意象(如慧、净、慈、莲、安), 气质禅意祥和",
+        desc="按生肖取本命佛与慈悲禅意用字",
+        strict=True,
+        prompt_hint="结合生肖本命佛的寓意择字, 参考慈悲、智慧、清净的佛家意象(如慧、净、慈、莲、安)",
     ),
     ReferenceEnum.TAOISM: FolkReference(
         key=ReferenceEnum.TAOISM,
         label="道教",
         icon="☯",
-        desc="道法自然清静逍遥的道家意趣",
-        strict=False,
-        prompt_hint="可参考道家自然无为、清静逍遥的意趣(如清、然、朴、云、鹤), 气质空灵飘逸",
+        desc="按年柱取本命太岁与道家意趣",
+        strict=True,
+        prompt_hint="敬本命太岁纳吉迎祥, 参考道家自然清静、逍遥飘逸的意趣(如清、然、朴、云、鹤)",
     ),
 }
 

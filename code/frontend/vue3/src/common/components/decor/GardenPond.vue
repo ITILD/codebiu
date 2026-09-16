@@ -109,8 +109,9 @@
     </g>
   </svg>
 
-    <!-- 下景写实水面: WebGL 画布, CSS 蒙版向下渐显(与上部水墨融合) -->
-    <canvas ref="glCanvas" class="pond-gl" aria-hidden="true"></canvas>
+    <!-- 下景写实水面: WebGL 画布, CSS 蒙版向下渐显(与上部水墨融合);
+         静态定位已转 uno, 蒙版渐变(含 -webkit- 前缀)保留在 style -->
+    <canvas ref="glCanvas" class="pond-gl absolute left-0 bottom-0 w-full h-[56%] block pointer-events-none" aria-hidden="true"></canvas>
   </div>
 </template>
 
@@ -345,15 +346,9 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-/* 下景写实水面画布: 覆盖池塘下半, 蒙版向下渐显 —— 与上部水墨无缝融合 */
+/* 下景写实水面画布: 蒙版向下渐显与上部水墨无缝融合;
+   (静态定位已转 uno 原子类, 仅蒙版渐变保留 —— 需要 -webkit- 前缀双声明) */
 .pond-gl {
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  width: 100%;
-  height: 56%;
-  display: block;
-  pointer-events: none;
   -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.28) 32%, #000 66%);
   mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.28) 32%, #000 66%);
 }

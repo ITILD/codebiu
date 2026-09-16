@@ -49,9 +49,10 @@ onMounted(() => {
       <SysSidebar v-if="isAdmin" />
 
       <!-- 主内容区: 文档流自然滚动
-           注意: 此处不要用 Transition 包裹路由组件 —— 与路由懒加载组件
-           组合存在组件更新时 parentNode(null) 的空白 bug(out-in 与交叉
-           淡入两种模式均已踩坑), 故直接渲染 RouterView 保证稳定 -->
+           注意: 此处不要用 Transition 包裹路由组件(路由切换过渡已移除) ——
+           与路由懒加载组件组合存在组件更新时 parentNode(null) 导致
+           整页空白的 bug(out-in 与交叉淡入两种模式均已踩坑),
+           故直接渲染 RouterView 保证稳定 -->
       <main flex-1 min-w-0 w-full>
         <RouterView />
       </main>
@@ -61,8 +62,3 @@ onMounted(() => {
     <SysFooter v-if="!isFullpage" w-full shrink-0 />
   </div>
 </template>
-
-<style>
-/* 说明: 路由切换过渡已移除 —— Transition 与路由懒加载组件组合
-   存在组件更新时 parentNode(null) 导致整页空白的 bug */
-</style>

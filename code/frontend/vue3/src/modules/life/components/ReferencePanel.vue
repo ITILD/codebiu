@@ -1,4 +1,4 @@
-﻿﻿<template>
+﻿<template>
   <!-- 严格推算结果面板: 按选中的参考体系分区展示 -->
   <div space-y-3>
     <div v-if="loading" flex items-center justify-center py-6 text-note-sub gap-2>
@@ -16,9 +16,9 @@
             v-for="p in result.wuxing.pillars" :key="p.label"
             rounded-lg bg-note-tint px-1 py-1.5 text-center
           >
-            <div text-[10px] text-note-sub>{{ p.label }}</div>
+            <div class="text-[10px]" text-note-sub>{{ p.label }}</div>
             <div text-base font-bold text-note tracking-widest>{{ p.ganzhi }}</div>
-            <div text-[10px] text-note-green>{{ p.wuxing }}</div>
+            <div class="text-[10px]" text-note-green>{{ p.wuxing }}</div>
           </div>
         </div>
         <!-- 五行分布条 -->
@@ -38,7 +38,7 @@
             {{ w }}
           </el-tag>
         </div>
-        <div v-if="result.wuxing.canggan.length" mt-1.5 text-[10px] text-note-sub leading-relaxed>
+        <div v-if="result.wuxing.canggan.length" mt-1.5 class="text-[10px]" text-note-sub leading-relaxed>
           藏干：{{ result.wuxing.canggan.map((c) => `${c.branch}藏${c.hidden}`).join('；') }}
         </div>
       </section>
@@ -74,6 +74,36 @@
         <div mt-1 text-xs text-note-sub leading-relaxed>{{ result.tarot.meaning }}</div>
       </section>
 
+      <!-- 佛教: 本命佛(按生肖) -->
+      <section v-if="result.buddhism" class="ref-section">
+        <div class="ref-title">☸ 佛教 · 本命佛</div>
+        <div flex items-baseline gap-2 flex-wrap>
+          <b text-base text-note>{{ result.buddhism.buddha }}</b>
+          <span text-xs text-note-sub>生肖{{ result.buddhism.zodiac }}</span>
+        </div>
+        <div mt-1 text-xs text-note-sub leading-relaxed>{{ result.buddhism.meaning }}</div>
+      </section>
+
+      <!-- 道教: 本命太岁(按年柱干支) -->
+      <section v-if="result.taoism" class="ref-section">
+        <div class="ref-title">☯ 道教 · 本命太岁</div>
+        <div flex items-baseline gap-2 flex-wrap>
+          <b text-base text-note>{{ result.taoism.taishi }}</b>
+          <span text-xs text-note-sub>年柱 {{ result.taoism.year_ganzhi }}</span>
+        </div>
+        <div mt-1 text-xs text-note-sub leading-relaxed>{{ result.taoism.meaning }}</div>
+      </section>
+
+      <!-- 基督: 出生季节圣经意象 -->
+      <section v-if="result.christian" class="ref-section">
+        <div class="ref-title">✝ 基督 · 圣经意象</div>
+        <div flex items-baseline gap-2 flex-wrap>
+          <b text-base text-note>{{ result.christian.season }}季</b>
+          <span text-xs text-note-sub>{{ result.christian.theme }}</span>
+        </div>
+        <div mt-1 text-xs text-note-sub leading-relaxed>{{ result.christian.verse }}</div>
+      </section>
+
       <!-- 姓氏五格基准 -->
       <section v-if="result.sancai" class="ref-section">
         <div class="ref-title">☰ 姓氏五格基准</div>
@@ -82,17 +112,17 @@
           <b text-note>{{ Object.entries(result.sancai.surname_strokes).map(([ch, n]) => `${ch}${n}`).join(' ') }}</b>
           <span text-xs text-note-sub>天格 {{ result.sancai.tian_ge }}</span>
         </div>
-        <div v-if="result.sancai.estimated_chars.length" mt-1 text-[10px] text-note-sub>
+        <div v-if="result.sancai.estimated_chars.length" mt-1 class="text-[10px]" text-note-sub>
           笔画为估计值的字：{{ result.sancai.estimated_chars.join('、') }}
         </div>
-        <div mt-1 text-[10px] text-note-sub>{{ result.sancai.note }}</div>
+        <div mt-1 class="text-[10px]" text-note-sub>{{ result.sancai.note }}</div>
       </section>
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
-/** 参考信息推算结果面板: 五行八字/星座/生肖/塔罗/姓氏五格基准分区展示 */
+/** 参考信息推算结果面板: 五行八字/星座/生肖/塔罗/佛教本命佛/道教本命太岁/基督圣经意象/姓氏五格分区展示 */
 import type { ReferenceCalculateResult } from '../types/baby_name'
 
 defineProps<{

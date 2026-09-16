@@ -10,24 +10,40 @@
 
     <el-form v-loading="loading" label-width="96px" label-position="right" flex flex-col gap-1>
       <el-form-item v-for="meta in TYPE_META" :key="meta.type" :label="meta.label">
-        <div class="w-full flex flex-col gap-1">
+        <!-- 同一行布局: 左侧模型选择器 + 右侧测试按钮(仅测试当前选中模型) -->
+        <div class="w-full flex items-center gap-2">
           <el-select :model-value="displayValue(meta.type)"
-            :placeholder="meta.voice ? '未绑定(自动使用系统可用语音模型)' : '暂无系统默认公共模型, 请联系管理员配置'"
-            clearable w-full @update:model-value="(v) => handleSelect(meta.type, v)">
-            <!-- 选中态自定义展示: 模型名 + 系统默认tag(与下拉选项一致) -->
+            placeholder="未绑定(自动使用系统默认模型)"
+            clearable class="flex-1 min-w-0" @update:model-value="(v) => handleSelect(meta.type, v)">
+            <!-- 选中态自定义展示: 模型名 + 系统默认tag + 已测能力标签(测试后显示当前支持的能力) -->
             <template #label="{ value }">
               <span flex items-center gap-1>
                 <span>{{ selectedText(meta.type, value) }}</span>
-                <el-tag v-if="selectedIsDefault(meta.type, value)" type="warning" size="small">系统默认</el-tag>
+                <el-tag v-if="selectedIsDefault(meta.type, value)" type="warning" size="small">默认</el-tag>
+                <el-tooltip v-for="cap in selectedCapabilities(meta.type)" :key="cap.key"
+                  :content="cap.ok ? (cap.detail || '测试通过') : (cap.error || '测试未通过')" placement="top">
+                  <el-tag :type="cap.ok ? 'success' : 'danger'" size="small"
+                    effect="light">
+                    {{ cap.label }}
+                  </el-tag>
+                </el-tooltip>
               </span>
             </template>
             <el-option v-for="item in modelMap[meta.type]" :key="item.id" :value="item.id"
               :label="modelMainLabel(item)" :disabled="item.is_active === false">
+              <!-- 选项首行: 模型名 + 标记 + 已测能力标签(通过=绿/失败=红, 仅颜色区分) -->
               <div flex flex-col>
                 <div flex items-center gap-1>
                   <span>{{ modelMainLabel(item) }}</span>
-                  <el-tag v-if="item.is_default" type="warning" size="small">系统默认</el-tag>
+                  <el-tag v-if="item.is_default" type="warning" size="small">默认</el-tag>
                   <el-tag v-if="item.is_active === false" type="info" size="small">不生效</el-tag>
+                  <el-tooltip v-for="cap in testedCapabilities(item)" :key="cap.key"
+                    :content="cap.ok ? (cap.detail || '测试通过') : (cap.error || '测试未通过')" placement="top">
+                    <el-tag :type="cap.ok ? 'success' : 'danger'" size="small"
+                      effect="light">
+                      {{ cap.label }}
+                    </el-tag>
+                  </el-tooltip>
                 </div>
                 <div text-xs text-note-sub>
                   {{ item.model }} · {{ serverTypeLabel(item.server_type) }} · {{ scopeShortLabel(item.scope) }}
@@ -35,19 +51,11 @@
               </div>
             </el-option>
           </el-select>
-          <!-- 能力标签: 最近一次测试结果(通过=能力色/失败=红), 常驻展示; 语音小模型暂无在线测试 -->
-          <div v-if="!meta.voice && selectedModel(meta.type)" class="flex items-center gap-1 flex-wrap">
-            <el-tooltip v-for="cap in testedCapabilities(selectedModel(meta.type))" :key="cap.key"
-              :content="cap.ok ? (cap.detail || '测试通过') : (cap.error || '测试未通过')" placement="top">
-              <el-tag :type="cap.ok ? (capabilityTagType[cap.key] ?? 'success') : 'danger'" size="small" effect="light">
-                {{ cap.label }}
-              </el-tag>
-            </el-tooltip>
-            <el-button link type="primary" size="small" :loading="testingType === meta.type"
-              @click="handleTest(meta.type)">
-              测试能力
-            </el-button>
-          </div>
+          <!-- 测试当前选中模型 -->
+          <el-button class="shrink-0" :disabled="!selectedModel(meta.type)"
+            :loading="isTestingSelected(meta.type)" @click="handleTestSelected(meta.type)">
+            测试
+          </el-button>
         </div>
       </el-form-item>
 
@@ -67,7 +75,6 @@ import {
   modelMainLabel,
   scopeShortLabel,
   serverTypeLabel,
-  capabilityTagType,
   testedCapabilities,
 } from '@/modules/ai/types/model_config'
 import type { ModelConfig, ModelCapabilityResult } from '@/modules/ai/types/model_config'
@@ -76,18 +83,18 @@ import type { UserModelBindingUpdate } from '@/modules/rag/api/user_model'
 import { ElMessage } from 'element-plus'
 import type { PaginationParams } from '@/common/types/common'
 
-// 可绑定的模型类型(与后端 ModelType 值对齐)
+// 可绑定的模型类型(与后端 ModelType 值对齐; 全部类型支持能力测试)
 type BindableType = 'chat' | 'embeddings' | 'rerank' | 'asr' | 'tts' | 'vad' | 'denoise'
 
-/** 绑定面板元信息(voice=语音小模型, 无在线能力测试, 文案/回退语义略有差异) */
-const TYPE_META: { type: BindableType; label: string; voice?: boolean }[] = [
+/** 绑定面板元信息(未绑定时均自动回落系统默认模型) */
+const TYPE_META: { type: BindableType; label: string }[] = [
   { type: 'chat', label: '对话模型' },
   { type: 'embeddings', label: '向量化模型' },
   { type: 'rerank', label: '重排模型' },
-  { type: 'asr', label: '语音识别(ASR)', voice: true },
-  { type: 'tts', label: '语音合成(TTS)', voice: true },
-  { type: 'vad', label: 'VAD断句', voice: true },
-  { type: 'denoise', label: '降噪', voice: true },
+  { type: 'asr', label: '语音识别(ASR)' },
+  { type: 'tts', label: '语音合成(TTS)' },
+  { type: 'vad', label: 'VAD断句' },
+  { type: 'denoise', label: '降噪' },
 ]
 const BINDABLE_TYPES = TYPE_META.map(m => m.type)
 
@@ -156,15 +163,23 @@ const handleSelect = (type: BindableType, v: unknown) => {
 const selectedModel = (type: BindableType): ModelConfig | undefined =>
   modelMap[type].find((m) => m.id === displayValue(type))
 
-// ################ 能力测试 ################
-const testingType = ref<BindableType | null>(null)
+/** 当前选中模型已测能力(#label 插槽: 测试后显示当前支持的能力) */
+const selectedCapabilities = (type: BindableType) => testedCapabilities(selectedModel(type))
 
-/** 运行当前选中模型的能力测试, 结果持久化到后端并展示为标签 */
-const handleTest = async (type: BindableType) => {
+// ################ 能力测试 ################
+// 正在测试的模型配置ID(右侧测试按钮共用同一 loading 态)
+const testingId = ref<string | null>(null)
+
+/** 当前选中模型是否正在测试(右侧测试按钮 loading 态) */
+const isTestingSelected = (type: BindableType) => {
   const item = selectedModel(type)
-  if (!item) return
+  return !!item && testingId.value === item.id
+}
+
+/** 运行指定模型的能力测试(含语音类模拟音频冒烟), 结果持久化到后端并展示为能力标签 */
+const handleTestModel = async (item: ModelConfig) => {
   try {
-    testingType.value = type
+    testingId.value = item.id
     const res = await testModelCapability(item.id)
     // 合并测试结果到本地模型数据(后端 check_result 已同步持久化)
     const merged: Record<string, ModelCapabilityResult> = { ...(item.check_result ?? {}) }
@@ -177,8 +192,14 @@ const handleTest = async (type: BindableType) => {
     console.error('模型能力测试失败:', error)
     ElMessage.error('模型能力测试失败')
   } finally {
-    testingType.value = null
+    testingId.value = null
   }
+}
+
+/** 运行当前选中模型的能力测试(选择器右侧按钮) */
+const handleTestSelected = (type: BindableType) => {
+  const item = selectedModel(type)
+  if (item) handleTestModel(item)
 }
 
 /** 拉取单个类型的可见模型列表 */

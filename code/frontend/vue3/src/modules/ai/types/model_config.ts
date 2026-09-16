@@ -226,18 +226,15 @@ const capabilityOptionsFor: Record<string, { key: string; label: string }[]> = {
   ],
   [ModelType.EMBEDDINGS]: [{ key: 'embedding', label: '向量化' }],
   [ModelType.RERANK]: [{ key: 'rerank', label: '重排' }],
+  // 语音类: 后端用模拟音频对引擎做冒烟验证
+  [ModelType.ASR]: [{ key: 'asr', label: '识别' }],
+  [ModelType.TTS]: [{ key: 'tts', label: '合成' }],
+  [ModelType.VAD]: [{ key: 'vad', label: '断句' }],
+  [ModelType.DENOISE]: [{ key: 'denoise', label: '降噪' }],
 }
 
-/** 能力标签样式(通过时展示的颜色) */
-const capabilityTagType: Record<string, 'primary' | 'success' | 'warning' | 'info' | 'danger'> = {
-  chat: 'primary',
-  structured: 'success',
-  vision: 'danger',
-  embedding: 'success',
-  rerank: 'warning',
-}
-
-/** 取模型已测试的能力列表(含未通过, 供标签渲染; 未测试返回 []) */
+/** 取模型已测试的能力列表(含未通过, 供标签渲染; 未测试返回 [])
+ *  通过/失败仅靠颜色区分: ok=绿, 失败=红 */
 const testedCapabilities = (config?: ModelConfig | null) =>
   Object.entries(config?.check_result ?? {})
     .filter(([, v]) => !!v)
@@ -324,7 +321,6 @@ export {
   serverTypeLabel,
   extraKeyHints,
   capabilityOptionsFor,
-  capabilityTagType,
   testedCapabilities,
   type ModelConfigBase,
   type ModelConfig,

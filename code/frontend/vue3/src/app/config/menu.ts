@@ -14,7 +14,7 @@ import {
   HomeFilled, UserFilled, Document,
   Monitor, ChatDotRound,
   Files, Collection, FolderOpened,
-  Location, Sunny, Timer, Connection, Notebook, MagicStick,
+  Location, Sunny, Timer, Connection, Notebook, MagicStick, VideoPlay,
 } from '@element-plus/icons-vue'
 
 /** 菜单项定义(perm 为权限码:与后端模块权限声明一致;缺省表示登录即可见) */
@@ -144,6 +144,20 @@ export const menuItems: MenuItem[] = [
     desc: '生辰参考严格推算, AI 结合民俗与神话为宝宝起好名。',
     children: [
       { index: '/life/baby_name', title: '宝宝取名' },
+    ],
+  },
+  {
+    index: '/arcade',
+    icon: markRaw(VideoPlay),
+    title: '小霸王游戏机',
+    mainApp: true,
+    desc: '怀旧掌机小游戏合集, 键盘触屏皆可畅玩。',
+    children: [
+      // 首页入口卡取 children[0] 跳转, 游戏大厅为主入口(选卡进入各游戏)
+      { index: '/arcade', title: '游戏大厅' },
+      { index: '/arcade/tetris', title: '俄罗斯方块' },
+      { index: '/arcade/snake', title: '贪吃蛇' },
+      { index: '/arcade/breakout', title: '打砖块' },
     ],
   },
   {

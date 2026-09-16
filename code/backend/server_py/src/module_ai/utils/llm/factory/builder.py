@@ -17,6 +17,7 @@ from pydantic import SecretStr
 
 from module_ai.do.model_config import ModelConfig
 from module_ai.utils.llm.chat.think import ChatQwenWithReasoning
+from module_ai.utils.llm.rerank.interface import Rerank
 from module_ai.utils.llm.types import ModelType, ModelServerType
 
 logger = logging.getLogger(__name__)

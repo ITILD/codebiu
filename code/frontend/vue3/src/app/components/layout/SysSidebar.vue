@@ -5,7 +5,7 @@
     :width="isCollapse ? '64px' : '230px'"
     transition-all
     duration-300
-    class="sidebar-note"
+    class="sidebar-note bg-note-soft"
     self-start
     sticky
     top-16
@@ -140,10 +140,9 @@ watch(
 )
 </script>
 <style scoped>
-/* 侧边栏: 淡绿纸底, 右缘不画线 —— 以与主区的底色差 + 极淡接缝光晕分区 */
+/* 侧边栏: 淡绿纸底(bg-note-soft 已上提到模板原子类), 右缘不画线
+   —— 以与主区的底色差 + 极淡接缝光晕分区(多层内阴影无法原子化, 保留此处) */
 .sidebar-note {
-  background-color: var(--note-soft);
-  /* 内侧装订虚线 + 右缘一道若有若无的接缝影(替代 1px 实线) */
   box-shadow:
     inset -6px 0 0 -5px rgba(107, 158, 120, 0.18),
     inset -1px 0 0 var(--note-edge-soft);

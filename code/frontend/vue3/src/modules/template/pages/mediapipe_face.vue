@@ -1,9 +1,9 @@
 <template>
   <div class="w-full max-w-[1400px] mx-auto flex flex-col gap-4 p-2 md:p-4">
     <!-- 页头 -->
-    <div class="bg-note-card rounded-xl shadow-note border border-note p-4 flex flex-wrap items-center justify-between gap-3">
+    <div class="bg-note-card rounded-note-md shadow-note border border-note p-4 flex flex-wrap items-center justify-between gap-3">
       <div class="flex items-center gap-3">
-        <div class="bg-note-tint rounded-lg p-2 flex-center">
+        <div class="bg-note-tint rounded-note-sm p-2 flex-center">
           <el-icon :size="22" class="text-note-green"><Camera /></el-icon>
         </div>
         <div>
@@ -18,7 +18,7 @@
     </div>
 
     <!-- 相机预览 + 特征网格叠加(共用一个画面) -->
-    <div class="bg-note-card rounded-xl shadow-note border border-note p-4 flex flex-col gap-3">
+    <div class="bg-note-card rounded-note-md shadow-note border border-note p-4 flex flex-col gap-3">
       <div class="flex items-center justify-between flex-wrap gap-2">
         <div class="flex items-center gap-2 text-note font-medium text-sm">
           <el-icon><VideoCamera /></el-icon> 相机预览 · 特征网格叠加
@@ -36,7 +36,7 @@
       <div class="mx-auto w-full max-w-[720px]">
         <div
           id="previewP"
-          class="relative w-full rounded-lg overflow-hidden bg-note-soft border border-note"
+          class="relative w-full rounded-note-sm overflow-hidden bg-note-soft border border-note"
           :style="{ aspectRatio: String(videoAspect) }"
         >
           <video id="videoDom" playsinline muted class="absolute inset-0 w-full h-full object-cover -scale-x-100"></video>
@@ -74,7 +74,7 @@
     </div>
 
     <!-- MediaPipe 检测选项 -->
-    <div class="bg-note-card rounded-xl shadow-note border border-note p-4">
+    <div class="bg-note-card rounded-note-md shadow-note border border-note p-4">
       <div class="flex items-center gap-2 text-note font-medium text-sm mb-3">
         <el-icon><Setting /></el-icon> MediaPipe 检测选项
         <span class="text-xs text-note-sub font-normal">切换后自动应用(部分选项会触发模型重建)</span>
@@ -115,7 +115,7 @@
     </div>
 
     <!-- 特征向量对比 -->
-    <div class="bg-note-card rounded-xl shadow-note border border-note p-4">
+    <div class="bg-note-card rounded-note-md shadow-note border border-note p-4">
       <div class="flex items-center gap-2 text-note font-medium text-sm mb-1">
         <el-icon><DataAnalysis /></el-icon> 标准化特征向量与人脸匹配
         <span class="text-xs text-note-sub font-normal">
@@ -138,7 +138,7 @@
         <div
           v-for="slot in (['A', 'B'] as const)"
           :key="slot"
-          class="bg-note-soft rounded-lg border border-note p-3 flex flex-col gap-2 min-h-[96px]"
+          class="bg-note-soft rounded-note-sm border border-note p-3 flex flex-col gap-2 min-h-[96px]"
         >
           <div class="flex items-center justify-between">
             <span class="text-sm font-medium text-note">特征 {{ slot }}</span>
@@ -161,7 +161,7 @@
         </div>
       </div>
       <!-- 相似度结果 -->
-      <div v-if="compareResult" class="mt-4 bg-note-tint rounded-lg p-3 border border-note-green">
+      <div v-if="compareResult" class="mt-4 bg-note-tint rounded-note-sm p-3 border border-note-green">
         <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
           <div class="flex items-center gap-2 text-sm text-note">
             余弦相似度
@@ -180,7 +180,7 @@
     </div>
 
     <!-- 表情系数 -->
-    <div class="bg-note-card rounded-xl shadow-note border border-note p-4">
+    <div class="bg-note-card rounded-note-md shadow-note border border-note p-4">
       <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div class="flex items-center gap-2 text-note font-medium text-sm">
           <el-icon><MagicStick /></el-icon> 表情系数 (Blendshapes)

@@ -38,6 +38,30 @@ export default defineConfig({
     transformerVariantGroup() // 支持分组写法，如 md:(p-2 text-lg) 等价于多个类组合
   ],
   theme: {
+    // note 色系注册为原生颜色: 让 bg-note-soft/70、text-note-sub/60、!bg-note-green
+    // 这类「shortcut + 透明度/important」写法走 color 规则生效(shortcut 不支持修饰符)
+    colors: {
+      note: {
+        DEFAULT: 'var(--note-border)',
+        paper: 'var(--note-paper)',
+        soft: 'var(--note-soft)',
+        card: 'var(--note-card)',
+        tint: 'var(--note-tint)',
+        text: 'var(--note-text)',
+        sub: 'var(--note-sub)',
+        green: 'var(--note-green)',
+        deep: 'var(--note-green-deep)',
+        accent: 'var(--note-accent)',
+        glass: 'var(--note-glass)',
+        glow: 'var(--note-glow)',
+        edge: 'var(--note-edge-soft)',
+        ink: 'var(--note-ink)',
+        seal: 'var(--note-seal)',
+        water: 'var(--note-water)',
+        lotus: 'var(--note-lotus)',
+        'border-green': 'var(--note-border-green)',
+      },
+    },
     animation: {
       keyframes: {
         // 光标闪烁动画
@@ -51,10 +75,11 @@ export default defineConfig({
       },
     },
     // 语义圆角刻度(与 base.css 全局主题化的组件圆角对齐)
+    // 整体收紧一档: 利落书卷气, 大圆角仅保留给对话框/大纸片
     borderRadius: {
-      'note-sm': '8px',   // 输入框/按钮/小元素
-      'note-md': '12px',  // 卡片/表格
-      'note-lg': '16px',  // 对话框/抽屉/Hero
+      'note-sm': '6px',   // 输入框/按钮/小元素
+      'note-md': '10px',  // 卡片/表格
+      'note-lg': '14px',  // 对话框/抽屉/Hero
     },
     // 手写体: 用于 Hero 标语/空状态文案等点缀(正文字体保持系统栈)
     fontFamily: {
@@ -62,6 +87,22 @@ export default defineConfig({
     },
   },
   rules: [
+    // note 色系 + /透明度: var() 颜色无法直接叠 alpha, 用 color-mix 显式混入透明度。
+    // 命中此规则时不再走 theme 色规则(值一致, 但此处额外支持了 /NN 修饰)
+    [/^(bg|text|border)-note(?:-([\w-]+))?(?:\/(\d{1,3}))?$/, ([, prop, name, alpha]) => {
+      const propMap = { bg: 'background-color', text: 'color', border: 'border-color' }
+      const varName = name === 'deep'
+        ? '--note-green-deep'
+        : name === 'border-green'
+          ? '--note-border-green'
+          : name
+            ? `--note-${name}`
+            : '--note-border'
+      const color = alpha
+        ? `color-mix(in srgb, var(${varName}) ${alpha}%, transparent)`
+        : `var(${varName})`
+      return { [propMap[prop]]: color }
+    }] as any,
     // 抽屉
     ['m-1', { margin: '0.3rem' }],
     ['grid-center', { 'grid-template-rows': 'auto minmax(0, 1fr) auto' }],
@@ -127,10 +168,21 @@ export default defineConfig({
       'bg-note-glass': 'bg-[var(--note-glass)]',
       // 手账虚线分隔线
       'note-dashed-divider': 'border-t border-dashed border-note',
+      // 朱砂闲章: 手写体单字小印, 微斜如手钤纸面(原 base.css 全局类 UnoCSS 化)
+      'note-seal': 'inline-flex items-center justify-center shrink-0 w-[1.9rem] h-[1.9rem] rounded-md bg-[var(--note-seal)] text-[#f8f1e6] font-hand text-[1.05rem] leading-none -rotate-5 shadow-[0_1px_3px_rgba(0,0,0,0.18)] opacity-92',
       // 胶带贴纸标签(空状态/卡片角标点缀)
       'note-sticker-tag': 'inline-flex items-center px-2 py-0.5 rounded-md bg-note-tint text-note-green text-xs border border-dashed border-note-green',
       // 页面根容器(视口内边距, 移动/桌面双档)
       'page-shell': 'p-4 md:p-6 w-full',
+      // 悬浮抬升卡片: 柔光晕 + 轻浮起(卡片/面板 hover 常用组合)
+      'note-card-hover': 'note-glow-hover hover:-translate-y-0.5',
+      // 书签式不对称圆角: 上方收圆、下方近直角(页签/角标/书签卡)
+      'note-bookmark': 'rounded-t-note-md rounded-b-sm',
+      // 印章式不对称圆角: 对角圆对角直(徽标/闲章底/装饰块), 手钤纸面的歪斜感
+      'note-stamp': 'rounded-tl-md rounded-tr-sm rounded-br-md rounded-bl-sm',
+      // 图标工具按钮(图表/面板工具栏通用): 28px 方寸 + 淡绿悬浮
+      'note-icon-btn':
+        'inline-flex items-center justify-center min-w-7 h-7 px-1.5 rounded-note-sm border-none bg-transparent text-note-sub cursor-pointer text-sm note-transition hover:bg-note-tint hover:text-note-green',
       // 卡片容器(表格/面板通用): 无边线纸片 —— 边缘由 bg-note-card 色差 +
       // shadow-note 内的 1px 光晕环定义; 纸纤维顶盖由 base.css 的 .page-card::after
       // 统一承载, 与 el-card 质感一致

@@ -106,110 +106,51 @@ const handleCopy = async (format: 'md' | 'excel') => {
 </script>
 
 <template>
-  <div class="tb-block">
+  <div class="relative my-3 overflow-hidden rounded-note-md bg-note-card shadow-note">
     <!-- 顶部: 标题 + 工具栏 -->
-    <div class="tb-head">
-      <span class="tb-title">表格</span>
-      <div class="tb-tools">
+    <div class="flex items-center justify-between px-3 py-1.5 bg-note-soft">
+      <span class="text-[13px] font-semibold text-note-green">表格</span>
+      <div class="flex items-center gap-0.5">
         <template v-if="!editing">
           <el-tooltip content="导出 Excel" placement="top">
-            <button class="tb-btn" @click="handleExportExcel"><el-icon><Download /></el-icon></button>
+            <button class="note-icon-btn" @click="handleExportExcel"><el-icon><Download /></el-icon></button>
           </el-tooltip>
           <el-tooltip content="复制 Markdown" placement="top">
-            <button class="tb-btn" @click="handleCopy('md')"><el-icon><DocumentCopy /></el-icon></button>
+            <button class="note-icon-btn" @click="handleCopy('md')"><el-icon><DocumentCopy /></el-icon></button>
           </el-tooltip>
           <el-tooltip content="复制 Excel 格式" placement="top">
-            <button class="tb-btn" @click="handleCopy('excel')"><el-icon><Grid /></el-icon></button>
+            <button class="note-icon-btn" @click="handleCopy('excel')"><el-icon><Grid /></el-icon></button>
           </el-tooltip>
           <el-tooltip content="编辑" placement="top">
-            <button class="tb-btn primary" @click="startEdit"><el-icon><EditPen /></el-icon></button>
+            <button class="note-icon-btn bg-note-green text-white" @click="startEdit"><el-icon><EditPen /></el-icon></button>
           </el-tooltip>
         </template>
         <template v-else>
           <el-tooltip content="确认" placement="top">
-            <button class="tb-btn primary" @click="commitEdit"><el-icon><Check /></el-icon></button>
+            <button class="note-icon-btn bg-note-green text-white" @click="commitEdit"><el-icon><Check /></el-icon></button>
           </el-tooltip>
           <el-tooltip content="取消" placement="top">
-            <button class="tb-btn" @click="cancelEdit"><el-icon><Close /></el-icon></button>
+            <button class="note-icon-btn" @click="cancelEdit"><el-icon><Close /></el-icon></button>
           </el-tooltip>
         </template>
       </div>
     </div>
 
     <!-- 查看态: 渲染表格 -->
-    <div v-show="!editing" ref="tableWrapRef" class="tb-content" v-html="tableHtml" />
+    <div v-show="!editing" ref="tableWrapRef" class="tb-content overflow-x-auto py-1" v-html="tableHtml" />
 
     <!-- 编辑态: textarea -->
     <textarea
       v-if="editing"
       v-model="editContent"
-      class="tb-textarea"
+      class="w-full min-h-[160px] p-3 border-none outline-none resize-y box-border font-mono text-[13px] leading-[1.6] text-[color:var(--el-text-color-primary,#2b3a30)] bg-note-card"
       spellcheck="false"
     />
   </div>
 </template>
 
 <style scoped>
-.tb-block {
-  margin: 12px 0;
-  /* 描边改为极淡光晕环, 边缘更柔 */
-  border-radius: 12px;
-  overflow: hidden;
-  background: var(--note-card, #fdfefc);
-  box-shadow: 0 0 0 1px var(--note-edge-soft, rgba(107, 158, 120, 0.16));
-}
-
-.tb-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 12px;
-  background: var(--note-soft, #f2f7f0);
-}
-
-.tb-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--note-green-deep, #3f7a52);
-}
-
-.tb-tools {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.tb-btn {
-  min-width: 28px;
-  height: 28px;
-  padding: 0 6px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--note-sub, #6b7f6e);
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.15s;
-}
-
-.tb-btn:hover {
-  background: var(--note-tint, #e7f3e9);
-  color: var(--note-green, #6cbf8f);
-}
-
-.tb-btn.primary {
-  background: var(--note-green, #6cbf8f);
-  color: #fff;
-}
-
-.tb-content {
-  overflow-x: auto;
-  padding: 4px 0;
-}
-
+/* 表格本体样式: 依赖 :deep() 穿透 v-html 内容, 保留在 style 中 */
 .tb-content :deep(table) {
   width: 100%;
   border-collapse: collapse;
@@ -231,20 +172,5 @@ const handleCopy = async (format: 'md' | 'excel') => {
 
 .tb-content :deep(tr:nth-child(even)) {
   background: var(--note-card, #fbfdf9);
-}
-
-.tb-textarea {
-  width: 100%;
-  min-height: 160px;
-  padding: 12px;
-  border: none;
-  outline: none;
-  resize: vertical;
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--el-text-color-primary, #2b3a30);
-  background: var(--note-card, #fdfefc);
-  box-sizing: border-box;
 }
 </style>

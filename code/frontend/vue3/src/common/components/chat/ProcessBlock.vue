@@ -104,46 +104,46 @@ const toggle = () => { collapsed.value = !collapsed.value }
 </script>
 
 <template>
-  <div v-if="blocks?.length" class="pb-wrap">
-    <!-- 折叠头: 摘要入口(点击展开/收起) -->
-    <button class="pb-head" :class="{ open: !collapsed }" @click="toggle">
-      <el-icon :size="12" class="pb-icon"><MagicStick /></el-icon>
-      <span class="pb-label">思考与检索过程</span>
-      <span class="pb-count">{{ blocks.length }} 个步骤</span>
-      <el-icon :size="11" class="pb-arrow" :class="{ open: !collapsed }">
+  <div v-if="blocks?.length" class="mb-2.5 rounded-note-md bg-note-soft overflow-hidden">
+    <!-- 折叠头: 摘要入口(点击展开/收起); hover/open 复合态样式保留在 scoped style -->
+    <button class="pb-head flex items-center gap-[5px] w-full px-3 py-[5px] border-none bg-transparent text-note-sub text-[11px] cursor-pointer" :class="{ open: !collapsed }" @click="toggle">
+      <el-icon :size="12" class="shrink-0 opacity-80"><MagicStick /></el-icon>
+      <span class="font-medium">思考与检索过程</span>
+      <span class="opacity-[.65]">{{ blocks.length }} 个步骤</span>
+      <el-icon :size="11" class="ml-auto transition-transform" :class="!collapsed ? 'rotate-90' : ''">
         <ArrowRight />
       </el-icon>
     </button>
 
     <!-- 展开内容: 低调日志流, 每条 "事件：内容" 同行 -->
-    <div v-show="!collapsed" class="pb-body">
-      <div v-for="block in blocks" :key="block.id" class="pb-line">
-        <el-icon :size="11" class="pb-line-icon">
+    <div v-show="!collapsed" class="px-3 pt-0.5 pb-2 flex flex-col gap-[3px] opacity-[.92]">
+      <div v-for="block in blocks" :key="block.id" class="flex items-start gap-[5px] text-[11px] leading-[1.65] text-[color:var(--el-text-color-secondary,#7c8b80)]">
+        <el-icon :size="11" class="shrink-0 mt-[3px] text-note-sub opacity-70">
           <component :is="blockIcon(block)" />
         </el-icon>
 
         <!-- 知识检索: 标签 + 概述行 + 单行引用条(悬停看全文) -->
         <template v-if="hasCitations(block.id)">
-          <span class="pb-line-label">知识检索：</span>
-          <div class="pb-cites">
-            <div class="pb-cite-overview">{{ getCitations(block.id).overview }}</div>
+          <span class="shrink-0 text-note-deep opacity-[.72]">知识检索：</span>
+          <div class="flex-1 min-w-0 flex flex-col gap-px">
+            <div class="opacity-70">{{ getCitations(block.id).overview }}</div>
             <div
               v-for="(c, i) in getCitations(block.id).citations"
               :key="i"
-              class="pb-cite"
+              class="flex items-baseline gap-1.5 min-w-0 overflow-hidden whitespace-nowrap"
               :title="`${c.source}（相关度 ${c.score}）${c.summary}`"
             >
-              <span class="pb-cite-source">{{ c.source }}</span>
-              <span class="pb-cite-score">{{ c.score }}</span>
-              <span class="pb-cite-summary">{{ c.summary }}</span>
+              <span class="shrink-0 max-w-[38%] text-ellipsis text-note-deep opacity-[.72]">{{ c.source }}</span>
+              <span class="shrink-0 text-[10px] font-mono opacity-60">{{ c.score }}</span>
+              <span class="flex-1 min-w-0 text-ellipsis opacity-80">{{ c.summary }}</span>
             </div>
           </div>
         </template>
 
         <!-- 其他事件: 事件标签与内容同行, 内容原样保留可换行 -->
         <template v-else>
-          <span class="pb-line-label">{{ blockTitle(block) }}：</span>
-          <span class="pb-line-content">{{ plainContent(block.content) }}</span>
+          <span class="shrink-0 text-note-deep opacity-[.72]">{{ blockTitle(block) }}：</span>
+          <span class="flex-1 min-w-0 whitespace-pre-wrap break-words opacity-[.88]">{{ plainContent(block.content) }}</span>
         </template>
       </div>
     </div>
@@ -151,25 +151,8 @@ const toggle = () => { collapsed.value = !collapsed.value }
 </template>
 
 <style scoped>
-.pb-wrap {
-  margin-bottom: 10px;
-  /* 无描边: 以软纸底色差成形 */
-  border-radius: 10px;
-  background: var(--note-soft, #f6faf5);
-  overflow: hidden;
-}
-
+/* 折叠头复合态(:hover / .open 同时改底色与文字色, UnoCSS 无法等价表达): 保留在 style */
 .pb-head {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  width: 100%;
-  padding: 5px 12px;
-  border: none;
-  background: transparent;
-  color: var(--note-sub, #6b7f6e);
-  font-size: 11px;
-  cursor: pointer;
   transition: background 0.15s;
 }
 
@@ -177,114 +160,5 @@ const toggle = () => { collapsed.value = !collapsed.value }
 .pb-head.open {
   background: var(--note-tint, #e7f3e9);
   color: var(--note-green-deep, #3f7a52);
-}
-
-.pb-icon {
-  flex-shrink: 0;
-  opacity: 0.8;
-}
-
-.pb-label {
-  font-weight: 500;
-}
-
-.pb-count {
-  opacity: 0.65;
-}
-
-.pb-arrow {
-  margin-left: auto;
-  transition: transform 0.2s;
-}
-
-.pb-arrow.open {
-  transform: rotate(90deg);
-}
-
-/* 展开区: 纯文本日志流, 无卡片无边框, 整体压暗 */
-.pb-body {
-  padding: 2px 12px 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  opacity: 0.92;
-}
-
-.pb-line {
-  display: flex;
-  align-items: flex-start;
-  gap: 5px;
-  font-size: 11px;
-  line-height: 1.65;
-  color: var(--el-text-color-secondary, #7c8b80);
-}
-
-.pb-line-icon {
-  flex-shrink: 0;
-  margin-top: 3px;
-  color: var(--note-sub, #6b7f6e);
-  opacity: 0.7;
-}
-
-/* 事件标签: 保留淡绿倾向但压低存在感 */
-.pb-line-label {
-  flex-shrink: 0;
-  color: var(--note-green-deep, #3f7a52);
-  opacity: 0.72;
-}
-
-/* 内容: 原样保留(可换行), 短内容自然成单行 */
-.pb-line-content {
-  flex: 1;
-  min-width: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
-  opacity: 0.88;
-}
-
-/* 知识检索: 概述 + 单行引用条 */
-.pb-cites {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.pb-cite-overview {
-  opacity: 0.7;
-}
-
-.pb-cite {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-}
-
-.pb-cite-source {
-  flex-shrink: 0;
-  max-width: 38%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--note-green-deep, #3f7a52);
-  opacity: 0.72;
-}
-
-.pb-cite-score {
-  flex-shrink: 0;
-  font-size: 10px;
-  font-family: ui-monospace, Consolas, monospace;
-  opacity: 0.6;
-}
-
-.pb-cite-summary {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  opacity: 0.8;
 }
 </style>

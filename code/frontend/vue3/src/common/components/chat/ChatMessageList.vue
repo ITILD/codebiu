@@ -88,22 +88,22 @@ const handleExportPdf = async (msg: DisplayMessage) => {
 </script>
 
 <template>
-  <div ref="scrollRef" class="cml-scroll">
-    <div class="cml-inner">
+  <div ref="scrollRef" class="h-full overflow-y-auto overscroll-contain">
+    <div class="max-w-[48rem] mx-auto w-full px-4 pt-[1.2rem] pb-6 flex flex-col gap-[1.4rem]">
       <slot name="empty" v-if="messages.length === 0" />
 
       <template v-for="msg in messages" :key="msg.id">
         <!-- 用户消息: 右侧苔绿气泡 -->
-        <div v-if="msg.role === 'user'" class="cml-row user">
-          <div class="cml-bubble">{{ msg.content }}</div>
+        <div v-if="msg.role === 'user'" class="flex justify-end">
+          <div class="max-w-[85%] px-4 py-[0.6rem] rounded-note-lg rounded-br-note-sm bg-note-tint text-note-deep text-[0.9rem] leading-[1.65] whitespace-pre-wrap break-words">{{ msg.content }}</div>
         </div>
 
         <!-- 助手消息: 头像 + 过程区块 + 富文本正文 -->
-        <div v-else class="cml-row assistant">
-          <div class="cml-avatar">
+        <div v-else class="flex gap-3">
+          <div class="w-8 h-8 rounded-full bg-note-green text-white flex-center shrink-0 mt-0.5 shadow-[0_2px_8px_rgba(108,191,143,0.35)]">
             <el-icon :size="16"><MagicStick /></el-icon>
           </div>
-          <div class="cml-main">
+          <div class="flex-1 min-w-0">
             <!-- 过程区块(思考/检索引用溯源, 折叠展示) -->
             <ProcessBlock
               :blocks="msg.blocks ?? []"
@@ -111,8 +111,8 @@ const handleExportPdf = async (msg: DisplayMessage) => {
             />
 
             <!-- 等待首个 token: 思考动画 -->
-            <div v-if="!msg.content && msg.id === streamingMessageId" class="cml-thinking">
-              <span class="dot" /><span class="dot" /><span class="dot" />
+            <div v-if="!msg.content && msg.id === streamingMessageId" class="cml-thinking flex items-center gap-1 py-2">
+              <span class="dot inline-block w-1.5 h-1.5 rounded-full bg-note-green" /><span class="dot inline-block w-1.5 h-1.5 rounded-full bg-note-green" /><span class="dot inline-block w-1.5 h-1.5 rounded-full bg-note-green" />
             </div>
 
             <!-- 富文本正文(流式生成中显示光标) -->
@@ -127,15 +127,15 @@ const handleExportPdf = async (msg: DisplayMessage) => {
             <!-- 操作: 复制 / 导出 Word / 导出 PDF -->
             <div
               v-if="msg.content && msg.id !== streamingMessageId"
-              class="cml-actions"
+              class="flex gap-1 mt-2"
             >
-              <button class="cml-action" @click="handleCopy(msg.content)">
+              <button class="inline-flex items-center gap-1 px-2 py-1 border-none rounded-note-sm bg-transparent text-note-sub text-xs cursor-pointer note-transition hover:bg-note-tint hover:text-note-green" @click="handleCopy(msg.content)">
                 <el-icon :size="13"><CopyDocument /></el-icon> 复制
               </button>
-              <button class="cml-action" @click="handleExportWord(msg)">
+              <button class="inline-flex items-center gap-1 px-2 py-1 border-none rounded-note-sm bg-transparent text-note-sub text-xs cursor-pointer note-transition hover:bg-note-tint hover:text-note-green" @click="handleExportWord(msg)">
                 <el-icon :size="13"><Document /></el-icon> Word
               </button>
-              <button class="cml-action" @click="handleExportPdf(msg)">
+              <button class="inline-flex items-center gap-1 px-2 py-1 border-none rounded-note-sm bg-transparent text-note-sub text-xs cursor-pointer note-transition hover:bg-note-tint hover:text-note-green" @click="handleExportPdf(msg)">
                 <el-icon :size="13"><Promotion /></el-icon> PDF
               </button>
             </div>
@@ -147,80 +147,8 @@ const handleExportPdf = async (msg: DisplayMessage) => {
 </template>
 
 <style scoped>
-.cml-scroll {
-  height: 100%;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.cml-inner {
-  max-width: 48rem;
-  margin: 0 auto;
-  width: 100%;
-  padding: 1.2rem 1rem 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.4rem;
-}
-
-/* 用户气泡 */
-.cml-row.user {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.cml-bubble {
-  max-width: 85%;
-  padding: 0.6rem 1rem;
-  border-radius: 1rem;
-  border-bottom-right-radius: 0.375rem;
-  background: var(--note-tint, #e7f3e9);
-  color: var(--note-deep, #2f4a38);
-  font-size: 0.9rem;
-  line-height: 1.65;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-/* 助手消息 */
-.cml-row.assistant {
-  display: flex;
-  gap: 0.75rem;
-}
-
-.cml-avatar {
-  width: 2rem;
-  height: 2rem;
-  border-radius: 9999px;
-  background: var(--note-green, #6cbf8f);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  margin-top: 0.125rem;
-  box-shadow: 0 2px 8px rgba(108, 191, 143, 0.35);
-}
-
-.cml-main {
-  flex: 1;
-  min-width: 0;
-}
-
-/* 等待首个 token 的思考动画 */
-.cml-thinking {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 8px 0;
-}
-
+/* 等待首个 token 的思考动画(伪动画 + nth-child 延迟, 保留在 style) */
 .cml-thinking .dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--note-green, #6cbf8f);
-  display: inline-block;
   animation: cml-bounce 1.2s ease-in-out infinite;
 }
 
@@ -232,7 +160,7 @@ const handleExportPdf = async (msg: DisplayMessage) => {
   30% { transform: translateY(-4px); opacity: 1; }
 }
 
-/* 流式生成中的光标 */
+/* 流式生成中的光标(伪元素 + 动画, 保留在 style) */
 .cml-content.is-streaming::after {
   content: '';
   display: inline-block;
@@ -247,31 +175,5 @@ const handleExportPdf = async (msg: DisplayMessage) => {
 @keyframes cml-blink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
-}
-
-/* 操作按钮 */
-.cml-actions {
-  display: flex;
-  gap: 4px;
-  margin-top: 8px;
-}
-
-.cml-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--note-sub, #6b7f6e);
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.cml-action:hover {
-  background: var(--note-tint, #e7f3e9);
-  color: var(--note-green, #6cbf8f);
 }
 </style>

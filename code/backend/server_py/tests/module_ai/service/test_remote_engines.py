@@ -6,7 +6,9 @@
 - 引擎归一化: 旧 engine 值 dashscope/sherpa/qwen -> online/local
 - 引擎注册: VoiceService._ENGINE_CLASSES 含 online/local 引擎
 - DashscopeASR/DashscopeTTS/DashscopeOCR: 请求体构建与响应解析(httpx 全局打桩, 零外部依赖)
-- OCR 服务引擎解析: 无配置回落本地 paddle, dashscope 配置构建在线引擎并展平配置
+
+说明: OCR 服务已简化为统一本地 Paddle 方案(引擎动态切换逻辑已移除),
+在线 OCR 能力仅保留 DashscopeOCR 工具类, 故不再测 OcrService 引擎解析。
 """
 
 import base64
@@ -19,7 +21,6 @@ import pytest
 from module_ai.do.voice import resolve_engine
 from module_ai.do.voice import VoiceEngine
 from module_ai.service import voice as voice_service_mod
-from module_ai.service.ocr import LOCAL_ENGINE, REMOTE_ENGINE, OcrService, _engine_conf
 from module_ai.utils.llm.types import ModelServerType, ModelType, server_types_for
 from module_ai.utils.ocr.dashscope import DashscopeOCR
 from module_ai.utils.voice.asr.dashscope import DashscopeASR
@@ -214,66 +215,3 @@ def test_dashscope_ocr_missing_api_key():
     """OCR: 缺少 api_key 应给出可操作的错误提示"""
     with pytest.raises(RuntimeError, match="api_key"):
         DashscopeOCR({}).recognize(np.zeros((4, 4, 3), dtype="uint8"))
-
-
-# ==================== OcrService 引擎解析 ====================
-class _StubDao:
-    """模型配置 DAO 桩: 返回预设配置, 不访问数据库"""
-
-    def __init__(self, config):
-        self._config = config
-
-    async def get_first_by_type(self, model_type: str, session=None, server_type: str | None = None):
-        if model_type != "ocr" or self._config is None:
-            return None
-        if server_type and self._config.server_type.value != server_type:
-            return None
-        return self._config
-
-
-class _FakeConfig:
-    """model_config 表记录桩(仅包含引擎解析所需字段)"""
-
-    def __init__(self, server_type: ModelServerType):
-        self.id = "cfg_1"
-        self.updated_at = "2026-01-01"
-        self.server_type = server_type
-        self.model = "qwen-vl-ocr-latest"
-        self.url = "https://dashscope.example.com/ocr"
-        self.api_key = "sk-stub"
-        self.extra = {"prompt": "read it"}
-
-
-async def test_ocr_service_fallback_local():
-    """无模型配置时应回落本地 paddle onnx 方案"""
-    service = OcrService(model_config_dao=_StubDao(None))
-    engine, remote = await service._resolve_engine(None)
-    assert engine == LOCAL_ENGINE
-    assert remote is None
-
-
-async def test_ocr_service_dashscope_config():
-    """dashscope 配置应构建在线引擎并展平 model/url/api_key/extra"""
-    service = OcrService(model_config_dao=_StubDao(_FakeConfig(ModelServerType.DASHSCOPE)))
-    engine, remote = await service._resolve_engine(None)
-    assert engine == REMOTE_ENGINE
-    assert isinstance(remote, DashscopeOCR)
-    assert remote._conf["url"] == "https://dashscope.example.com/ocr"
-    assert remote._conf["api_key"] == "sk-stub"
-    assert remote._conf["prompt"] == "read it"
-
-
-async def test_ocr_service_paddle_config():
-    """paddle 配置应保持本地方案"""
-    service = OcrService(model_config_dao=_StubDao(_FakeConfig(ModelServerType.PADDLE)))
-    engine, remote = await service._resolve_engine(None)
-    assert engine == LOCAL_ENGINE
-    assert remote is None
-
-
-def test_engine_conf_flatten():
-    """_engine_conf 应以 model/url/api_key 为主字段, extra 值可显式覆盖"""
-    conf = _engine_conf(_FakeConfig(ModelServerType.DASHSCOPE))
-    assert conf["model"] == "qwen-vl-ocr-latest"
-    assert conf["prompt"] == "read it"
-    assert _engine_conf(None) == {}

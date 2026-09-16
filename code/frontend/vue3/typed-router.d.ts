@@ -29,6 +29,10 @@ declare module 'vue-router/auto-routes' {
     '/ai/ocr': RouteRecordInfo<'/ai/ocr', '/ai/ocr', Record<never, never>, Record<never, never>>,
     '/ai/voice': RouteRecordInfo<'/ai/voice', '/ai/voice', Record<never, never>, Record<never, never>>,
     '/api_test/': RouteRecordInfo<'/api_test/', '/api_test', Record<never, never>, Record<never, never>>,
+    '/arcade/': RouteRecordInfo<'/arcade/', '/arcade', Record<never, never>, Record<never, never>>,
+    '/arcade/breakout': RouteRecordInfo<'/arcade/breakout', '/arcade/breakout', Record<never, never>, Record<never, never>>,
+    '/arcade/snake': RouteRecordInfo<'/arcade/snake', '/arcade/snake', Record<never, never>, Record<never, never>>,
+    '/arcade/tetris': RouteRecordInfo<'/arcade/tetris', '/arcade/tetris', Record<never, never>, Record<never, never>>,
     '/authorization/casbin': RouteRecordInfo<'/authorization/casbin', '/authorization/casbin', Record<never, never>, Record<never, never>>,
     '/authorization/dept': RouteRecordInfo<'/authorization/dept', '/authorization/dept', Record<never, never>, Record<never, never>>,
     '/authorization/permission': RouteRecordInfo<'/authorization/permission', '/authorization/permission', Record<never, never>, Record<never, never>>,
@@ -114,6 +118,22 @@ declare module 'vue-router/auto-routes' {
     }
     'src/modules/api_test/pages/index.vue': {
       routes: '/api_test/'
+      views: never
+    }
+    'src/modules/arcade/pages/index.vue': {
+      routes: '/arcade/'
+      views: never
+    }
+    'src/modules/arcade/pages/breakout.vue': {
+      routes: '/arcade/breakout'
+      views: never
+    }
+    'src/modules/arcade/pages/snake.vue': {
+      routes: '/arcade/snake'
+      views: never
+    }
+    'src/modules/arcade/pages/tetris.vue': {
+      routes: '/arcade/tetris'
       views: never
     }
     'src/modules/authorization/pages/casbin.vue': {

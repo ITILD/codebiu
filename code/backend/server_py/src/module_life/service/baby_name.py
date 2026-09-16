@@ -30,6 +30,9 @@ from module_life.utils.baby_name.do.baby_name import (
     SancaiBaseInfo,
     FourPillarInfo,
     BabyNameGenerateRequest,
+    BuddhismInfo,
+    TaoismInfo,
+    ChristianInfo,
 )
 from module_life.dao.baby_name import BabyNameDao
 from module_ai.service.llm import LLMService
@@ -51,6 +54,11 @@ from module_life.utils.baby_name.strokes import stroke_of
 from module_life.utils.baby_name.tarot import get_tarot
 from module_life.utils.baby_name.wuxing import analyze_wuxing
 from module_life.utils.baby_name.baby_name import baby_name_generator
+from module_life.utils.baby_name.religion import (
+    get_benming_buddha,
+    get_christian_theme,
+    get_taishi,
+)
 import datetime as dt
 
 class BabyNameService:
@@ -128,6 +136,15 @@ class BabyNameService:
                 tian_ge=tian,
                 note="天格由姓氏决定; 完整五格需待名字生成后逐个评定",
             )
+        if ReferenceEnum.BUDDHISM in refs:
+            b = get_benming_buddha(request.birth_date)
+            result.buddhism = BuddhismInfo(**b)
+        if ReferenceEnum.TAOISM in refs:
+            t = get_taishi(request.birth_date)
+            result.taoism = TaoismInfo(**t)
+        if ReferenceEnum.CHRISTIAN in refs:
+            c = get_christian_theme(request.birth_date)
+            result.christian = ChristianInfo(**c)
         return result
 
     async def get_reference_catalog(self) -> list[dict]:

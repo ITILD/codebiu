@@ -4,6 +4,8 @@ from module_rag.do.user_model import UserModel, UserModelUpdate
 from module_rag.dao.user_model import UserModelDao
 from langchain_core.language_models import BaseChatModel
 from module_ai.service.llm import LLMService
+from module_ai.service.rerank import RerankService
+from module_ai.utils.llm.rerank.interface import Rerank
 from module_ai.do.model_config import ModelScope
 from module_ai.utils.llm.types import ModelType
 from module_authorization.dao.user import UserDao
@@ -33,10 +35,12 @@ class UserModelService:
         self,
         user_model_dao: UserModelDao | None = None,
         llm_service: LLMService | None = None,
+        rerank_service: RerankService | None = None,
     ):
         """依赖注入构造器:初始化所需的数据访问对象"""
         self.user_model_dao = user_model_dao or UserModelDao()
         self.llm_service = llm_service or LLMService()
+        self.rerank_service = rerank_service or RerankService()
         self._user_dao = UserDao()  # 查询用户部门以校验部门模型
 
     async def _validate_model_access(self, model_id: str | None, user_id: str) -> None:
@@ -271,7 +275,7 @@ class UserModelService:
 
     async def get_llm_by_user_id(
         self, user_id: str, streaming: bool = True, model_type: ModelType = ModelType.CHAT
-    ) -> BaseChatModel | None:
+    ) -> BaseChatModel | Rerank | None:
         """根据用户ID获取用户绑定的模型(使用前校验归属/共享权限);
         未绑定或绑定失效时按用户开关回退系统默认公共模型(启动 seed 配置)"""
         resolved = await self.resolve_model(user_id, model_type)
@@ -289,6 +293,9 @@ class UserModelService:
             match model_type:
                 case ModelType.CHAT:
                     return await self.llm_service.get_llm(model_id, streaming=streaming)
+                case ModelType.RERANK:
+                    # rerank 引擎走独立工厂(build_model 不支持 rerank, 直接构建会抛 ValueError)
+                    return await self.rerank_service.get_reranker(model_id)
                 case _:
                     return await self.llm_service.get_llm(model_id, False)
         except Exception as e:

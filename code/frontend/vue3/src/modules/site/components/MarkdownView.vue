@@ -1,6 +1,6 @@
 <template>
   <!-- Markdown 渲染视图(基于 marked, 支持 mermaid 图表, 展示博客正文/编辑预览) -->
-  <div ref="rootEl" class="markdown-view break-words" v-html="html" />
+  <div ref="rootEl" class="markdown-view break-words text-sm leading-[1.8] text-note" v-html="html" />
 </template>
 
 <script setup lang="ts">
@@ -118,12 +118,7 @@ watch(
 </script>
 
 <style scoped>
-/* ---------- 基础排版 ---------- */
-.markdown-view {
-  line-height: 1.8;
-  color: var(--el-text-color-regular);
-  font-size: 14px;
-}
+/* ---------- 基础排版(行高/字号/颜色已上移至模板 uno 原子类) ---------- */
 .markdown-view :deep(h1),
 .markdown-view :deep(h2),
 .markdown-view :deep(h3),

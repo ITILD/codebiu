@@ -4,15 +4,15 @@
        生长结束取消 rAF 并清空动态层(常驻开销归零)。
        结构生成为无 DOM 纯函数, 在 inline Blob Worker 中执行(失败回落 requestIdleCallback)。
        容器锚在卡片右上, 宽≈卡片 54%, 高随机 120%~150%, 墨枝垂出卡底;
-       IntersectionObserver 进入视口播放一次; prefers-reduced-motion 直接一次成图 -->
+       IntersectionObserver 进入视口播放一次; 整株生长时长在 prepare 中归一化(≈3s 长完, 与卡片大小无关) -->
   <div
     ref="rootEl"
     class="ink-branch pointer-events-none absolute z-[1] -top-4 -right-2 md:-top-6 md:-right-6 w-[54%]"
     :style="{ height: `${boxH}%` }"
     aria-hidden="true"
   >
-    <canvas ref="staticEl" class="absolute inset-0 h-full w-full" />
-    <canvas ref="dynamicEl" class="absolute inset-0 h-full w-full" />
+    <canvas ref="staticEl" class="block absolute inset-0 h-full w-full" />
+    <canvas ref="dynamicEl" class="block absolute inset-0 h-full w-full" />
   </div>
 </template>
 
@@ -184,7 +184,6 @@ let bi = 0 // 首个未完成的枝(按 birth 排序)
 let li = 0 // 首个未完成的叶(按 born 排序)
 let status: 'idle' | 'playing' | 'settled' = 'idle'
 let hadStarted = false
-let reducedMotion = false
 let dark = false
 let inkRGB = '26,30,36'
 let sageA = '96,116,102'
@@ -195,6 +194,8 @@ let io: IntersectionObserver | null = null
 let ro: ResizeObserver | null = null
 let resizeTimer = 0
 let genToken = 0
+let genW = 0 // 上次生成结构时的容器宽(取整), 供"尺寸未变不重建"判断
+let genH = 0
 const seed = (Math.random() * 0x7fffffff) | 0
 
 /** 尺寸画布(DPR 上限 2); 仅在挂载/重建时读布局, 帧循环内不读 */
@@ -217,9 +218,18 @@ function sizeCanvases() {
   dctx?.setTransform(dpr, 0, 0, dpr, 0, 0)
 }
 
-/** 预计算: 排序 + 逐枝累积段长(供按进度截断绘制) */
+/** 预计算: 时长归一化 + 排序 + 逐枝累积段长(供按进度截断绘制)。
+ *  归一化: 所有 birth/dur 同乘系数 k(子枝出生=父枝长成+间隙, 同比缩放后衔接关系不变),
+ *  把整株生长跨度固定拉到 ≈2.6~2.9s(加 0.4s 收尾 ≈3s 全长完), 与容器尺寸无关 ——
+ *  否则单枝时长按 SPEED(秒/像素) 折算, 小卡片下不到 1.5s 就长满, 视觉上"一夜成林" */
 function prepare(data: InkStructure) {
-  const branches: RTBranch[] = data.branches.map(b => ({ ...b, cum: [], total: 0, done: false }))
+  const rawEnd = Math.max(
+    data.branches.reduce((m, b) => Math.max(m, b.birth + b.dur), 0),
+    data.leaves.reduce((m, l) => Math.max(m, l.born), 0),
+    0.001,
+  )
+  const k = (2.6 + ((seed % 97) / 97) * 0.3) / rawEnd
+  const branches: RTBranch[] = data.branches.map(b => ({ ...b, birth: b.birth * k, dur: b.dur * k, cum: [], total: 0, done: false }))
   branches.sort((a, b) => a.birth - b.birth)
   for (const b of branches) {
     const cum: number[] = [0]
@@ -229,7 +239,7 @@ function prepare(data: InkStructure) {
     b.cum = cum
     b.total = cum[cum.length - 1] || 1
   }
-  const leaves: RTLeaf[] = data.leaves.map(l => ({ ...l, done: false })).sort((a, b) => a.born - b.born)
+  const leaves: RTLeaf[] = data.leaves.map(l => ({ ...l, born: l.born * k, done: false })).sort((a, b) => a.born - b.born)
   const total = Math.max(
     branches.reduce((m, b) => Math.max(m, b.birth + b.dur), 0),
     leaves.reduce((m, l) => Math.max(m, l.born), 0),
@@ -310,7 +320,7 @@ function finish() {
 }
 
 function play() {
-  if (!rt || reducedMotion || status !== 'idle') return
+  if (!rt || status !== 'idle') return
   status = 'playing'
   elapsed = 0
   bi = 0
@@ -365,14 +375,12 @@ function requestStructure() {
   const w = boxW
   const h = boxHpx
   if (w < 60 || h < 60) return
+  genW = Math.round(w)
+  genH = Math.round(h)
   const token = genToken
   const apply = (data: InkStructure) => {
     if (token !== genToken) return
     rt = prepare(data)
-    if (reducedMotion) {
-      finish()
-      return
-    }
     if (hadStarted) play()
   }
   const fallback = () => {
@@ -410,14 +418,16 @@ function rebuild() {
   bi = 0
   li = 0
   sizeCanvases()
+  genW = Math.round(boxW)
+  genH = Math.round(boxHpx)
   sctx?.clearRect(0, 0, boxW, boxHpx)
   dctx?.clearRect(0, 0, boxW, boxHpx)
   const token = genToken
   const apply = (data: InkStructure) => {
     if (token !== genToken) return
     rt = prepare(data)
-    if (reducedMotion || wasSettled || !hadStarted) {
-      if (reducedMotion || wasSettled) finish()
+    if (wasSettled || !hadStarted) {
+      if (wasSettled) finish()
       return
     }
     play()
@@ -438,9 +448,17 @@ function rebuild() {
   else window.setTimeout(run, 30)
 }
 
+/** 容器尺寸变化 → 防抖 200ms 重建; 尺寸未变(含 ResizeObserver 挂载后首次回调)则跳过,
+ *  避免生长刚开始就被无谓重建重播一遍 */
 function onResize() {
   window.clearTimeout(resizeTimer)
-  resizeTimer = window.setTimeout(rebuild, 200)
+  resizeTimer = window.setTimeout(() => {
+    const root = rootEl.value
+    if (!root) return
+    const rect = root.getBoundingClientRect()
+    if (Math.round(rect.width) === genW && Math.round(rect.height) === genH) return
+    rebuild()
+  }, 200)
 }
 
 /** 页面隐藏暂停 / 回来恢复(elapsed 冻结, 时间轴不跳变) */
@@ -464,7 +482,6 @@ onMounted(() => {
     sageA = '150,170,152'
     sageB = '186,200,180'
   }
-  reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   sizeCanvases()
   requestStructure()
 
@@ -501,10 +518,3 @@ onBeforeUnmount(() => {
   if (workerURL) URL.revokeObjectURL(workerURL)
 })
 </script>
-
-<style scoped>
-/* 画布叠放: 动态层在上, 静态层累积成画 */
-canvas {
-  display: block;
-}
-</style>
