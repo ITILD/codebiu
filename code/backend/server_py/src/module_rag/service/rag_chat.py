@@ -39,6 +39,7 @@ from module_rag.do.rag_chat import (
 )
 from module_rag.service.chat_message import ChatMessageService
 from module_rag.service.conversation import ConversationService
+from module_rag.service.conversation_title import maybe_auto_title
 from module_rag.service.user_model import UserModelService
 from module_rag.do.project_document_chunk import (
     ProjectDocumentChunkSearchResponse,
@@ -303,17 +304,24 @@ class RagChatService:
                         )
                     )
                 )
+                cancelled = False
                 try:
                     await asyncio.shield(persist_task)
                 except asyncio.CancelledError:
                     # 本任务被取消(客户端断开): 等落库协程完成后再传播取消
+                    cancelled = True
                     try:
                         await persist_task
                     except Exception as e:
                         logger.error(f"助手消息持久化失败: {e}", exc_info=True)
-                    raise
                 except Exception as e:
                     logger.error(f"助手消息持久化失败: {e}", exc_info=True)
+                # 首次问答结束后自动生成会话标题(后台任务, 失败静默; 客户端中止也执行)
+                asyncio.create_task(
+                    maybe_auto_title(conversation_id, user_id, chat_request.message, full_response)
+                )
+                if cancelled:
+                    raise
 
     @staticmethod
     def _accumulate_process_block(blocks: list[dict], item: StreamOne) -> None:

@@ -80,7 +80,7 @@
     </div>
 
     <div class="mt-2 text-right">
-      <el-button size="small" text type="primary" @click="router.push('/site?tab=ledger')">
+      <el-button size="small" text type="primary" @click="router.push('/site/manage?tab=ledger')">
         查看记账本 →
       </el-button>
     </div>

@@ -37,4 +37,26 @@ class PasswordChange(BaseModel):
     """修改密码请求模型(需验证旧密码)"""
     old_password: str = Field(..., min_length=1, description="旧密码")
     new_password: str = Field(..., min_length=6, max_length=255, description="新密码(至少6位)")
+
+
+class RegisterRequest(BaseModel):
+    """注册请求模型(相比用户创建数据增加邮箱验证码字段)"""
+    username: str = Field(..., max_length=50, description="用户名")
+    password: str = Field(..., max_length=255, description="密码")
+    email: str | None = Field(default=None, max_length=100, description="邮箱")
+    phone: str | None = Field(default=None, max_length=20, description="电话号码")
+    nickname: str | None = Field(default=None, max_length=50, description="昵称")
+    code: str | None = Field(
+        default=None, max_length=10, description="邮箱验证码(开启注册邮箱验证时必填)"
+    )
+
+
+class RegisterCodeRequest(BaseModel):
+    """注册邮箱验证码发送请求模型"""
+    email: str = Field(..., max_length=100, description="接收验证码的邮箱")
+
+
+class RegisterConfigResponse(BaseModel):
+    """注册流程配置响应模型(前端据此决定是否展示验证码输入)"""
+    email_verify: bool = Field(default=False, description="注册是否需要邮箱验证码")
     

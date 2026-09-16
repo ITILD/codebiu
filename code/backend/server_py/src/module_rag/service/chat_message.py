@@ -30,6 +30,10 @@ class ChatMessageService:
         return PaginationResponse.create(items, total, PaginationParams(page=1, size=limit))
 
 
+    async def count_by_conversation(self, conversation_id: str) -> int:
+        """统计对话的消息总数"""
+        return await self.chat_message_dao.count_by_conversation(conversation_id)
+
     async def _get_history_from_checkpointer( self, conversation_id: str) -> list[BaseMessage]:
         """从检查点获取对话历史消息"""
         """

@@ -482,7 +482,7 @@ const router = useRouter()
 
 /** 跳转到展示页阅读 */
 function goRead(row: BlogPost) {
-  router.push({ path: '/site/blog_view', query: { id: row.id } })
+  router.push({ path: '/site', query: { id: row.id } })
 }
 
 const formatDateTime = (v: string) => new Date(v).toLocaleString('zh-CN')

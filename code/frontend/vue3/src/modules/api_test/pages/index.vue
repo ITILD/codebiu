@@ -1,23 +1,24 @@
 <template>
   <div p-4 md:p-6 w-full flex flex-col gap-4>
-    <!-- 说明与操作 -->
-    <div page-card flex flex-col gap-3>
-      <div flex flex-wrap items-center gap-3>
-        <div flex-1 min-w-0>
-          <div text-base font-bold text-note>前端接口测试</div>
-          <div text-xs text-note-sub mt-1>
-            共 {{ cases.length }} 个接口用例, 与 src/modules/*/api/*.ts 自动校验覆盖。
-            "全部执行"只跑无副作用的 GET 接口; 写操作与依赖真实资源的接口请单条执行。
-            判定: 2xx 通过 / 401·403·422 警告 / 404 失败(资源型接口除外) / 5xx·网络错误 失败。
-          </div>
-        </div>
+    <!-- 水墨页头 -->
+    <InkPageHead title="前端接口测试" seal="试">
+      <template #sub>
+        共 {{ cases.length }} 个接口用例, 与 src/modules/*/api/*.ts 自动校验覆盖。
+        "全部执行"只跑无副作用的 GET 接口; 写操作与依赖真实资源的接口请单条执行。
+        判定: 2xx 通过 / 401·403·422 警告 / 404 失败(资源型接口除外) / 5xx·网络错误 失败。
+      </template>
+      <template #actions>
         <el-button type="primary" :loading="running" @click="runAll">
           <el-icon v-if="!running" mr-1><VideoPlay /></el-icon>
           {{ running ? `执行中 ${progress}/${autoCases.length}` : `全部执行(${autoCases.length})` }}
         </el-button>
         <el-button v-if="running" type="warning" @click="stopAll">停止</el-button>
         <el-button @click="reset">重置</el-button>
-      </div>
+      </template>
+    </InkPageHead>
+
+    <!-- 执行面板: 进度条与覆盖警告 -->
+    <div v-if="running || progress > 0 || uncoveredFns.length" page-card flex flex-col gap-3>
       <!-- 批量执行进度条 -->
       <el-progress
         v-if="running || progress > 0"

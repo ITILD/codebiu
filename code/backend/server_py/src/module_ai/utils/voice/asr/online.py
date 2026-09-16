@@ -146,7 +146,8 @@ class OnlineASR(ASREngine):
         model = str(self._conf.get("model") or "")
         if self._protocol == "dashscope" and _is_realtime_model(model, VOICE_ONLINE_REALTIME_ASR_MODELS):
             ws_conf = dict(self._conf)
-            ws_conf.setdefault("url", VOICE_ONLINE_WS_URL)
+            # 配置 url 为 REST 端点, WS 端点单独取默认值(仅 extra.ws_url 可覆盖)
+            ws_conf["url"] = ws_conf.pop("ws_url", None) or VOICE_ONLINE_WS_URL
             stream = DashscopeRealtimeASRStream(ws_conf)
             await stream.start()
             return stream

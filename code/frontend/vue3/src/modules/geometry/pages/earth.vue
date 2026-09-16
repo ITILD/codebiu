@@ -72,8 +72,8 @@
       v-if="editing && !panelCollapsed"
       class="absolute bottom-3 left-3 top-16 z-10 flex w-64 md:w-72 flex-col rounded-lg bg-note-glass shadow-note backdrop-blur-md"
     >
-      <!-- 面板头: 标题 + 新增图层 + 收起 -->
-      <div flex items-center gap-2 note-edge-b px-3 py-2 shrink-0>
+      <!-- 面板头: 标题 + 新增图层 + 收起(自定义类必须写进 class) -->
+      <div class="note-edge-b" flex items-center gap-2 px-3 py-2 shrink-0>
         <span text-sm font-bold text-note>🗂️ 图层</span>
         <el-button link type="primary" size="small" :icon="Plus" @click="handleAddLayer">
           新增

@@ -57,12 +57,21 @@
     ],
     "compounds": [
         {
-            "name": "前后端一起 (全栈)",
+            "name": "前后端一起win (全栈)",
             "configurations": [
                 "▶ WIN Backend: app.py (server_py)",
                 "▶ Frontend: pnpm run dev (vue3)"
             ],
             "stopAll": true
+        },
+        {
+            "name": "前后端一起ub (全栈)",
+            "configurations": [
+                "▶UBUNTU Backend: app.py (server_py)",
+                "▶ Frontend: pnpm run dev (vue3)"
+            ],
+            "stopAll": true
         }
-    ]
+    ],
+    
 }

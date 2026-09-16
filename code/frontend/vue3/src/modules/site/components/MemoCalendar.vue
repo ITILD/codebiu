@@ -50,7 +50,7 @@
 
     <!-- 底部: 前往备忘管理(工作台备忘面板) -->
     <div class="border-t border-note px-3 py-1.5 text-right">
-      <el-button size="small" text type="primary" @click="router.push('/site?tab=memo')">
+      <el-button size="small" text type="primary" @click="router.push('/site/manage?tab=memo')">
         备忘管理 →
       </el-button>
     </div>
@@ -94,7 +94,7 @@
         <el-button type="primary" plain size="small" :icon="Plus" @click="openQuickCreate">
           新增备忘
         </el-button>
-        <el-button size="small" text @click="router.push('/site?tab=memo')">
+        <el-button size="small" text @click="router.push('/site/manage?tab=memo')">
           前往备忘管理
         </el-button>
       </div>

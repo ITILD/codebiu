@@ -13,8 +13,20 @@ from module_authorization.do.auth import AuthResponse, AuthLogoutRequest, SelfPr
 # db_cache redis客户端 用于存储已吊销的 access_token 的黑名单
 from common.config.db import db_cache 
 from module_authorization.config.token import token_config
+from module_authorization.config.register import (
+    EMAIL_VERIFY_ENABLED,
+    REGISTER_CODE_COOLDOWN_KEY,
+    REGISTER_CODE_COOLDOWN_SECONDS,
+    REGISTER_CODE_KEY,
+    REGISTER_CODE_LENGTH,
+    REGISTER_CODE_TTL_SECONDS,
+)
+# 邮件发送能力由 module_contact 提供(注册邮箱验证码)
+from module_contact.dependencies.email import get_email_service
+from module_contact.service.email import EmailService
 
 import logging
+import secrets
 
 logger = logging.getLogger(__name__)
 
@@ -22,27 +34,69 @@ logger = logging.getLogger(__name__)
 class AuthService:
     """认证服务"""
 
-    def __init__(self, user_service: UserService, token_service: TokenService):
+    def __init__(
+        self,
+        user_service: UserService,
+        token_service: TokenService,
+        email_service: EmailService | None = None,
+    ):
         """
         初始化认证服务
         :param user_service: 用户服务对象
         :param token_service: 令牌服务对象
+        :param email_service: 邮件服务对象(注册邮箱验证码发送, 默认取全局单例)
         """
         self.user_service = user_service
         self.token_service = token_service
+        self.email_service = email_service or get_email_service()
 
-    async def register(self, user_create: UserCreate) -> AuthResponse:
+    async def register(
+        self, user_create: UserCreate, code: str | None = None
+    ) -> AuthResponse:
         """
         用户注册
         :param user_create: 用户创建数据
+        :param code: 邮箱验证码(开启注册邮箱验证 email.use_for_register 时必填)
         :return: 注册成功的用户信息
-        :raises: ValueError 如果用户名已存在
+        :raises: ValueError 如果用户名已存在/邮箱验证码缺失或错误
         """
+        if EMAIL_VERIFY_ENABLED:
+            if not user_create.email:
+                raise ValueError("注册需要邮箱验证, 请填写邮箱")
+            await self._verify_register_code(user_create.email, code)
         user = await self.user_service.add(user_create)
         if not user:
             raise ValueError("用户创建失败")
         # 创建令牌响应
         return await self._create_token_response_full(user)
+
+    async def send_register_code(self, email: str) -> bool:
+        """
+        发送注册邮箱验证码(需开启注册邮箱验证 email.use_for_register)
+        :param email: 接收验证码的邮箱
+        :return: 是否发送成功
+        :raises: ValueError 如果未开启邮箱验证/发送过于频繁/邮件发送失败
+        """
+        if not EMAIL_VERIFY_ENABLED:
+            raise ValueError("未开启注册邮箱验证")
+        # 发送冷却限制, 防止同一邮箱被频繁发送
+        cooldown_key = REGISTER_CODE_COOLDOWN_KEY.format(email=email)
+        if await db_cache.async_cache.get(cooldown_key):
+            raise ValueError("验证码已发送, 请稍后再试")
+        # 生成验证码并发送(先发送成功再落缓存, 发送失败可直接重试)
+        code = f"{secrets.randbelow(10 ** REGISTER_CODE_LENGTH):0{REGISTER_CODE_LENGTH}d}"
+        sent = await self.email_service.send_register_code(
+            email, code, REGISTER_CODE_TTL_SECONDS // 60
+        )
+        if not sent:
+            raise ValueError("验证码邮件发送失败, 请稍后重试")
+        await db_cache.async_cache.set(
+            REGISTER_CODE_KEY.format(email=email), code, ex=REGISTER_CODE_TTL_SECONDS
+        )
+        await db_cache.async_cache.set(
+            cooldown_key, "1", ex=REGISTER_CODE_COOLDOWN_SECONDS
+        )
+        return True
 
     async def login(self, username: str, password: str) -> AuthResponse:
         """
@@ -296,3 +350,21 @@ class AuthService:
         # 生成新令牌
         new_token = await self.token_service.create_token(token_request)
         return new_token
+
+    async def _verify_register_code(self, email: str, code: str | None) -> None:
+        """
+        校验注册邮箱验证码(校验通过后立即失效, 防止重复使用)
+        :param email: 注册邮箱
+        :param code: 用户提交的验证码
+        :raises: ValueError 如果验证码缺失或错误/已过期
+        """
+        if not code:
+            raise ValueError("请填写邮箱验证码")
+        key = REGISTER_CODE_KEY.format(email=email)
+        saved = await db_cache.async_cache.get(key)
+        # redis 客户端可能返回 bytes, 统一按字符串比较
+        if isinstance(saved, bytes):
+            saved = saved.decode()
+        if not saved or saved != code:
+            raise ValueError("验证码错误或已过期")
+        await db_cache.async_cache.delete(key)

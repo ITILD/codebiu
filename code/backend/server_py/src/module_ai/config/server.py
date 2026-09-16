@@ -124,13 +124,13 @@ def _load_default_models_config() -> tuple[bool, dict[str, dict]]:
         return False, {}
     raw = conf.default_models
     try:
-        # reset_models 为布尔总开关(false=启动不做任何处理); 其余仅接受 dict 类型节
+        # reset_model(reset_models) 为布尔总开关(false=启动不做任何处理); 其余仅接受 dict 类型节
         # (布尔/None 等非法值跳过, 避免一个无效节拖垮整个默认模型 seed)
-        reset_models = bool(raw.get("reset_models", False))
+        reset_models = bool(raw.get("reset_model", raw.get("reset_models", False)))
         sections = {
             str(k).lower(): dict(v)
             for k, v in raw.items()
-            if k != "reset_models" and isinstance(v, dict)
+            if k not in ("reset_model", "reset_models") and isinstance(v, dict)
         }
         return reset_models, sections
     except Exception as e:

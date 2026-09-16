@@ -63,8 +63,8 @@
         </el-menu>
       </el-scrollbar>
 
-      <!-- 底部装饰小语(note-edge-t: 内阴影替代实线) -->
-      <div v-if="!isCollapse" px-4 py-3 text-xs text-note-sub note-edge-t shrink-0>
+      <!-- 底部装饰小语(note-edge-t: 内阴影替代实线; 自定义类必须写进 class) -->
+      <div v-if="!isCollapse" class="note-edge-t" px-4 py-3 text-xs text-note-sub shrink-0>
         🌿 记录每一份数据
       </div>
     </div>
@@ -111,14 +111,14 @@ import { Expand, Fold } from '@element-plus/icons-vue'
 import { RouterStore } from '@/common/stores/router'
 import { SysSettingStore } from '@/common/stores/sys'
 import { useResponsive } from '@/common/composables/useResponsive'
-import { useVisibleMenu } from '@/common/composables/useMenu'
+import { useVisibleMenu } from '@/app/composables/useMenu'
 
 const routerStore = RouterStore()
 const sysSettingStore = SysSettingStore()
 // 响应式断点: 常驻侧边栏仅平板及以上显示, 折叠态跟随桌面档
 const { isMd, isLg } = useResponsive()
 const TITLE = import.meta.env.VITE_GLOB_APP_TITLE
-// 菜单数据与权限过滤统一来自共享层(common/config/menu.ts + useMenu)
+// 菜单数据与权限过滤统一来自应用外壳层(app/config/menu.ts + app/composables/useMenu)
 const { visibleMenuItems } = useVisibleMenu()
 
 // 三档响应式折叠: 手机(<768)抽屉 / 平板(768-1023)默认折叠图标栏 / 桌面(>=1024)默认展开

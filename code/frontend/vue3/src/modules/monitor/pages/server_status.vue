@@ -1,20 +1,17 @@
 <template>
   <div p-4 md:p-6 w-full class="server-status-page">
-    <!-- 顶部操作栏: 标题 + 自动刷新开关 + 手动刷新 -->
-    <div mb-4 flex flex-wrap items-center justify-between gap-2>
-      <div>
-        <h2 text-lg font-bold text-note>服务状态</h2>
-        <p text-xs text-note-sub mt-1>
-          🌿 数据来自后端 60 秒缓存，最后更新: {{ lastUpdateText }}
-        </p>
-      </div>
-      <div flex items-center gap-2>
+    <!-- 水墨页头(操作开关收进右侧操作区) -->
+    <InkPageHead title="服务状态" seal="诊">
+      <template #sub>
+        🌿 数据来自后端 60 秒缓存，最后更新: {{ lastUpdateText }}
+      </template>
+      <template #actions>
         <el-switch v-model="autoRefresh" active-text="自动刷新" inactive-text="暂停" />
         <el-tooltip content="立即刷新(实时读取硬件状态)">
           <el-button :icon="Refresh" :loading="loading" circle @click="fetchData" />
         </el-tooltip>
-      </div>
-    </div>
+      </template>
+    </InkPageHead>
 
     <!-- 概览卡片: 主机型号 / 挂载路由 / 网络 -->
     <div mb-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3>

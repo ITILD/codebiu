@@ -1,5 +1,8 @@
 <template>
   <div p-4 md:p-6 w-full>
+    <!-- 水墨页头 -->
+    <InkPageHead title="角色管理" sub="角色定义与菜单授权, 权责各安其位" seal="职" />
+
     <!-- 统一搜索栏: 多字段筛选 -->
     <TableSearchBar
       v-model="queryParams"

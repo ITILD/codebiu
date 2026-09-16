@@ -1,12 +1,11 @@
 <template>
   <div p-4 md:p-6 w-full class="dict-manage-page">
-    <!-- 页面标题 -->
-    <div mb-4>
-      <h2 text-lg font-bold text-note>字段表管理</h2>
-      <p text-xs text-note-sub mt-1>
+    <!-- 水墨页头 -->
+    <InkPageHead title="字段表管理" seal="典">
+      <template #sub>
         🌿 左侧为字段类型(dict_type)，右侧为对应字段项(dict_item)，点击类型查看其字段项
-      </p>
-    </div>
+      </template>
+    </InkPageHead>
 
     <div flex flex-col lg:flex-row gap-4>
       <!-- ############ 左侧: 字段类型列表 ############ -->

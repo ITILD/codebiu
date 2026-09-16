@@ -86,3 +86,22 @@ async def ensure_user_model_fallback_column():
                      "ADD COLUMN fallback_disabled BOOLEAN NOT NULL DEFAULT FALSE")
             )
             logger.info("user_model.fallback_disabled 回退开关列已补齐")
+
+
+@register_init_hook
+async def ensure_user_model_voice_columns():
+    """存量表补列: user_model 语音小模型绑定 4 列(asr/tts/vad/denoise, 幂等;
+    create_all 不为旧表加列)"""
+    if db_manager.db_rel is None:
+        return
+    engine = db_manager.db_rel.engine
+    async with engine.begin() as conn:
+        cols = await conn.run_sync(
+            lambda sc: {c["name"] for c in inspect(sc).get_columns("user_model")}
+        )
+        for col in ("asr_model_id", "tts_model_id", "vad_model_id", "denoise_model_id"):
+            if col not in cols:
+                await conn.execute(
+                    text(f"ALTER TABLE user_model ADD COLUMN {col} VARCHAR(50) DEFAULT NULL")
+                )
+                logger.info(f"user_model.{col} 语音模型绑定列已补齐")

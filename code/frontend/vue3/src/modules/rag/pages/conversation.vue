@@ -9,7 +9,7 @@
 
     <!-- 会话列表(桌面默认常驻可收起, 移动端侧滑抽屉) -->
     <aside
-      fixed md:static inset-y-0 left-0 z-30 w-72 shrink-0 flex flex-col bg-note-soft border-r border-note
+      fixed md:static inset-y-0 left-0 z-30 w-72 shrink-0 flex flex-col bg-note-soft
       transition-all duration-300
       :class="sidebarOpen ? 'translate-x-0 md:ml-0' : '-translate-x-full md:-ml-72'"
     >
@@ -68,7 +68,7 @@
       </div>
 
       <!-- 次级管理入口(小字低调, 不抢历史列表; 后续智能体管理等在此扩展) -->
-      <div v-if="visibleManageLinks.length" px-3 py-2.5 border-t border-note space-y-0.5>
+      <div v-if="visibleManageLinks.length" class="note-edge-t" px-3 py-2.5 space-y-0.5>
         <RouterLink
           v-for="link in visibleManageLinks" :key="link.index" :to="link.index"
           flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-note-sub
@@ -84,14 +84,19 @@
     <section flex-1 flex flex-col min-w-0 relative>
       <!-- 顶部栏: 侧栏开关 + 当前会话标题 -->
       <header
-        flex items-center gap-2 px-3 md:px-5 py-2.5 border-b border-note
-        class="bg-note-soft/70" backdrop-blur
+        flex items-center gap-2 px-3 md:px-5 py-2.5
+        class="note-edge-b bg-note-soft/70" backdrop-blur
       >
         <button
-          rounded-full p-2 text-note hover:bg-note-tint transition
-          title="切换会话列表" @click="sidebarOpen = !sidebarOpen"
+          rounded-full p-2 transition
+          :class="sidebarOpen ? 'bg-note-tint text-note-green' : 'text-note hover:bg-note-tint'"
+          :title="sidebarOpen ? '收起会话列表' : '展开会话列表'"
+          @click="sidebarOpen = !sidebarOpen"
         >
-          <el-icon :size="20"><Menu /></el-icon>
+          <el-icon :size="20">
+            <Fold v-if="sidebarOpen" />
+            <Expand v-else />
+          </el-icon>
         </button>
         <h2 v-if="currentConversation" flex-1 min-w-0 truncate text-sm font-medium text-note m-0>
           {{ currentConversation.title || '新对话' }}
@@ -171,7 +176,7 @@
 
 <script setup lang="ts">
 import {
-  Plus, Search, Delete, Menu, MagicStick, ChatDotRound,
+  Plus, Search, Delete, Fold, Expand, MagicStick, ChatDotRound,
   EditPen, Document, List, DataAnalysis, Collection,
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -312,9 +317,10 @@ const handleCreateConversation = async () => {
   }
 }
 
-// 选中会话并加载历史消息(同时收起侧栏; 恢复关联知识库与过程区块)
+// 选中会话并加载历史消息(桌面保持侧栏展开, 仅移动端抽屉自动收起; 恢复关联知识库与过程区块)
 const selectConversation = async (conversationId: string) => {
-  sidebarOpen.value = false
+  // 移动端侧栏为遮罩抽屉, 选中后收起露出消息区; 桌面常驻侧栏不收起
+  if (window.innerWidth < 768) sidebarOpen.value = false
   currentConversationId.value = conversationId
   messages.value = []
   try {
@@ -496,6 +502,8 @@ const handleSend = async () => {
       () => {
         finishStream()
         loadConversations()
+        // 首次问答后后端异步生成标题, 延迟再刷新一次让侧栏标题跟进
+        if (messages.value.length === 2) window.setTimeout(loadConversations, 3000)
       },
       // 拿到中止控制器(供"停止生成")
       (controller: AbortController) => {

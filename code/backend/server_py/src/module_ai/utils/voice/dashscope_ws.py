@@ -266,7 +266,7 @@ class DashscopeStreamTTS:
             "text_type": "PlainText",
             "format": "pcm",  # 裸 PCM, 前端按 X-Sample-Rate 播放
             "sample_rate": sample_rate,
-            "voice": str(self._conf.get("voice") or "longxiaochun"),
+            "voice": str(self._conf.get("voice") or "longxiaochun_v2"),
             "rate": max(0.5, min(2.0, float(self._conf.get("rate") or 1.0))),
         }
         await _run_task(

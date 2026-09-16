@@ -1,5 +1,8 @@
 <template>
   <div p-4 md:p-6 w-full>
+    <!-- 水墨页头 -->
+    <InkPageHead title="模型配置" sub="对话 / 向量 / 重排 / 语音, 各安其位" seal="芯" />
+
     <!-- 统一搜索栏: 多字段筛选 -->
     <TableSearchBar
       v-model="queryParams"

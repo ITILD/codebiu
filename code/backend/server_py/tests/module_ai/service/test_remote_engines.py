@@ -16,7 +16,7 @@ import httpx
 import numpy as np
 import pytest
 
-from module_ai.controller.voice.common import resolve_engine
+from module_ai.do.voice import resolve_engine
 from module_ai.do.voice import VoiceEngine
 from module_ai.service import voice as voice_service_mod
 from module_ai.service.ocr import LOCAL_ENGINE, REMOTE_ENGINE, OcrService, _engine_conf

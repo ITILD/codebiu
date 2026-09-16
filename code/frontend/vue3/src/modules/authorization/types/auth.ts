@@ -22,6 +22,14 @@ export interface AuthRegisterRequest {
   email?: string;
   phone?: string;
   nickname?: string;
+  /** 邮箱验证码(后端开启 email.use_for_register 时必填) */
+  code?: string;
+}
+
+/** 注册流程配置(后端 email.use_for_register 开关) */
+export interface RegisterConfig {
+  /** 注册是否需要邮箱验证码 */
+  email_verify: boolean;
 }
 
 export interface AuthLogoutRequest {

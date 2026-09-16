@@ -141,6 +141,8 @@ email:
   sender_email : null
   sender_password : null # 授权码
   sender_name: Python邮件服务 # 发件人 可以不写
+  # 是否用于注册: true 时注册需先获取邮件验证码, 校验通过才创建用户; false 时注册无需邮箱验证
+  use_for_register: false
   
 ########################## 单独功能配置
 # 功能类

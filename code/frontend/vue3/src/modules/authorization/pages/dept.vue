@@ -1,5 +1,8 @@
 <template>
   <div p-4 md:p-6 w-full>
+    <!-- 水墨页头 -->
+    <InkPageHead title="部门管理" sub="组织架构沿枝干自然生长" seal="枝" />
+
     <!-- 搜索栏 -->
     <div mb-4 flex flex-wrap items-center gap-2>
       <el-input class="w-full sm:w-80" v-model="searchQuery" placeholder="输入部门名称搜索" clearable @clear="handleSearch" @keyup.enter="handleSearch">

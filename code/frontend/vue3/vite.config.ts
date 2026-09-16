@@ -1,4 +1,6 @@
 import { fileURLToPath, URL } from 'node:url'
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
@@ -15,6 +17,20 @@ import IconsResolver from 'unplugin-icons/resolver' //图标插件
 // 代码根路径
 import path from 'path'
 const pathSrc = path.resolve(__dirname, 'src')
+// 打包时从 package.json 读取版本号: 注入 __APP_VERSION__ 常量 + 构建产物 version.json
+const pkgVersion = JSON.parse(readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8')).version as string
+// 构建结束把版本写入产物根目录 version.json, 供线上前端轮询检测新版本
+const versionFilePlugin = {
+  name: 'write-version-file',
+  apply: 'build' as const,
+  closeBundle() {
+    mkdirSync(resolve(__dirname, 'dist'), { recursive: true })
+    writeFileSync(
+      resolve(__dirname, 'dist', 'version.json'),
+      JSON.stringify({ version: pkgVersion }),
+    )
+  },
+}
 // 代理
 import { createProxy } from './tools/vite/proxy'; // 代理
 import { killPort } from './tools/vite/kill_port';
@@ -30,8 +46,14 @@ export default defineConfig(
       // 设置基础路径
       base: env.BASE_URL,
 
+      // 打包时注入 package.json 版本号(运行时与 version.json 比对判断是否有新版本)
+      define: {
+        __APP_VERSION__: JSON.stringify(pkgVersion),
+      },
+
       // 插件配置
       plugins: [
+        versionFilePlugin,
         vue(),
         // 自动路由(特性/模块化架构):
         // 1. src/pages            —— 全局页面(首页/后台工作台/账户设置/404 等)
@@ -56,14 +78,14 @@ export default defineConfig(
           ],
           // 路由 meta 标记(登录拦截与侧边栏显示的依据):
           // 1. 首页与 404 为公开页, 不加标记
-          // 2. 四大前台应用模块(site/rag/geometry/agent)标记 app: 需登录, 但无侧边栏,
+          // 2. 前台应用模块(site/rag/geometry/agent/life)标记 app: 需登录, 但无侧边栏,
           //    从首页直接进入, 模块内孙页面导航由各模块页面自行承担
           // 3. 其余(后台工作台/账户设置/后台管理模块页面)标记 admin: 需登录 + 显示侧边栏,
           //    仅经头像下拉"后台管理"入口可达
           extendRoute: (route) => {
             const file = (route.component ?? '').replace(/\\/g, '/')
             const isPublic = file.endsWith('/src/pages/index.vue') || file.includes('/[..all].vue')
-            const isMainApp = /\/src\/modules\/(site|rag|geometry|agent)\//.test(file)
+            const isMainApp = /\/src\/modules\/(site|rag|geometry|agent|life)\//.test(file)
             if (file && !isPublic) route.addToMeta(isMainApp ? { app: true } : { admin: true })
             // 独立页面(如账户设置): 属后台路由(需登录), 但页面自带导航, 不渲染侧边栏
             if (file.endsWith('/src/pages/setting.vue')) route.addToMeta({ standalone: true })

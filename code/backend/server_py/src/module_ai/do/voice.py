@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 class VoiceEngine(str, Enum):
     """语音引擎方案: online(远程API或本地vllm发布, 协议细节放 extra.protocol) / local(本机onnx或qwen推理, 框架放 extra.engine)
 
-    历史值 dashscope/sherpa/qwen 由 controller 的 resolve_engine 归一化(旧请求兼容窗口)
+    历史值 dashscope/sherpa/qwen 由 resolve_engine 归一化(旧请求兼容窗口)
     """
 
     ONLINE = "online"
@@ -35,6 +35,19 @@ def normalize_engine(raw: str | None) -> VoiceEngine | None:
         return VoiceEngine(raw)
     except ValueError:
         return None
+
+
+def resolve_engine(raw: str | None) -> VoiceEngine | None:
+    """解析 engine 参数并归一化为新方案(online/local)
+
+    - 空/None 返回 None, 由模型配置自动选择
+    - 旧值兼容: dashscope->online, sherpa/qwen->local
+    - 无效值回落 LOCAL(本地方案零外部依赖, 最稳)
+    """
+    engine = normalize_engine(raw)
+    if engine is None and raw and raw.strip():
+        return VoiceEngine.LOCAL
+    return engine
 
 
 class TTSRequest(BaseModel):

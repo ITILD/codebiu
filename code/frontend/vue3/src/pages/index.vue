@@ -1,10 +1,13 @@
 <template>
-  <div w-full max-w-5xl mx-auto p-4 md:p-8>
-    <!-- Hero: 自然笔记大纸片(苔绿渐变+格线+纸纤维顶盖), 分形悬枝垂落, 登录态感知 -->
+  <div w-full max-w-5xl mx-auto p-4 md:p-8 relative>
+    <!-- 页面级落叶: 自右上枝冠飘落, 一直落到页尾池塘水面 -->
+    <FallingLeaves />
+
+    <!-- Hero: 自然笔记大纸片(苔绿渐变+格线+纸纤维顶盖), 登录态感知;
+         不裁剪溢出 —— 水墨生长枝(Canvas)自卡内右上生发并垂出卡底 -->
     <section
       class="paper-sheet"
       relative
-      overflow-hidden
       rounded-2xl
       border-note
       bg-note-gradient
@@ -12,10 +15,10 @@
       md:p-14
       mb-10
     >
-      <!-- 笔记本横线纹理 -->
-      <div absolute inset-0 note-lined-paper pointer-events-none />
-      <!-- 分形悬枝 + 落叶(右上角, 替换原 emoji 装饰) -->
-      <FractalBranch :falling="4" />
+      <!-- 笔记本横线纹理(卡片已不裁剪, 纹理层自行圆角+裁剪; 自定义类必须写进 class, 裸属性不会被 attributify 转换) -->
+      <div class="note-lined-paper" absolute inset-0 pointer-events-none rounded-2xl overflow-hidden />
+      <!-- 水墨生长枝: 右上入笔向左下生长, 最细枝垂出卡底 -->
+      <FractalBranch />
 
       <!-- 注意: 含方括号的任意值类名必须写进 class(attributify 陷阱: 裸属性名含 [] 会使 setAttribute 抛 InvalidCharacterError, 整页渲染失败) -->
       <div relative z-10 class="max-w-[68%] md:max-w-[64%]">
@@ -76,8 +79,6 @@
           :to="app.children?.length ? app.children[0].index : app.index"
           class="paper-grain note-glow-hover"
           bg-note-card
-          border
-          border-note
           rounded-3xl
           p-7
           overflow-hidden
@@ -130,10 +131,11 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/common/stores/auth'
-import { useVisibleApps } from '@/common/composables/useMenu'
-import { useRecentPages } from '@/common/composables/useRecentPages'
-// 诗意场景装饰: 分形悬枝与涟漪小池(纯 SVG, 零图片依赖)
+import { useVisibleApps } from '@/app/composables/useMenu'
+import { useRecentPages } from '@/app/composables/useRecentPages'
+// 诗意场景装饰: 分形悬枝与涟漪小池(纯 SVG, 零图片依赖) + 页面级落叶
 import FractalBranch from '@/common/components/decor/FractalBranch.vue'
+import FallingLeaves from '@/common/components/decor/FallingLeaves.vue'
 import GardenPond from '@/common/components/decor/GardenPond.vue'
 
 const TITLE = import.meta.env.VITE_GLOB_APP_TITLE

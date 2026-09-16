@@ -5,6 +5,7 @@ from module_authorization.service.user import UserService
 from module_authorization.service.token import TokenService
 from module_authorization.dependencies.user import get_user_service
 from module_authorization.dependencies.token import get_token_service
+from module_contact.dependencies.email import get_email_service
 
 # 不做业务验证：oauth2_scheme 不验证 Token 的有效性、过期时间或签名。它只负责“搬运”字符串。
 # OAuth2 scheme(tokenUrl 指向 OAuth2 标准响应端点,Swagger Authorize 才能自动提取令牌)
@@ -14,9 +15,10 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/authorization/auth/token")
 async def get_auth_service(
     user_service: UserService = Depends(get_user_service),
     token_service: TokenService = Depends(get_token_service),
+    email_service=Depends(get_email_service),
 ):
-    """AuthService工厂函数"""
-    return AuthService(user_service, token_service)
+    """AuthService工厂函数(注入邮件服务, 用于发送注册邮箱验证码)"""
+    return AuthService(user_service, token_service, email_service)
 
 
 async def get_current_user(

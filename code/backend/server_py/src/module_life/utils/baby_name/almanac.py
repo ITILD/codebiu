@@ -1,4 +1,4 @@
-"""历法干支模块：节气近似、四柱八字(年/月/日/时干支)、生肖
+"""历法干支模块：节气天文解、四柱八字(年/月/日/时干支)、生肖
 
 经典算法说明:
 - 日柱: 以儒略日数(JDN)为基准, 甲子日满足 (JDN - 11) % 60 == 0。
@@ -7,13 +7,16 @@
 - 月柱: 以十二"节"(立春/惊蛰/清明/立夏/芒种/小暑/立秋/白露/寒露/立冬/大雪/小寒)分界,
   月干由年干五虎遁得出。
 - 时柱: 十二时辰按小时分界, 时干由日干五鼠遁得出;
-  23:00 后按主流子平惯例归入次日子时(日柱进一天)。
-- 节气日期: 采用"寿星通式" [Y*D + C] - L (D=0.2422, 1/2月节气按上一年取 Y),
-  绝大多数年份精确到日, 个别年份可能偏差 1 天(分界日出生者建议核对当年精确节气时刻)。
+  23:00 后按主流子平惯例归入次日子时(日柱同步进位)。
+- 节气: 采用寿星天文历天文算法(shou_xing.py, VSOP87D+章动+光行差+ΔT),
+  节气时刻精度优于 1 分钟; 提供出生时间时年/月柱分界可精确到时刻。
 """
 
 from dataclasses import dataclass
 import datetime as dt
+from functools import lru_cache
+
+from module_life.utils.baby_name.shou_xing import solar_term_time
 
 # 天干地支及五行
 GAN = "甲乙丙丁戊己庚辛壬癸"
@@ -31,23 +34,14 @@ ZHI_WUXING_MAP = dict(zip(ZHI, ZHI_WUXING))
 # 生肖(按年支)
 ZODIAC = "鼠牛虎兔龙蛇马羊猴鸡狗猪"
 
-# 寿星通式 24 节气 C 值(21世纪)
-_SOLAR_TERM_C_21 = {
-    "小寒": 5.4055, "大寒": 20.12, "立春": 3.87, "雨水": 18.73,
-    "惊蛰": 5.63, "春分": 20.646, "清明": 4.81, "谷雨": 20.1,
-    "立夏": 5.52, "小满": 21.04, "芒种": 5.678, "夏至": 21.37,
-    "小暑": 7.108, "大暑": 22.83, "立秋": 7.5, "处暑": 23.13,
-    "白露": 7.646, "秋分": 23.042, "寒露": 8.318, "霜降": 23.438,
-    "立冬": 7.438, "小雪": 22.36, "大雪": 7.18, "冬至": 21.94,
-}
-# 寿星通式 24 节气 C 值(20世纪, 2000年前出生)
-_SOLAR_TERM_C_20 = {
-    "小寒": 6.11, "大寒": 20.84, "立春": 4.6295, "雨水": 19.4599,
-    "惊蛰": 6.3826, "春分": 21.4155, "清明": 5.59, "谷雨": 20.888,
-    "立夏": 6.318, "小满": 21.86, "芒种": 6.5, "夏至": 22.2,
-    "小暑": 7.928, "大暑": 23.65, "立秋": 8.35, "处暑": 23.95,
-    "白露": 8.44, "秋分": 23.822, "寒露": 9.098, "霜降": 24.218,
-    "立冬": 8.218, "小雪": 23.08, "大雪": 7.9, "冬至": 22.6,
+# 24节气太阳视黄经(度): 春分=0°, 每气15°
+_TERM_DEG = {
+    "春分": 0, "清明": 15, "谷雨": 30, "立夏": 45,
+    "小满": 60, "芒种": 75, "夏至": 90, "小暑": 105,
+    "大暑": 120, "立秋": 135, "处暑": 150, "白露": 165,
+    "秋分": 180, "寒露": 195, "霜降": 210, "立冬": 225,
+    "小雪": 240, "大雪": 255, "冬至": 270, "小寒": 285,
+    "大寒": 300, "立春": 315, "雨水": 330, "惊蛰": 345,
 }
 
 # 十二"节"(月柱分界): 节气名 -> 月支序(寅=2 对应正月)
@@ -67,17 +61,17 @@ def _jdn(date: dt.date) -> int:
     return date.day + (153 * m + 2) // 5 + 365 * y + y // 4 - y // 100 + y // 400 - 32045
 
 
-def _solar_term_day(year: int, term: str) -> int:
-    """寿星通式计算某年某节气的"日"(只关心几号, 精度到日)
+@lru_cache(maxsize=2048)
+def _solar_term_time(year: int, term: str) -> dt.datetime:
+    """某年某节气的精确时刻(北京时间, 天文解, 精度优于1分钟)"""
+    return solar_term_time(year, _TERM_DEG[term])
 
-    规则: 1/2 月节气(小寒/大寒/立春/雨水) Y 取上一年后两位, 其余取本年;
-    L = Y // 4; 个别年份存在 ±1 天固有偏差(见模块注释)。
-    """
-    ref_year = year - 1 if term in ("小寒", "大寒", "立春", "雨水") else year
-    y = ref_year % 100
-    table = _SOLAR_TERM_C_21 if year >= 2000 else _SOLAR_TERM_C_20
-    day = int(y * 0.2422 + table[term] - y // 4)
-    return day
+
+def _birth_moment(date: dt.date, hour: int | None) -> dt.datetime:
+    """出生时刻: hour=None 视为当日末尾(仅按日粒度做分界)"""
+    if hour is None:
+        return dt.datetime.combine(date, dt.time(23, 59))
+    return dt.datetime.combine(date, dt.time(hour))
 
 
 def day_ganzhi_index(date: dt.date) -> int:
@@ -85,35 +79,36 @@ def day_ganzhi_index(date: dt.date) -> int:
     return (_jdn(date) - 11) % 60
 
 
-def year_pillar(date: dt.date) -> tuple[int, int]:
-    """年柱 (干序, 支序): 以立春为界, 立春前属前一年"""
+def year_pillar(date: dt.date, hour: int | None = None) -> tuple[int, int]:
+    """年柱 (干序, 支序): 以立春(精确到时刻)为界, 立春前属前一年"""
     year = date.year
-    if date.month == 1 or (date.month == 2 and date.day < _solar_term_day(year, "立春")):
+    if _birth_moment(date, hour) < _solar_term_time(year, "立春"):
         year -= 1
     idx = (year - 4) % 60
     return idx % 10, idx % 12
 
 
-def month_pillar(date: dt.date) -> tuple[int, int]:
-    """月柱 (干序, 支序): 十二节分界 + 五虎遁取月干"""
+def month_pillar(date: dt.date, hour: int | None = None) -> tuple[int, int]:
+    """月柱 (干序, 支序): 十二节分界(精确到时刻) + 五虎遁取月干"""
+    birth = _birth_moment(date, hour)
     year = date.year
-    # 依次判断日期落在哪个节之后(从小寒倒序到大雪)
+    # 依次判断日期落在哪个节之后(从大雪倒序到立春)
     zhi_idx: int
-    if date.month == 1 and date.day < _solar_term_day(year, "小寒"):
+    if birth < _solar_term_time(year, "小寒"):
         # 小寒之前(1月上旬)属于上一年的子月(大雪之后)
         zhi_idx = 0
-        eff_year = year - 1
     else:
-        eff_year = year
         zhi_idx = 1  # 默认丑月(小寒~立春)
         # 从后往前找: 大雪(12月)→子, 立冬(11月)→亥, ...
         for i in range(len(_JIE_ORDER) - 2, -1, -1):
             term, month = _JIE_ORDER[i]
-            if date.month > month or (date.month == month and date.day >= _solar_term_day(year, term)):
+            if date.month > month or (
+                date.month == month and birth >= _solar_term_time(year, term)
+            ):
                 zhi_idx = _JIE_MONTH_ZHI[i]
                 break
     # 五虎遁: 年干甲己→丙寅起, 乙庚→戊寅, 丙辛→庚寅, 丁壬→壬寅, 戊癸→甲寅
-    year_gan = year_pillar(date)[0]
+    year_gan = year_pillar(date, hour)[0]
     first_gan = (2 * (year_gan % 5) + 2) % 10
     # 月支相对寅的偏移
     offset = (zhi_idx - 2) % 12
@@ -176,10 +171,12 @@ def get_four_pillars(birth_date: str, birth_time: str) -> FourPillars:
         hour = int(h)
     except ValueError:
         hour = 12  # 未提供精确时间时按午时兜底
+    # 晚子时(23点后)归次日子时, 日柱同步进位, 保证与时柱五鼠遁一致
+    day_idx = day_pillar_for_hour(d, hour)
     return FourPillars(
-        year=year_pillar(d),
-        month=month_pillar(d),
-        day=(day_ganzhi_index(d) % 10, day_ganzhi_index(d) % 12),
+        year=year_pillar(d, hour),
+        month=month_pillar(d, hour),
+        day=(day_idx % 10, day_idx % 12),
         hour=hour_pillar(d, hour),
     )
 

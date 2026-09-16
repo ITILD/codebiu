@@ -46,6 +46,7 @@ declare module 'vue-router/auto-routes' {
     '/setting': RouteRecordInfo<'/setting', '/setting', Record<never, never>, Record<never, never>>,
     '/site/': RouteRecordInfo<'/site/', '/site', Record<never, never>, Record<never, never>>,
     '/site/blog_view': RouteRecordInfo<'/site/blog_view', '/site/blog_view', Record<never, never>, Record<never, never>>,
+    '/site/manage': RouteRecordInfo<'/site/manage', '/site/manage', Record<never, never>, Record<never, never>>,
     '/task/queue': RouteRecordInfo<'/task/queue', '/task/queue', Record<never, never>, Record<never, never>>,
     '/template/babylon': RouteRecordInfo<'/template/babylon', '/template/babylon', Record<never, never>, Record<never, never>>,
     '/template/container': RouteRecordInfo<'/template/container', '/template/container', Record<never, never>, Record<never, never>>,
@@ -181,6 +182,10 @@ declare module 'vue-router/auto-routes' {
     }
     'src/modules/site/pages/blog_view.vue': {
       routes: '/site/blog_view'
+      views: never
+    }
+    'src/modules/site/pages/manage.vue': {
+      routes: '/site/manage'
       views: never
     }
     'src/modules/task/pages/queue.vue': {

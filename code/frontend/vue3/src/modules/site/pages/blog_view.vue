@@ -9,7 +9,7 @@
         <!-- 阅读视图: 点击文章进入 -->
         <article v-if="reading" class="rounded-xl bg-note-card shadow-note p-5 md:p-8">
           <el-button size="small" text :icon="ArrowLeft" @click="closeRead">返回列表</el-button>
-          <h1 class="mt-3 text-2xl font-bold text-note">{{ reading.title }}</h1>
+          <h1 class="mt-3 text-2xl font-bold font-serif text-note">{{ reading.title }}</h1>
           <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-note-sub">
             <el-tag v-if="reading.category" size="small" effect="plain">{{ reading.category }}</el-tag>
             <span>{{ formatDateTime(reading.updated_at) }}</span>
@@ -17,7 +17,8 @@
               <i class="i-ep-link" /> 外链文章
             </span>
           </div>
-          <el-divider />
+          <!-- 笔触分隔: 题下枯笔飞白, 替代默认 el-divider -->
+          <div class="ink-divider my-3" aria-hidden="true" />
 
           <!-- 外链文章: 跳转卡片 -->
           <div

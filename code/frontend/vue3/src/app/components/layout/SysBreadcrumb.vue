@@ -17,7 +17,7 @@
 </template>
 
 <script lang="ts" setup>
-import { findMenuTrail } from '@/common/config/menu'
+import { findMenuTrail } from '@/app/config/menu'
 // 菜单轨迹: findMenuTrail 未收录的路径(如 /setting)返回空数组 → 不渲染
 const route = useRoute()
 const isAdmin = computed(() => Boolean(route.meta.admin))

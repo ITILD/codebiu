@@ -1,10 +1,11 @@
 <template>
   <div p-4 md:p-6 w-full class="max-w-6xl mx-auto">
-    <!-- 页面标题 -->
-    <div mb-4>
-      <h2 text-lg font-bold text-note>OCR 文字识别</h2>
-      <p text-xs text-note-sub mt-1>🌿 上传图片识别文字, 支持多语言识别</p>
-    </div>
+    <!-- 水墨页头 -->
+    <InkPageHead title="OCR 文字识别" seal="识">
+      <template #sub>
+        🌿 上传图片识别文字, 支持多语言识别
+      </template>
+    </InkPageHead>
 
     <!-- 文件上传和语言选择区域 -->
     <div page-card mb-5>

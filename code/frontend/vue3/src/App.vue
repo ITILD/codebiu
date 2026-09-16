@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { RouterView } from 'vue-router'
 import { useAuthStore } from '@/common/stores/auth'
-import { useRecentPages } from '@/common/composables/useRecentPages'
-import { findMenuTrail } from '@/common/config/menu'
+import { useRecentPages } from '@/app/composables/useRecentPages'
+import { findMenuTrail } from '@/app/config/menu'
 
 const route = useRoute()
 // 后台管理页面才显示左侧模块列表, 首页等为纯展示布局(页首+内容+页脚)

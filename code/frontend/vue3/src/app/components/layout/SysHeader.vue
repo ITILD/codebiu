@@ -30,8 +30,10 @@
         <SysBreadcrumb class="ml-6 flex-1 min-w-0" />
       </div>
 
-      <!-- 右侧: 主题切换 + 登录/用户 -->
+      <!-- 右侧: 版本更新按钮 + 主题切换 + 登录/用户 -->
       <div flex items-center mr-4 md:mr-8 gap-3 shrink-0>
+        <!-- 新版本发布提示(按钮而非弹窗, 点击刷新加载新资源) -->
+        <VersionRefresh />
         <!-- 主题切换 -->
         <el-switch
           v-model="sysSettingStore.sysStyle.theme.isDark"

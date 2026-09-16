@@ -6,12 +6,29 @@ import type {
   AuthRegisterRequest,
   AuthResponse,
   RefreshTokenRequest,
+  RegisterConfig,
   UserPermissionInfo
 } from '../types/auth';
 
 /**
+ * 获取注册流程配置(是否开启邮箱验证码)
+ * @returns 注册配置，前端据此决定注册弹窗是否展示验证码输入
+ */
+export const getRegisterConfig = () => {
+  return http_base_server.get<RegisterConfig>('/authorization/auth/register-config');
+};
+
+/**
+ * 发送注册邮箱验证码(仅后端开启 email.use_for_register 时可用，同一邮箱60秒内限发一次)
+ * @param email 接收验证码的邮箱
+ */
+export const sendRegisterCode = (email: string) => {
+  return http_base_server.post<boolean>('/authorization/auth/register/code', { email });
+};
+
+/**
  * 用户注册
- * @param user 用户注册数据
+ * @param user 用户注册数据(开启邮箱验证时需携带 code)
  * @returns 认证响应，包含令牌和用户信息
  */
 export const registerUser = (user: AuthRegisterRequest) => {

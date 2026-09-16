@@ -8,6 +8,7 @@
 - 对话/消息持久化复用 module_rag 的 conversation/chat_message 表(已预留 agent_id 字段)
 """
 
+import asyncio
 import logging
 from typing import AsyncGenerator
 
@@ -23,6 +24,7 @@ from module_rag.do.chat_message import ChatMessageCreate
 from module_rag.do.rag_chat import StreamEventType, StreamOne
 from module_rag.service.chat_message import ChatMessageService
 from module_rag.service.conversation import ConversationService
+from module_rag.service.conversation_title import maybe_auto_title
 from module_rag.utils.llm.stream_classifier import StreamEventClassifier
 from module_rag.service.user_model import UserModelService
 from module_agent.config.agent_seed import DEFAULT_AGENT_SYSTEM_PROMPT
@@ -153,6 +155,10 @@ class AgentChatService:
                     )
                 except Exception as e:
                     logger.error(f"助手消息持久化失败: {e}", exc_info=True)
+                # 首次问答结束后自动生成会话标题(后台任务, 失败静默; 客户端中止也执行)
+                asyncio.create_task(
+                    maybe_auto_title(conversation_id, user_id, chat_request.message, full_response)
+                )
 
     @staticmethod
     def _accumulate_process_block(blocks: list[dict], item: StreamOne) -> None:

@@ -75,6 +75,11 @@ body,
     --note-glow: rgba(107, 158, 120, 0.22);
     --note-edge-soft: rgba(107, 158, 120, 0.16);
 
+    /* 水墨点缀(笔触/晕染/闲章用, 亮暗两版) */
+    --note-ink: #3d4d44;          /* 浓墨: 笔触分隔线用 */
+    --note-ink-wash: rgba(107, 158, 120, 0.16);  /* 淡墨晕染(苔绿) */
+    --note-ink-wash-deep: rgba(85, 127, 97, 0.11);  /* 二道晕染 */
+
     /* 小池 / 枝叶点缀色(首页诗意场景, 亮暗两版) */
     --note-water: #cfe4dd;        /* 水面亮色 */
     --note-water-deep: #a4c9bd;   /* 深水色 */
@@ -145,6 +150,11 @@ html.dark {
     /* 柔边光晕(暗色: 降低亮度防过曝) */
     --note-glow: rgba(108, 191, 143, 0.18);
     --note-edge-soft: rgba(108, 191, 143, 0.14);
+
+    /* 水墨点缀(暗色: 笔触提亮防糊底, 晕染收敛防过曝) */
+    --note-ink: #cfe0d5;
+    --note-ink-wash: rgba(108, 191, 143, 0.13);
+    --note-ink-wash-deep: rgba(136, 210, 167, 0.08);
 
     /* 小池 / 枝叶点缀色(暗色: 深青水色 + 收敛的朱红) */
     --note-water: #23483f;
@@ -566,10 +576,139 @@ html.dark .note-sk::after {
     );
 }
 
+/* ============================================
+   水墨工具(garden 技法本地化): 晕染 / 笔触 / 闲章
+   ============================================ */
+
+/* 水墨晕染: 多层超椭圆径向渐变相互叠压, 模拟淡墨在宣纸上洇开的浓淡(纯渐变, 无 filter 开销) */
+.ink-wash {
+    background-image:
+        radial-gradient(46% 68% at 16% 24%, var(--note-ink-wash) 0%, transparent 70%),
+        radial-gradient(40% 60% at 86% 76%, var(--note-ink-wash-deep) 0%, transparent 72%),
+        radial-gradient(52% 74% at 64% 8%, var(--note-ink-wash-deep) 0%, transparent 74%);
+}
+
+/* 水墨笔触: feTurbulence 置换出枯笔飞白(garden DistressFrame 位移技法),
+   以 mask 上色 —— 颜色走 --note-ink, 亮暗自适应 */
+.ink-divider {
+    height: 12px;
+    background-color: var(--note-ink);
+    opacity: 0.45;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='12' viewBox='0 0 600 12' preserveAspectRatio='none'%3E%3Cfilter id='b' x='-5%25' y='-60%25' width='110%25' height='220%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.012 0.35' numOctaves='3' seed='11' result='n'/%3E%3CfeDisplacementMap in='SourceGraphic' in2='n' scale='7'/%3E%3C/filter%3E%3Cg filter='url(%23b)' fill='none' stroke-linecap='round'%3E%3Cpath d='M4 6 C 90 4.4, 210 7.4, 320 6 S 520 4.6, 596 6' stroke='%23000' stroke-width='2.8'/%3E%3Cpath d='M10 6.5 C 120 7.6, 260 4.8, 380 6.2 S 540 7, 592 5.6' stroke='%23000' stroke-width='1.1' opacity='0.55'/%3E%3C/g%3E%3C/svg%3E") no-repeat center / 100% 12px;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='12' viewBox='0 0 600 12' preserveAspectRatio='none'%3E%3Cfilter id='b' x='-5%25' y='-60%25' width='110%25' height='220%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.012 0.35' numOctaves='3' seed='11' result='n'/%3E%3CfeDisplacementMap in='SourceGraphic' in2='n' scale='7'/%3E%3C/filter%3E%3Cg filter='url(%23b)' fill='none' stroke-linecap='round'%3E%3Cpath d='M4 6 C 90 4.4, 210 7.4, 320 6 S 520 4.6, 596 6' stroke='%23000' stroke-width='2.8'/%3E%3Cpath d='M10 6.5 C 120 7.6, 260 4.8, 380 6.2 S 540 7, 592 5.6' stroke='%23000' stroke-width='1.1' opacity='0.55'/%3E%3C/g%3E%3C/svg%3E") no-repeat center / 100% 12px;
+}
+
+/* 朱砂闲章(全局版): 手写体单字小印, 微斜如手钤纸面 */
+.note-seal {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 1.9rem;
+    height: 1.9rem;
+    border-radius: 6px;
+    background: var(--note-seal);
+    color: #f8f1e6;
+    font-family: var(--note-font-hand);
+    font-size: 1.05rem;
+    line-height: 1;
+    transform: rotate(-5deg);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+    opacity: 0.92;
+}
+
 /* 屏外长区块跳过渲染(含 intrinsic 尺寸, 出现时不挤动布局) */
 .cv-auto {
     content-visibility: auto;
     contain-intrinsic-size: auto 360px;
+}
+
+/* ============================================
+   登录/注册弹窗: 自然笔记风
+   (append-to-body 传送门脱离组件样式作用域, 需全局命名空间样式)
+   ============================================ */
+.auth-note-dialog {
+    position: relative;
+    --el-dialog-border-radius: 18px;
+    background: linear-gradient(165deg, var(--note-grad-from) 0%, var(--note-grad-via) 46%, var(--note-grad-to) 100%);
+    box-shadow: 0 24px 60px -24px rgba(63, 83, 72, 0.4);
+}
+
+/* 纸纤维顶盖: 纹理"印"进表单, 与全站纸片一致 */
+.auth-note-dialog::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background-image: var(--note-grain);
+    background-size: 260px 260px;
+    mix-blend-mode: overlay;
+    opacity: 0.4;
+}
+
+.auth-note-dialog .el-dialog__header {
+    padding: 22px 24px 12px;
+    margin-right: 0;
+}
+
+/* 题下渐隐分隔线(替代生硬边线) */
+.auth-note-dialog .el-dialog__header::after {
+    content: '';
+    display: block;
+    height: 1px;
+    margin-top: 12px;
+    background: linear-gradient(
+        to right,
+        transparent,
+        var(--note-edge-soft) 12%,
+        var(--note-edge-soft) 88%,
+        transparent
+    );
+}
+
+.auth-note-dialog .el-dialog__body {
+    padding: 16px 24px 24px;
+}
+
+/* 标题: 手写体 + 朱砂闲章 */
+.auth-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    /* 避让右上关闭键 */
+    padding-right: 2rem;
+}
+
+.auth-title {
+    font-family: var(--note-font-hand);
+    font-size: 1.45rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--note-green-deep);
+}
+
+.auth-seal {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.9rem;
+    height: 1.9rem;
+    border-radius: 6px;
+    background: var(--note-seal);
+    color: #f8f1e6;
+    font-family: var(--note-font-hand);
+    font-size: 1rem;
+    line-height: 1;
+    transform: rotate(-5deg);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+    opacity: 0.92;
+}
+
+/* 表单标签与底注: 淡绿灰, 融入纸面 */
+.auth-note-dialog .el-form-item__label {
+    color: var(--note-sub);
+    font-size: 13px;
 }
 
 /* ============================================

@@ -270,12 +270,13 @@ const onInput = (value: string) => emit('update:modelValue', value)
 }
 
 .cc-btn.stop {
-  border-color: #e6a23c;
-  color: #e6a23c;
+  border-color: var(--note-seal, #ad563e);
+  color: var(--note-seal, #ad563e);
 }
 
 .cc-btn.stop:hover {
-  background: #fdf6ec;
+  /* 暖色微底: 由朱砂色混纸底调出, 暗色模式下自动收敛 */
+  background: color-mix(in srgb, var(--note-seal, #ad563e) 12%, var(--note-card, #fff));
 }
 
 .cc-btn:disabled {

@@ -17,6 +17,12 @@ from module_authorization.dependencies.auth import (
 from module_authorization.dependencies.avatar import get_avatar_service
 from module_authorization.do.user import UserCreate,User
 from module_authorization.do.auth import AuthResponse,AuthLogoutRequest,SelfProfileUpdate,PasswordChange
+from module_authorization.do.auth import (
+    RegisterCodeRequest,
+    RegisterConfigResponse,
+    RegisterRequest,
+)
+from module_authorization.config.register import EMAIL_VERIFY_ENABLED
 
 # 创建路由器
 router = APIRouter()
@@ -103,16 +109,36 @@ async def get_my_permissions(
     return await auth_service.get_user_permission_info(current_user_id)
 
 
+@router.get("/register-config", summary="获取注册流程配置")
+async def get_register_config() -> RegisterConfigResponse:
+    """返回注册流程配置(是否开启邮箱验证码),供前端决定注册弹窗是否展示验证码输入"""
+    return RegisterConfigResponse(email_verify=EMAIL_VERIFY_ENABLED)
+
+
+@router.post("/register/code", summary="发送注册邮箱验证码")
+async def send_register_code(
+    code_request: RegisterCodeRequest,
+    auth_service: AuthService = Depends(get_auth_service),
+) -> bool:
+    """向指定邮箱发送注册验证码:仅开启 email.use_for_register 时可用,
+    同一邮箱60秒内限发一次,验证码5分钟内有效且校验通过后立即失效
+    """
+    # 未开启邮箱验证/发送过于频繁/邮件发送失败抛 ValueError, 由全局处理器映射为 400
+    return await auth_service.send_register_code(code_request.email)
+
+
 @router.post("/register", summary="注册用户")
 async def register_user(
-    token_create: UserCreate,
+    register_request: RegisterRequest,
     auth_service: AuthService = Depends(get_auth_service),
 ) -> AuthResponse:
     """注册新用户并直接返回登录态:校验用户名唯一(重复时报400)
     密码加密存储,首个注册用户自动引导为全局管理员,成功返回 access/refresh 双令牌与用户信息
+    开启邮箱验证(email.use_for_register)时需先调 /register/code 获取验证码并随请求提交
     """
-    # 用户名重复等校验失败抛 ValueError, 由全局处理器映射为 400
-    return await auth_service.register(token_create)
+    # 用户名重复/验证码错误等校验失败抛 ValueError, 由全局处理器映射为 400
+    user_create = UserCreate(**register_request.model_dump(exclude={"code"}))
+    return await auth_service.register(user_create, register_request.code)
 
 @router.post("/login", summary="登录获取访问令牌")
 async def login_for_access_token(
