@@ -36,6 +36,7 @@ from module_life.utils.baby_name.do.baby_name import (
 )
 from module_life.dao.baby_name import BabyNameDao
 from module_ai.service.llm import LLMService
+from module_ai.utils.llm.chat.think import with_think_mode
 from common.utils.fastapiEX.exceptions import BusinessError
 # lib
 from module_life.utils.baby_name.almanac import (
@@ -171,6 +172,8 @@ class BabyNameService:
             model = await self.llm_service.get_llm(default_config.id)
         if model is None:
             raise BusinessError("起名模型不可用, 请检查模型配置是否停用")
+        # 按请求的思考模式调整模型(始终思考模型关闭被拒时由请求层自动回退开启)
+        model = with_think_mode(model, request.think_mode)
         return baby_name_generator.generate_stream(request, model)
 
     async def predict_baby_info_base_by_ai(

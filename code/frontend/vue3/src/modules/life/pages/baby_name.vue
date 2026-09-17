@@ -96,6 +96,21 @@
 
         <!-- 起名操作 -->
         <section class="page-card">
+          <!-- 思考模式: 关闭/低/中/高(始终思考模型不支持关闭, 仅提供三档) -->
+          <div flex items-center gap-2 mb-2>
+            <span text-xs text-note-sub shrink-0>思考模式</span>
+            <el-tooltip :content="alwaysThink ? '该模型始终思考, 不支持关闭' : '关闭后直接出结果, 档位越高思考越深入'"
+              placement="top">
+              <div flex rounded-full bg-note-soft p-0.5 gap-0.5>
+                <button v-for="opt in thinkOptions" :key="opt.value" cursor-pointer note-transition
+                  rounded-full px-2.5 py-1 text-xs whitespace-nowrap
+                  :class="thinkMode === opt.value ? 'bg-note-tint font-medium text-note' : 'text-note-sub hover:text-note'"
+                  :disabled="generating" @click="thinkMode = opt.value">
+                  {{ opt.label }}
+                </button>
+              </div>
+            </el-tooltip>
+          </div>
           <div flex gap-2>
             <el-button type="primary" class="flex-1" :loading="generating && !isMore"
               :disabled="!canGenerate" @click="handleGenerate(20)">
@@ -135,22 +150,30 @@
           <ReferencePanel :result="refResult" :loading="calculating" />
         </section>
 
-        <!-- 起名过程(流式, 限高滚动 + 自动跟随最新内容) -->
-        <section v-if="generateMarkdown" class="page-card">
-          <div card-toolbar>
-            <span text-sm font-bold text-note>✍️ 起名思路</span>
-            <el-icon v-if="generating" class="is-loading text-note-green"><Loading /></el-icon>
-          </div>
-          <div ref="markdownRef" prose text-sm max-w-none max-h-100 overflow-y-auto
-            v-html="renderMarkdown(generateMarkdown)" />
-        </section>
-
-        <!-- 推荐名字(程序评定) -->
+        <!-- 推荐名字(程序评定; 起名思路以折叠区嵌入, 不再单独占卡片) -->
         <section class="page-card">
           <div card-toolbar>
             <span text-sm font-bold text-note>🏷️ 推荐名字</span>
-            <el-button v-if="evaluatedNames.length" size="small" text bg :disabled="generating"
-              @click="clearAll">清空</el-button>
+            <div ml-auto flex items-center gap-1>
+              <span v-if="generating && thinkingMarkdown" text-xs text-note-sub flex items-center gap-1>
+                <el-icon class="is-loading"><Loading /></el-icon>思考中...
+              </span>
+              <el-button v-if="thinkingMarkdown || generateMarkdown" size="small" text bg
+                @click="ideasOpen = !ideasOpen">
+                {{ ideasOpen ? '收起思路' : '起名思路' }}
+              </el-button>
+              <el-button v-if="evaluatedNames.length" size="small" text bg :disabled="generating"
+                @click="clearAll">清空</el-button>
+            </div>
+          </div>
+          <!-- 起名思路(可折叠: 思考过程浅色区分不混入正文, 限高滚动 + 自动跟随) -->
+          <div v-if="ideasOpen && (thinkingMarkdown || generateMarkdown)" mb-3>
+            <div v-if="thinkingMarkdown" ref="thinkingRef" text-xs text-note-sub leading-relaxed
+              whitespace-pre-wrap max-h-25 overflow-y-auto mb-2>
+              {{ thinkingMarkdown }}
+            </div>
+            <div v-if="generateMarkdown" ref="markdownRef" prose text-sm max-w-none max-h-80 overflow-y-auto
+              v-html="renderMarkdown(generateMarkdown)" />
           </div>
           <NameResultList :names="evaluatedNames" :show-sancai="selectedRefs.includes('sancai')" />
         </section>
@@ -177,6 +200,7 @@ import type {
   ReferenceKey,
   ReferenceCalculateResult,
   EvaluatedName,
+  ThinkMode,
 } from '../types/baby_name'
 
 // 渲染 Markdown 内容(先消毒再渲染, LLM 输出不可信)
@@ -264,14 +288,50 @@ const handleCalculate = async () => {
 const generating = ref(false)
 const isMore = ref(false) // 当前是否为"生成更多"批次
 const generateMarkdown = ref('') // 当批 LLM 流式 markdown
+const thinkingMarkdown = ref('') // 当批 LLM 思考过程(浅色区块展示, 不混入正文)
 const evaluatedNames = ref<EvaluatedName[]>([]) // 多批次累计的名字(评定后)
+const ideasOpen = ref(false) // 推荐名字卡片内的"起名思路"折叠区展开态
 
-// 流式生成时 markdown 容器自动滚动到最新内容
+// 思考模式: 关闭/低/中/高; 始终思考模型(如 GLM 系列)不支持关闭, 仅提供三档
+const ALWAYS_THINK_KEY = 'baby-name-always-think-models'
+const alwaysThinkIds = ref<Set<string>>(
+  new Set(JSON.parse(localStorage.getItem(ALWAYS_THINK_KEY) ?? '[]') as string[]),
+)
+const thinkMode = ref<ThinkMode>('off')
+/** 当前模型是否始终思考(请求关闭仍流出思考内容时自动标记并缓存) */
+const alwaysThink = computed(() => alwaysThinkIds.value.has(model_id.value))
+/** 思考模式选项(始终思考模型隐藏"关闭") */
+const thinkOptions = computed(() => {
+  const all: { value: ThinkMode; label: string }[] = [
+    { value: 'off', label: '关闭' },
+    { value: 'low', label: '低' },
+    { value: 'medium', label: '中' },
+    { value: 'high', label: '高' },
+  ]
+  return alwaysThink.value ? all.slice(1) : all
+})
+// 标记为始终思考后, 若当前停留在"关闭"则自动切到中档
+watch(alwaysThink, (v) => {
+  if (v && thinkMode.value === 'off') thinkMode.value = 'medium'
+})
+
+/** 登记始终思考模型(含 localStorage 持久化, 下次进入直接只显示三档) */
+const markAlwaysThink = (id: string) => {
+  if (!id || alwaysThinkIds.value.has(id)) return
+  const next = new Set(alwaysThinkIds.value)
+  next.add(id)
+  alwaysThinkIds.value = next
+  localStorage.setItem(ALWAYS_THINK_KEY, JSON.stringify([...next]))
+}
+
+// 流式生成时 markdown/思考容器自动滚动到最新内容(折叠收起时跳过)
 const markdownRef = ref<HTMLElement | null>(null)
-watch(generateMarkdown, async () => {
-  if (!generating.value || !markdownRef.value) return
+const thinkingRef = ref<HTMLElement | null>(null)
+watch([generateMarkdown, thinkingMarkdown], async () => {
+  if (!generating.value || !ideasOpen.value) return
   await nextTick()
-  markdownRef.value.scrollTo({ top: markdownRef.value.scrollHeight })
+  thinkingRef.value?.scrollTo({ top: thinkingRef.value.scrollHeight })
+  markdownRef.value?.scrollTo({ top: markdownRef.value.scrollHeight })
 })
 
 /** 起名/生成更多: SSE 流式生成 + 程序评定结果累加(防重复) */
@@ -282,8 +342,13 @@ const handleGenerate = async (count: number, more = false) => {
 
   isMore.value = more
   generating.value = true
+  ideasOpen.value = true // 生成时自动展开推荐名字卡片内的思路区
   generateMarkdown.value = ''
+  thinkingMarkdown.value = ''
   if (!more) evaluatedNames.value = [] // 全新生成时清空历史批次
+  // 本次请求是否要求关闭思考(用于识别始终思考模型)
+  const requestedOff = thinkMode.value === 'off'
+  let offFallbackNotified = false // 始终思考提示仅发一次(思考事件逐 chunk 到达)
 
   try {
     await generateBabyNamesStream(
@@ -294,11 +359,23 @@ const handleGenerate = async (count: number, more = false) => {
         count,
         // 生成更多时传入已有名字防重复
         exclude_names: more ? evaluatedNames.value.map((n) => n.name) : [],
+        think_mode: thinkMode.value,
       },
-      (nodeName, content) => {
+      (nodeName, content, eventType) => {
         if (nodeName === 'generate_name_result') {
-          // LLM 流式 markdown(每批重置)
-          generateMarkdown.value += content
+          if (eventType === 'llm_thinking') {
+            // 请求关闭思考却仍有思考输出: 该模型始终思考, 登记后只提供低/中/高三档
+            if (requestedOff && !offFallbackNotified) {
+              offFallbackNotified = true
+              markAlwaysThink(model_id.value)
+              ElMessage.info('当前模型始终思考, 思考模式已切换为"中"')
+            }
+            // LLM 思考过程(浅色区块展示)
+            thinkingMarkdown.value += content
+          } else {
+            // LLM 流式 markdown 正文(每批重置)
+            generateMarkdown.value += content
+          }
         } else if (nodeName === 'names_evaluated') {
           // 程序评定清单: 追加并按名字去重
           try {
@@ -331,6 +408,7 @@ const handleGenerate = async (count: number, more = false) => {
 const clearAll = () => {
   evaluatedNames.value = []
   generateMarkdown.value = ''
+  thinkingMarkdown.value = ''
 }
 
 // ==================== 初始化 ====================

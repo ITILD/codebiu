@@ -13,8 +13,7 @@
     <div relative shrink-0>
       <canvas
         ref="boardCanvas"
-        class="touch-none select-none rounded-xl border-2 border-note shadow-note"
-        style="height: min(480px, calc(100vh - 16rem)); aspect-ratio: 1 / 2; width: auto"
+        class="touch-none select-none rounded-xl border-2 border-note shadow-note aspect-[1/2] w-auto max-md:h-[min(480px,calc(100dvh-18rem))] md:h-[min(480px,calc(100vh-16rem))]"
       />
       <!-- 覆盖层: 未开始/暂停/结束 -->
       <div

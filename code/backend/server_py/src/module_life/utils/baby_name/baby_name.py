@@ -284,16 +284,33 @@ def _build_prompt(state: BabyNameState) -> str:
 
 
 async def generate_name_result(state: BabyNameState, config: RunnableConfig) -> dict:
-    """LLM 流式生成候选名字"""
+    """LLM 流式生成候选名字(思考内容以 llm_thinking 事件转发, 避免长思考期无输出)"""
     model: BaseChatModel = config.get("configurable", {}).get("model")
     writer = get_stream_writer()
     markdown = ""
     response_stream = model.astream(_build_prompt(state))
     async for chunk in response_stream:
+        # 思考(reasoning)增量: 单独事件类型推送, 前端展示思考过程但不混入正文
+        if reasoning := _reasoning_text(chunk):
+            writer(StreamOne(
+                content=reasoning,
+                node_name="generate_name_result",
+                stream_event_type="llm_thinking",
+            ))
         if chunk.content:
             markdown += chunk.content
             writer(StreamOne(content=chunk.content, node_name="generate_name_result"))
     return {"name_markdown": markdown}
+
+
+def _reasoning_text(chunk) -> str:
+    """从流式 chunk 提取思考内容(reasoning_content 非标准字段, 位置因厂商而异)"""
+    reasoning = getattr(chunk, "reasoning_content", None)
+    if not reasoning:
+        additional = getattr(chunk, "additional_kwargs", None)
+        if isinstance(additional, dict):
+            reasoning = additional.get("reasoning_content")
+    return reasoning if isinstance(reasoning, str) else ""
 
 
 # ==================== 结果评定节点(纯程序) ====================

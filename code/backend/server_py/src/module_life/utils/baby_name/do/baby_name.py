@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 from enum import Enum
 from module_life.utils.baby_name.folklore import ReferenceEnum
@@ -225,4 +227,7 @@ class BabyNameGenerateRequest(NameInfoPredictFullRequest):
     count: int = Field(default=20, ge=1, le=50, description="本次生成名字数量")
     exclude_names: list[str] = Field(
         default_factory=list, description="需避开的历史名字(生成更多时传已生成名单防重复)"
+    )
+    think_mode: Literal["off", "low", "medium", "high"] = Field(
+        default="off", description="思考模式: off=关闭, low/medium/high=思考深度档位(始终思考模型忽略 off)"
     )

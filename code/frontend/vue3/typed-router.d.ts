@@ -41,6 +41,7 @@ declare module 'vue-router/auto-routes' {
     '/file/': RouteRecordInfo<'/file/', '/file', Record<never, never>, Record<never, never>>,
     '/geometry/earth': RouteRecordInfo<'/geometry/earth', '/geometry/earth', Record<never, never>, Record<never, never>>,
     '/life/baby_name': RouteRecordInfo<'/life/baby_name', '/life/baby_name', Record<never, never>, Record<never, never>>,
+    '/main/db': RouteRecordInfo<'/main/db', '/main/db', Record<never, never>, Record<never, never>>,
     '/main/dict': RouteRecordInfo<'/main/dict', '/main/dict', Record<never, never>, Record<never, never>>,
     '/main/overview': RouteRecordInfo<'/main/overview', '/main/overview', Record<never, never>, Record<never, never>>,
     '/monitor/server_status': RouteRecordInfo<'/monitor/server_status', '/monitor/server_status', Record<never, never>, Record<never, never>>,
@@ -166,6 +167,10 @@ declare module 'vue-router/auto-routes' {
     }
     'src/modules/life/pages/baby_name.vue': {
       routes: '/life/baby_name'
+      views: never
+    }
+    'src/modules/main/pages/db.vue': {
+      routes: '/main/db'
       views: never
     }
     'src/modules/main/pages/dict.vue': {

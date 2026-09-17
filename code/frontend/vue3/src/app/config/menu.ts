@@ -167,6 +167,7 @@ export const menuItems: MenuItem[] = [
     desc: '数据概览与字段表管理。',
     children: [
       { index: '/main/overview', title: '数据概览', perm: 'main:db' },
+      { index: '/main/db', title: '数据监测', perm: 'main:db' },
       { index: '/main/dict', title: '字段表管理', perm: 'main:dict' },
     ],
   },

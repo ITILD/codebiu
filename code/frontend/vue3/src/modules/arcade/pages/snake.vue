@@ -9,8 +9,7 @@
     <div relative shrink-0>
       <canvas
         ref="boardCanvas"
-        class="touch-none select-none rounded-xl border-2 border-note shadow-note"
-        style="height: min(420px, calc(100vh - 16rem)); aspect-ratio: 1 / 1; width: auto"
+        class="touch-none select-none rounded-xl border-2 border-note shadow-note aspect-square w-auto max-md:h-[min(420px,calc(100dvh-18rem))] md:h-[min(420px,calc(100vh-16rem))]"
       />
       <div
         v-if="state !== 'running'"

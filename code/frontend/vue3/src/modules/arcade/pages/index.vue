@@ -23,7 +23,7 @@
     </header>
 
     <!-- 主体: 居中游戏卡带(移动端单列, 桌面三列) -->
-    <main flex-1 min-h-0 overflow-y-auto flex items-center justify-center p-4>
+    <main flex-1 min-h-0 overflow-y-auto flex items-center justify-center p-3 md:p-4>
       <div grid grid-cols-1 sm:grid-cols-3 gap-5 md:gap-7 w-full max-w-4xl>
         <RouterLink
           v-for="g in games"
@@ -42,7 +42,7 @@
             />
           </div>
           <!-- 卡带信息 -->
-          <div p-4 flex-1 flex flex-col>
+          <div p-3 md:p-4 flex-1 flex flex-col>
             <h3 text-lg font-bold text-note group-hover:text-note-green>{{ g.title }}</h3>
             <p text-xs text-note-sub mt-1 leading-relaxed>{{ g.desc }}</p>
             <div mt-3 flex items-center justify-between>
@@ -62,9 +62,10 @@
       </div>
     </main>
 
-    <!-- 页脚: 通用操作说明 -->
+    <!-- 页脚: 按设备显示对应操作说明 -->
     <footer shrink-0 px-4 pb-3 text-center text-xs text-note-sub>
-      键盘: 方向键移动 · 空格加速/发射 · P 暂停 &nbsp;|&nbsp; 触屏: 页面内虚拟按键与拖动
+      <span hidden md:inline>键盘: 方向键移动 · 空格加速/发射 · P 暂停</span>
+      <span md:hidden>触屏: 页面内虚拟按键与拖动操控</span>
     </footer>
   </div>
 </template>

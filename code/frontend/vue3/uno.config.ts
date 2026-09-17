@@ -128,9 +128,9 @@ export default defineConfig({
       'mini-text-center-between': 'flex items-center justify-between',
       // 主页三段布局
       'grid-head-center-foot': 'min-h-full grid grid-center',
-      // 应用页高度: 视口减去吸顶导航(h-14移动 / h-16桌面)
-      'h-app': 'h-[calc(100vh-3.5rem)] md:h-[calc(100vh-4rem)]',
-      'max-h-app': 'max-h-[calc(100vh-3.5rem)] md:max-h-[calc(100vh-4rem)]'
+      // 应用页高度: 视口减去吸顶导航(h-14移动 / h-16桌面); dvh 动态视口, 避免手机端地址栏遮挡底部
+      'h-app': 'h-[calc(100dvh-3.5rem)] md:h-[calc(100vh-4rem)]',
+      'max-h-app': 'max-h-[calc(100dvh-3.5rem)] md:max-h-[calc(100vh-4rem)]'
     },
     // ===== 淡绿色自然笔记风 =====
     // 取值唯一来源: base.css 中的 --note-* CSS 变量(亮暗自动切换)

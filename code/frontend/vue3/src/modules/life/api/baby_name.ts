@@ -40,13 +40,13 @@ export const calculateReference = async (
  * 事件节点: calc_*(严格计算结果 markdown) → generate_name_result(名字 markdown)
  * → names_evaluated(程序评定名字清单 JSON)
  * @param request 宝宝信息+参考配置+数量+排除名单
- * @param onChunk 接收节点数据块回调(node_name 区分节点, content 为增量内容)
+ * @param onChunk 接收节点数据块回调(node_name 区分节点, content 为增量内容, eventType 区分正文/思考)
  * @param onError 错误回调函数
  * @param onComplete 完成回调函数
  */
 export const generateBabyNamesStream = async (
   request: BabyNameGenerateRequest,
-  onChunk: (nodeName: string, content: string) => void,
+  onChunk: (nodeName: string, content: string, eventType?: string | null) => void,
   onError?: (error: string) => void,
   onComplete?: () => void,
 ) => {
@@ -69,7 +69,7 @@ export const generateBabyNamesStream = async (
 
         // 有内容即回调(含纯空白块: 空行/缩进是格式的一部分, trim 会丢换行)
         if (parsed.content && parsed.node_name) {
-          onChunk(parsed.node_name, parsed.content)
+          onChunk(parsed.node_name, parsed.content, parsed.stream_event_type)
         }
 
         if (parsed.status === 'end') {

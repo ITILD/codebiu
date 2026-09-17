@@ -13,6 +13,9 @@ from module_ai.utils.llm.types import RoleType, StreamStatus
 class StreamOne(BaseModel):
     content: str = Field(..., description="模型返回的内容")
     node_name: str = Field(..., description="节点名称")
+    # 流式事件分类(answer/llm_thinking), 与 StreamChunkResponse.stream_event_type 对齐;
+    # 缺省按正式内容(answer)处理, 旧前端忽略该字段不影响解析
+    stream_event_type: str | None = Field(None, description="流式事件分类")
 
 
 class StreamChunkResponse(BaseModel):

@@ -213,9 +213,13 @@ export interface EvaluatedName {
   score: number // 综合评分 0-100
 }
 
+/** 思考模式: 关闭/低/中/高档位 */
+export type ThinkMode = 'off' | 'low' | 'medium' | 'high'
+
 /** 起名生成请求(流式) */
 export interface BabyNameGenerateRequest extends NameInfoPredictFullRequest {
   references: ReferenceKey[] // 参考的民俗/神话体系(多选)
   count: number // 本次生成数量(默认 20)
   exclude_names: string[] // 需避开的历史名字("生成更多"防重复)
+  think_mode?: ThinkMode // 思考模式(不支持关闭思考的模型由后端自动回退开启)
 }

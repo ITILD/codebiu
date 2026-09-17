@@ -1,22 +1,10 @@
 <template>
   <div class="p-4 md:p-6 w-full">
-    <!-- 顶部操作条: 站点管理入口(后台工作台经设置按钮进入, 无权限不显示) -->
-    <div v-if="canManage" class="mb-3 flex justify-end">
-      <RouterLink
-        to="/site/manage"
-        class="note-glow-hover flex items-center gap-1.5 rounded-full bg-note-card px-3.5 py-1.5 text-sm text-note shadow-note transition-colors hover:text-note-green"
-        title="进入站点管理"
-      >
-        <i class="i-ep-setting" />
-        站点管理
-      </RouterLink>
-    </div>
-
     <div class="flex flex-col lg:flex-row gap-4 items-start">
       <!-- 主内容区: 文章列表 / 阅读视图 -->
       <div class="w-full min-w-0 flex-1">
         <!-- 阅读视图: 点击文章进入 -->
-        <article v-if="reading" class="rounded-xl border border-note bg-note-card shadow-note p-5 md:p-8">
+        <article v-if="reading" class="mx-auto max-w-[760px] rounded-xl border border-note bg-note-card shadow-note p-5 md:p-8">
           <el-button size="small" text :icon="ArrowLeft" @click="closeRead">返回列表</el-button>
           <h1 class="mt-3 text-2xl font-bold text-note">{{ reading.title }}</h1>
           <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-note-sub">
@@ -45,16 +33,25 @@
 
         <!-- 列表视图: 已发布文章卡片流 -->
         <template v-else>
-          <div class="flex items-center justify-between mb-3">
-            <h2 class="text-lg font-bold text-note">博文</h2>
+          <div class="mb-3 flex items-center gap-2">
+            <h2 class="shrink-0 text-lg font-bold text-note">博文</h2>
             <el-input
               v-model="keyword"
               placeholder="搜索文章..."
               clearable
-              class="max-w-[220px]"
+              class="ml-auto w-auto flex-1 sm:max-w-[240px] sm:flex-none"
               :prefix-icon="Search"
               @input="debouncedFetch"
             />
+            <!-- 站点管理入口: 仅图标, 不占独立行(无权限不显示) -->
+            <RouterLink
+              v-if="canManage"
+              to="/site/manage"
+              class="note-glow-hover flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-note-card text-sm text-note-sub shadow-note transition-colors hover:text-note-green"
+              title="站点管理"
+            >
+              <i class="i-ep-setting" />
+            </RouterLink>
           </div>
 
           <!-- 首屏加载: 与卡片流同网格的骨架, 避免遮罩闪烁与布局抖动 -->

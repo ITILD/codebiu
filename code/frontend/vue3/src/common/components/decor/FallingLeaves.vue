@@ -16,13 +16,13 @@
       }"
     >
       <i class="absolute inset-0">
+        <!-- 叶形与水墨生长枝(Canvas)的叶一致: 两段贝塞尔尖椭圆, 两端收尖(竹叶), 无叶脉 -->
         <svg
           viewBox="0 0 16 16"
           class="leaf-spin absolute top-0 left-0"
           :style="{ width: `${f.size}px`, height: `${f.size}px`, marginLeft: `${-f.size / 2}px`, color: f.color, animationDuration: `${f.spin}s` }"
         >
-          <path d="M8 2 C 12 6 12 11 8 14 C 4 11 4 6 8 2 Z" fill="currentColor" opacity="0.85" />
-          <path d="M8 3 V13" stroke="var(--note-paper)" stroke-width="0.8" opacity="0.7" />
+          <path d="M1 8 Q7.3 5.5 15 8 Q7.3 10.5 1 8 Z" fill="currentColor" opacity="0.55" />
         </svg>
       </i>
     </span>
@@ -62,7 +62,7 @@ interface Faller {
 const fallers = ref<Faller[]>(Array.from({ length: props.falling }, () => ({
   left: 58 + rand() * 36,
   top: 6 + rand() * 9, // 自悬枝梢腹现身
-  size: 11 + rand() * 7,
+  size: 18 + rand() * 10,
   duration: 13 + rand() * 7,
   delay: -rand() * 24, // 负延迟: 页面打开即处于飘落中途, 不齐步
   spin: 7 + rand() * 6,

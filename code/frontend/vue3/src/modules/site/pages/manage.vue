@@ -1,27 +1,41 @@
 <template>
   <div class="p-4 md:p-6 w-full">
-    <!-- 模块内页导航(应用页无侧边栏, 孙页面切换在此) -->
-    <SitePageNav class="mb-4" />
-
-    <!-- 顶部概览条: 三业务线速览(点击切换面板) -->
-    <div class="mb-4 grid grid-cols-3 gap-2 md:gap-4">
-      <button
-        v-for="chip in overviewChips"
-        :key="chip.key"
-        type="button"
-        class="note-glow-hover rounded-xl bg-note-card p-3 text-left shadow-note hover:-translate-y-0.5 md:p-4"
-        @click="active = chip.key"
+    <!-- 顶部: 三业务线速览卡兼面板切换(激活态高亮, 替代原左侧导航) + 返回博客 -->
+    <div class="mb-4 flex items-center gap-2 md:gap-4">
+      <div class="grid flex-1 grid-cols-3 gap-2 md:gap-4">
+        <button
+          v-for="chip in overviewChips"
+          :key="chip.key"
+          type="button"
+          class="note-glow-hover rounded-xl p-3 text-left shadow-note transition-all duration-200 hover:-translate-y-0.5 md:p-4"
+          :class="active === chip.key ? 'bg-note-green/10' : 'bg-note-card'"
+          @click="active = chip.key"
+        >
+          <div
+            class="flex items-center gap-1.5 text-xs transition-colors"
+            :class="active === chip.key ? 'font-medium text-note-green' : 'text-note-sub'"
+          >
+            <el-icon><component :is="chip.icon" /></el-icon>
+            {{ chip.label }}
+          </div>
+          <!-- 数据未到: 与数值等高骨架条, 避免 '-'→数字 的抖动 -->
+          <div
+            class="mt-1 truncate text-base font-bold transition-colors md:text-xl"
+            :class="active === chip.key ? 'text-note-green' : 'text-note'"
+          >
+            <span v-if="!overviewLoaded" class="note-sk inline-block h-5 w-12 align-middle md:h-6 md:w-14" />
+            <template v-else>{{ chip.value }}</template>
+          </div>
+        </button>
+      </div>
+      <!-- 返回博客: 仅图标, 与概览条同行(同 index 页设置图标样式) -->
+      <RouterLink
+        to="/site"
+        class="note-glow-hover flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-note-card text-sm text-note-sub shadow-note transition-colors hover:text-note-green"
+        title="返回博客"
       >
-        <div class="flex items-center gap-1.5 text-xs text-note-sub">
-          <el-icon><component :is="chip.icon" /></el-icon>
-          {{ chip.label }}
-        </div>
-        <!-- 数据未到: 与数值等高骨架条, 避免 '-'→数字 的抖动 -->
-        <div class="mt-1 truncate text-base font-bold text-note md:text-xl">
-          <span v-if="!overviewLoaded" class="note-sk inline-block h-5 w-12 align-middle md:h-6 md:w-14" />
-          <template v-else>{{ chip.value }}</template>
-        </div>
-      </button>
+        <i class="i-ep-back" />
+      </RouterLink>
     </div>
 
     <!-- 待办提醒横幅(仅当今日有待办时渲染) -->
@@ -38,34 +52,14 @@
       </el-button>
     </div>
 
-    <!-- 工作台: 左侧导航 + 右侧面板(移动端横向滚动) -->
-    <div class="flex flex-col md:flex-row gap-4">
-      <nav
-        class="flex md:flex-col gap-1 md:w-44 shrink-0 bg-note-card rounded-lg shadow-note p-2 overflow-x-auto md:overflow-visible"
-      >
-        <button
-          v-for="tab in tabs"
-          :key="tab.key"
-          class="flex items-center gap-2 rounded px-3 py-2 text-sm whitespace-nowrap transition-colors cursor-pointer"
-          :class="active === tab.key
-            ? 'bg-green-600/10 text-green-700 dark:text-green-400 font-medium'
-            : 'text-note-sub hover:bg-note-glass'"
-          @click="active = tab.key"
-        >
-          <el-icon><component :is="tab.icon" /></el-icon>
-          {{ tab.label }}
-        </button>
-      </nav>
-
-      <!-- 面板区: 首次激活才挂载(避免无权限/未使用面板的无效请求) -->
-      <section class="flex-1 min-w-0">
-        <Transition name="fade" mode="out-in">
-          <BlogPanel v-if="active === 'blog'" key="blog" />
-          <MemoPanel v-else-if="active === 'memo'" key="memo" />
-          <LedgerPanel v-else-if="active === 'ledger'" key="ledger" />
-        </Transition>
-      </section>
-    </div>
+    <!-- 面板区: 首次激活才挂载(避免无权限/未使用面板的无效请求) -->
+    <section>
+      <Transition name="fade" mode="out-in">
+        <BlogPanel v-if="active === 'blog'" key="blog" />
+        <MemoPanel v-else-if="active === 'memo'" key="memo" />
+        <LedgerPanel v-else-if="active === 'ledger'" key="ledger" />
+      </Transition>
+    </section>
   </div>
 </template>
 
@@ -73,7 +67,6 @@
 import { markRaw } from 'vue'
 import dayjs from 'dayjs'
 import { EditPen, Bell, Wallet } from '@element-plus/icons-vue'
-import SitePageNav from '../components/SitePageNav.vue'
 import BlogPanel from '../components/panels/BlogPanel.vue'
 import MemoPanel from '../components/panels/MemoPanel.vue'
 import LedgerPanel from '../components/panels/LedgerPanel.vue'
@@ -88,20 +81,15 @@ import type { Todolist } from '../types/todolist'
  * 概览条与提醒横幅数据静默降级(部分业务线无权限时显示 '-')
  */
 
-/** 面板分组(tab 同步到 ?tab= 查询参数, 刷新/分享保持) */
-const tabs = [
-  { key: 'blog', label: '博客管理', icon: markRaw(EditPen) },
-  { key: 'memo', label: '备忘', icon: markRaw(Bell) },
-  { key: 'ledger', label: '记账本', icon: markRaw(Wallet) },
-] as const
+/** 面板 key(概览卡即切换器, tab 同步到 ?tab= 查询参数, 刷新/分享保持) */
+type TabKey = 'blog' | 'memo' | 'ledger'
 
-type TabKey = (typeof tabs)[number]['key']
+const validTabs: TabKey[] = ['blog', 'memo', 'ledger']
 
 const route = useRoute()
 const router = useRouter()
-const validTabs = tabs.map((t) => t.key) as string[]
 const active = ref<TabKey>(
-  validTabs.includes(route.query.tab as string) ? (route.query.tab as TabKey) : 'blog',
+  validTabs.includes(route.query.tab as TabKey) ? (route.query.tab as TabKey) : 'blog',
 )
 
 // tab 切换同步 URL 查询参数
