@@ -76,3 +76,5 @@ if __name__ == "__main__":
         loop=selector_event_loop_factory,
     )
     # uvicorn.run("src.app:app", host=conf.server.host, port=conf.server.port, reload=True)
+    # 多进程
+    # uvicorn.run("app:app", host=conf.server.host, port=conf.server.port,workers=1, timeout_worker_healthcheck=300)

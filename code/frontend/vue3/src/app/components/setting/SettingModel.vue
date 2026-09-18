@@ -14,7 +14,7 @@
         <div class="w-full flex items-center gap-2">
           <el-select :model-value="displayValue(meta.type)"
             placeholder="未绑定(自动使用系统默认模型)"
-            clearable class="flex-1 min-w-0" @update:model-value="(v) => handleSelect(meta.type, v)">
+            clearable class="flex-1 min-w-0" @update:model-value="(v: unknown) => handleSelect(meta.type, v)">
             <!-- 选中态自定义展示: 模型名 + 系统默认tag + 已测能力标签(测试后显示当前支持的能力) -->
             <template #label="{ value }">
               <span flex items-center gap-1>
