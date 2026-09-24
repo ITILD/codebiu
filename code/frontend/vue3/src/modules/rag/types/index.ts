@@ -26,6 +26,8 @@ interface ProjectMyPerms {
   upload_doc: boolean;
   /** 可编辑项目信息(档位>=2) */
   update: boolean;
+  /** 可下载文档(档位>=2, 下载独立于 read) */
+  download: boolean;
   /** 可删除项目(档位>=3) */
   delete: boolean;
   /** 可管理成员/部门授权/发布(档位>=3) */

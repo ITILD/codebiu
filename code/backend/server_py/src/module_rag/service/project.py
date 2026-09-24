@@ -318,7 +318,8 @@ class ProjectService:
         :return: {project_id: 权限位}
         """
         full = ProjectMyPerms(
-            read=True, upload_doc=True, update=True, delete=True, manage_member=True
+            read=True, upload_doc=True, update=True, download=True,
+            delete=True, manage_member=True,
         )
         if not project_ids:
             return {}
@@ -344,6 +345,7 @@ class ProjectService:
                 read=level >= 1,
                 upload_doc=level >= 2,
                 update=level >= 2,
+                download=level >= 2,
                 delete=level >= 3,
                 manage_member=level >= 3,
             )
@@ -390,7 +392,8 @@ class ProjectService:
             # 管理员全 True(每项独立实例, 避免共享可变对象被调用方误改)
             perms_map = {
                 p.id: ProjectMyPerms(
-                    read=True, upload_doc=True, update=True, delete=True, manage_member=True
+                    read=True, upload_doc=True, update=True, download=True,
+                    delete=True, manage_member=True,
                 )
                 for p in items
             }

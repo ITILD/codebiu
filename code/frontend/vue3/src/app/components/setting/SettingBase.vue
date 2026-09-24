@@ -18,6 +18,11 @@
     </div>
     <!-- 语言选择 -->
     <SettingLanguage />
+    <!-- 悬浮工具显隐: 隐藏页面右侧可拖动悬浮球(全屏/截图/隐藏入口) -->
+    <div flex items-center gap-2>
+      <span w-20 shrink-0>悬浮工具</span>
+      <el-switch v-model="showFloatTools" />
+    </div>
   </div>
 </template>
 
@@ -25,6 +30,11 @@
 import { SysSettingStore } from '@/common/stores/sys'
 import { i18n } from '@/common/i18n/language'
 const sysSettingStore = SysSettingStore()
+// 悬浮工具开关(语义取反: 开关=显示, store 存"隐藏")
+const showFloatTools = computed({
+  get: () => !sysSettingStore.floatToolsHidden,
+  set: (v) => (sysSettingStore.floatToolsHidden = !v)
+})
 /////////////////////////////////////////////////////////主题控制/////////////////////////////////////////////////////////
 // 主题选择
 const themeOptions = computed(() => [

@@ -538,12 +538,12 @@ async def download_project_document(
     :param file_service: 统一文件存储服务依赖注入
     :return: 302重定向(直链) 或 文件数据流(代理)
     """
-    # 权限校验: 通过文档解析所属项目
+    # 权限校验: 通过文档解析所属项目(下载独立于 read, 需 editor 及以上档位)
     document = await service.get_document(document_id)
     if not document:
         raise NotFoundError("文档不存在")
     await enforce_project_permission(
-        current_user_id, document.project_id, "doc", "read"
+        current_user_id, document.project_id, "doc", "download"
     )
     file_name, mime_type, source, storage_backed = (
         await service.get_file_for_download(document_id)

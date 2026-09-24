@@ -43,7 +43,10 @@ RAG_DEFINE = ModulePermissionDefine(
             path="/rag/document",
             order_num=2,
             children=[
-                PermNode(name="查看/下载", code="rag:doc:read", menu_type="F"),
+                PermNode(name="查看", code="rag:doc:read", menu_type="F"),
+                # 下载独立于查看: 项目内文档下载按成员档位>=editor 放行(不走 casbin),
+                # 本节点用于权限树展示与模块级预留
+                PermNode(name="下载", code="rag:doc:download", menu_type="F"),
                 PermNode(name="上传", code="rag:doc:upload", menu_type="F"),
                 PermNode(name="修改", code="rag:doc:update", menu_type="F"),
                 PermNode(name="删除", code="rag:doc:delete", menu_type="F"),

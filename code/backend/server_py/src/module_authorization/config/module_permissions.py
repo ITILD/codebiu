@@ -94,7 +94,10 @@ MAIN_DEFINE = ModulePermissionDefine(
             icon="FolderOpened",
             order_num=3,
             children=[
-                PermNode(name="浏览/下载", code="main:file:read", menu_type="F"),
+                PermNode(name="浏览", code="main:file:read", menu_type="F"),
+                # 下载为独立权限: 默认仅 admin 角色持有(穿透), user 角色不含;
+                # 其余角色需管理员单独配置; 项目业务条目(rag)另按项目档位放行
+                PermNode(name="下载", code="main:file:download", menu_type="F"),
                 PermNode(name="上传/新建", code="main:file:create", menu_type="F"),
                 PermNode(name="重命名/移动", code="main:file:update", menu_type="F"),
                 PermNode(name="删除", code="main:file:delete", menu_type="F"),

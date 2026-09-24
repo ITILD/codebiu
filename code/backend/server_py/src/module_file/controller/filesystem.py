@@ -1,8 +1,11 @@
 from module_file.config.server import module_app
+from module_file.dao.file_entry_dao import FileEntryDao
 from module_file.dependencies.filesystem import (
     get_file_service,
     get_managed_file_service,
     get_download_user_id,
+    get_file_entry_dao,
+    can_download_entry,
 )
 from module_file.service.filesystem import FileService, BusinessEntryError
 from module_file.do.filesystem import (
@@ -18,6 +21,7 @@ from module_file.do.filesystem import (
     MigrateRequest,
     BatchDeleteRequest,
     BatchDeleteResult,
+    DownloadPermsRequest,
 )
 from module_authorization.dependencies.permission import require_permission
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
@@ -236,6 +240,33 @@ async def download_file(
         media_type=mime_type,
         headers={"Content-Disposition": f'attachment; filename="{file_name}"'},
     )
+
+
+@router.post(
+    "/download-perms",
+    summary="批量探测条目下载权限(前端下载按钮灰显用)",
+    response_model=dict[str, bool],
+)
+async def check_download_perms(
+    req: DownloadPermsRequest,
+    current_user_id: str = Depends(require_permission("main", "file", "read")),
+    file_entry_dao: FileEntryDao = Depends(get_file_entry_dao),
+) -> dict[str, bool]:
+    """
+    批量判断当前用户对各条目的下载权限(判定口径与 /download 一致):
+    持 main:file:download / avatar 公开条目 / 业务条目来源模块授权(rag 项目档位)
+    :param req: 探测请求(entry_ids 列表, 上限200)
+    :return: {entry_id: 可否下载} 目录与不存在条目为 False
+    """
+    result: dict[str, bool] = {}
+    for entry_id in req.entry_ids:
+        entry = await file_entry_dao.get(entry_id)
+        result[entry_id] = bool(
+            entry
+            and not entry.is_directory
+            and await can_download_entry(current_user_id, entry)
+        )
+    return result
 
 
 ######################################分片上传(multipart,大文件 >10MB 自动)######################################

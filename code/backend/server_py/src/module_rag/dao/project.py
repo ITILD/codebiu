@@ -70,6 +70,21 @@ class ProjectDao:
         return await session.get(Project, id)
 
     @DaoRel
+    async def get_by_root_entry_ids(
+        self, root_entry_ids: list[str], session: AsyncSession | None = None
+    ) -> list[Project]:
+        """
+        按项目根文件夹条目ID集合查询项目(虚拟目录条目归属项目定位用)
+        :param root_entry_ids: 条目ID集合(通常为某条目的祖先链)
+        :return: 命中的项目列表(集合为空返回空列表)
+        """
+        if not root_entry_ids:
+            return []
+        stmt = select(Project).where(Project.root_entry_id.in_(root_entry_ids))
+        result = await session.exec(stmt)
+        return result.all()
+
+    @DaoRel
     async def list_paged(
         self, pagination: PaginationParams, session: AsyncSession | None = None,
         name: str | None = None,

@@ -446,6 +446,9 @@ body {
     text-rendering: optimizeLegibility;
     /* 移动端横向滚动不触发整页手势 */
     overscroll-behavior-x: none;
+    /* 修复"下拉刷新冲突": 文档滚到顶/底后继续滑动不再触发浏览器原生的
+       下拉刷新/回弹手势; 该属性不继承, 页面内部的滚动容器不受影响 */
+    overscroll-behavior-y: none;
 }
 
 /* 点击高亮改苔绿淡色, 而非系统默认蓝块 */

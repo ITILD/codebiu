@@ -60,5 +60,8 @@ onMounted(() => {
 
     <!-- 页脚: 位于文档末尾, 随内容增长(全屏页面隐藏, 避免产生文档滚动) -->
     <SysFooter v-if="!isFullpage" w-full shrink-0 />
+
+    <!-- 悬浮工具(可拖动): 全屏/截图/隐藏; 显隐由 设置-外观 持久化控制 -->
+    <FloatTools />
   </div>
 </template>

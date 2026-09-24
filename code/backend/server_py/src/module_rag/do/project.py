@@ -89,6 +89,7 @@ class ProjectMyPerms(SQLModel):
     read: bool = Field(default=False, description="可读(档位>=1)")
     upload_doc: bool = Field(default=False, description="可上传文档(档位>=2)")
     update: bool = Field(default=False, description="可编辑项目信息(档位>=2)")
+    download: bool = Field(default=False, description="可下载文档(档位>=2, 下载独立于 read)")
     delete: bool = Field(default=False, description="可删除项目(档位>=3)")
     manage_member: bool = Field(default=False, description="可管理成员/部门授权/发布(档位>=3)")
 

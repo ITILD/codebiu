@@ -15,9 +15,11 @@ from fastapi import Depends, HTTPException, status
 
 from module_file.dao.file_entry_dao import FileEntryDao
 from module_file.dao.file_content_dao import FileContentDao
+from module_file.do.filesystem import FileEntry
 from module_file.service.filesystem import FileService
+from module_file.config.download_grant import get_download_grant
 from module_authorization.dependencies.auth import get_current_user_id_optional
-from module_authorization.dependencies.permission import enforce_permission
+from module_authorization.dependencies.permission import check_permission
 
 
 async def get_file_entry_dao() -> FileEntryDao:
@@ -50,18 +52,55 @@ async def get_managed_file_service(
     )
 
 
+async def can_download_entry(user_id: str | None, entry: FileEntry) -> bool:
+    """判断用户对条目是否有下载权限(不抛异常, 下载鉴权与批量探测共用)
+
+    判定顺序:
+    1. 目录条目不可下载;
+    2. avatar 来源为公开资源(头像等), 匿名亦可下载;
+    3. 登录用户持独立下载权限 main:file:download(全局 admin 角色穿透,
+       其余角色由管理员在权限配置中单独勾选);
+    4. 业务条目(source_module 标记)交由来源模块注册的授权钩子判定
+       (rag: 项目 editor 及以上档位放行, 见 module_rag 注册处)。
+    :param user_id: 当前用户ID(匿名为 None)
+    :param entry: 文件条目
+    :return: 是否放行下载
+    """
+    if entry.is_directory:
+        return False
+    if entry.source_module == "avatar":
+        return True
+    if user_id is None:
+        return False
+    if await check_permission(user_id, "main", "file", "download"):
+        return True
+    if entry.source_module and entry.source_module != "file":
+        grant = get_download_grant(entry.source_module)
+        if grant is not None and await grant(user_id, entry):
+            return True
+    return False
+
+
 async def get_download_user_id(
     entry_id: str,
     current_user_id: str | None = Depends(get_current_user_id_optional),
     file_entry_dao: FileEntryDao = Depends(get_file_entry_dao),
 ) -> str | None:
-    """下载鉴权依赖: 已登录用户走常规权限校验; 匿名仅放行 avatar 来源条目(头像等公开资源)"""
-    if current_user_id:
-        await enforce_permission(current_user_id, "main", "file", "read")
-        return current_user_id
+    """下载鉴权依赖(见 can_download_entry 判定口径)
+    - 匿名: 仅放行 avatar 来源公开条目, 其余 401
+    - 已登录无权限: 403(与未登录区分, 供前端提示)
+    """
     entry = await file_entry_dao.get(entry_id)
-    if entry and entry.source_module == "avatar":
-        return None
+    if entry is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="文件或目录不存在"
+        )
+    if await can_download_entry(current_user_id, entry):
+        return current_user_id
+    if current_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="无下载权限"
+        )
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED, detail="未登录或无下载权限"
     )

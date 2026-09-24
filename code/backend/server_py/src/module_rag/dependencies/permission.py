@@ -32,6 +32,7 @@ ACTION_LEVELS: dict[str, int] = {
     "upload": 2,
     "update": 2,
     "write": 2,
+    "download": 2,  # 文档下载: 项目 editor 及以上(下载独立于 read, 见 v4 权限口径)
     "publish": 3,  # 公开/私有切换: 仅 project_admin, 防止 editor 泄露私有库(v4 3.1)
     "delete": 3,
     "invite": 3,
@@ -151,3 +152,38 @@ def require_project_permission(obj: str, act: str):
         return current_user_id
 
     return dependency
+
+
+async def check_entry_download_grant(user_id: str, entry) -> bool:
+    """
+    文件管理页下载 rag 业务条目的授权判定(注册到 module_file 下载授权中心)
+
+    口径: 条目位于某项目根文件夹(root_entry_id)子树内, 且用户在该项目的
+    生效档位 >= project_editor(2) 时放行; 全局管理员已由 casbin
+    main:file:download 穿透, 不会走到本函数。
+    :param user_id: 用户ID
+    :param entry: 虚拟目录条目(FileEntry)
+    :return: 是否放行下载
+    """
+    from module_file.dao.file_entry_dao import FileEntryDao
+
+    # 沿 pid 向上收集祖先链(含自身), 命中 project.root_entry_id 即定位所属项目
+    entry_dao = FileEntryDao()
+    chain: list[str] = [entry.id]
+    cursor = entry
+    while cursor.pid:
+        parent = await entry_dao.get(cursor.pid)
+        if parent is None:
+            break
+        chain.append(parent.id)
+        cursor = parent
+    projects = await ProjectDao().get_by_root_entry_ids(chain)
+    if not projects:
+        return False
+    # 命中任一项目达 editor 档位即放行(同名文件夹极端场景从严需全命中, 此处从宽)
+    for project in projects:
+        if await get_effective_level(user_id, project.id) >= RagRole.level(
+            RagRole.PROJECT_EDITOR
+        ):
+            return True
+    return False

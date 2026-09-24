@@ -9,6 +9,12 @@ from common.config.lifespan import register_init_hook
 from module_rag.config import permissions as rag_permissions  # noqa: F401
 # 导入即注册本模块字典种子到字典中心(rag 域,与代码枚举对齐)
 from module_rag.config import dict_seed as rag_dict_seed  # noqa: F401
+# 注册 rag 业务条目下载授权钩子(文件管理页下载 /rag/<项目>/ 子树条目时
+# 按项目 editor 及以上档位放行, 判定逻辑见 dependencies/permission.py)
+from module_file.config.download_grant import register_download_grant
+from module_rag.dependencies.permission import check_entry_download_grant
+
+register_download_grant("rag", check_entry_download_grant)
 
 logger = logging.getLogger(__name__)
 

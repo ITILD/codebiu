@@ -144,7 +144,13 @@
         </el-table-column>
         <el-table-column label="操作" min-width="140" align="center" :fixed="isMd ? 'right' : false">
           <template #default="{ row }">
-            <el-button size="small" type="primary" plain @click="handleDocDownload(row)">下载</el-button>
+            <!-- 下载为独立档位(doc/download, 档位>=2), 只读成员按钮灰显 -->
+            <el-tooltip :disabled="projPermsMap.get(row.project_id)?.download"
+              content="无下载权限(需项目编辑者及以上档位)" placement="top">
+              <el-button size="small" type="primary" plain
+                :disabled="!projPermsMap.get(row.project_id)?.download"
+                @click="handleDocDownload(row)">下载</el-button>
+            </el-tooltip>
             <!-- 文档删除需项目管理员档位(doc/delete, v4 3.2) -->
             <el-button v-if="projPermsMap.get(row.project_id)?.manage_member" size="small" type="danger" plain
               @click="handleDocDelete(row)">删除</el-button>
@@ -274,7 +280,7 @@ const { isMd } = useResponsive()
 
 // 只读权限位兜底(my_perms 缺失时按只读处理, 防止越权按钮渲染)
 const READ_ONLY_PERMS: ProjectMyPerms = {
-  read: true, upload_doc: false, update: false, delete: false, manage_member: false,
+  read: true, upload_doc: false, update: false, download: false, delete: false, manage_member: false,
 }
 
 // 分页参数
@@ -556,8 +562,9 @@ const docPageData = computed(() => {
   return filteredDocs.value.slice((page - 1) * size, page * size)
 })
 
-// 下载文档
+// 下载文档(下载独立档位, 无权限时按钮已灰显, 此处兜底拦截)
 const handleDocDownload = (row: ProjectDocument) => {
+  if (!projPermsMap.value.get(row.project_id)?.download) return
   window.open(getRagDocumentDownloadUrl(row.id), '_blank')
 }
 

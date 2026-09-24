@@ -34,6 +34,8 @@ type FileEntry = {
   entry_status: EntryStatus | null;
   created_at: string;
   updated_at: string;
+  /** 当前用户可否下载(下载独立权限, 列表加载后由 /download-perms 探测回填; 目录恒 false) */
+  can_download?: boolean;
 };
 
 /** 条目更新参数(名称/描述/标签可改) */

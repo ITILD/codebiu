@@ -2,7 +2,7 @@
  * 全局系统设置状态:主题(明暗)、布局(侧边栏/头部开关)、响应式断点、语言等。
  * 通过 useDark 与 localStorage 联动实现主题持久化。
  */
-import { useDark, useBreakpoints } from '@vueuse/core'
+import { useDark, useBreakpoints, useLocalStorage } from '@vueuse/core'
 
 const SysSettingStore = defineStore('sysSetting', () => {
   // 项目断点(与 UnoCSS presetWind3 的 md/lg 前缀对齐):
@@ -57,7 +57,10 @@ const SysSettingStore = defineStore('sysSetting', () => {
   // 根据isDark更改主题(写入 localStorage 供 useDark 恢复)
   const changeThemeValueByIsDark = () => sysStyle.value.theme.themeValue = sysStyle.value.theme.isDark ? 'dark' : 'light'
 
-  return { sysStyle, sysObj, isSysSettingShow, changeIsDarkByThemeValue, changeThemeValueByIsDark }
+  // 悬浮工具(全屏/截图/隐藏)显隐: 隐藏后可在 设置-外观 中重新开启
+  const floatToolsHidden = useLocalStorage('sys-float-tools-hidden', false)
+
+  return { sysStyle, sysObj, isSysSettingShow, floatToolsHidden, changeIsDarkByThemeValue, changeThemeValueByIsDark }
 })
 
 export { SysSettingStore }

@@ -93,21 +93,29 @@
         </template>
       </el-table-column>
       <!-- 操作列: 平板及以上固定右侧, 手机取消固定避免遮挡(表格自带横向滚动);
-           业务条目(rag/avatar等)只读, 仅保留详情/下载 -->
+           业务条目(rag/avatar等)只读, 仅保留详情/下载; 下载为独立权限, 无权限按钮灰显 -->
       <el-table-column label="操作" min-width="320" align="center" :fixed="isMd ? 'right' : false">
         <template #default="{ row }">
           <el-button size="small" plain @click="handleShowDetail(row)">详情</el-button>
           <template v-if="!isBusinessEntry(row)">
-            <el-button v-if="!row.is_directory" size="small" type="primary" plain @click="handleDownload(row)">
-              下载
-            </el-button>
+            <el-tooltip v-if="!row.is_directory" :disabled="row.can_download"
+              content="无下载权限(需管理员配置)" placement="top">
+              <el-button size="small" type="primary" plain :disabled="!row.can_download"
+                @click="handleDownload(row)">
+                下载
+              </el-button>
+            </el-tooltip>
             <el-button size="small" type="success" plain @click="handleMove(row)">移动</el-button>
             <el-button size="small" type="warning" plain @click="handleEdit(row)">编辑</el-button>
             <el-button size="small" type="danger" plain @click="handleDelete(row)">删除</el-button>
           </template>
-          <el-button v-else-if="!row.is_directory" size="small" type="primary" plain @click="handleDownload(row)">
-            下载
-          </el-button>
+          <el-tooltip v-else-if="!row.is_directory" :disabled="row.can_download"
+            content="无下载权限(需项目编辑者及以上档位或管理员配置)" placement="top">
+            <el-button size="small" type="primary" plain :disabled="!row.can_download"
+              @click="handleDownload(row)">
+              下载
+            </el-button>
+          </el-tooltip>
           <span v-else text-note-sub text-xs>业务模块管理</span>
         </template>
       </el-table-column>
@@ -270,14 +278,18 @@ import {
   deleteFile,
   deleteFolder,
   batchDeleteEntries,
+  checkDownloadPerms,
 } from '../api/filesystem'
 import type { FileEntry, FileEntryDetail } from '../types/file'
 import type { PaginationParams } from '@/common/types/common'
 import { ElMessage, ElMessageBox, type FormInstance, type TableInstance, type TreeInstance } from 'element-plus'
 import { useResponsive } from '@/common/composables/useResponsive'
+import { usePermission } from '@/common/composables/usePermission'
 
 // 屏幕档位: 操作列在平板及以上才固定右侧
 const { isMd } = useResponsive()
+// 全局下载权限(main:file:download, 管理员穿透): 持有者无需逐条探测
+const { hasPerm } = usePermission()
 
 // 面包屑目录栈(从根到当前目录)
 const breadcrumbs = ref<{ id: string; name: string }[]>([])
@@ -357,6 +369,30 @@ const formatDate = (value: string) => new Date(value).toLocaleDateString()
 // 日期时间格式化(详情抽屉用,精确到秒)
 const formatDateTime = (value: string) => new Date(value).toLocaleString()
 
+// 回填行级下载权限(下载独立于浏览: 持全局权限直接激活, 否则批量探测,
+// 后端口径与下载接口一致: main:file:download / avatar 公开 / rag 项目档位)
+const fillDownloadPerms = async (items: FileEntry[]) => {
+  const fileRows = items.filter((e) => !e.is_directory)
+  if (!fileRows.length) return
+  if (hasPerm('main:file:download')) {
+    fileRows.forEach((e) => {
+      e.can_download = true
+    })
+    return
+  }
+  try {
+    const perms = await checkDownloadPerms(fileRows.map((e) => e.id))
+    fileRows.forEach((e) => {
+      e.can_download = !!perms[e.id]
+    })
+  } catch (error) {
+    console.error('探测下载权限失败:', error)
+    fileRows.forEach((e) => {
+      e.can_download = false
+    })
+  }
+}
+
 // 获取当前目录内容(服务端名称过滤)
 const fetchData = async () => {
   try {
@@ -364,6 +400,7 @@ const fetchData = async () => {
     const res = await listDir(currentPid.value, pagination.value, searchQuery.value.trim() || undefined)
     entries.value = res.items
     total.value = res.total
+    await fillDownloadPerms(res.items)
     // 数据刷新后清空多选状态
     tableRef.value?.clearSelection()
     selectedEntries.value = []
@@ -424,8 +461,9 @@ const handleUpload = async (file: File) => {
   return false
 }
 
-// 下载文件(新窗口触发后端下载流)
+// 下载文件(新窗口触发后端下载流; 无权限时按钮已灰显, 此处兜底拦截)
 const handleDownload = (row: FileEntry) => {
+  if (!row.can_download) return
   window.open(getFileDownloadUrl(row.id), '_blank')
 }
 

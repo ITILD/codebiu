@@ -94,7 +94,7 @@ const PERMISSION_TREE: ModuleDef[] = [
     functions: [
       { obj: 'dict', label: '字典管理', acts: a('read', '查询', 'create', '新增', 'update', '修改', 'delete', '删除') },
       { obj: 'db', label: '数据库管理', acts: a('read', '查询') },
-      { obj: 'file', label: '文件管理', acts: a('read', '浏览/下载', 'create', '上传/新建', 'update', '重命名/移动', 'delete', '删除', 'migrate', '存储迁移') },
+      { obj: 'file', label: '文件管理', acts: a('read', '浏览', 'download', '下载', 'create', '上传/新建', 'update', '重命名/移动', 'delete', '删除', 'migrate', '存储迁移') },
       { obj: 'search', label: '网页搜索', acts: a('read', '使用') },
     ],
   },
@@ -103,7 +103,7 @@ const PERMISSION_TREE: ModuleDef[] = [
     label: '知识库',
     functions: [
       { obj: 'project', label: '项目管理', acts: a('read', '查询', 'create', '创建', 'update', '修改', 'delete', '删除') },
-      { obj: 'doc', label: '文档管理', acts: a('read', '查看/下载', 'upload', '上传', 'update', '修改', 'delete', '删除') },
+      { obj: 'doc', label: '文档管理', acts: a('read', '查看', 'download', '下载', 'upload', '上传', 'update', '修改', 'delete', '删除') },
       { obj: 'member', label: '成员管理', acts: a('read', '查看', 'invite', '邀请', 'update', '变更角色', 'remove', '移除') },
       { obj: 'chat', label: '知识库问答', acts: a('read', '查看历史', 'write', '发起问答') },
     ],

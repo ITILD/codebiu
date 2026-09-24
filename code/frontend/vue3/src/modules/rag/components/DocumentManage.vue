@@ -110,7 +110,11 @@
             <el-button v-if="canDelete" size="small" type="danger" plain @click="handleDeleteFolder(row)">删除</el-button>
           </template>
           <template v-else-if="row.document_id">
-            <el-button size="small" type="primary" plain @click="handleDownload(row)">下载</el-button>
+            <!-- 下载为独立档位(doc/download, 档位>=2), 只读成员按钮灰显 -->
+            <el-tooltip :disabled="canDownload" content="无下载权限(需项目编辑者及以上档位)" placement="top">
+              <el-button size="small" type="primary" plain :disabled="!canDownload"
+                @click="handleDownload(row)">下载</el-button>
+            </el-tooltip>
             <el-button v-if="canWrite" size="small" type="warning" plain @click="handleReparse(row)">重新解析</el-button>
             <el-button v-if="canWrite" size="small" plain @click="handleEdit(row)">编辑</el-button>
             <el-button v-if="canDelete" size="small" type="danger" plain @click="handleDelete(row)">删除</el-button>
@@ -206,6 +210,8 @@ const props = defineProps<{
 // 写操作能力(档位>=2): 上传/新建文件夹/重命名/编辑/重新解析; 删除能力(档位>=3): 删除文件夹/文档
 const canWrite = computed(() => (props.perms ? props.perms.upload_doc : true))
 const canDelete = computed(() => (props.perms ? props.perms.manage_member : true))
+// 下载能力(档位>=2, 独立于只读): 无权限时按钮灰显
+const canDownload = computed(() => (props.perms ? props.perms.download : true))
 
 const projectName = ref('知识库文档')
 
@@ -506,9 +512,9 @@ const handleSubmit = async () => {
 
 // ---------------- 文档级操作(下载/重新解析/删除, 均以 document_id 为准) ----------------
 
-// 下载文档(打开新窗口触发后端下载)
+// 下载文档(打开新窗口触发后端下载; 下载独立档位, 无权限时按钮已灰显, 此处兜底拦截)
 const handleDownload = (row: RagFileEntry) => {
-  if (!row.document_id) return
+  if (!row.document_id || !canDownload.value) return
   window.open(getRagDocumentDownloadUrl(row.document_id), '_blank')
 }
 

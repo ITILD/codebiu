@@ -6,7 +6,8 @@
 import logging
 from typing import Any
 
-from langchain_core.language_models import BaseChatModel, BaseMessage
+from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import BaseMessage
 from langchain_core.output_parsers import BaseTransformOutputParser
 from langchain_core.outputs import ChatGenerationChunk
 from langchain_core.runnables import Runnable, RunnableLambda

@@ -306,6 +306,14 @@ class BatchDeleteRequest(BaseModel):
     entry_ids: list[str] = Field(..., min_length=1, description="条目ID列表")
 
 
+class DownloadPermsRequest(BaseModel):
+    """批量探测条目下载权限请求(前端下载按钮灰显用)"""
+
+    entry_ids: list[str] = Field(
+        ..., min_length=1, max_length=200, description="条目ID列表(上限200)"
+    )
+
+
 class BatchDeleteItemError(BaseModel):
     """批量删除单项失败信息"""
 

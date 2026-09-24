@@ -1,35 +1,20 @@
 <template>
   <!-- 宝宝取名独立应用页: 左侧配置区(宝宝信息+辅助信息) + 右侧结果区(参考信息+名字卡片) -->
   <div class="baby-name-page" :class="{ 'girl-mode': isGirl }" flex flex-col h-app w-full bg-note-paper overflow-hidden>
-    <!-- 页头: 标语 + 模型选择 -->
+    <!-- 页头: 标语(模型静默使用用户默认 chat 模型, 不展示不切换) -->
     <header bg-note-gradient px-4 md:px-6 py-3.5 border-b border-note shrink-0>
-      <div flex items-center gap-3 flex-wrap>
-        <div>
-          <h1 text-lg md:text-xl font-bold text-note style="font-family: var(--note-font-hand)">
-            {{ isGirl ? '🌸 宝宝取名 · 小棉袄专属' : '🌱 宝宝取名' }}
-          </h1>
-          <p text-xs text-note-sub mt-0.5>
-            经典算法严格推算生辰参考, AI 结合民俗与神话为宝宝起一个好名字
-          </p>
-        </div>
-        <div ml-auto flex items-center gap-2>
-          <!-- 起名模型只读展示: 直接使用用户设置里的默认 chat 模型, 页面不提供切换 -->
-          <span text-xs text-note-sub>起名模型</span>
-          <span
-            class="note-transition inline-flex items-center gap-1.5 rounded-lg border border-note-green bg-note-tint px-2.5 py-1"
-            text-xs font-medium text-note
-          >
-            <span class="i-ep-cpu" text-sm text-note-green />
-            {{ modelName || '未配置(请在模型设置中设默认 chat 模型)' }}
-          </span>
-        </div>
-      </div>
+      <h1 text-lg md:text-xl font-bold text-note style="font-family: var(--note-font-hand)">
+        {{ isGirl ? '🌸 宝宝取名 · 小棉袄专属' : '🌱 宝宝取名' }}
+      </h1>
+      <p text-xs text-note-sub mt-0.5>
+        经典算法严格推算生辰参考, AI 结合民俗与神话为宝宝起一个好名字
+      </p>
     </header>
 
-    <!-- 主体: 双区布局(移动端上下堆叠) -->
-    <div flex flex-1 min-h-0 flex-col lg:flex-row overflow-hidden>
-      <!-- 左侧配置区 -->
-      <aside w-full lg:w-115 shrink-0 overflow-y-auto p-4 space-y-3 lg:border-r border-note border-b lg:border-b-0>
+    <!-- 主体: 双区布局(移动端上下堆叠, 整体滚动; 桌面端左右分栏各自滚动) -->
+    <div flex flex-1 min-h-0 flex-col lg:flex-row overflow-y-auto lg:overflow-hidden>
+      <!-- 左侧配置区(移动端随整体滚动, 桌面端独立滚动) -->
+      <aside w-full lg:w-115 shrink-0 p-4 space-y-3 lg:overflow-y-auto lg:border-r border-note border-b lg:border-b-0>
         <!-- 宝宝信息 -->
         <section class="page-card">
           <div card-toolbar>
@@ -96,8 +81,8 @@
 
         <!-- 起名操作 -->
         <section class="page-card">
-          <!-- 思考模式: 关闭/低/中/高(始终思考模型不支持关闭, 仅提供三档) -->
-          <div flex items-center gap-2 mb-2>
+          <!-- 思考模式: 关闭/低/中/高(始终思考模型不支持关闭, 仅提供三档; 默认不思考) -->
+          <div flex items-center gap-2 flex-wrap mb-2>
             <span text-xs text-note-sub shrink-0>思考模式</span>
             <el-tooltip :content="alwaysThink ? '该模型始终思考, 不支持关闭' : '关闭后直接出结果, 档位越高思考越深入'"
               placement="top">
@@ -127,8 +112,8 @@
         </section>
       </aside>
 
-      <!-- 右侧结果区 -->
-      <main flex-1 min-w-0 overflow-y-auto p-4 space-y-3>
+      <!-- 右侧结果区(移动端随整体滚动, 桌面端独立滚动) -->
+      <main flex-1 min-w-0 p-4 space-y-3 lg:overflow-y-auto>
         <!-- 推测失败错误态(含后端 detail, 便于定位后端未重启/接口异常) -->
         <section v-if="refError" class="page-card">
           <el-alert type="error" :closable="false">
@@ -185,7 +170,6 @@
 <script setup lang="ts">
 /** 宝宝取名页: 宝宝信息 + 取名辅助信息(民俗/神话参考多选) → 严格推算 → AI 流式起名 → 程序评定 */
 import { type PaginationParams } from '@/common/types/common'
-import type { ModelConfig } from '@/modules/ai/types/model_config'
 import { listModelConfigs } from '@/modules/ai/api/model_config'
 import { marked } from 'marked'
 import { sanitizeHtml } from '@/common/utils/sanitize'
@@ -206,14 +190,8 @@ import type {
 // 渲染 Markdown 内容(先消毒再渲染, LLM 输出不可信)
 const renderMarkdown = (content: string) => sanitizeHtml(marked.parse(content) as string)
 
-// ==================== 模型(只读展示: 直接使用用户设置里的默认 chat 模型, 页面不切换) ====================
+// ==================== 模型(静默取用户设置里的默认 chat 模型, 页面不展示不切换) ====================
 const model_id = ref('')
-const tableData = ref<ModelConfig[]>([])
-/** 当前默认 chat 模型的展示名(display_name 优先, 留空取 model) */
-const modelName = computed(() => {
-  const m = tableData.value.find((x) => x.id === model_id.value)
-  return m ? m.display_name || m.model : ''
-})
 
 // ==================== 宝宝信息 ====================
 const formData = ref<NameInfoPredictFullRequest>({
@@ -310,9 +288,9 @@ const thinkOptions = computed(() => {
   ]
   return alwaysThink.value ? all.slice(1) : all
 })
-// 标记为始终思考后, 若当前停留在"关闭"则自动切到中档
+// 标记为始终思考后, 若当前停留在"关闭"则自动切到低档(默认思考深度最浅)
 watch(alwaysThink, (v) => {
-  if (v && thinkMode.value === 'off') thinkMode.value = 'medium'
+  if (v && thinkMode.value === 'off') thinkMode.value = 'low'
 })
 
 /** 登记始终思考模型(含 localStorage 持久化, 下次进入直接只显示三档) */
@@ -368,7 +346,7 @@ const handleGenerate = async (count: number, more = false) => {
             if (requestedOff && !offFallbackNotified) {
               offFallbackNotified = true
               markAlwaysThink(model_id.value)
-              ElMessage.info('当前模型始终思考, 思考模式已切换为"中"')
+              ElMessage.info('当前模型始终思考, 思考模式已切换为"低"')
             }
             // LLM 思考过程(浅色区块展示)
             thinkingMarkdown.value += content
@@ -413,11 +391,10 @@ const clearAll = () => {
 
 // ==================== 初始化 ====================
 onMounted(() => {
-  // 并行加载: 起名模型列表(仅 chat 类, 取用户设置的默认模型展示) + 参考体系目录
+  // 并行加载: 用户默认 chat 模型(静默取 is_default, 请求时随单携带) + 参考体系目录
   const params = { page: 1, size: 100, model_type: 'chat' } as PaginationParams
   listModelConfigs(params)
     .then((res) => {
-      tableData.value = res.items
       // 直接使用用户设置里的默认 chat 模型(is_default), 无默认则取列表第一个
       const preferred = res.items.find((m) => m.is_default) ?? res.items[0]
       if (preferred) model_id.value = preferred.id

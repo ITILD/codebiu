@@ -230,6 +230,18 @@ export const getFileDownloadUrl = (entryId: string) => {
 };
 
 /**
+ * 批量探测条目下载权限(下载独立于浏览, 后端按 main:file:download +
+ * 业务条目来源模块授权判定; 用于列表按钮灰显, 判定口径与下载接口一致)
+ * @param entryIds 条目ID列表(上限200)
+ */
+export const checkDownloadPerms = (entryIds: string[]) => {
+  return http_base_server.post<Record<string, boolean>>(
+    '/file/filesystem/download-perms',
+    { entry_ids: entryIds }
+  );
+};
+
+/**
  * 更新条目信息(名称变更自动维护路径)
  * @param entryId 条目ID
  * @param data 更新数据

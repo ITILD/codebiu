@@ -1,18 +1,18 @@
 # 后端打包镜像
-# 测试环境
-# DOCKER_DIR = "docker_rag_server_test_20260820"
+# 测试环境 
+# DOCKER_DIR = "docker_server_py_test_20260820"
 # 生产环境
 DOCKER_DIR="docker_milvus_20260707"
 
 SERVER_DIR_BASE="/home/here/D/a_apps/$DOCKER_DIR/"
-SERVER_DIR_APP="$SERVER_DIR_BASE/rag_server"
+SERVER_DIR_APP="$SERVER_DIR_BASE/server_py"
 # 定位到脚本所在目录，保证相对路径稳定
 cd "$(dirname "$0")"
 
 
 # # ---------- 2. 后端：构建镜像（tag 用 pyproject.toml 的版本号） ----------
-BACKEND_DIR="../../code/backend/rag_server"
-# # Dockerfile 在后端目录的 tools/docker_dev/ 子目录下，需用 -f 显式指定 code/backend/rag_server/tools/docker_dev/Dockerfile.dev
+BACKEND_DIR="../../code/backend/server_py"
+# # Dockerfile 在后端目录的 tools/docker_dev/ 子目录下，需用 -f 显式指定 code/backend/server_py/tools/docker_dev/Dockerfile.dev
 # DOCKERFILE="$BACKEND_DIR/tools/docker_dev/Dockerfile.dev"
 # # 从 backend/pyproject.toml 提取版本号，作为后端镜像 tag
 # BACKEND_VERSION="$(sed -n 's/^version *= *"\(.*\)"/\1/p' "$BACKEND_DIR/pyproject.toml")"
@@ -33,7 +33,7 @@ BACKEND_DIR="../../code/backend/rag_server"
 # echo "==> 构建完成：$BACKEND_NAME:$BACKEND_VERSION"
 
 # 将BACKEND_DIR下外挂的目录/文件复制到SERVER_DIR下
-# 外挂项与 devops/rag_server_dev/docker-compose.yaml 中 volumes 挂载保持一致
+# 外挂项与 devops/server_py_dev/docker-compose.yaml 中 volumes 挂载保持一致
 mkdir -p "$SERVER_DIR_APP"
 cp -r "$BACKEND_DIR/config.yaml" "$SERVER_DIR_APP/"
 cp -r "$BACKEND_DIR/config.docker.yaml" "$SERVER_DIR_APP/"
