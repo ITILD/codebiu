@@ -35,7 +35,7 @@ class ProjectDocumentChunkBase(VectorModel):
 class ProjectDocumentChunk(ProjectDocumentChunkBase, table=True):
     embedding: list[float] = Field(
         description="向量数据",
-        vector_dim=1024,
+        json_schema_extra={"vector_dim": 1024},
     )
     # 稀疏向量字段 (由 Milvus 服务端 BM25 Function 自动生成，插入时传 None 即可) TODO 类型确认
     sparse: dict | None = Field(

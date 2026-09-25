@@ -1,4 +1,17 @@
-# 全局配置
+# ############################# 配置分层规范(基线工程) #############################
+# 加载层级(低 → 高, 后层覆盖前层, 嵌套 dict 深合并, list 整体替换):
+#   1. config.yaml        基线层(本文件, 入 git): 全部键的安全默认值, 开箱即用
+#   2. state.config_path  基线指向的开发覆盖层(如 config.dev.yaml, 已被 .gitignore;
+#                         文件缺失时告警跳过, 新克隆环境用本文件默认值即可启动)
+#   3. CONFIG_PATH 环境变量 部署覆盖层(逗号分隔多文件按序覆盖, 生产/CI 注入, 缺失即启动失败)
+#   4. CODEBIU_* 环境变量  键级覆盖最高优先级(嵌套键用双下划线):
+#                         CODEBIU_TOKEN__SECRET_KEY=xxx → token.secret_key
+# 密钥管理: 一切密钥只放覆盖层文件(gitignored 的 config.*.yaml / .secrets.*)或环境变量,
+#           严禁写入本文件。业务配置(token/email/websearch/file_system/db_cache/db_vector/
+#           db_graph/tasks/admin 九组)首启以 yaml 同名节为种子入库, 之后在
+#           系统管理→通用配置页 修改(此处再改不再生效)。
+
+# ############################# 全局标识 #############################
 global:
   # 应用名称
   name: codebiu
@@ -8,11 +21,10 @@ global:
 # ############################# 状态配置 #############################
 state:
   is_dev: true
+  # 开发覆盖层(指向 gitignored 的环境文件; 生产用 CONFIG_PATH 环境变量替代)
   config_path: config.dev.yaml
-  check_db: true
-
-
-
+  # 数据库自检,rel创建基础表
+  # check_db: true
 
 # ############################# 后端服务配置 #############################
 server:
@@ -21,6 +33,7 @@ server:
   host: 0.0.0.0
   port: 2001
 # 中间件配置
+# 【保留 yaml】引导级配置(app 构建期读取, 早于数据库可用)
 middleware:
   cors: true
   gzip: true
@@ -33,11 +46,10 @@ middleware:
 dir:
   # 基础根目录
   base: temp_source
-
   # 子目录定义（按功能划分）
   base_child:
     source:     source      # 源代码/原始文件
-    upload:   upload    # 用户上传文件(默认目录)
+    upload:     upload      # 用户上传文件(默认目录)
     log:        log         # 日志文件
     sys_out:    sys_out     # 系统输出（如运行结果、导出文件）
     temp:       temp        # 临时文件(解压缩之类)
@@ -48,80 +60,57 @@ dir:
   # 静态资源目录
   public: public
 
-
-
-
-
-
-
-
-# ############################# 上传文件系统配置 #############################
-# 单独上传文件系统设置
+# ############################# 上传文件系统 #############################
+# 【已迁移动态配置】本节仅作首次启动种子, 之后以 系统管理→通用配置页 为准(本文件修改不再生效)
 file_system:
   # 上传文件目录 local默认走 本地目录 dir.base配置的upload目录
   storage_type: local
-  # secret_key: '123456'
   # 上传文件大小限制
-  max_size_mb: 10 # 10MB
+  max_size: 10 # 10MB
   # 文件类型限制
   allowed_extensions:
     - "application/zip"
     - "application/pdf"
     - "image/*"
-    # docx
     - "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-  # 本地存地址
+  # 本地存储地址(默认使用已有的 base_child upload 目录)
   base_dir: null
-    # 默认使用已有的 base_child upload 目录
-
-# #  # S3/MinIO/rustfs 存储配置
-# file_system:
-#   # 上传文件目录 local默认走 本地目录 dir.base配置的upload目录
-#   storage_type: s3
-#   # 上传文件大小限制
-#   max_size: 10 # 10MB
-#   # 文件类型限制
-#   allowed_extensions:
-#     - "application/zip"
-#     - "application/pdf"
-#     - "image/*"
-#     # docx
-#     - "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-#   # S3/MinIO/rustfs 存储配置
-#   endpoint_url: "http://localhost:9000"
-#   access_key: "rustfs"
-#   secret_key: "12345678"
-#   bucket: "bucket0"
-#   region: "us-east-1"
-#   secure: false  
 
 # ############################# 数据库配置 #############################
-# db_rel:
-#   type: postgres
-#   database: server_example
-#   host: localhost
-#   port: 5432
-#   user: postgres
-#   password: '123456'
+# db_rel 保持 yaml(引导级: 动态配置中心本身依赖它, 无法动态化)
 db_rel:
   type: sqlite
   database: temp_source\db\data.db
-# db_cache:
-#   type: redis
-#   db: 0
-#   host: localhost
-#   port: 6379
-#   password: ''
-#   database: temp_source\db\redis.db # 缓存持久化地址
+# db_rel 切换 postgres 示例:
+# db_rel:
+#   type: postgres
+#   database: server_example
+#   host: 127.0.0.1
+#   port: 5432
+#   user: postgres
+#   password: '123456'
+# 【已迁移动态配置】本节仅作首次启动种子, 之后以 系统管理→通用配置页 为准(本文件修改不再生效)
 db_cache:
   type: fakeredis
   database: temp_source\db\fakeredis.db
-# db_vector:
-#   type: lancedb
-#   database: temp_source\db\lancedb.db
+# redis 示例(与 tasks.broker_url 同实例分库避免冲突):
+# db_cache:
+#   type: redis
+#   db: 0
+#   host: 127.0.0.1
+#   port: 6379
+#   password: ''
+#   database: temp_source\db\redis.db # fakeredis 持久化地址
+# 【已迁移动态配置】本节仅作首次启动种子, 之后以 系统管理→通用配置页 为准(本文件修改不再生效)
+# 向量库: lancedb(本地文件, 开箱即用) / milvus(host: http://127.0.0.1, port: 19530)
+db_vector:
+  type: lancedb
+  database: temp_source\db\lancedb_dir
+# 【已迁移动态配置】本节仅作首次启动种子, 之后以 系统管理→通用配置页 为准(本文件修改不再生效)
 db_graph:
   type: graph_local
   database: temp_source\db\graph_local.lbug
+# neo4j 示例:
 # db_graph:
 #   type: neo4j
 #   host: 127.0.0.1
@@ -130,20 +119,29 @@ db_graph:
 #   password: 123456
 #   database: neo4j
 
-
-
-
-
+# ############################# 任务队列配置 #############################
+# 双执行引擎无缝切换:
+#   local  = FastAPI 进程内后台协程执行(无需 Redis/Celery worker, 单机开发默认)
+#   celery = Redis broker + app_task.py worker 消费(分布式/多机扩容)
+# 两种引擎共用 task_queue 表记录与进度回写, 切换配置即可, 业务代码零改动
+# 【已迁移动态配置】本节仅作首次启动种子, 之后以 系统管理→通用配置页 为准(本文件修改不再生效)
+tasks:
+  engine: local
+  # celery 引擎的 broker/backend(使用 Redis, 与 db_cache 同实例, 分库避免冲突)
+  broker_url: memory://
+  result_backend: cache+memory://
 
 # ############################# 认证配置 #############################
+# 【已迁移动态配置】本节仅作首次启动种子, 之后以 系统管理→通用配置页 为准(本文件修改不再生效)
 token:
-  secret_key: qwer1234
+  secret_key: qwer1234 # 开发默认值, 生产务必在覆盖层/环境变量/配置页换强密钥
   algorithm: HS256
-  expire_minutes: 30000
+  expire_minutes: 30
   refresh_expire_days: 20
 
 # ############################# 系统管理员账户配置 #############################
 # 启动时自动创建/修复的默认管理员(绑定全局域 "*" 的 admin 角色,拥有全部权限)
+# 【已迁移动态配置】本节仅作首次启动种子, 之后以 系统管理→通用配置页 为准(本文件修改不再生效)
 admin:
   username: admin
   password: admin123
@@ -151,27 +149,65 @@ admin:
   email: admin@codebiu.local
   # 每次启动都将密码重置为上方配置值(忘记密码时改为 true 重启即可恢复)
   reset_password: false
-# 邮箱配置
+
+# ############################# 默认公共模型种子 #############################
+# 【保留 yaml】模型种子指令(模型本体经 模型配置页 管理)
+# 启动时按此配置入库为 scope=public 且 is_default 的公共模型; enabled=false 只登记不生效
+# (前端灰色显示); 未配置的类型不处理。完整结构(含 asr/tts/vad/denoise/ocr)参考开发环境
+# 覆盖层或模块文档; api_key 等密钥只放覆盖层文件
+default_models:
+  reset_models: true
+  chat:
+    enabled: false # 改 true 并填 url/api_key 后重启即可注入默认公共对话模型
+    server_type: openai
+    model: your-model-name
+    url: https://your-llm-endpoint/v1
+    api_key: ""
+    display_name: 在线对话模型
+    input_tokens: 8192
+    out_tokens: 8192
+    temperature: 0.7
+    timeout: 60
+    no_think: false
+
+# ############################# 邮箱配置 #############################
+# 【已迁移动态配置】本节仅作首次启动种子, 之后以 系统管理→通用配置页 为准(本文件修改不再生效)
 email:
-  smtp_server: todo
+  smtp_server: smtp.qq.com
   smtp_port: 465
-  sender_email: todo
-  sender_password: todo # 授权码
-  sender_name: todo # 发件人 可以不写
+  sender_email: ""
+  sender_password: "" # 授权码(为空视为未配置, 邮件功能不可用)
+  sender_name: ""
+  # 是否用于注册: true 时注册需先获取邮件验证码, 校验通过才创建用户; false 时注册无需邮箱验证
+  use_for_register: false
 
 # ############################# 网页搜索配置 #############################
-# module_websearch 模块,支持 duckduckgo(默认,本地直连无需密钥)与 bing
+# module_websearch 模块,支持 duckduckgo(默认,本地直连无需密钥)/tavily/firecrawl
+# 【已迁移动态配置】本节仅作首次启动种子, 之后以 系统管理→通用配置页 为准(本文件修改不再生效)
 websearch:
-  # 默认搜索引擎(duckduckgo/bing)
+  # 默认搜索引擎(duckduckgo/tavily/firecrawl)
   default_engine: duckduckgo
   # 请求超时(秒)
   timeout: 15
   # 默认返回条数上限(接口可覆盖,最大30)
   max_results: 10
-  # 出网代理(为空直连;国内访问 bing/duckduckgo 可按需配置,如 http://127.0.0.1:7890)
+  # 出网代理(为空直连;国内访问 duckduckgo/tavily/firecrawl 可按需配置,如 http://127.0.0.1:7890)
   proxy: null
+  # Tavily 搜索(https://app.tavily.com 免费注册获取 API Key; 为空则该引擎不可用)
+  tavily:
+    api_key: ""
+    # 搜索深度: basic(快速)/advanced(更全但更慢、消耗额度更多)
+    search_depth: basic
+    # 是否返回 AI 摘要答案
+    include_answer: false
+  # Firecrawl 搜索(https://www.firecrawl.dev 免费注册获取 API Key; 为空则该引擎不可用)
+  firecrawl:
+    api_key: ""
+    # API 地址(可替换为自部署实例地址)
+    api_base: https://api.firecrawl.dev
 
 # ############################# 语音 ASR/TTS 配置 #############################
+# 【保留 yaml】本地模型管线定义(阶段二再议)
 # 模型默认放置在 temp_source/model/voice 下，缺失时使用下列默认子目录名。
 # engine 参数(sherpa/qwen)在接口请求时传入，默认 sherpa。
 voice:

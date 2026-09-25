@@ -16,7 +16,7 @@ class VectorBase(BaseModel):
 
     embedding: list[float] = Field(
         description="向量数据",
-        vector_dim=1024,
+        json_schema_extra={"vector_dim": 1024},
     )
     content: str = Field(
         description="文本内容,用于BM25分析的文本",
@@ -34,13 +34,13 @@ class VectorModel(VectorBase):
     类似 SQLModel 的注册能力:
     - 子类通过 `table=True` 声明为向量库表,定义时自动注册到 registry
     - 由 db_vector.create_all() 统一创建所有已注册的表
-    - 向量字段通过 Field 的 vector_dim 参数声明维度(如 Field(vector_dim=1024)),
+    - 向量字段通过 Field 的 json_schema_extra 声明维度(如 Field(json_schema_extra={"vector_dim": 1024})),
       可通过 vector_dims() 提取
 
     用法:
         class MyChunk(VectorModel, table=True):
             id: str = Field(primary_key=True)
-            embedding: list[float] = Field(vector_dim=1024)
+            embedding: list[float] = Field(json_schema_extra={"vector_dim": 1024})
     """
 
     # 向量表注册表(类似 SQLModel.metadata): 表名(类名小写) -> 模型类

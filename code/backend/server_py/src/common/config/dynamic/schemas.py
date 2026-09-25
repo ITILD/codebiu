@@ -45,9 +45,9 @@ class EmailSettings(SettingsGroup):
 
     smtp_server: str = Field("smtp.qq.com", title="SMTP 服务器")
     smtp_port: int = Field(465, title="SMTP 端口", ge=1, le=65535)
-    sender_email: str = Field("biubiulight@foxmail.com", title="发件邮箱")
-    sender_password: str = Field("rpwuyspeqmmebcgf", title="SMTP 授权码", description="邮箱服务商提供的授权码(非登录密码)")
-    sender_name: str = Field("Python邮件服务", title="发件人名称", description="可留空")
+    sender_email: str = Field("", title="发件邮箱")
+    sender_password: str = Field("", title="SMTP 授权码", description="邮箱服务商提供的授权码(非登录密码); 为空视为未配置")
+    sender_name: str = Field("", title="发件人名称", description="可留空")
     use_for_register: bool = Field(False, title="注册需邮箱验证", description="开启后注册需先获取邮件验证码")
 
     _secret_fields = frozenset({"sender_password"})
@@ -55,13 +55,13 @@ class EmailSettings(SettingsGroup):
 
 # ############################# 网页搜索 #############################
 class TavilySettings(SettingsGroup):
-    api_key: str = Field("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", title="API Key", description="https://app.tavily.com 免费注册获取; 为空则该引擎不可用")
+    api_key: str = Field("", title="API Key", description="https://app.tavily.com 免费注册获取; 为空则该引擎不可用")
     search_depth: Literal["basic", "advanced"] = Field("basic", title="搜索深度", description="advanced 更全但更慢、消耗额度更多")
     include_answer: bool = Field(False, title="返回 AI 摘要答案")
 
 
 class FirecrawlSettings(SettingsGroup):
-    api_key: str = Field("fc-c7b3192b9a814a33837725d8c62c037c", title="API Key", description="https://www.firecrawl.dev 免费注册获取; 为空则该引擎不可用")
+    api_key: str = Field("", title="API Key", description="https://www.firecrawl.dev 免费注册获取; 为空则该引擎不可用")
     api_base: str = Field("https://api.firecrawl.dev", title="API 地址", description="可替换为自部署实例地址")
 
 
@@ -98,10 +98,10 @@ class FileSystemSettings(SettingsGroup):
         ],
         title="允许的 MIME 类型",
     )
-    endpoint_url: str = Field("http://47.94.107.62:20004", title="S3 Endpoint", description="S3/MinIO/rustfs 地址")
-    access_key: str = Field("minioadmin", title="Access Key")
-    secret_key: str = Field("minioadmin", title="Secret Key")
-    bucket: str = Field("bucket0", title="存储桶")
+    endpoint_url: str = Field("", title="S3 Endpoint", description="S3/MinIO/rustfs 地址, 如 http://127.0.0.1:9000")
+    access_key: str = Field("", title="Access Key")
+    secret_key: str = Field("", title="Secret Key")
+    bucket: str = Field("", title="存储桶")
     region: str = Field("us-east-1", title="Region")
     secure: bool = Field(False, title="启用 HTTPS")
 
@@ -117,10 +117,10 @@ class DBCacheSettings(SettingsGroup):
 
     type: str = Field("redis", title="类型", description="redis / fakeredis(本地内存)")
     db: int = Field(0, title="逻辑库编号", ge=0)
-    host: str = Field("47.94.107.62", title="主机")
-    port: int = Field(20002, title="端口", ge=1, le=65535)
-    password: str = Field("here940901940901", title="密码")
-    database: str = Field("temp_source\\db\\redis.db", title="持久化文件", description="Fakeredis 持久化地址; Redis 模式留作记录")
+    host: str = Field("127.0.0.1", title="主机")
+    port: int = Field(6379, title="端口", ge=1, le=65535)
+    password: str = Field("", title="密码")
+    database: str = Field("temp_source/db/redis.db", title="持久化文件", description="Fakeredis 持久化地址; Redis 模式留作记录")
 
     _secret_fields = frozenset({"password"})
     _restart_required = True
@@ -132,8 +132,8 @@ class DBVectorSettings(SettingsGroup):
     _description = "Milvus/LanceDB 连接; 变更需重启生效, 更换向量库后需重建向量索引"
 
     type: str = Field("milvus", title="类型", description="milvus / lancedb(本地文件)")
-    host: str = Field("http://47.94.107.62", title="主机", description="milvus 专用")
-    port: int = Field(20005, title="端口", ge=1, le=65535, description="milvus 专用")
+    host: str = Field("http://127.0.0.1", title="主机", description="milvus 专用")
+    port: int = Field(19530, title="端口", ge=1, le=65535, description="milvus 专用")
     user: str = Field("root", title="用户名", description="milvus 专用")
     password: str | None = Field(None, title="密码", description="milvus 专用")
     database: str = Field("default", title="数据库", description="milvus 为库名; lancedb 为本地目录路径")
