@@ -11,8 +11,8 @@
 import { markRaw } from 'vue'
 import type { Component } from 'vue'
 import {
-  HomeFilled, UserFilled, Document,
-  Monitor, ChatDotRound,
+  HomeFilled, UserFilled,
+  Monitor, ChatDotRound, Setting,
   Files, Collection, FolderOpened,
   Location, Sunny, Timer, Connection, Notebook, MagicStick, VideoPlay,
 } from '@element-plus/icons-vue'
@@ -162,13 +162,14 @@ export const menuItems: MenuItem[] = [
   },
   {
     index: '/main',
-    icon: markRaw(Document),
-    title: '数据管理',
-    desc: '数据概览与字段表管理。',
+    icon: markRaw(Setting),
+    title: '数据与配置',
+    desc: '数据概览、字段表与系统通用配置管理。',
     children: [
       { index: '/main/overview', title: '数据概览', perm: 'main:db' },
       { index: '/main/db', title: '数据监测', perm: 'main:db' },
       { index: '/main/dict', title: '字段表管理', perm: 'main:dict' },
+      { index: '/main/config', title: '通用配置', perm: 'main:config' },
     ],
   },
   {

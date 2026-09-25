@@ -227,6 +227,10 @@ export const API_CASES: ApiCase[] = [
   c('main', 'dict.ts', 'getDictItem', 'GET', '/dict_items/{itemId}', { allow404: true }),
   c('main', 'dict.ts', 'updateDictItem', 'PUT', '/dict_items/{itemId}', { allow404: true }),
   c('main', 'dict.ts', 'deleteDictItem', 'DELETE', '/dict_items/{itemId}', { allow404: true }),
+  // 系统通用动态配置
+  c('main', 'sys_config.ts', 'listSysConfigs', 'GET', '/sys-configs'),
+  c('main', 'sys_config.ts', 'getSysConfig', 'GET', '/sys-configs/{group}', { allow404: true, note: '未知组名返回 400' }),
+  c('main', 'sys_config.ts', 'updateSysConfig', 'PUT', '/sys-configs/{group}', { skip: true, note: '写操作, 手动执行' }),
   // 服务器状态
   c('main', 'status.ts', 'getStatusCache', 'GET', '/server-status/cache'),
   c('main', 'status.ts', 'getSysInfo', 'GET', '/server-status/sys-info'),
