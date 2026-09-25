@@ -11,10 +11,11 @@ from module_authorization.do.token import (
 from module_authorization.do.auth import AuthResponse, AuthLogoutRequest, SelfProfileUpdate
 
 # db_cache redis客户端 用于存储已吊销的 access_token 的黑名单
-from common.config.db import db_cache 
-from module_authorization.config.token import token_config
+from common.config.db import db_cache
+from common.config.dynamic import get_settings
+from common.config.dynamic.schemas import TokenSettings
 from module_authorization.config.register import (
-    EMAIL_VERIFY_ENABLED,
+    email_verify_enabled,
     REGISTER_CODE_COOLDOWN_KEY,
     REGISTER_CODE_COOLDOWN_SECONDS,
     REGISTER_CODE_KEY,
@@ -60,7 +61,7 @@ class AuthService:
         :return: 注册成功的用户信息
         :raises: ValueError 如果用户名已存在/邮箱验证码缺失或错误
         """
-        if EMAIL_VERIFY_ENABLED:
+        if await email_verify_enabled():
             if not user_create.email:
                 raise ValueError("注册需要邮箱验证, 请填写邮箱")
             await self._verify_register_code(user_create.email, code)
@@ -77,7 +78,7 @@ class AuthService:
         :return: 是否发送成功
         :raises: ValueError 如果未开启邮箱验证/发送过于频繁/邮件发送失败
         """
-        if not EMAIL_VERIFY_ENABLED:
+        if not await email_verify_enabled():
             raise ValueError("未开启注册邮箱验证")
         # 发送冷却限制, 防止同一邮箱被频繁发送
         cooldown_key = REGISTER_CODE_COOLDOWN_KEY.format(email=email)
@@ -161,10 +162,12 @@ class AuthService:
         try:
             # 对于安全性要求较高的系统，采用黑名单/废止列表来使 access_token 立即失效
             # 注意: db_cache 为连接包装器,实际 Redis 客户端在 async_cache 属性上
+            # 黑名单过期时间取当前动态令牌配置(与访问令牌有效期对齐)
+            ex_seconds = (await get_settings(TokenSettings)).expire_minutes * 60
             await db_cache.async_cache.set(
                 logout_request.token_access,
                 "revoked",
-                ex=token_config.expire_minutes * 60,
+                ex=ex_seconds,
             )
             # 撤销刷新令牌
             await self.token_service.revoke_token(

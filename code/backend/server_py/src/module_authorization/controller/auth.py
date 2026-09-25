@@ -22,7 +22,7 @@ from module_authorization.do.auth import (
     RegisterConfigResponse,
     RegisterRequest,
 )
-from module_authorization.config.register import EMAIL_VERIFY_ENABLED
+from module_authorization.config.register import email_verify_enabled
 
 # 创建路由器
 router = APIRouter()
@@ -112,7 +112,7 @@ async def get_my_permissions(
 @router.get("/register-config", summary="获取注册流程配置")
 async def get_register_config() -> RegisterConfigResponse:
     """返回注册流程配置(是否开启邮箱验证码),供前端决定注册弹窗是否展示验证码输入"""
-    return RegisterConfigResponse(email_verify=EMAIL_VERIFY_ENABLED)
+    return RegisterConfigResponse(email_verify=await email_verify_enabled())
 
 
 @router.post("/register/code", summary="发送注册邮箱验证码")

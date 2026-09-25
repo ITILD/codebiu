@@ -1,7 +1,7 @@
 """邮件服务: 对外统一暴露邮件发送能力, 供其他模块(如注册验证)调用"""
 import logging
 
-from module_contact.config.email import email_config
+from module_contact.config.email import get_email_config
 from module_contact.do.email import EmailConfig
 from module_contact.utils.contact.email import Email
 
@@ -26,11 +26,17 @@ class EmailService:
     def __init__(self, config: EmailConfig | None = None, sender: Email | None = None):
         """
         依赖注入构造器
-        :param config: 邮件配置(默认取模块全局配置)
+        :param config: 邮件配置(缺省时发送阶段按当前动态配置读取)
         :param sender: 邮件发送实现
         """
-        self.config = config if config is not None else email_config
+        self._config_override = config
         self.sender = sender or Email()
+
+    async def _resolve_config(self) -> EmailConfig:
+        """解析生效配置: 显式注入优先, 否则按当前动态配置构建(变更即时生效)"""
+        if self._config_override is not None:
+            return self._config_override
+        return await get_email_config()
 
     async def send(
         self,
@@ -50,12 +56,13 @@ class EmailService:
         :param content_type: 内容类型(plain/html)
         :param timeout: SMTP超时时间(秒)
         :return: 是否发送成功
-        :raises ValueError: 未配置邮箱服务
+        :raises ValueError: 未配置邮箱服务(授权码为空)
         """
-        if not self.config:
+        config = await self._resolve_config()
+        if not config.sender_password:
             raise ValueError("未配置邮箱服务, 无法发送邮件")
         return await self.sender.asend(
-            self.config,
+            config,
             receiver_email,
             receiver_name or receiver_email,
             subject,

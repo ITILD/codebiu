@@ -1,10 +1,22 @@
+"""邮箱配置冒烟测试: EmailSettings(动态配置) 字段与 EmailConfig 映射一致性(纯内存, 不触库)"""
+from module_contact.do.email import EmailConfig
+from common.config.dynamic.schemas import EmailSettings
 
-    # # 异步发送
-    # success = await Email.asend(
-    #     config=email_config,
-    #     receiver_email="@qq.com",
-    #     receiver_name="接收者",
-    #     subject="异步测试邮件",
-    #     content="这是一封通过异步发送的测试邮件。",
-    # )
-    # print("异步发送结果:", "成功" if success else "失败")s
+
+def test_email_settings_maps_to_email_config():
+    """EmailSettings 所有字段都能映射进 EmailConfig(防止动态配置字段漂移)"""
+    cfg = EmailSettings()
+    config = EmailConfig(
+        smtp_server=cfg.smtp_server,
+        smtp_port=cfg.smtp_port,
+        sender_email=cfg.sender_email,
+        sender_password=cfg.sender_password,
+        sender_name=cfg.sender_name,
+        use_for_register=cfg.use_for_register,
+    )
+    assert config.smtp_server == cfg.smtp_server
+    assert config.smtp_port == cfg.smtp_port
+    assert config.sender_email == cfg.sender_email
+    assert config.sender_password.get_secret_value() == cfg.sender_password
+    assert config.sender_name == cfg.sender_name
+    assert config.use_for_register == cfg.use_for_register

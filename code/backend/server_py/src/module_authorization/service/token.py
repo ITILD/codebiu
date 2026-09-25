@@ -4,7 +4,6 @@ import jwt
 from common.utils.security.token_util import TokenUtil, TokenConfig
 from module_authorization.dao.token import TokenDao
 from module_authorization.do.token import TokenCreate, TokenResponseBase
-from module_authorization.config.token import token_config
 from module_authorization.do.token import TokenCreateRequest
 import logging
 
@@ -17,8 +16,21 @@ class TokenService:
     def __init__(self, token_dao: TokenDao):
         """依赖注入构造器:初始化所需的数据访问对象"""
         self.token_dao = token_dao or TokenDao()
-        # 初始化TokenUtil工具类(使用BaseModel配置类)
-        self.token_util = TokenUtil(token_config)
+
+    async def _token_util(self) -> TokenUtil:
+        """按当前动态配置构建 TokenUtil(轻量对象, 每次构建; 配置中心变更即时生效)"""
+        from common.config.dynamic import get_settings
+        from common.config.dynamic.schemas import TokenSettings
+
+        cfg = await get_settings(TokenSettings)
+        return TokenUtil(
+            TokenConfig(
+                secret=cfg.secret_key,
+                algorithm=cfg.algorithm,
+                expire_minutes=cfg.expire_minutes,
+                refresh_expire_days=cfg.refresh_expire_days,
+            )
+        )
 
     async def create_token(self, request: TokenCreateRequest) -> TokenResponseBase:
         """
@@ -27,14 +39,16 @@ class TokenService:
         :return: Token对象
         """
         token_id = None
+        # 按当前动态配置构建工具(本次请求内复用同一实例)
+        token_util = await self._token_util()
         # 使用TokenUtil创建访问令牌
-        token = self.token_util.create_token(
+        token = token_util.create_token(
             user_id=request.user_id,
             token_type=request.token_type,
             additional_data=request.additional_data,
         )
         # 获取过期时间
-        expires_at, expires_in = self.token_util.get_token_expiry(request.token_type)
+        expires_at, expires_in = token_util.get_token_expiry(request.token_type)
 
         # 只保存刷新令牌信息，访问令牌不保存
         if request.token_type == TokenType.refresh:
@@ -64,7 +78,7 @@ class TokenService:
         :raises jwt.InvalidTokenError: 令牌无效、过期或已被撤销
         """
         try:
-            payload = self.token_util.verify_token(token)
+            payload = (await self._token_util()).verify_token(token)
             user_id = payload.get("sub")
             if not user_id:
                 raise jwt.InvalidTokenError("Invalid token payload: missing 'sub'")

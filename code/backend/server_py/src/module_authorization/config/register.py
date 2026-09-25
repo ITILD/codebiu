@@ -1,8 +1,6 @@
 """注册流程配置: 邮箱验证开关与验证码缓存策略"""
-from module_contact.config.email import email_config
-
-# 是否开启注册邮箱验证码(email.use_for_register; 未配置邮箱服务时恒为 False)
-EMAIL_VERIFY_ENABLED: bool = bool(email_config and email_config.use_for_register)
+from common.config.dynamic import get_settings
+from common.config.dynamic.schemas import EmailSettings
 
 # 验证码位数
 REGISTER_CODE_LENGTH = 6
@@ -15,3 +13,8 @@ REGISTER_CODE_COOLDOWN_SECONDS = 60
 REGISTER_CODE_KEY = "auth:register:code:{email}"
 # 发送冷却缓存键(值: 固定标记)
 REGISTER_CODE_COOLDOWN_KEY = "auth:register:code:cooldown:{email}"
+
+
+async def email_verify_enabled() -> bool:
+    """是否开启注册邮箱验证码(email.use_for_register; 配置中心变更即时生效)"""
+    return (await get_settings(EmailSettings)).use_for_register
