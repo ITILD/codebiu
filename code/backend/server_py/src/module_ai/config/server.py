@@ -139,12 +139,15 @@ def _load_default_models_config() -> tuple[bool, dict[str, dict]]:
 
 
 async def _resolve_seed_owner_id() -> str:
-    """获取 seed 公共模型的归属用户: 默认管理员账户; 不存在时用 system 占位"""
+    """获取 seed 公共模型的归属用户: 默认管理员账户(动态配置); 不存在时用 system 占位"""
     from module_authorization.dao.user import UserDao
 
     username = "admin"
     try:
-        username = conf.admin.get("username", "admin") if "admin" in conf else "admin"
+        from common.config.dynamic import get_settings
+        from common.config.dynamic.schemas import AdminSettings
+
+        username = (await get_settings(AdminSettings)).username
         user = await UserDao().get_by_username(username)
         if user is not None:
             return user.id

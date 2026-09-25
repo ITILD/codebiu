@@ -230,9 +230,9 @@ def test_sancai_compound_surname():
 # ==================== 参考体系目录 ====================
 
 def test_reference_catalog():
-    """目录含 8 个参考体系, 严格计算项与风格类标记正确"""
+    """目录含 8 个参考体系, 全部已实现严格程序化计算(strict=True)"""
     assert set(FOLK_REFERENCES.keys()) == {e for e in ReferenceEnum}
     strict_keys = {k for k, v in FOLK_REFERENCES.items() if v.strict}
-    assert strict_keys == {"wuxing", "sancai", "constellation", "zodiac", "tarot"}
+    assert strict_keys == set(ReferenceEnum)
     style_keys = {k for k, v in FOLK_REFERENCES.items() if not v.strict}
-    assert style_keys == {"christian", "buddhism", "taoism"}
+    assert style_keys == set()
