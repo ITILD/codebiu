@@ -26,25 +26,27 @@ class AsyncTransactional:
     def transaction(self, func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
-            # 从args最后一个检查是否已有session传入
-            session: AsyncSession | None = self._detect_session_in_args(
-                func, args, kwargs
-            )
-
-            if session:  # 使用外部事务
-                return await func(*args, **kwargs)
-
-            # 新建事务
-            async with self.session_factory() as new_session:
-                try:
-                    async with new_session.begin():
-                        result = await func(*args, **kwargs, session=new_session)
-                        return result
-                except Exception as e:
-                    self.logger.error(f"事务回滚: {e}", exc_info=True)
-                    raise  # 抛出异常，让上层处理
+            return await self.call(func, *args, **kwargs)
 
         return wrapper
+
+    async def call(self, func, *args, **kwargs):
+        """以当前实例的 session_factory 执行 func(供 DaoRel 门面每次调用动态解析)"""
+        # 从args最后一个检查是否已有session传入
+        session: AsyncSession | None = self._detect_session_in_args(func, args, kwargs)
+
+        if session:  # 使用外部事务
+            return await func(*args, **kwargs)
+
+        # 新建事务
+        async with self.session_factory() as new_session:
+            try:
+                async with new_session.begin():
+                    result = await func(*args, **kwargs, session=new_session)
+                    return result
+            except Exception as e:
+                self.logger.error(f"事务回滚: {e}", exc_info=True)
+                raise  # 抛出异常，让上层处理
 
     def _detect_session_in_args(self, func, args, kwargs) -> AsyncSession:
         """智能检测args中的session参数"""

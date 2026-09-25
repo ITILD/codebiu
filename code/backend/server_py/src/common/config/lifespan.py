@@ -34,8 +34,13 @@ async def run_hooks(hooks):
 
 
 async def server_start():
-    """服务启动流程:建立数据库连接→执行建表前钩子→建表→执行建表后钩子"""
+    """服务启动流程: 装配runtime→建表前钩子→建表→建表后钩子"""
     logger.info("server_start...")
+    # 显式装配运行时(db_rel 引导→sys_config表→种子→任务快照→其余数据库),
+    # 连接从 import 期移入装配点, 治理 import 期副作用
+    from common.runtime import init_runtime
+
+    await init_runtime()
     try:
         await db_manager.connect_all()
         # 建表前钩子(如 module_geometry 启用 PostGIS,必须先于建表)

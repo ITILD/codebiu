@@ -44,6 +44,11 @@ __all__ = ("celery_app",)
 
 async def _ensure_task_table() -> None:
     """Worker 进程内幂等建表(仅创建本进程已导入模型对应的表; 常规由 API 启动时创建)"""
+    from common.runtime import init_runtime
+
+    # Worker 装配点: db_rel 引导→sys_config表→种子→任务快照→其余数据库连接
+    await init_runtime()
+
     from common.config.db import db_manager
 
     await db_manager.db_rel.create_all()

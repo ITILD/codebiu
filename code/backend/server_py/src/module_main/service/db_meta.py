@@ -8,19 +8,20 @@ from datetime import datetime
 from sqlalchemy import text
 from sqlmodel import SQLModel
 
-from common.config.db import (
-    db_rel,
-    db_cache,
-    db_vector,
-    db_graph,
-    async_cache,
-    db_manager,
-)
+from common.runtime import runtime
 from common.utils.db.orm.vector_model import VectorModel
 
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def _real():
+    """取真实 DatabaseManager(runtime 未装配/未启用成员时为 None)
+
+    状态展示类接口不能走 db.py 门面(代理恒真值), 须按真实装配情况返回"未启用"。
+    """
+    return runtime.db_manager
 
 
 class DbMetaService:
@@ -38,10 +39,12 @@ class DbMetaService:
         Returns:
             list[dict]: name/comment/column_count/row_count/last_updated
         """
-        if db_rel is None or db_rel.engine is None:
+        mgr = _real()
+        rel = mgr.db_rel if mgr else None
+        if rel is None or rel.engine is None:
             return []
         rows: list[dict] = []
-        async with db_rel.engine.connect() as conn:
+        async with rel.engine.connect() as conn:
             # 按方言引用表名/列名(sqlite/postgres 双引号, mysql 反引号)
             preparer = conn.dialect.identifier_preparer
             for name, table in SQLModel.metadata.tables.items():
@@ -94,13 +97,16 @@ class DbMetaService:
         Returns:
             dict: {type, tables: [{name, field_count, vector_dims, row_count}]}
         """
-        if db_vector is None:
+        # 向量库实现经 runtime 真实解析(门面恒真值不适用于状态展示)
+        mgr = _real()
+        vec = mgr.db_vector if mgr else None
+        if vec is None:
             return {"type": None, "tables": []}
         # 向量库连接生命周期在运行时获取,此处懒建立
-        conn = db_manager.async_vector
+        conn = mgr.async_vector
         if conn is None:
-            await db_vector.connect()
-            conn = db_vector.async_vector
+            await vec.connect()
+            conn = vec.async_vector
         # VectorModel 注册表提供字段数/向量维度元信息
         registry = VectorModel.registry
         try:
@@ -134,7 +140,7 @@ class DbMetaService:
                     "row_count": row_count,
                 }
             )
-        return {"type": type(db_vector).__name__, "tables": tables}
+        return {"type": type(vec).__name__, "tables": tables}
 
     # ############################### 缓存数据库(Redis) ###############################
     @staticmethod
@@ -145,12 +151,15 @@ class DbMetaService:
         Returns:
             dict: 缓存概要信息,未启用时 type 为 None
         """
-        if async_cache is None:
+        mgr = _real()
+        cache = mgr.db_cache if mgr else None
+        ac = mgr.async_cache if mgr else None
+        if ac is None:
             return {"type": None}
-        cache_type = type(db_cache).__name__ if db_cache else None
+        cache_type = type(cache).__name__ if cache else None
         try:
-            info = await async_cache.info()
-            dbsize = await async_cache.dbsize()
+            info = await ac.info()
+            dbsize = await ac.dbsize()
         except Exception as e:
             return {"type": cache_type, "error": str(e)}
         hits = info.get("keyspace_hits") or 0
@@ -178,9 +187,11 @@ class DbMetaService:
         Returns:
             dict: 图库信息,未启用时 type 为 None
         """
-        if db_graph is None:
+        mgr = _real()
+        graph = mgr.db_graph if mgr else None
+        if graph is None:
             return {"type": None}
         try:
-            return await db_graph.get_info()
+            return await graph.get_info()
         except Exception as e:
-            return {"type": type(db_graph).__name__, "error": str(e)}
+            return {"type": type(graph).__name__, "error": str(e)}

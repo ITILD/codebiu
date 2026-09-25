@@ -216,13 +216,16 @@ async def test_baby_name_predict_validation(client: httpx.AsyncClient):
 
 
 async def test_baby_name_reference_catalog(client: httpx.AsyncClient):
-    """/references: 返回 8 个参考体系目录, strict 标记正确"""
+    """/references: 返回 8 个参考体系目录, 均有经典程序化计算(strict=True)"""
     resp = await client.get(f"{BASE}/references")
     assert resp.status_code == 200, resp.text
     catalog = resp.json()
     assert isinstance(catalog, list) and len(catalog) == 8
     strict_keys = {item["key"] for item in catalog if item["strict"]}
-    assert strict_keys == {"wuxing", "sancai", "constellation", "zodiac", "tarot"}
+    assert strict_keys == {
+        "wuxing", "sancai", "constellation", "zodiac", "tarot",
+        "christian", "buddhism", "taoism",
+    }
 
 
 async def test_baby_name_calculate_reference(client: httpx.AsyncClient):
