@@ -112,10 +112,29 @@ MAIN_DEFINE = ModulePermissionDefine(
             order_num=4,
             children=[PermNode(name="使用", code="main:search:read", menu_type="F")],
         ),
+        PermNode(
+            # 通用动态配置(系统管理→通用配置页): 仅管理员可用
+            # (不进 default_policies, admin 经穿透策略访问; 其余角色需显式授权)
+            name="通用配置",
+            code="main:config",
+            menu_type="C",
+            path="/main/config",
+            icon="Setting",
+            order_num=5,
+            children=[
+                PermNode(name="查看", code="main:config:read", menu_type="F"),
+                PermNode(name="修改", code="main:config:update", menu_type="F"),
+            ],
+        ),
     ],
     # 新注册用户默认拥有基础资源只读权限(main 域)
+    # 显式枚举各资源 read: 通用配置(config)为管理员专属, 默认不授权
+    # 注意: 旧部署若存在 ("main","*","read") 通配策略, 需在角色管理界面回收
     default_policies=[
-        ("main", "*", "read"),
+        ("main", "dict", "read"),
+        ("main", "db", "read"),
+        ("main", "file", "read"),
+        ("main", "search", "read"),
     ],
 )
 

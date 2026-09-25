@@ -59,30 +59,33 @@ def _secrets_of(schema) -> frozenset[str]:
     return getattr(schema, "_secret_fields", frozenset())
 
 
-def _dig(data: dict, dotted: str):
-    """按 "a.b" 点路径取嵌套值"""
-    cur = data
-    for part in dotted.split("."):
-        if not isinstance(cur, dict):
-            return None
-        cur = cur.get(part)
-    return cur
+def _deep_merge(schema, old: dict, patch: dict, prefix: str = "", secrets=None) -> dict:
+    """schema 感知的深合并: 普通字段 patch 有则覆盖; 密钥字段 缺省保持/空串清空/有值覆盖
 
-
-def _deep_merge(schema, old: dict, patch: dict, prefix: str = "") -> dict:
-    """schema 感知的深合并: 普通字段 patch 有则覆盖; 密钥字段 缺省保持/空串清空/有值覆盖"""
+    patch 中出现 schema 未声明的键 → ValueError(extra=forbid 语义在合并期即拦截)
+    嵌套子组递归时下传顶层组的密钥路径集合(声明单一来源在顶层组)。
+    """
+    if secrets is None:
+        secrets = _secrets_of(schema)
     merged = {**old}
-    for key, fi in schema.model_fields.items():
+    fields = schema.model_fields
+    unknown = [k for k in patch if k not in fields]
+    if unknown:
+        raise ValueError(
+            f"未知配置字段: {', '.join(f'{prefix}{k}' for k in unknown)}"
+        )
+    for key, fi in fields.items():
         if _is_group(fi.annotation):  # 嵌套子组递归(前缀携带密钥路径)
             sub = _unwrap(fi.annotation)
             merged[key] = _deep_merge(
-                sub, old.get(key) or {}, patch.get(key) or {}, prefix=f"{prefix}{key}."
+                sub, old.get(key) or {}, patch.get(key) or {},
+                prefix=f"{prefix}{key}.", secrets=secrets,
             )
             continue
         if key not in patch:
             continue  # 未提交 → 保持旧值
         full = f"{prefix}{key}"
-        if full in _secrets_of(schema):
+        if full in secrets:
             v = patch[key]
             merged[key] = "" if v in (None, "") else v  # 空串=清除; 有值=覆盖
         else:
@@ -164,12 +167,21 @@ class SettingsService:
             "fields": self._fields(schema, dump),
         }
 
-    def _fields(self, schema, dump: dict, prefix: str = "") -> list[dict]:
+    def _fields(self, schema, dump: dict, prefix: str = "", secrets=None) -> list[dict]:
+        """字段元数据(密钥打码); 嵌套子组递归时下传顶层组的密钥路径集合
+
+        dump 始终为"当前层"的 dict(递归时已定位到子组), 故取值用相对 key 而非带前缀的完整路径。
+        """
+        if secrets is None:
+            secrets = _secrets_of(schema)
         fields = []
         for key, fi in schema.model_fields.items():
             full = f"{prefix}{key}"
             if _is_group(fi.annotation):
-                fields += self._fields(_unwrap(fi.annotation), dump.get(key) or {}, prefix=full + ".")
+                fields += self._fields(
+                    _unwrap(fi.annotation), dump.get(key) or {},
+                    prefix=full + ".", secrets=secrets,
+                )
                 continue
             ftype, options = _field_type(fi.annotation)
             meta = {
@@ -180,11 +192,10 @@ class SettingsService:
                 "options": options,
                 "required": fi.is_required(),
             }
-            if full in _secrets_of(schema):
-                raw = _dig(dump, full)
-                meta.update(type="secret", value=None, has_value=bool(raw))
+            if full in secrets:
+                meta.update(type="secret", value=None, has_value=bool(dump.get(key)))
             else:
-                meta.update(value=_dig(dump, full))
+                meta.update(value=dump.get(key))
             fields.append(meta)
         return fields
 

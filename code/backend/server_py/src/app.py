@@ -8,6 +8,8 @@ from common.config.server import app
 
 # 主模块
 from module_main.controller import static as main_static, status, db, dict_type, dict_item
+from module_main.controller import sys_config as main_sys_config
+# # 系统管理域权限声明(通用动态配置页, main 域内节点在 module_authorization 声明)
 # # 文件模块(网络文件系统: 虚拟文件树 + local/rustfs/s3 存储无缝切换)
 from module_file.controller import filesystem
 from module_websearch.controller import websearch
