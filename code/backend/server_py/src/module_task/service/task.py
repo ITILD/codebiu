@@ -8,7 +8,6 @@
 """
 from datetime import datetime, timezone
 
-from common.config.tasks import app as celery_app
 from common.utils.fastapiEX.exceptions import BusinessError, NotFoundError
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
 from module_task.dao.task import TaskQueueDao
@@ -72,6 +71,9 @@ def _read_celery_state(task: TaskQueue) -> TaskQueueResponse:
     if not task.celery_task_id:
         return resp
     try:
+        # celery 实例惰性获取(避免 Web 进程启动即加载 celery)
+        from common.config.tasks import app as celery_app
+
         async_result = celery_app.AsyncResult(task.celery_task_id)
         resp.celery_state = async_result.state
         info = async_result.info
@@ -194,6 +196,8 @@ class TaskQueueService:
 
         if task.status in ACTIVE_STATUSES and task.celery_task_id:
             try:
+                from common.config.tasks import app as celery_app
+
                 async_result = celery_app.AsyncResult(task.celery_task_id)
                 mapped = _CELERY_STATE_MAP.get(async_result.state)
                 if mapped == QueueTaskStatus.SUCCESS:
@@ -229,6 +233,8 @@ class TaskQueueService:
         # 先撤销 Celery 侧(排队中直接丢弃; 执行中由 worker 协作式检查提前退出)
         if task.celery_task_id:
             try:
+                from common.config.tasks import app as celery_app
+
                 celery_app.control.revoke(task.celery_task_id, terminate=True)
             except Exception:
                 pass  # 撤销失败不阻塞本地取消(worker 仍会检查库中状态)

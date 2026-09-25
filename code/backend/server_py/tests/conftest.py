@@ -66,7 +66,6 @@ async def local_storage_override(tmp_path_factory):
     import shutil
 
     import module_file.config.filesystem as fs_config
-    import module_file.service.filesystem as fs_service
     from module_file.utils.multi_storage.do.storage_config import (
         StorageConfigFactory,
     )
@@ -83,14 +82,10 @@ async def local_storage_override(tmp_path_factory):
     original_config = fs_config.storage_config
     fs_config.storage = local_storage
     fs_config.storage_config = cfg
-    # service/filesystem.py 通过 from ... import 持有独立引用,同步替换
-    fs_service.storage = local_storage
-    fs_service.storage_config = cfg
+    # service/filesystem.py 经 fs_config 模块属性读取 storage/storage_config(无独立引用)
     yield
     fs_config.storage = original_storage
     fs_config.storage_config = original_config
-    fs_service.storage = original_storage
-    fs_service.storage_config = original_config
     shutil.rmtree(base_dir, ignore_errors=True)
 
 

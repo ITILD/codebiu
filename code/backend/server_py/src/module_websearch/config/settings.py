@@ -1,64 +1,8 @@
-"""
-网页搜索模块配置
+"""网页搜索模块配置(动态): 各消费点经 get_websearch_settings() 按调用时读取"""
+from common.config.dynamic import get_settings
+from common.config.dynamic.schemas import WebSearchSettings
 
-从 config.yaml 的 websearch 段读取,缺失时使用内置默认值:
-    websearch:
-      default_engine: duckduckgo   # 默认引擎(本地直连,无需密钥)
-      timeout: 15                  # 请求超时(秒)
-      max_results: 10              # 默认返回条数上限
-      proxy: null                  # 可选代理(如 http://127.0.0.1:7890)
-      tavily:
-        api_key: ""                # Tavily API Key(https://app.tavily.com 获取)
-        search_depth: basic        # 搜索深度: basic/advanced
-        include_answer: false      # 是否返回 AI 摘要答案
-      firecrawl:
-        api_key: ""                # Firecrawl API Key(https://www.firecrawl.dev 获取)
-        api_base: https://api.firecrawl.dev  # API 地址(可指向自部署实例)
-"""
-from common.config.index import conf
-from module_websearch.utils.websearch.do.websearch import Engine
-import logging
 
-logger = logging.getLogger(__name__)
-
-# 从 config.yaml 读取 websearch 配置(可选,缺失时使用默认值)
-try:
-    conf_websearch = conf.websearch
-    if conf_websearch is None:
-        conf_websearch = {}
-except Exception:
-    conf_websearch = {}
-
-# 默认搜索引擎标识(与 utils/websearch/factory.py 注册表中的 name 对应,非法值回退 DuckDuckGo)
-try:
-    DEFAULT_ENGINE: Engine = Engine(conf_websearch.get("default_engine", "duckduckgo"))
-except ValueError:
-    logger.warning(f"websearch.default_engine 非法值,回退默认引擎: {conf_websearch.get('default_engine')}")
-    DEFAULT_ENGINE = Engine.DUCKDUCKGO
-# HTTP 请求超时(秒)
-REQUEST_TIMEOUT: float = float(conf_websearch.get("timeout", 15))
-# 默认返回结果条数上限
-MAX_RESULTS: int = int(conf_websearch.get("max_results", 10))
-# 出网代理(为空表示直连;国内访问 duckduckgo/tavily/firecrawl 可按需配置)
-PROXY: str | None = conf_websearch.get("proxy") or None
-
-# ############################# Tavily 配置 #############################
-_conf_tavily: dict = conf_websearch.get("tavily") or {}
-# Tavily API Key(为空表示未配置,该引擎不可用)
-TAVILY_API_KEY: str = str(_conf_tavily.get("api_key") or "").strip()
-# Tavily 搜索深度(basic/advanced)
-TAVILY_SEARCH_DEPTH: str = str(_conf_tavily.get("search_depth") or "basic").strip().lower()
-if TAVILY_SEARCH_DEPTH not in ("basic", "advanced"):
-    logger.warning(f"websearch.tavily.search_depth 非法值,回退 basic: {TAVILY_SEARCH_DEPTH}")
-    TAVILY_SEARCH_DEPTH = "basic"
-# 是否返回 AI 摘要答案
-TAVILY_INCLUDE_ANSWER: bool = bool(_conf_tavily.get("include_answer", False))
-
-# ############################# Firecrawl 配置 #############################
-_conf_firecrawl: dict = conf_websearch.get("firecrawl") or {}
-# Firecrawl API Key(为空表示未配置,该引擎不可用)
-FIRECRAWL_API_KEY: str = str(_conf_firecrawl.get("api_key") or "").strip()
-# Firecrawl API 地址(可指向自部署实例)
-FIRECRAWL_API_BASE: str = str(_conf_firecrawl.get("api_base") or "https://api.firecrawl.dev").strip().rstrip("/")
-
-logger.info("ok...websearch 网页搜索配置加载完成")
+async def get_websearch_settings() -> WebSearchSettings:
+    """读取当前网页搜索配置(TTL 缓存内直返; 配置中心变更即时生效)"""
+    return await get_settings(WebSearchSettings)

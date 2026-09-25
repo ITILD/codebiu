@@ -24,7 +24,8 @@ from module_file.do.filesystem import (
 from module_file.dao.file_entry_dao import FileEntryDao
 from module_file.dao.file_content_dao import FileContentDao
 from module_file.utils.multi_storage.do.storage_config import StorageType
-from module_file.config.filesystem import storage, storage_config
+# 模块属性访问(非 import 快照): 启动钩子装配 storage_config 后始终读到最新
+from module_file.config import filesystem as fs_conf
 import base64
 import hashlib
 import hmac
@@ -34,9 +35,10 @@ import uuid
 from fastapi import UploadFile
 from sqlmodel.ext.asyncio.session import AsyncSession
 from common.config.db import DaoRel
+from common.config.dynamic import get_settings
+from common.config.dynamic.schemas import FileSystemSettings, TokenSettings
 from pathlib import Path
 import logging
-from common.config.index import conf
 from common.config.path import DIR_UPLOAD
 from datetime import datetime
 from common.enum.task import TaskStatus
@@ -57,7 +59,7 @@ class BusinessEntryError(ValueError):
     """
 
 
-def build_storage(storage_type: StorageType | str):
+async def build_storage(storage_type: StorageType | str):
     """
     按类型构建存储实例(存储迁移/双存储搬运用,与全局单例互不影响)
     :param storage_type: 存储类型(local/s3/rustfs)
@@ -68,7 +70,8 @@ def build_storage(storage_type: StorageType | str):
     )
     from module_file.utils.multi_storage.storage_factory import StorageFactory
 
-    cfg = StorageConfigFactory.create(str(storage_type), conf.file_system)
+    fs = await get_settings(FileSystemSettings)
+    cfg = StorageConfigFactory.create(str(storage_type), fs.model_dump())
     # local 未配置目录时回退到全局上传目录(与 config/filesystem.py 保持一致)
     if str(storage_type) == StorageType.LOCAL and not getattr(cfg, "base_dir", None):
         cfg.base_dir = str(DIR_UPLOAD)
@@ -94,6 +97,9 @@ class FileService:
         """
         self.file_entry_dao = file_entry_dao or FileEntryDao()
         self.file_content_dao = file_content_dao or FileContentDao()
+        # storage 惰性单例: 延迟到构造服务实例时导入(避免 import 期加载 aioboto3 等 S3 SDK)
+        from module_file.config.filesystem import storage
+
         self.storage = storage_interface or storage
         self.strict_business_guard = strict_business_guard
 
@@ -578,12 +584,12 @@ class FileService:
         dir_path, parent = await self._get_parent_dir(pid, session)
 
         # 大小与MIME类型校验(依据 file_system 配置,直传仅服务小文件)
-        if len(content) > storage_config.max_size_bytes:
+        if len(content) > fs_conf.storage_config.max_size_bytes:
             raise ValueError(
-                f"文件大小超过直传限制: {storage_config.max_size}MB, 请使用分片上传"
+                f"文件大小超过直传限制: {fs_conf.storage_config.max_size}MB, 请使用分片上传"
             )
         mime_type = self._guess_mime(filename) or "application/octet-stream"
-        if not storage_config.is_mime_allowed(mime_type):
+        if not fs_conf.storage_config.is_mime_allowed(mime_type):
             raise ValueError(f"不支持的文件类型: {mime_type}")
 
         # 同目录同名冲突校验
@@ -616,9 +622,9 @@ class FileService:
         :return: {"content_hash", "physical_storage", "file_size_bytes", "mime_type"}
         :raises: ValueError 超过直传大小限制
         """
-        if len(content) > storage_config.max_size_bytes:
+        if len(content) > fs_conf.storage_config.max_size_bytes:
             raise ValueError(
-                f"文件大小超过直传限制: {storage_config.max_size}MB, 请使用分片上传"
+                f"文件大小超过直传限制: {fs_conf.storage_config.max_size}MB, 请使用分片上传"
             )
         mime_type = self._guess_mime(filename)
         content_hash = hashlib.sha256(content).hexdigest()
@@ -639,7 +645,7 @@ class FileService:
                         content_hash=content_hash,
                         physical_storage=physical_storage,
                         file_size_bytes=len(content),
-                        storage_type=conf.file_system.storage_type,
+                        storage_type=fs_conf.storage_config.storage_type,
                     ),
                     session,
                 )
@@ -691,7 +697,7 @@ class FileService:
                     content_hash=req.content_hash,
                     physical_storage=physical_key,
                     file_size_bytes=req.file_size_bytes,
-                    storage_type=conf.file_system.storage_type,
+                    storage_type=fs_conf.storage_config.storage_type,
                 ),
                 session,
             )
@@ -708,7 +714,7 @@ class FileService:
                     for n in range(part_count)
                 ]
                 if all(part_urls):
-                    token = self._make_multipart_token(
+                    token = await self._make_multipart_token(
                         physical_key, storage_upload_id, req.content_hash, "direct"
                     )
                     logger.info(
@@ -724,7 +730,7 @@ class FileService:
             except Exception as e:
                 # 签名失败降级为中转,不阻断上传
                 logger.warning(f"预签名生成失败,降级为中转模式: {e}")
-        token = self._make_multipart_token(
+        token = await self._make_multipart_token(
             physical_key, storage_upload_id, req.content_hash, "proxy"
         )
         logger.info(f"中转初始化(内容级): {req.filename} ({req.file_size_bytes}B)")
@@ -748,7 +754,7 @@ class FileService:
         :param file_size_bytes: 声明的文件总大小(可选完整性校验)
         :return: {"content_hash", "physical_storage", "file_size_bytes"}
         """
-        data = self._parse_multipart_token(upload_id)
+        data = await self._parse_multipart_token(upload_id)
         if data.get("mode") == "direct":
             # 直传: 先与存储侧对账(防伪造清单),归位信任前端SHA-256(凭证签发阶段已校验)
             parts = await self._reconcile_parts(data, parts)
@@ -861,10 +867,11 @@ class FileService:
     # 会话凭证 token: base64url(json) + HMAC-SHA256 签名,自包含物理键/S3会话ID/上传模式,无状态可跨请求传递
 
     @staticmethod
-    def _multipart_sign(payload: str) -> str:
-        """对分片会话凭证载荷计算HMAC-SHA256签名"""
+    async def _multipart_sign(payload: str) -> str:
+        """对分片会话凭证载荷计算HMAC-SHA256签名(密钥取当前动态令牌配置)"""
+        secret = (await get_settings(TokenSettings)).secret_key
         return hmac.new(
-            conf.token.secret_key.encode(), payload.encode(), hashlib.sha256
+            secret.encode(), payload.encode(), hashlib.sha256
         ).hexdigest()
 
     def _supports_presign(self) -> bool:
@@ -876,7 +883,7 @@ class FileService:
         return isinstance(self.storage, S3StorageInterface)
 
     @staticmethod
-    def _make_multipart_token(
+    async def _make_multipart_token(
         key: str, upload_id: str, content_hash: str, mode: str
     ) -> str:
         """
@@ -902,10 +909,10 @@ class FileService:
             .decode()
             .rstrip("=")
         )
-        return f"{payload}.{FileService._multipart_sign(payload)}"
+        return f"{payload}.{await FileService._multipart_sign(payload)}"
 
     @staticmethod
-    def _parse_multipart_token(token: str) -> dict:
+    async def _parse_multipart_token(token: str) -> dict:
         """
         解析并校验分片上传会话凭证
         :return: {"key": 物理键, "uid": 存储会话ID, "hash": 前端SHA-256, "mode": 上传模式}
@@ -915,7 +922,7 @@ class FileService:
             payload, sig = token.rsplit(".", 1)
         except ValueError:
             raise ValueError("非法的分片上传凭证")
-        if not hmac.compare_digest(sig, FileService._multipart_sign(payload)):
+        if not hmac.compare_digest(sig, await FileService._multipart_sign(payload)):
             raise ValueError("非法的分片上传凭证")
         data = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
         if time.time() > data.get("exp", 0):
@@ -945,7 +952,7 @@ class FileService:
         ):
             raise ConflictError(f"当前目录下已存在同名文件: {req.filename}")
         mime_type = self._guess_mime(req.filename) or req.content_type or "application/octet-stream"
-        if not storage_config.is_mime_allowed(mime_type):
+        if not fs_conf.storage_config.is_mime_allowed(mime_type):
             raise ValueError(f"不支持的文件类型: {mime_type}")
 
         # ===== 内容级复用逻辑: 秒传判断/内容记录/凭证签发 =====
@@ -965,7 +972,7 @@ class FileService:
             raise ValueError("分片号必须在 1~10000 范围内")
         if len(content) > MULTIPART_PART_SIZE:
             raise ValueError(f"单片大小不能超过 {MULTIPART_PART_SIZE // 1024 // 1024}MB")
-        data = self._parse_multipart_token(upload_id)
+        data = await self._parse_multipart_token(upload_id)
         result = await self.storage.upload_part(
             data["key"], data["uid"], part_number, content
         )
@@ -976,7 +983,7 @@ class FileService:
         查询会话中已上传的分片(断点续传)
         :param upload_id: 分片会话凭证
         """
-        data = self._parse_multipart_token(upload_id)
+        data = await self._parse_multipart_token(upload_id)
         parts = await self.storage.list_parts(data["key"], data["uid"])
         return [MultipartPartInfo(**p) for p in parts]
 
@@ -1038,7 +1045,7 @@ class FileService:
         :param owner_user_id: 上传者ID
         :return: 新建的文件条目
         """
-        data = self._parse_multipart_token(upload_id)
+        data = await self._parse_multipart_token(upload_id)
         dir_path, parent = await self._get_parent_dir(req.pid, session)
         if await self.file_entry_dao.exists_by_pid_name(
             req.pid, req.filename, session=session
@@ -1063,7 +1070,7 @@ class FileService:
         取消分片上传会话(清理存储侧已上传分片,内容记录保留待后续复用)
         :param upload_id: 分片会话凭证
         """
-        data = self._parse_multipart_token(upload_id)
+        data = await self._parse_multipart_token(upload_id)
         await self.storage.abort_multipart(data["key"], data["uid"])
         logger.info(f"分片上传已取消: {data['key']}")
 
@@ -1105,7 +1112,7 @@ class FileService:
         return UploadModeResponse(
             mode="direct" if self._supports_presign() else "proxy",
             part_size=MULTIPART_PART_SIZE,
-            max_size=storage_config.max_size,
+            max_size=fs_conf.storage_config.max_size,
         )
 
     async def presign_download_url(
@@ -1410,7 +1417,8 @@ class FileService:
         )
         content_total, used_bytes = await self.file_content_dao.stats(session)
         return StorageStats(
-            storage_type=str(conf.file_system.storage_type),
+            # 实际生效的存储类型(启动装配值; 配置中心改类型需重启后此值才变)
+            storage_type=str(fs_conf.storage_config.storage_type),
             entry_total=entry_total,
             file_total=file_total,
             folder_total=folder_total,
@@ -1430,8 +1438,8 @@ class FileService:
         """
         if req.from_type == req.to_type:
             raise ValueError("源与目标存储类型相同,无需迁移")
-        src = build_storage(req.from_type)
-        dst = build_storage(req.to_type)
+        src = await build_storage(req.from_type)
+        dst = await build_storage(req.to_type)
         contents = await self.file_content_dao.list_all(session)
         migrated, skipped, failed = 0, 0, []
         for c in contents:

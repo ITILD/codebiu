@@ -327,10 +327,10 @@ async def test_multipart_init_duplicate_name(client):
 @pytest.mark.asyncio
 async def test_multipart_init_mime_not_allowed(client):
     """init 阶段即校验 MIME 白名单(配置仅允许 image/* 时拒绝文本文件)"""
-    import module_file.service.filesystem as fs_service
+    import module_file.config.filesystem as fs_config
 
-    original = fs_service.storage_config.allowed_extensions
-    fs_service.storage_config.allowed_extensions = ["image/*"]
+    original = fs_config.storage_config.allowed_extensions
+    fs_config.storage_config.allowed_extensions = ["image/*"]
     try:
         resp = await client.post(
             MULTIPART_INIT_URL,
@@ -343,7 +343,7 @@ async def test_multipart_init_mime_not_allowed(client):
         assert resp.status_code == 400
         assert "不支持的文件类型" in resp.json()["detail"]
     finally:
-        fs_service.storage_config.allowed_extensions = original
+        fs_config.storage_config.allowed_extensions = original
 
 
 @pytest.mark.asyncio
@@ -526,11 +526,11 @@ async def test_entry_detail_with_owner(client):
     assert detail["id"] == entry_id
     # 上传用户名(admin 登录用户,昵称优先其次用户名)
     assert detail["owner_name"]
-    # 内容元数据(存储类型取自配置,conftest 仅覆盖存储实现实例)
-    from common.config.index import conf
+    # 内容元数据(存储类型取自实际生效的存储装配; conftest 覆盖为 local)
+    import module_file.config.filesystem as fs_config
 
     assert detail["physical_storage"]
-    assert detail["storage_type"] == str(conf.file_system.storage_type)
+    assert detail["storage_type"] == str(fs_config.storage_config.storage_type)
     assert detail["ref_count"] == 1
     assert detail["content_status"] == "success"
     # 标签默认空数组

@@ -25,7 +25,7 @@ async def list_engines(
     :param service: 搜索服务依赖注入
     :return: 引擎元信息列表
     """
-    return service.list_engines()
+    return await service.list_engines()
 
 
 @router.post(

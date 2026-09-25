@@ -8,7 +8,6 @@ from abc import ABC, abstractmethod
 
 import httpx
 
-from module_websearch.config.settings import PROXY, REQUEST_TIMEOUT
 from module_websearch.utils.websearch.do.websearch import DateRange, Engine, SearchResult
 
 # 模拟浏览器请求头(搜索引擎普遍校验 UA)
@@ -54,8 +53,8 @@ class SearchEngine(ABC):
         :return: 搜索结果列表
         """
 
-    def is_configured(self) -> bool:
-        """当前配置下引擎是否可用(需要 Key 的引擎检查 Key 是否已配置)"""
+    async def is_configured(self) -> bool:
+        """当前配置下引擎是否可用(API Key 等来自动态配置,故为协程; 无需密钥的引擎默认 True)"""
         return True
 
     # ############################# 通用工具 #############################
@@ -63,25 +62,23 @@ class SearchEngine(ABC):
     @staticmethod
     def build_client(
         headers: dict[str, str] | None = None,
-        timeout: float | None = None,
+        timeout: float = 15,
         proxy: str | None = None,
     ) -> httpx.AsyncClient:
         """
         构建异步HTTP客户端(统一超时与代理配置)
         :param headers: 附加请求头(默认合并浏览器UA)
-        :param timeout: 超时秒数(默认取模块配置)
-        :param proxy: 代理地址(None 时取模块配置,空串表示强制直连)
+        :param timeout: 超时秒数(调用方从动态配置取值传入)
+        :param proxy: 代理地址(None 直连; 调用方从动态配置取值传入)
         """
         merged_headers = {**BROWSER_HEADERS, **(headers or {})}
-        # 代理优先级: 显式参数 > 模块配置
-        effective_proxy = proxy if proxy is not None else PROXY
         client_kwargs: dict = {
             "headers": merged_headers,
-            "timeout": timeout or REQUEST_TIMEOUT,
+            "timeout": timeout,
             "follow_redirects": True,
         }
-        if effective_proxy:
-            client_kwargs["proxy"] = effective_proxy
+        if proxy:
+            client_kwargs["proxy"] = proxy
         return httpx.AsyncClient(**client_kwargs)
 
     @staticmethod

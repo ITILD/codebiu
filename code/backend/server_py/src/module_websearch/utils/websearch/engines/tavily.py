@@ -5,7 +5,7 @@ Tavily 搜索引擎实现(面向 AI 的搜索 API,需 API Key)
 POST https://api.tavily.com/search,Bearer 鉴权。
 原生支持 exclude_domains(屏蔽站点)与 time_range(时间范围)。
 """
-from module_websearch.config.settings import TAVILY_API_KEY, TAVILY_INCLUDE_ANSWER, TAVILY_SEARCH_DEPTH
+from module_websearch.config.settings import get_websearch_settings
 from module_websearch.utils.websearch.base import JSON_HEADERS, SearchEngine
 from module_websearch.utils.websearch.do.websearch import DateRange, Engine, SearchResult
 
@@ -29,15 +29,15 @@ class TavilyEngine(SearchEngine):
     description = "AI 搜索 API,原生支持屏蔽站点与时间范围,需 API Key"
     requires_api_key = True
 
-    def is_configured(self) -> bool:
+    async def is_configured(self) -> bool:
         """判断引擎是否已配置API Key(未配置时在引擎列表中置灰)"""
-        return bool(TAVILY_API_KEY)
+        return bool((await get_websearch_settings()).tavily.api_key)
 
-    def _auth_headers(self) -> dict[str, str]:
+    def _auth_headers(self, api_key: str) -> dict[str, str]:
         """构建带 Bearer Token 的请求头(Key 未配置时抛出异常)"""
-        if not TAVILY_API_KEY:
-            raise ValueError("Tavily API Key 未配置,请在 config.yaml 的 websearch.tavily.api_key 中填写")
-        return {**JSON_HEADERS, "Authorization": f"Bearer {TAVILY_API_KEY}"}
+        if not api_key:
+            raise ValueError("Tavily API Key 未配置,请在\"系统管理-通用配置\"的网页搜索组中填写")
+        return {**JSON_HEADERS, "Authorization": f"Bearer {api_key}"}
 
     async def search(
         self,
@@ -54,11 +54,13 @@ class TavilyEngine(SearchEngine):
         :param blocked_sites: 屏蔽的站点域名列表(映射 exclude_domains 参数)
         :return: 搜索结果列表
         """
+        # 按当前动态配置构建请求(API Key/深度/答案开关/超时/代理即时生效)
+        ws = await get_websearch_settings()
         payload: dict = {
             "query": query,
             "max_results": limit,
-            "search_depth": TAVILY_SEARCH_DEPTH,
-            "include_answer": TAVILY_INCLUDE_ANSWER,
+            "search_depth": ws.tavily.search_depth,
+            "include_answer": ws.tavily.include_answer,
         }
         time_range = DATE_RANGE_PARAMS.get(date_range)
         if time_range:
@@ -67,7 +69,11 @@ class TavilyEngine(SearchEngine):
         if domains:
             payload["exclude_domains"] = domains
 
-        async with self.build_client(headers=self._auth_headers()) as client:
+        async with self.build_client(
+            headers=self._auth_headers(ws.tavily.api_key),
+            timeout=ws.timeout,
+            proxy=ws.proxy,
+        ) as client:
             response = await client.post(SEARCH_URL, json=payload)
             response.raise_for_status()
 

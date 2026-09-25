@@ -9,6 +9,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 from bs4 import BeautifulSoup
 
+from module_websearch.config.settings import get_websearch_settings
 from module_websearch.utils.websearch.base import SearchEngine
 from module_websearch.utils.websearch.do.websearch import DateRange, Engine, SearchResult
 
@@ -52,7 +53,9 @@ class DuckDuckGoEngine(SearchEngine):
         df = DATE_RANGE_PARAMS.get(date_range)
         if df:
             form["df"] = df
-        async with self.build_client() as client:
+        # 超时/代理按当前动态配置(直连引擎,无需密钥)
+        ws = await get_websearch_settings()
+        async with self.build_client(timeout=ws.timeout, proxy=ws.proxy) as client:
             # 分页参数 s 为偏移量,单页约25条,一般一页即可满足 limit
             response = await client.post(SEARCH_URL, data=form)
             response.raise_for_status()

@@ -5,7 +5,7 @@ Firecrawl 搜索引擎实现(搜索+可爬取,需 API Key)
 POST {api_base}/v1/search,Bearer 鉴权。
 时间范围通过 tbs 参数(如 qdr:d)支持;屏蔽站点为本地过滤。
 """
-from module_websearch.config.settings import FIRECRAWL_API_BASE, FIRECRAWL_API_KEY
+from module_websearch.config.settings import get_websearch_settings
 from module_websearch.utils.websearch.base import JSON_HEADERS, SearchEngine
 from module_websearch.utils.websearch.do.websearch import DateRange, Engine, SearchResult
 
@@ -26,19 +26,19 @@ class FirecrawlEngine(SearchEngine):
     description = "搜索+网页抓取 API,支持时间范围,需 API Key"
     requires_api_key = True
 
-    def is_configured(self) -> bool:
+    async def is_configured(self) -> bool:
         """判断引擎是否已配置API Key(未配置时在引擎列表中置灰)"""
-        return bool(FIRECRAWL_API_KEY)
+        return bool((await get_websearch_settings()).firecrawl.api_key)
 
-    def _search_url(self) -> str:
+    def _search_url(self, api_base: str) -> str:
         """拼接搜索端点(api_base 可指向自部署实例)"""
-        return f"{FIRECRAWL_API_BASE}/v1/search"
+        return f"{api_base}/v1/search"
 
-    def _auth_headers(self) -> dict[str, str]:
+    def _auth_headers(self, api_key: str) -> dict[str, str]:
         """构建带 Bearer Token 的请求头(Key 未配置时抛出异常)"""
-        if not FIRECRAWL_API_KEY:
-            raise ValueError("Firecrawl API Key 未配置,请在 config.yaml 的 websearch.firecrawl.api_key 中填写")
-        return {**JSON_HEADERS, "Authorization": f"Bearer {FIRECRAWL_API_KEY}"}
+        if not api_key:
+            raise ValueError("Firecrawl API Key 未配置,请在\"系统管理-通用配置\"的网页搜索组中填写")
+        return {**JSON_HEADERS, "Authorization": f"Bearer {api_key}"}
 
     async def search(
         self,
@@ -55,13 +55,19 @@ class FirecrawlEngine(SearchEngine):
         :param blocked_sites: 屏蔽的站点域名列表(本地过滤)
         :return: 搜索结果列表
         """
+        # 按当前动态配置构建请求(API Key/端点/超时/代理即时生效)
+        ws = await get_websearch_settings()
         payload: dict = {"query": query, "limit": limit}
         tbs = DATE_RANGE_PARAMS.get(date_range)
         if tbs:
             payload["tbs"] = tbs
 
-        async with self.build_client(headers=self._auth_headers()) as client:
-            response = await client.post(self._search_url(), json=payload)
+        async with self.build_client(
+            headers=self._auth_headers(ws.firecrawl.api_key),
+            timeout=ws.timeout,
+            proxy=ws.proxy,
+        ) as client:
+            response = await client.post(self._search_url(ws.firecrawl.api_base), json=payload)
             response.raise_for_status()
 
         data = response.json()

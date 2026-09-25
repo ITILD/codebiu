@@ -15,6 +15,9 @@ _STORAGE_REGISTRY: dict[str, type["StorageConfig"]] = {}
 
 
 class StorageConfig(BaseModel):
+    # 存储类型(local/s3/rustfs): 工厂 create(config_type, dict) 时由 dict 自动填充,
+    # 用于运行时读取"实际生效的存储类型"(配置中心改类型需重启才重新装配, 此值不变)
+    storage_type: str | None = Field(None, description="存储类型(local/s3/rustfs)")
     # 字段名与 config.yaml 的 file_system.max_size 保持一致(MB)
     max_size: int = Field(10, description="单文件最大存储（MB）,默认10MB")
     # 允许的 MIME 类型列表(支持 image/* 通配),空表示不限制
@@ -79,4 +82,5 @@ class StorageConfigFactory:
         cls = _STORAGE_REGISTRY.get(config_type)
         if not cls:
             raise ValueError(f"Unknown storage config type: {config_type}")
-        return cls.model_validate(config)  # 自动验证 + 实例化
+        # 装配时以 config_type 覆盖填充 storage_type(运行时读到的即实际生效类型)
+        return cls.model_validate({**config, "storage_type": config_type})

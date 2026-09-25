@@ -29,7 +29,7 @@ import logging
 import threading
 
 from common.config.db import db_manager
-from common.config.tasks import TASK_ENGINE
+import common.config.tasks as tasks_conf
 from module_task.do.task import TaskTypeDef
 
 logger = logging.getLogger(__name__)
@@ -99,8 +99,8 @@ _local_background_tasks: set[asyncio.Task] = set()
 
 
 def get_task_engine() -> str:
-    """当前任务执行引擎(local/celery), 从 config tasks.engine 读取"""
-    return TASK_ENGINE
+    """当前任务执行引擎(local/celery), 读模块属性(refresh_tasks_runtime 刷新后即时可见)"""
+    return tasks_conf.TASK_ENGINE
 
 
 def _load_runner(runner_path: str):

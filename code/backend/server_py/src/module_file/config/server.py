@@ -19,10 +19,13 @@ logger.info("ok...server module_file服务配置")
 @register_init_hook
 async def ensure_storage_ready():
     """启动时确保物理存储就绪: S3协议存储(rustfs/minio/s3)桶不存在时自动创建"""
-    from module_file.config.filesystem import storage
+    from module_file.config.filesystem import init_storage_config, storage
     from module_file.utils.multi_storage.session.impl.storage_s3 import (
         S3StorageInterface,
     )
+
+    # 幂等装配(不依赖钩子注册顺序; 已装配时直接返回)
+    await init_storage_config()
 
     if isinstance(storage, S3StorageInterface):
         try:
