@@ -58,8 +58,9 @@ def _write_base(tmp_path: Path, pointer: str | None) -> Path:
     return base
 
 
-def test_resolve_layers_pointer_missing_warns_skips(tmp_path: Path, caplog):
+def test_resolve_layers_pointer_missing_warns_skips(tmp_path: Path, monkeypatch, caplog):
     """state.config_path 指向不存在的文件: 告警并跳过(新克隆环境不阻塞)"""
+    monkeypatch.chdir(tmp_path)  # 隔离真实环境的 config.seed.yaml 等约定文件
     base = _write_base(tmp_path, "not_exist.yaml")
     with caplog.at_level("WARNING"):
         files = _resolve_layer_files(base)
@@ -136,6 +137,30 @@ def test_load_merged_and_env_override(tmp_path: Path):
     assert conf2.get("token").get("secret_key") == "env-key"
     assert conf2.get("token").get("expire_minutes") == 45
     assert isinstance(conf2.get("token").get("expire_minutes"), int)
+
+
+# ==================== 约定种子层(config.seed.yaml) ====================
+
+def test_resolve_layers_seed_convention(tmp_path: Path, monkeypatch):
+    """种子文件存在则插入基线与指针覆盖层之间; 缺失属正常(跳过)"""
+    monkeypatch.chdir(tmp_path)  # SEED_FILE 相对启动工作目录解析
+    seed = tmp_path / "config.seed.yaml"
+    seed.write_text("token:\n  expire_minutes: 88\n", encoding="utf-8")
+    overlay = tmp_path / "dev.yaml"
+    overlay.write_text("token:\n  expire_minutes: 99\n", encoding="utf-8")
+    base = _write_base(tmp_path, "dev.yaml")
+
+    files = _resolve_layer_files(base)
+    assert [f.name for f in files] == ["config.yaml", "config.seed.yaml", "dev.yaml"]
+
+    # 层级顺序: 种子层覆盖基线, 指针覆盖层优先级更高
+    conf = _build(files)
+    assert conf.get("token").get("expire_minutes") == 99
+
+    # 种子文件缺失: 仅基线+指针(告警跳过逻辑复用), 不报错
+    seed.unlink()
+    files = _resolve_layer_files(base)
+    assert [f.name for f in files] == ["config.yaml", "dev.yaml"]
 
 
 # ==================== 真实全局单例冒烟 ====================
