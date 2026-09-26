@@ -2,15 +2,18 @@
 # 加载层级(低 → 高, 后层覆盖前层, 嵌套 dict 深合并, list 整体替换):
 #   1. config.yaml        基线层(本文件, 入 git): 全部键的安全默认值, 开箱即用
 #   2. config.seed.yaml   约定种子层(gitignored, 存在即加载): 业务配置/模型种子的首启录入来源
-#   3. state.config_path  基线指向的开发覆盖层(如 config.dev.yaml, 已被 .gitignore;
-#                         文件缺失时告警跳过, 新克隆环境用本文件默认值即可启动)
+#   3. APP_ENV 环境覆盖层  环境切换标准姿势: .env 写 APP_ENV=dev → 自动加载 config.dev.yaml
 #   4. CONFIG_PATH 环境变量 部署覆盖层(逗号分隔多文件按序覆盖, 生产/CI 注入, 缺失即启动失败)
 #   5. CODEBIU_* 环境变量  键级覆盖最高优先级(嵌套键用双下划线):
 #                         CODEBIU_TOKEN__SECRET_KEY=xxx → token.secret_key
+# 环境声明: 项目根 .env(gitignored)自动加载, 真实环境变量优先于 .env
 # 密钥管理: 一切密钥只放覆盖层文件(gitignored 的 config.*.yaml / .secrets.*)或环境变量,
 #           严禁写入本文件。业务配置(token/email/websearch/file_system/db_cache/db_vector/
 #           db_graph/tasks 九组)首启以种子层同名节为种子入库, 之后在 系统管理→通用配置页
 #           修改(此处再改不再生效); 默认管理员 admin 属通用基线配置, 归本文件而非种子文件。
+# 典型用法:
+#   开发: .env 写 APP_ENV=dev
+#   发布: 容器 ENV APP_ENV=prod → 外挂 config.prod.yaml; 密钥走 CODEBIU_*/K8s Secret
 
 # ############################# 全局标识 #############################
 global:
@@ -22,8 +25,6 @@ global:
 # ############################# 状态配置 #############################
 state:
   is_dev: true
-  # 开发覆盖层(指向 gitignored 的环境文件; 生产用 CONFIG_PATH 环境变量替代)
-  config_path: config.dev.yaml
   # 数据库自检,rel创建基础表
   # check_db: true
 

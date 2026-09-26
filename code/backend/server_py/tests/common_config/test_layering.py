@@ -1,6 +1,6 @@
 """配置分层加载测试(common/config/index)
 
-覆盖: 深合并语义 / 层级文件解析(指针缺失告警跳过 / CONFIG_PATH 缺失失败) /
+覆盖: 深合并语义 / APP_ENV 环境层与 CONFIG_PATH 解析 / 约定种子层 /
 Dynaconf 注入 + CODEBIU_* 环境变量键级覆盖(最高优先级, 自动类型转换)
 """
 from pathlib import Path
@@ -49,31 +49,32 @@ def test_read_layer_empty_and_invalid(tmp_path: Path):
 
 # ==================== 层级文件解析 ====================
 
-def _write_base(tmp_path: Path, pointer: str | None) -> Path:
-    state = {"is_dev": True}
-    if pointer:
-        state["config_path"] = pointer
+def _write_base(tmp_path: Path) -> Path:
+    """写最小基线文件(仅 state.is_dev; 环境切换已改由 APP_ENV 环境变量驱动)"""
     base = tmp_path / "config.yaml"
-    base.write_text(yaml.safe_dump({"state": state}), encoding="utf-8")
+    base.write_text(yaml.safe_dump({"state": {"is_dev": True}}), encoding="utf-8")
     return base
 
 
-def test_resolve_layers_pointer_missing_warns_skips(tmp_path: Path, monkeypatch, caplog):
-    """state.config_path 指向不存在的文件: 告警并跳过(新克隆环境不阻塞)"""
+def test_resolve_layers_app_env_missing_warns_skips(tmp_path: Path, monkeypatch, caplog):
+    """APP_ENV 指向的环境配置不存在: 告警并跳过(新克隆环境不阻塞)"""
     monkeypatch.chdir(tmp_path)  # 隔离真实环境的 config.seed.yaml 等约定文件
-    base = _write_base(tmp_path, "not_exist.yaml")
+    monkeypatch.setenv("APP_ENV", "notexist")
+    base = _write_base(tmp_path)
     with caplog.at_level("WARNING"):
         files = _resolve_layer_files(base)
     assert files == [base]
-    assert any("not_exist.yaml" in r.message for r in caplog.records)
+    assert any("config.notexist.yaml" in r.message for r in caplog.records)
 
 
-def test_resolve_layers_pointer_ok_and_env_missing_fails(tmp_path: Path, monkeypatch):
-    """指针存在则追加; CONFIG_PATH 显式指定的文件缺失则失败(防止生产静默回退)"""
-    monkeypatch.chdir(tmp_path)  # 覆盖层按启动工作目录相对路径解析
-    overlay = tmp_path / "dev.yaml"
+def test_resolve_layers_app_env_ok_and_config_path_missing_fails(tmp_path: Path, monkeypatch):
+    """APP_ENV 存在则追加; CONFIG_PATH 显式指定的文件缺失则失败(防止生产静默回退)"""
+    monkeypatch.chdir(tmp_path)  # 约定层文件按启动工作目录相对路径解析
+    overlay = tmp_path / "config.dev.yaml"
     overlay.write_text("token:\n  expire_minutes: 99\n", encoding="utf-8")
-    base = _write_base(tmp_path, "dev.yaml")
+    base = _write_base(tmp_path)
+
+    monkeypatch.setenv("APP_ENV", "dev")
     assert [f.resolve() for f in _resolve_layer_files(base)] == [base.resolve(), overlay.resolve()]
 
     monkeypatch.setenv("CONFIG_PATH", " nope1.yaml , nope2.yaml ")
@@ -142,31 +143,32 @@ def test_load_merged_and_env_override(tmp_path: Path):
 # ==================== 约定种子层(config.seed.yaml) ====================
 
 def test_resolve_layers_seed_convention(tmp_path: Path, monkeypatch):
-    """种子文件存在则插入基线与指针覆盖层之间; 缺失属正常(跳过)"""
+    """种子文件存在则插入基线与环境覆盖层之间; 缺失属正常(跳过)"""
     monkeypatch.chdir(tmp_path)  # SEED_FILE 相对启动工作目录解析
     seed = tmp_path / "config.seed.yaml"
     seed.write_text("token:\n  expire_minutes: 88\n", encoding="utf-8")
-    overlay = tmp_path / "dev.yaml"
-    overlay.write_text("token:\n  expire_minutes: 99\n", encoding="utf-8")
-    base = _write_base(tmp_path, "dev.yaml")
+    dev = tmp_path / "config.dev.yaml"
+    dev.write_text("token:\n  expire_minutes: 99\n", encoding="utf-8")
+    base = _write_base(tmp_path)
+    monkeypatch.setenv("APP_ENV", "dev")
 
     files = _resolve_layer_files(base)
-    assert [f.name for f in files] == ["config.yaml", "config.seed.yaml", "dev.yaml"]
+    assert [f.name for f in files] == ["config.yaml", "config.seed.yaml", "config.dev.yaml"]
 
-    # 层级顺序: 种子层覆盖基线, 指针覆盖层优先级更高
+    # 层级顺序: 种子层覆盖基线, 环境覆盖层优先级更高
     conf = _build(files)
     assert conf.get("token").get("expire_minutes") == 99
 
-    # 种子文件缺失: 仅基线+指针(告警跳过逻辑复用), 不报错
+    # 种子文件缺失: 仅基线+环境层, 不报错
     seed.unlink()
     files = _resolve_layer_files(base)
-    assert [f.name for f in files] == ["config.yaml", "dev.yaml"]
+    assert [f.name for f in files] == ["config.yaml", "config.dev.yaml"]
 
 
 # ==================== 真实全局单例冒烟 ====================
 
 def test_real_conf_loaded():
-    """真实 conf 可用: 基线+覆盖层合并加载, state/server 等关键节存在"""
+    """真实 conf 可用: 基线+种子+APP_ENV 环境层合并加载, 关键节存在"""
     from common.config.index import conf, is_dev
 
     assert isinstance(is_dev, bool)

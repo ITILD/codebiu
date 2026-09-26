@@ -180,5 +180,5 @@ test.db
 .vscode
 temp_source
 config.*.yaml
-# .env
+.env
 uv.lock
