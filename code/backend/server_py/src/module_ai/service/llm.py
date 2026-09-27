@@ -10,7 +10,6 @@ import logging
 import time
 from datetime import datetime, timezone
 
-from langchain.agents import create_agent
 from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage
@@ -101,6 +100,10 @@ class LLMService:
             # 校验format格式
             try:
                 messages = await self.llm_prompt.get_prompt_format_check()
+                # langchain 顶层聚合包极重(连带 text_splitters/transformers/torch 等
+                # 500MB+), 延迟到校验请求时才导入
+                from langchain.agents import create_agent
+
                 agent = create_agent(
                     model=llm_chain,
                     response_format=ModelChatCheckFormat,
@@ -220,6 +223,8 @@ class LLMService:
     async def _test_structured(self, llm) -> tuple[bool, str]:
         """结构化输出能力: 按 schema(name/age)返回结构化结果并校验"""
         messages = await self.llm_prompt.get_prompt_format_check()
+        from langchain.agents import create_agent
+
         agent = create_agent(model=llm, response_format=ModelChatCheckFormat)
         result = await agent.ainvoke({"messages": messages})
         fmt = ModelChatCheckFormat.model_validate(result["structured_response"])

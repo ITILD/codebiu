@@ -1,0 +1,21 @@
+[package]
+name = "module-websearch"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+common.workspace = true
+module-authorization.workspace = true
+
+axum.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+async-trait.workspace = true
+tracing.workspace = true
+# HTTP 客户端(搜索引擎直连/API 调用)
+reqwest.workspace = true
+# URL 解析(DDG 跳转链清洗/站点域名提取)
+url = "2"
+# DDG 结果 HTML 解析(等价 Python BeautifulSoup+lxml)
+scraper = "0.20"

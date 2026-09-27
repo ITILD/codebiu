@@ -1,0 +1,16 @@
+[package]
+name = "module-dev-tools"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+common.workspace = true
+module-authorization.workspace = true
+axum.workspace = true
+sea-orm.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+tokio.workspace = true
+tracing.workspace = true

@@ -89,6 +89,8 @@ export default defineConfig(
             if (file && !isPublic) route.addToMeta(isMainApp ? { app: true } : { admin: true })
             // 独立页面(如账户设置): 属后台路由(需登录), 但页面自带导航, 不渲染侧边栏
             if (file.endsWith('/src/pages/setting.vue')) route.addToMeta({ standalone: true })
+            // 版本信息页(系统介绍+版本时间线): 属后台路由(需登录), 页面自带布局, 不渲染侧边栏
+            if (file.endsWith('/src/pages/version.vue')) route.addToMeta({ standalone: true })
             // 全屏页面(如三维地球): 锁定文档滚动, 页面内容占满视口剩余高度
             // 工作流编辑器: 画布需要固定视口高度
             if (

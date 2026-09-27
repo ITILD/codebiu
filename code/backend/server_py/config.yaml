@@ -80,23 +80,3 @@ admin:
   email: admin@codebiu.local
   # 每次启动都将密码重置为上方配置值(忘记密码时改为 true 重启即可恢复)
   reset_password: false
-
-# ############################# 语音 ASR/TTS 配置 #############################
-# 【保留 yaml】本地模型管线定义(阶段二再议)
-# 模型默认放置在 temp_source/model/voice 下，缺失时使用下列默认子目录名。
-# engine 参数(sherpa/qwen)在接口请求时传入，默认 sherpa。
-voice:
-  sherpa:
-    # sherpa ASR 流式模型(中英双语 zipformer)
-    asr_model: sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20
-    asr_tokens: tokens.txt
-    # sherpa TTS 模型(vits-melo-tts-zh_en)
-    tts_model: vits-melo-tts-zh_en/model.onnx
-    tts_tokens: vits-melo-tts-zh_en/tokens.txt
-    tts_lexicon: vits-melo-tts-zh_en/lexicon.txt
-    tts_dict_dir: vits-melo-tts-zh_en/dict
-  qwen:
-    # Qwen3 ASR/TTS 本地模型目录名
-    asr_model: Qwen3-ASR-1.7B
-    tts_model: Qwen3-TTS-1.7B
-    device: cpu

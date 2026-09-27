@@ -6,12 +6,19 @@ langgraph AsyncPostgresSaver checkpointer 配置(模块级单例)
 - setup() 创建 checkpointer 所需的表和索引
 - 通过 asyncio.Lock 防止并发初始化竞态
 """
+# 注解延迟求值: 允许类型注解引用延迟导入的 langgraph/psycopg_pool
+from __future__ import annotations
+
 import asyncio
 import logging
-from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-from psycopg_pool import AsyncConnectionPool
+from typing import TYPE_CHECKING
 
 from common.config.index import conf
+
+if TYPE_CHECKING:
+    # langgraph(+psycopg_pool) 重量级依赖延迟到 get_checkpointer() 首次调用时导入
+    from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+    from psycopg_pool import AsyncConnectionPool
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +57,10 @@ async def get_checkpointer() -> AsyncPostgresSaver:
     通过 asyncio.Lock 防止并发请求重复初始化。
     """
     global _pool, _checkpointer
+
+    # 重量级依赖延迟导入(langgraph 连带加载约 50MB+)
+    from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+    from psycopg_pool import AsyncConnectionPool
 
     if _checkpointer is not None:
         return _checkpointer

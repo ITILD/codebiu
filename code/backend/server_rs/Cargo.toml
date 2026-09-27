@@ -1,0 +1,114 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/common",
+    "crates/module-authorization",
+    "crates/module-main",
+    "crates/module-site",
+    "crates/module-life",
+    "crates/module-template",
+    "crates/module-dev-tools",
+    "crates/module-nlp",
+    "crates/module-contact",
+    "crates/module-graph",
+    "crates/module-file",
+    "crates/module-websearch",
+    "crates/module-ai",
+    "crates/module-task",
+    "crates/module-rag",
+    "crates/module-agent",
+    "crates/module-geometry",
+    "crates/module-office",
+    "crates/app",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+
+[workspace.dependencies]
+# ############################# 异步运行时/Web 框架 #############################
+tokio = { version = "1", features = ["full"] }
+axum = { version = "0.8", features = ["multipart", "ws"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "compression-gzip", "trace", "fs"] }
+
+# ############################# 权限引擎 #############################
+# 域 RBAC(keyMatch 子域), 自研 sea-orm adapter 持久化到 casbin_rule 表
+casbin = { version = "2.5", default-features = false, features = ["runtime-tokio", "incremental"] }
+async-trait = "0.1"
+
+# ############################# 数据库 #############################
+sea-orm = { version = "1.1", features = [
+    "sqlx-sqlite",
+    "sqlx-postgres",
+    "runtime-tokio-rustls",
+    "macros",
+    "with-chrono",
+    "with-json",
+    "with-uuid",
+] }
+
+# ############################# 序列化/配置 #############################
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+dotenvy = "0.15"
+
+# ############################# 安全 #############################
+jsonwebtoken = "9"
+argon2 = "0.5"
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+# ############################# HTTP 客户端/日志 #############################
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls", "gzip", "multipart"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+# SSE 流式响应所需的官方最小流工具库
+tokio-stream = "0.1"
+# SMTP 邮件发送客户端(等价 Python aiosmtplib, 隐式 TLS; 仅 module-contact 使用)
+lettre = { version = "0.11", default-features = false, features = ["smtp-transport", "pool", "builder", "tokio1-rustls-tls"] }
+thiserror = "2"
+moka = { version = "0.12", features = ["sync"] }
+
+# ############################# 文件模块(module-file) #############################
+# 内容哈希(SHA-256)与分片会话凭证 HMAC 签名
+sha2 = "0.10"
+hmac = "0.12"
+# 分片凭证 base64url 编码
+base64 = "0.22"
+# 按扩展名推断 MIME(等价 Python mimetypes)
+mime_guess = "2"
+# 存储流式读取(BoxStream)与下载授权钩子
+futures = "0.3"
+bytes = "1"
+# 预签名 URL 文件名 RFC 5987 编码
+percent-encoding = "2"
+# S3 协议对象存储(rustfs/minio/S3 共用; 预签名+multipart)
+aws-sdk-s3 = "1"
+
+# ############################# 内部 crate #############################
+# 公共包(对齐 Python src/common)
+common = { path = "crates/common" }
+module-authorization = { path = "crates/module-authorization" }
+module-main = { path = "crates/module-main" }
+module-site = { path = "crates/module-site" }
+module-life = { path = "crates/module-life" }
+module-template = { path = "crates/module-template" }
+module-dev-tools = { path = "crates/module-dev-tools" }
+module-nlp = { path = "crates/module-nlp" }
+module-contact = { path = "crates/module-contact" }
+module-graph = { path = "crates/module-graph" }
+module-file = { path = "crates/module-file" }
+module-websearch = { path = "crates/module-websearch" }
+module-ai = { path = "crates/module-ai" }
+module-task = { path = "crates/module-task" }
+module-rag = { path = "crates/module-rag" }
+module-agent = { path = "crates/module-agent" }
+module-geometry = { path = "crates/module-geometry" }
+module-office = { path = "crates/module-office" }
+
+[profile.release]
+opt-level = 3
+lto = "thin"

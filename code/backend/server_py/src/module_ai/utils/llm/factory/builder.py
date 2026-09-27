@@ -8,10 +8,8 @@
 """
 import logging
 
-from langchain_aws import BedrockEmbeddings, ChatBedrockConverse
 from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import BaseChatModel
-from langchain_ollama import ChatOllama, OllamaEmbeddings
 from langchain_openai import OpenAIEmbeddings
 from pydantic import SecretStr
 
@@ -40,6 +38,8 @@ def build_chat_model(config: ModelConfig, streaming: bool = True) -> BaseChatMod
             extra_body={"enable_thinking": not config.no_think},
         )
     if config.server_type == ModelServerType.OLLAMA:
+        from langchain_ollama import ChatOllama
+
         return ChatOllama(
             model=config.model,
             base_url=config.url,
@@ -47,6 +47,8 @@ def build_chat_model(config: ModelConfig, streaming: bool = True) -> BaseChatMod
             temperature=config.temperature,
         )
     if config.server_type == ModelServerType.AWS:
+        from langchain_aws import ChatBedrockConverse
+
         aws_access_key_id = (config.extra or {}).get("aws_access_key_id")
         region_name = (config.extra or {}).get("region_name")
         return ChatBedrockConverse(
@@ -79,12 +81,16 @@ def build_embeddings(config: ModelConfig) -> Embeddings:
             check_embedding_ctx_length=False,
         )
     if config.server_type == ModelServerType.OLLAMA:
+        from langchain_ollama import OllamaEmbeddings
+
         return OllamaEmbeddings(
             model=config.model,
             base_url=config.url,
             dimensions=config.out_tokens,
         )
     if config.server_type == ModelServerType.AWS:
+        from langchain_aws import BedrockEmbeddings
+
         aws_access_key_id = (config.extra or {}).get("aws_access_key_id")
         region_name = (config.extra or {}).get("region_name")
         return BedrockEmbeddings(

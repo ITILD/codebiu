@@ -1,0 +1,11 @@
+[package]
+name = "module-graph"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+# 纯库模块(对齐 Python module_graph): 无 HTTP 端点, 仅供任务编排等模块复用
+tokio.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+tracing.workspace = true

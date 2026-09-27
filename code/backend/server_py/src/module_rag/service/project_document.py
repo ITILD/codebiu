@@ -1,3 +1,6 @@
+# 注解延迟求值: 允许类型注解引用延迟导入的重依赖(docling 解析服务等)
+from __future__ import annotations
+
 import asyncio
 import json
 import logging
@@ -6,10 +9,9 @@ import tempfile
 from pathlib import Path
 
 import aiofiles
-from langchain.chat_models import BaseChatModel
+from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_openai import OpenAIEmbeddings
 
-from common.config.db import db_vector
 from common.utils.fastapiEX.exceptions import NotFoundError
 from common.config.path import DIR_UPLOAD
 from common.utils.db.schema.pagination import PaginationParams, PaginationResponse
@@ -25,8 +27,6 @@ from module_file.do.filesystem import (
     MultipartInitResponse,
 )
 from module_file.service.filesystem import FileService
-from module_office.service.document_chunk import DocumentChunkService
-from module_office.service.document_parse import DocumentParseService
 from module_office.utils.document_chunk.do.chunk import (
     ChunkConfig,
     ChunkStrategyEnum,
@@ -81,15 +81,24 @@ class ProjectDocumentService:
         project_document_chunk_service: ProjectDocumentChunkService | None = None,
         file_service: FileService | None = None,
     ):
-        """依赖注入构造器:初始化所需的数据访问对象"""
+        """依赖注入构造器:初始化所需的数据访问对象
+
+        文档解析/分块服务(docling 等重依赖)延迟导入, 未传入且未使用时不加载
+        """
         self.document_dao = document_dao or ProjectDocumentDao()
         self.project_dao = project_dao or ProjectDao()
         self.user_model_service = user_model_service or UserModelService()
         self.llm_service = llm_service or LLMService()
         self.model_config_service = model_config_service or ModelConfigService()
-        self.document_parse_service = document_parse_service or DocumentParseService()
-        # 负责文档分块策略选择和分块操作
-        self.document_chunk_service = document_chunk_service or DocumentChunkService()
+        if document_parse_service is None or document_chunk_service is None:
+            from module_office.service.document_chunk import DocumentChunkService
+            from module_office.service.document_parse import DocumentParseService
+
+            document_parse_service = document_parse_service or DocumentParseService()
+            # 负责文档分块策略选择和分块操作
+            document_chunk_service = document_chunk_service or DocumentChunkService()
+        self.document_parse_service = document_parse_service
+        self.document_chunk_service = document_chunk_service
 
         self.project_document_chunk_service = project_document_chunk_service or ProjectDocumentChunkService()
 
@@ -672,6 +681,9 @@ class ProjectDocumentService:
                 )
 
             # 6.批量插入数据 (DBVectorMilvus.add 会自动识别 Model 类名作为 collection_name)
+            # db_vector 惰性属性: 延迟到本方法调用时导入, 避免 import 期加载 pymilvus
+            from common.config.db import db_vector
+
             await db_vector.add(insert_data)
 
             await _report(

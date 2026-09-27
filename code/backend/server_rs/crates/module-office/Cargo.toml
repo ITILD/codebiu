@@ -1,0 +1,16 @@
+[package]
+name = "module-office"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+# 公共包(错误/请求提取器)
+common.workspace = true
+# 鉴权依赖(AuthUserId) —— 依赖方向: 本模块 → module-authorization
+module-authorization.workspace = true
+
+axum.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true

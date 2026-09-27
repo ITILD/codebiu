@@ -1,0 +1,9 @@
+/target
+
+# 环境覆盖层配置(gitignored, 对齐 Python 侧 config.*.yaml 约定)
+config.*.yaml
+.env
+
+# 运行期数据目录(上传/日志/db 等)
+temp_source
+

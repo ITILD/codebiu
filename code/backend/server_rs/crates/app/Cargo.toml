@@ -1,0 +1,36 @@
+[package]
+name = "app"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "server_rs"
+path = "src/main.rs"
+
+[dependencies]
+common.workspace = true
+module-authorization.workspace = true
+module-main.workspace = true
+module-site.workspace = true
+module-life.workspace = true
+module-template.workspace = true
+module-dev-tools.workspace = true
+module-nlp.workspace = true
+module-file.workspace = true
+module-websearch.workspace = true
+module-ai.workspace = true
+module-task.workspace = true
+module-rag.workspace = true
+module-agent.workspace = true
+module-geometry.workspace = true
+module-office.workspace = true
+module-contact.workspace = true
+tokio.workspace = true
+axum.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+sea-orm.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true

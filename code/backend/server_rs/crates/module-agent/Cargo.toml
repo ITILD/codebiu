@@ -1,0 +1,27 @@
+[package]
+name = "module-agent"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+# 公共包(错误/分页/表注册中心/运行时状态)
+common = { workspace = true }
+# 鉴权依赖(AuthUser/authorize/权限声明注册) —— 依赖方向: 本模块 → module-authorization
+module-authorization = { workspace = true }
+# LLM 调用(get_llm/chat_once/chat_stream/默认公共模型回退)复用 module-ai 服务
+module-ai = { workspace = true }
+# 会话与消息表实体(conversation/chat_message/user_model)复用 module-rag
+module-rag = { workspace = true }
+
+axum = { workspace = true }
+tokio = { workspace = true }
+# SSE 流式响应的流适配(ReceiverStream → axum Sse)
+tokio-stream = { workspace = true }
+sea-orm = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }
+# 模型调用 HTTP 客户端类型(state.http)
+reqwest = { workspace = true }

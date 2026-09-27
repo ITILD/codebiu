@@ -1,5 +1,5 @@
 {
-    "//1": "调试启动配置: 调试单文件 / 后端 FastAPI (UBUNTU & WIN 双平台) / 前端 Vite",
+    "//1": "调试启动配置: 调试单文件 / 后端 FastAPI(UBUNTU & WIN) / 后端 axum(rust) / 前端 Vite",
     "//2": "F5 默认启动第一个配置; 选 \"前后端一起 (全栈)\" 可一键启动全部服务",
     "version": "0.2.0",
     "configurations": [
@@ -43,6 +43,25 @@
             "console": "integratedTerminal"
         },
         {
+            "//": "Rust 后端(axum): 先执行 preLaunchTask 编译, 再用 cppvsdbg 挂到 target/debug/server_rs.exe; 端口 2003 避让 Python 服务(2001)",
+            "name": "▶ WIN Backend: server_rs (rust)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/code/backend/server_rs/target/debug/server_rs.exe",
+            "cwd": "${workspaceFolder}/code/backend/server_rs",
+            "args": [],
+            "stopAtEntry": false,
+            "console": "integratedTerminal",
+            "symbolOptions": {
+                "searchPaths": [],
+                "searchMicrosoftSymbolServer": false
+            },
+            "env": {
+                "CODEBIU_SERVER__PORT": "2003"
+            },
+            "preLaunchTask": "build server_rs (debug)"
+        },
+        {
             "name": "▶ Frontend: pnpm run dev (vue3)",
             "type": "node-terminal",
             "request": "launch",
@@ -69,7 +88,14 @@
                 "▶ Frontend: pnpm run dev (vue3)"
             ],
             "stopAll": true
+        },
+        {
+            "name": "前后端一起win (Rust全栈)",
+            "configurations": [
+                "▶ WIN Backend: server_rs (rust)",
+                "▶ Frontend: pnpm run dev (vue3)"
+            ],
+            "stopAll": true
         }
-    ],
-    
+    ]
 }

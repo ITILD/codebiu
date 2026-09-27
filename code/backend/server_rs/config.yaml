@@ -1,0 +1,64 @@
+# ############################# 配置分层规范(基线工程, 与 Python 侧同构) #############################
+# 加载层级(低 → 高, 后层覆盖前层, 嵌套 dict 深合并, list 整体替换):
+#   1. config.yaml        基线层(本文件, 入 git): 引导级配置 + 通用默认值, 开箱即用
+#   2. config.seed.yaml   约定种子层(gitignored, 存在即加载): 业务配置首启录入来源
+#   3. APP_ENV 环境覆盖层  环境切换标准姿势: .env 写 APP_ENV=dev → 自动加载 config.dev.yaml
+#   4. CONFIG_PATH 环境变量 部署覆盖层(逗号分隔多文件按序覆盖, 生产/CI 注入, 缺失即启动失败)
+#   5. CODEBIU_* 环境变量  键级覆盖最高优先级(嵌套键用双下划线):
+#                         CODEBIU_SERVER__PORT=3000 → server.port
+
+# ############################# 全局标识 #############################
+global:
+  # 应用名称
+  name: codebiu
+  # 应用版本
+  version: 0.0.1
+
+# ############################# 状态配置 #############################
+state:
+  is_dev: true
+
+# ############################# 后端服务配置 #############################
+server:
+  # 根路由代理
+  server_root_path: ""
+  host: 0.0.0.0
+  port: 2001
+
+# 中间件配置
+middleware:
+  cors: true
+  gzip: true
+
+# ############################# 目录配置 #############################
+dir:
+  # 基础根目录
+  base: temp_source
+  # 子目录定义（按功能划分）
+  base_child:
+    source:     source      # 源代码/原始文件
+    upload:     upload      # 用户上传文件(默认目录)
+    log:        log         # 日志文件
+    sys_out:    sys_out     # 系统输出（如运行结果、导出文件）
+    temp:       temp        # 临时文件(解压缩之类)
+    db:         db          # 数据库文件（如 SQLite、缓存等）
+    test:       test        # 测试相关资源
+    model:      model       # 模型文件
+    lib_third:  lib_third   # 第三方库文件
+  # 静态资源目录
+  public: public
+
+# ############################# 数据库配置 #############################
+# db_rel 保持 yaml(引导级); 生产密钥走 CODEBIU_* 环境变量或覆盖层
+db_rel:
+  type: sqlite
+  database: temp_source/db/data.db
+
+# ############################# 系统管理员账户配置 #############################
+admin:
+  username: admin
+  password: admin123
+  nickname: 系统管理员
+  email: admin@codebiu.local
+  # 每次启动都将密码重置为上方配置值(忘记密码时改为 true 重启即可恢复)
+  reset_password: false

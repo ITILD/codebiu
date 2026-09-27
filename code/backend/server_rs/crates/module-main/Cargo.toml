@@ -1,0 +1,20 @@
+[package]
+name = "module-main"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+common.workspace = true
+module-authorization.workspace = true
+tokio.workspace = true
+axum.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+sea-orm.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+sysinfo = "0.33"
+reqwest.workspace = true
+tracing.workspace = true

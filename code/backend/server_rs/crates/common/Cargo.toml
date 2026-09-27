@@ -1,0 +1,27 @@
+[package]
+name = "common"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+tokio.workspace = true
+axum.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+sea-orm.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml.workspace = true
+dotenvy.workspace = true
+jsonwebtoken.workspace = true
+argon2.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+reqwest.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+thiserror.workspace = true
+moka.workspace = true
+
+[dev-dependencies]
+base64 = "0.22"

@@ -1,0 +1,28 @@
+[package]
+name = "module-ai"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+# 公共包(错误/分页/动态配置/表注册中心/运行时状态)
+common = { workspace = true }
+# 鉴权依赖(AuthUser/casbin/权限声明注册) —— 依赖方向: 本模块 → module-authorization
+module-authorization = { workspace = true }
+
+axum = { workspace = true }
+tokio = { workspace = true }
+sea-orm = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }
+# LLM/OCR/Rerank 在线引擎 HTTP 调用(OpenAI 兼容 REST + DashScope 原生)
+reqwest = { workspace = true }
+# 模型实例缓存(对齐 Python LLMService._model_cache / DELETE /llm/cache)
+moka = { workspace = true }
+# SSE 流式响应的流适配(ReceiverStream → axum Sse)
+tokio-stream = { workspace = true }
+# OCR 图片 base64 Data URL 编码(对齐 Python base64 模块)
+base64 = { workspace = true }
+tower-http = { workspace = true }

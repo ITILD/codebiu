@@ -1,0 +1,24 @@
+[package]
+name = "module-rag"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+common.workspace = true
+module-authorization.workspace = true
+module-ai.workspace = true
+module-task.workspace = true
+module-file.workspace = true
+
+axum.workspace = true
+tokio.workspace = true
+sea-orm.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+tracing.workspace = true
+tokio-stream.workspace = true
+futures.workspace = true
+bytes.workspace = true
+percent-encoding.workspace = true

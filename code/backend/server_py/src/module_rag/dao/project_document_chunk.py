@@ -1,10 +1,8 @@
-from common.config.db import db_vector
 from module_rag.do.project_document_chunk import (
     ProjectDocumentChunk,
     ProjectDocumentChunkSearchBase,
     ProjectDocumentChunkSearchResponse,
 )
-from pymilvus import AnnSearchRequest, RRFRanker  # 引入混合检索类
 import logging
 
 logger = logging.getLogger(__name__)
@@ -27,6 +25,11 @@ class ProjectDocumentChunkDao:
         """
         执行稠密向量 + 稀疏向量(BM25) 的混合检索
         """
+        # pymilvus 延迟导入(连带 pandas/pyarrow 约 150MB), 仅检索请求时加载
+        from pymilvus import AnnSearchRequest, RRFRanker  # 引入混合检索类
+        # db_vector 惰性属性: 延迟到调用时导入, 避免 import 期触发 pymilvus 加载
+        from common.config.db import db_vector
+
         if not await db_vector.async_vector.has_collection(self.collection_name):
             logger.warning(f"集合 {self.collection_name} 不存在")
             return []
@@ -81,6 +84,9 @@ class ProjectDocumentChunkDao:
 
         :param document_id: 文档ID
         """
+        # db_vector 惰性属性: 延迟到调用时导入, 避免 import 期触发 pymilvus 加载
+        from common.config.db import db_vector
+
         # 因为 DBVectorMilvus 没封装 delete 方法，我们直接调用底层 pymilvus 客户端的 delete
         await db_vector.async_vector.delete(
             collection_name=self.collection_name,
@@ -92,6 +98,9 @@ class ProjectDocumentChunkDao:
 
         :param project_id: 项目ID
         """
+        # db_vector 惰性属性: 延迟到调用时导入, 避免 import 期触发 pymilvus 加载
+        from common.config.db import db_vector
+
         await db_vector.async_vector.delete(
             collection_name=self.collection_name, filter=f'project_id == "{project_id}"'
         )

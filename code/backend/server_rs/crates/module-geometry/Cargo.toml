@@ -1,0 +1,18 @@
+[package]
+name = "module-geometry"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+# 公共包(错误/分页/表注册中心)
+common.workspace = true
+# 鉴权依赖(AuthUserId/authorize/权限注册中心) —— 依赖方向: 本模块 → module-authorization
+module-authorization.workspace = true
+
+axum.workspace = true
+sea-orm.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+tracing.workspace = true

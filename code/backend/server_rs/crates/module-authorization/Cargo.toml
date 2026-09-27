@@ -1,0 +1,21 @@
+[package]
+name = "module-authorization"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+common.workspace = true
+tokio.workspace = true
+axum.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+sea-orm.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+jsonwebtoken.workspace = true
+argon2.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+casbin.workspace = true
+async-trait.workspace = true
+tracing.workspace = true

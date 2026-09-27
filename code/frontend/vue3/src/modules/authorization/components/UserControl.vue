@@ -28,7 +28,7 @@
 
 <script setup lang="ts">
 import { markRaw, computed } from 'vue'
-import { Monitor, Setting, SwitchButton } from '@element-plus/icons-vue'
+import { Monitor, Setting, SwitchButton, Document } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/common/stores/auth'
 import { logoutUser } from '@/modules/authorization/api/auth'
 import { useVisibleMenu } from '@/app/composables/useMenu'
@@ -59,6 +59,15 @@ const allMenuItems: MenuItem[] = [
     divided: true,
     action: () => {
       router.push('/admin')
+    },
+  },
+  {
+    command: 'version',
+    label: '版本信息',
+    icon: markRaw(Document),
+    action: () => {
+      // 系统介绍 + 版本时间线(无限滚动)的发布说明页
+      router.push('/version')
     },
   },
   {

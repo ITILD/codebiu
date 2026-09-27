@@ -1,0 +1,13 @@
+[package]
+name = "module-site"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+common.workspace = true
+module-authorization.workspace = true
+axum.workspace = true
+sea-orm.workspace = true
+serde.workspace = true
+uuid.workspace = true
+chrono.workspace = true

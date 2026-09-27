@@ -1,7 +1,7 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select, func, update
 from common.utils.db.schema.pagination import PaginationParams
-from common.config.db import DaoRel,db_vector
+from common.config.db import DaoRel
 from common.utils.fastapiEX.exceptions import NotFoundError
 from module_rag.do.project_document import (
     ProjectDocument,

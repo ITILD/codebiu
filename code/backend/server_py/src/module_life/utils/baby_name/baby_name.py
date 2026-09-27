@@ -16,14 +16,18 @@
    以结构化 JSON 推送(node_name=names_evaluated), 供前端渲染名字卡片。
 """
 
+# 注解延迟求值: langgraph 类型仅作注解, 运行时无需导入
+from __future__ import annotations
+
 import json
 import logging
 import re
-from typing import Annotated
+from typing import Annotated, TYPE_CHECKING
 from typing_extensions import TypedDict
 
-from langgraph.config import RunnableConfig, get_stream_writer
-from langgraph.graph import StateGraph, START, END
+if TYPE_CHECKING:
+    from langgraph.config import RunnableConfig
+
 from langchain_core.language_models import BaseChatModel
 
 from module_ai.utils.llm.stream.schemas import StreamOne
@@ -45,6 +49,13 @@ from module_life.utils.baby_name.tarot import get_tarot
 from module_life.utils.baby_name.wuxing import analyze_wuxing
 
 logger = logging.getLogger(__name__)
+
+
+def _stream_writer():
+    """langgraph 流写入器代理(模块级导入会连带加载 langgraph 全家, 延迟到节点执行时)"""
+    from langgraph.config import get_stream_writer
+
+    return get_stream_writer()
 
 # 严格计算型参考 → 计算函数注册(选中的才执行)
 STRICT_REFERENCES = [
@@ -109,7 +120,7 @@ async def calc_wuxing(state: BabyNameState, config: RunnableConfig) -> dict:
     )
     lines.append(f"- **喜用**: {'、'.join(result['favorable'])}")
     text = "\n".join(lines)
-    writer = get_stream_writer()
+    writer = _stream_writer()
     writer(StreamOne(content=text, node_name="calc_wuxing"))
     return {"calc_texts": {**state.get("calc_texts", {}), "wuxing": text}}
 
@@ -125,7 +136,7 @@ async def calc_constellation(state: BabyNameState, config: RunnableConfig) -> di
         f"- **元素**: {info.element}象星座\n"
         f"- **特质**: {info.traits}"
     )
-    writer = get_stream_writer()
+    writer = _stream_writer()
     writer(StreamOne(content=text, node_name="calc_constellation"))
     return {"calc_texts": {**state.get("calc_texts", {}), "constellation": info.summary()}}
 
@@ -141,7 +152,7 @@ async def calc_zodiac(state: BabyNameState, config: RunnableConfig) -> dict:
         f"- **生肖**: {zodiac}\n"
         f"- **宜用字根**: {hint}"
     )
-    writer = get_stream_writer()
+    writer = _stream_writer()
     writer(StreamOne(content=text, node_name="calc_zodiac"))
     return {"calc_texts": {**state.get("calc_texts", {}), "zodiac": f"生肖{zodiac}。宜用字根: {hint}"}}
 
@@ -157,7 +168,7 @@ async def calc_tarot(state: BabyNameState, config: RunnableConfig) -> dict:
         f"- **生命塔罗牌**: {info['card']}\n"
         f"- **牌意**: {info['meaning']}"
     )
-    writer = get_stream_writer()
+    writer = _stream_writer()
     writer(StreamOne(content=text, node_name="calc_tarot"))
     return {"calc_texts": {**state.get("calc_texts", {}), "tarot": info["summary"]}}
 
@@ -174,7 +185,7 @@ async def calc_buddhism(state: BabyNameState, config: RunnableConfig) -> dict:
         f"- **寓意**: {info['meaning']}\n"
         f"- **佛家意趣宜用字**: {info['hint_chars']}"
     )
-    writer = get_stream_writer()
+    writer = _stream_writer()
     writer(StreamOne(content=text, node_name="calc_buddhism"))
     return {"calc_texts": {**state.get("calc_texts", {}), "buddhism": info["summary"]}}
 
@@ -191,7 +202,7 @@ async def calc_taoism(state: BabyNameState, config: RunnableConfig) -> dict:
         f"- **寓意**: {info['meaning']}\n"
         f"- **道家意趣宜用字**: {info['hint_chars']}"
     )
-    writer = get_stream_writer()
+    writer = _stream_writer()
     writer(StreamOne(content=text, node_name="calc_taoism"))
     return {"calc_texts": {**state.get("calc_texts", {}), "taoism": info["summary"]}}
 
@@ -208,7 +219,7 @@ async def calc_christian(state: BabyNameState, config: RunnableConfig) -> dict:
         f"- **祝福经文**: {info['verse']}\n"
         f"- **祝福意趣宜用字**: {info['hint_chars']}"
     )
-    writer = get_stream_writer()
+    writer = _stream_writer()
     writer(StreamOne(content=text, node_name="calc_christian"))
     return {"calc_texts": {**state.get("calc_texts", {}), "christian": info["summary"]}}
 
@@ -286,7 +297,7 @@ def _build_prompt(state: BabyNameState) -> str:
 async def generate_name_result(state: BabyNameState, config: RunnableConfig) -> dict:
     """LLM 流式生成候选名字(思考内容以 llm_thinking 事件转发, 避免长思考期无输出)"""
     model: BaseChatModel = config.get("configurable", {}).get("model")
-    writer = get_stream_writer()
+    writer = _stream_writer()
     markdown = ""
     response_stream = model.astream(_build_prompt(state))
     async for chunk in response_stream:
@@ -369,7 +380,7 @@ async def finalize_result(state: BabyNameState, config: RunnableConfig) -> dict:
             item["score"] = result.score
         evaluated.append(item)
 
-    writer = get_stream_writer()
+    writer = _stream_writer()
     writer(StreamOne(content=json.dumps(evaluated, ensure_ascii=False), node_name="names_evaluated"))
     return {}
 
@@ -381,6 +392,8 @@ async def start(state: BabyNameState, config: RunnableConfig) -> dict:
 
 def create_baby_name_graph() -> StateGraph:
     """创建宝宝起名流程图: 严格计算(并行) → LLM起名 → 程序评定"""
+    from langgraph.graph import StateGraph, START, END
+
     workflow = StateGraph(BabyNameState)
     workflow.add_node("start", start)
     workflow.add_node("calc_wuxing", calc_wuxing)
@@ -450,5 +463,14 @@ class BabyNameStreamGenerator:
                 yield data
 
 
-# 全局单例
-baby_name_generator = BabyNameStreamGenerator()
+_generator: BabyNameStreamGenerator | None = None
+
+
+def __getattr__(name: str):
+    """PEP 562 惰性单例: 首次访问 baby_name_generator 时才构建 LangGraph 流程"""
+    if name == "baby_name_generator":
+        global _generator
+        if _generator is None:
+            _generator = BabyNameStreamGenerator()
+        return _generator
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

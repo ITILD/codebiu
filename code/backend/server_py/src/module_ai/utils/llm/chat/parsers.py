@@ -7,7 +7,6 @@ from langchain_core.messages import BaseMessage
 from langchain_core.output_parsers import BaseTransformOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableLambda
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from module_ai.utils.llm.chat.utils import LLMUtils
 
@@ -72,6 +71,10 @@ class TooLongRunnable:
     """超长文本 map-reduce 压缩: 先分块提炼再合并(可能丢失部分细节)"""
 
     def __init__(self, max_size=1000, chunk_overlap=100, llm=None):
+        # langchain_text_splitters 顶层导入会连带 transformers/torch/spacy/nltk/
+        # sentence_transformers(约 500MB+), 延迟到实例化时才加载
+        from langchain_text_splitters import RecursiveCharacterTextSplitter
+
         self.llm = llm
         self.max_size = max_size
         self.chunk_overlap = chunk_overlap
