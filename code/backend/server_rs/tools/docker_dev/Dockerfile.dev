@@ -1,0 +1,59 @@
+# 后端 server_rs 开发镜像(多阶段构建)
+# 构建上下文为 server_rs 根目录:
+#   docker build -f tools/docker_dev/Dockerfile.dev -t server_rs:<version> .
+# 说明:
+#   - 阶段一 rust:1 编译(release), 阶段二 ubuntu:24.04 运行(与 server_py Dockerfile.dev 运行基底一致)
+#   - config.seed.yaml / config.dev.yaml / .env 为 gitignored 层, 缺失会导致 COPY 失败(见 build 脚本校验)
+
+# ---------------- 编译阶段 ----------------
+FROM rust:1 AS builder
+
+# 国内 crates 镜像(rsproxy sparse), 海外环境可删除本段
+RUN printf '[source.crates-io]\nreplace-with = "rsproxy-sparse"\n[source.rsproxy-sparse]\nregistry = "sparse+https://rsproxy.cn/index/"\n' \
+    > /usr/local/cargo/config.toml
+
+WORKDIR /build
+# 先复制清单与源码(Cargo.toml/Cargo.lock 未变时依赖层可命中缓存)
+COPY Cargo.toml Cargo.lock ./
+COPY crates ./crates
+# 编译主服务与任务队列 worker 两个二进制
+RUN cargo build --release --bin server_rs --bin app_task
+
+# ---------------- 运行阶段 ----------------
+FROM ubuntu:24.04
+
+# 环境变量
+ENV DEBIAN_FRONTEND=noninteractive \
+    TZ=Asia/Shanghai \
+    LANG=C.UTF-8
+
+# 安装基础依赖并清理缓存
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    tzdata \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+WORKDIR /app
+
+# 二进制(server_rs 主服务 / app_task 任务队列 worker)
+COPY --from=builder /build/target/release/server_rs /app/
+COPY --from=builder /build/target/release/app_task /app/
+
+# 运行期文件(外挂项与 docker-compose volumes 挂载保持一致)
+COPY config.yaml ./
+COPY config.seed.yaml ./
+COPY config.dev.yaml ./
+COPY .env ./
+COPY rbac_model.conf ./
+COPY public ./public
+
+# 运行期数据目录(上传/日志/db 等, 建议容器卷挂载 temp_source)
+RUN mkdir -p temp_source/db temp_source/upload
+
+# 服务端口(config.yaml server.port)
+EXPOSE 2001
+
+# 启动主服务(任务 worker 单独起容器: ./app_task)
+CMD ["./server_rs"]
