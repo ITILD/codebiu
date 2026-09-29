@@ -3,7 +3,6 @@
 //! 职责: 任务创建(校验注册表 → 落库 pending → 按引擎派发) / 状态查询统计 /
 //!       生命周期管理(取消/重试/删除)。
 
-use common::config::dynamic::TasksSettings;
 use common::runtime::AppState;
 use common::utils::error::AppError;
 use common::utils::pagination::{PaginationParams, PaginationResponse};
@@ -211,13 +210,12 @@ impl TaskQueueService {
 
     // ################ 双引擎统一派发 ################
 
-    /// 双引擎统一派发: local 引擎进程内后台执行; celery 引擎未实现 → 回写失败状态并返回 400
+    /// 双引擎统一派发: local 引擎进程内后台执行; celery 引擎消息经 Apalis Redis 队列
+    /// 由 app_task worker 进程消费(对齐 Python dispatch_task)
     ///
     /// 派发失败回写与错误文案对齐 Python create/retry 的 except 分支。
     async fn dispatch(&self, task_id: &str) -> Result<(), AppError> {
-        let settings: TasksSettings = self.state.settings.get("tasks").await?;
-        if settings.engine == "celery" {
-            let exc = "celery 引擎暂未实现(Rust 服务仅支持 local 引擎)";
+        if let Err(exc) = tasks::dispatch_task(&self.state, task_id).await {
             // 派发不可用: 标记失败并保留记录, 前端可见失败原因
             if let Some(task) = task_dao::get(self.db(), task_id).await? {
                 let mut am = task.into_active_model();
@@ -230,8 +228,6 @@ impl TaskQueueService {
                 "任务派发失败, 请检查任务配置(celery 引擎需检查 Redis 与 worker): {exc}"
             )));
         }
-        // local 引擎: 进程内后台协程执行(与 Celery 共用同一任务主体)
-        tasks::spawn_local_task(self.state.db.clone(), task_id.to_string());
         Ok(())
     }
 }

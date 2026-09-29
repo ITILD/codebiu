@@ -1,7 +1,8 @@
 //! 解析器工厂(对齐 Python utils/file_parase/factory.py 的后缀注册表与 FileType 分类)
 //!
-//! docling 引擎的后缀 → 解析器路由: 二进制格式(pdf/word/pptx/xlsx)在 Rust 服务未实现,
-//! 统一返回业务错误; 文本与代码后缀由 Rust 原生解析器处理。
+//! 二进制版式文档(pdf/doc/docx/ppt/pptx)走 MinerU 引擎(远程 mineru.net API
+//! 或本地 docker 部署, 配置 mineru.mode; 对齐 Python 侧默认引擎);
+//! xlsx 的 docling 引擎在 Rust 服务未实现; 文本与代码后缀由原生解析器处理。
 
 use common::utils::error::AppError;
 
@@ -9,6 +10,7 @@ use crate::do_::chunk::Chunk;
 
 pub mod code;
 pub mod markdown;
+pub mod mineru;
 
 /// docling 引擎未实现的二进制格式错误(文案对齐任务约定)
 pub fn docling_unsupported() -> AppError {
@@ -83,8 +85,10 @@ pub async fn create_and_extract(filename: &str, bytes: &[u8]) -> Result<Vec<Chun
         ".md" | ".markdown" | ".csv" | ".txt" => markdown::extract(bytes),
         // 代码: 语义分块解析器
         ".py" | ".java" => code::extract(&ext, bytes, filename),
-        // 二进制格式: docling 引擎未在 Rust 服务实现
-        ".pdf" | ".docx" | ".doc" | ".pptx" | ".xlsx" => Err(docling_unsupported()),
+        // 版式文档: MinerU 引擎(远程/本地双支持, 对齐 Python 默认引擎)
+        ".pdf" | ".docx" | ".doc" | ".pptx" | ".ppt" => mineru::parser::extract(filename, bytes).await,
+        // xlsx: docling 引擎未在 Rust 服务实现
+        ".xlsx" => Err(docling_unsupported()),
         _ => Err(AppError::business(format!("不支持的文件类型: {ext}"))),
     }
 }

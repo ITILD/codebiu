@@ -7,6 +7,11 @@ edition.workspace = true
 name = "server_rs"
 path = "src/main.rs"
 
+# 任务队列 Worker 独立进程(对应 Python 侧 src/app_task.py, Celery → Apalis)
+[[bin]]
+name = "app_task"
+path = "src/bin/app_task.rs"
+
 [dependencies]
 common.workspace = true
 module-authorization.workspace = true
@@ -34,3 +39,6 @@ serde.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
+# 任务队列 worker(Apalis Redis 消费循环)
+apalis.workspace = true
+apalis-redis.workspace = true

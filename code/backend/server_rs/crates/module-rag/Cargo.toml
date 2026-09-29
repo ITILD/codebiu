@@ -9,6 +9,8 @@ module-authorization.workspace = true
 module-ai.workspace = true
 module-task.workspace = true
 module-file.workspace = true
+# 文档解析引擎(MinerU 解析 pdf/docx 等版式文档)
+module-office.workspace = true
 
 axum.workspace = true
 tokio.workspace = true

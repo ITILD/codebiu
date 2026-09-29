@@ -206,6 +206,90 @@ pub struct AdminSection {
     pub reset_password: bool,
 }
 
+// ############################# MinerU 文档解析引擎 #############################
+// 对齐 Python 侧 mineru 节(module-office 解析 pdf/docx 等二进制格式的默认引擎)
+
+/// MinerU 引擎配置(默认值与 Python 侧 config.yaml 的 mineru 节一致)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MinerUSection {
+    /// 部署模式: remote(mineru.net 远程 API, 默认) / local(本地 docker mineru-api)
+    #[serde(default = "default_mineru_mode")]
+    pub mode: String,
+    /// 远程 API token(密钥只放种子层或 CODEBIU_MINERU__TOKEN 环境变量)
+    #[serde(default)]
+    pub token: String,
+    #[serde(default = "default_mineru_remote_url")]
+    pub remote_base_url: String,
+    /// 本地 docker mineru-api 地址; 端点默认为 2.x 契约 /file_parse
+    #[serde(default = "default_mineru_local_url")]
+    pub local_base_url: String,
+    #[serde(default = "default_mineru_local_endpoint")]
+    pub local_endpoint: String,
+    /// 解析参数: pipeline / vlm
+    #[serde(default = "default_mineru_model")]
+    pub model_version: String,
+    #[serde(default = "default_mineru_lang")]
+    pub language: String,
+    /// false 自动判断是否 OCR
+    #[serde(default)]
+    pub is_ocr: bool,
+    #[serde(default = "default_true")]
+    pub enable_formula: bool,
+    #[serde(default = "default_true")]
+    pub enable_table: bool,
+    /// 单次 HTTP 请求超时(秒)
+    #[serde(default = "default_mineru_timeout")]
+    pub timeout: f64,
+    /// 远程结果轮询间隔(秒)
+    #[serde(default = "default_mineru_poll_interval")]
+    pub poll_interval: f64,
+    /// 远程任务最长等待(秒)
+    #[serde(default = "default_mineru_poll_timeout")]
+    pub poll_timeout: f64,
+}
+
+fn default_mineru_mode() -> String {
+    "remote".to_string()
+}
+
+fn default_mineru_remote_url() -> String {
+    "https://mineru.net/api/v4".to_string()
+}
+
+fn default_mineru_local_url() -> String {
+    "http://127.0.0.1:8000".to_string()
+}
+
+fn default_mineru_local_endpoint() -> String {
+    "/file_parse".to_string()
+}
+
+fn default_mineru_model() -> String {
+    "pipeline".to_string()
+}
+
+fn default_mineru_lang() -> String {
+    "ch".to_string()
+}
+
+fn default_mineru_timeout() -> f64 {
+    300.0
+}
+
+fn default_mineru_poll_interval() -> f64 {
+    5.0
+}
+
+fn default_mineru_poll_timeout() -> f64 {
+    1800.0
+}
+
+impl Default for MinerUSection {
+    fn default() -> Self {
+        serde_json::from_value(serde_json::json!({})).expect("MinerU 默认配置构造失败")
+    }
+}
+
 fn default_admin_username() -> String {
     "admin".to_string()
 }
@@ -274,6 +358,8 @@ pub struct Config {
     pub db_rel: DbRelSection,
     #[serde(default)]
     pub admin: AdminSection,
+    #[serde(default)]
+    pub mineru: MinerUSection,
 }
 
 fn default_global() -> GlobalSection {

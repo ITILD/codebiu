@@ -4,10 +4,13 @@
 //! 1. 新业务模块接入时在 TASK_TYPES 登记元数据(type/name/description/celery_task/default_payload),
 //!    并经 register_local_runner 注入本地执行器 —— 本 crate 不反向依赖业务模块(rag/agent 后续自行注入);
 //! 2. 双引擎按动态配置 tasks.engine 统一选择: local → tokio spawn 进程内后台执行;
-//!    celery → Rust 侧未实现, 派发即标记失败(文案与 Python dispatch 失败回写一致);
+//!    celery → 消息经 Apalis Redis 队列派发(tasks.broker_url), 由 app_task worker 进程消费
+//!    (对应 Python 的 Celery + app_task.py; 消息仅携带 task_id, 参数由 worker 从库读取);
 //! 3. 执行统一走 run_local_task: 原子认领 pending→running → 调用注入的执行器 → 终态回写,
-//!    取消/终态保护由 update_task_fields 保证(与 Python worker 回写行为一致);
-//! 4. worker 轮询自愈: 周期认领"创建超过 60s 仍为 pending"的遗留任务(进程重启丢失后台协程的场景)。
+//!    取消/终态保护由 update_task_fields 保证(与 Python worker 回写行为一致),
+//!    双引擎共用同一执行主体(认领原子性天然防止重复消费);
+//! 4. worker 自愈: local 引擎由 API 进程 start_worker 周期认领遗留任务;
+//!    celery 引擎由 app_task worker 启动时 recover_pending_tasks 一次性重派(对齐 Python)。
 
 pub mod demo;
 
@@ -17,6 +20,7 @@ use std::pin::Pin;
 use std::sync::{Arc, LazyLock, Mutex, OnceLock};
 use std::time::Duration;
 
+use apalis::prelude::Storage;
 use common::config::dynamic::TasksSettings;
 use common::runtime::AppState;
 use common::utils::error::AppError;
@@ -156,6 +160,77 @@ fn take_runner(task_type: &str) -> Option<LocalTaskRunner> {
 pub async fn get_task_engine(state: &AppState) -> Result<String, AppError> {
     let settings: TasksSettings = state.settings.get("tasks").await?;
     Ok(settings.engine)
+}
+
+/// celery 引擎的任务消息载荷(极简原则, 对齐 Python celery args=[task.id])
+///
+/// 消息只携带 task_queue 表主键; payload/user_id 等业务数据由执行侧从库读取,
+/// 消息天然幂等可重投(重复消费由 run_local_task 的原子认领挡住)。
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct TaskJob {
+    pub task_id: String,
+}
+
+/// Apalis Redis 队列命名空间(对齐 Python celery 队列名 task_queue)
+const TASK_QUEUE_NAMESPACE: &str = "task_queue";
+
+/// 队列存储缓存(broker_url → RedisStorage; URL 变更时重建连接)
+static QUEUE_STORAGE: OnceLock<Mutex<Option<(String, apalis_redis::RedisStorage<TaskJob>)>>> =
+    OnceLock::new();
+
+/// 获取/构建 Apalis Redis 队列存储(连接管理器复用; 存储可克隆)
+///
+/// 锁只在同步段持有(避免跨 await 使 Future 退化为非 Send);
+/// 并发首建重复连接无害, 以最后写入为准。
+async fn queue_storage(broker_url: &str) -> Result<apalis_redis::RedisStorage<TaskJob>, String> {
+    // 1) 缓存命中直接克隆返回
+    {
+        let cell = QUEUE_STORAGE.get_or_init(|| Mutex::new(None));
+        let guard = cell.lock().expect("任务队列存储锁");
+        if let Some((url, storage)) = guard.as_ref() {
+            if url == broker_url {
+                return Ok(storage.clone());
+            }
+        }
+    }
+    // 2) 缓存未命中: 建立连接(无锁 await)
+    let conn = apalis_redis::connect(broker_url)
+        .await
+        .map_err(|e| format!("Redis 连接失败({broker_url}): {e}"))?;
+    let config = apalis_redis::Config::default().set_namespace(TASK_QUEUE_NAMESPACE);
+    let storage = apalis_redis::RedisStorage::new_with_config(conn, config);
+    // 3) 回写缓存
+    let cell = QUEUE_STORAGE.get_or_init(|| Mutex::new(None));
+    *cell.lock().expect("任务队列存储锁") = Some((broker_url.to_string(), storage.clone()));
+    Ok(storage)
+}
+
+/// 双引擎统一派发: 按 tasks.engine 选择执行路径(对齐 Python dispatch_task)
+///
+/// - celery: 消息 push 到 Apalis Redis 队列, 由 app_task worker 进程消费
+/// - local: 进程内后台协程立即执行
+///
+/// 说明: priority(0~9)在 Rust 侧仅作为落库字段(Apalis Redis 队列为 FIFO,
+/// Python celery 的 Redis 分级子队列加权消费未引入), 执行顺序以入队先后为准。
+pub async fn dispatch_task(state: &AppState, task_id: &str) -> Result<(), AppError> {
+    let settings: TasksSettings = state.settings.get("tasks").await?;
+    if settings.engine == "celery" {
+        if settings.broker_url.is_empty() || settings.broker_url == "memory://" {
+            return Err(AppError::business(
+                "celery 引擎未配置 Redis broker(tasks.broker_url)",
+            ));
+        }
+        let mut storage =
+            queue_storage(&settings.broker_url).await.map_err(AppError::business)?;
+        storage
+            .push(TaskJob { task_id: task_id.to_string() })
+            .await
+            .map_err(|e| AppError::business(format!("任务入队失败(Apalis Redis): {e}")))?;
+        Ok(())
+    } else {
+        spawn_local_task(state.db.clone(), task_id.to_string());
+        Ok(())
+    }
 }
 
 /// local 引擎派发: tokio spawn 进程内后台执行(创建/重试派发与 worker 自愈共用同一执行主体)
@@ -342,7 +417,8 @@ const RECOVER_MIN_AGE_SECS: i64 = 60;
 /// 启动任务 worker 轮询(app 启动期调用一次; 内部 tokio::spawn 后台循环, 本函数立即返回)
 ///
 /// local 引擎: 周期认领"创建超过 60s 仍为 pending"的遗留任务重新执行(自愈);
-/// celery 引擎: 本进程不执行任务, 空转等待配置切回 local。
+/// celery 引擎: 本进程不执行任务, 空转等待配置切回 local
+/// (celery 引擎的启动自愈由 app_task worker 进程的 recover_pending_tasks 承担, 对齐 Python)。
 pub async fn start_worker(state: AppState) {
     tokio::spawn(async move {
         loop {
@@ -370,6 +446,33 @@ pub async fn start_worker(state: AppState) {
             }
         }
     });
+}
+
+/// 一次性启动自愈: 重新派发"创建超过 60s 仍为 pending"的遗留任务(对齐 Python recover_pending_tasks)
+///
+/// 覆盖派发瞬间崩溃/消息丢失场景; celery 引擎由 app_task worker 启动时调用,
+/// local 引擎由 API 进程 start_worker 周期自愈承担。
+/// 重派按当前引擎走 dispatch_task: 重复入队无害(执行侧原子认领防双跑)。
+pub async fn recover_pending_tasks(state: &AppState) -> usize {
+    let cutoff = now_utc() - chrono::Duration::seconds(RECOVER_MIN_AGE_SECS);
+    let list = match task_dao::list_stale_pending(&state.db, cutoff).await {
+        Ok(list) => list,
+        Err(e) => {
+            tracing::error!("启动自愈扫描遗留任务失败: {e}");
+            return 0;
+        }
+    };
+    let mut count = 0usize;
+    for task in list {
+        match dispatch_task(state, &task.id).await {
+            Ok(()) => {
+                tracing::info!("启动自愈重派遗留任务 {}({})", task.id, task.task_type);
+                count += 1;
+            }
+            Err(e) => tracing::warn!("启动自愈重派任务 {} 失败: {e}", task.id),
+        }
+    }
+    count
 }
 
 #[cfg(test)]

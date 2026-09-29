@@ -80,6 +80,8 @@ hmac = "0.12"
 base64 = "0.22"
 # 按扩展名推断 MIME(等价 Python mimetypes)
 mime_guess = "2"
+# MinerU 结果 zip 解包(module-office 解析引擎)
+zip = { version = "2", default-features = false, features = ["deflate"] }
 # 存储流式读取(BoxStream)与下载授权钩子
 futures = "0.3"
 bytes = "1"
@@ -87,6 +89,9 @@ bytes = "1"
 percent-encoding = "2"
 # S3 协议对象存储(rustfs/minio/S3 共用; 预签名+multipart)
 aws-sdk-s3 = "1"
+# 任务队列 worker 框架(对齐 Python Celery/app_task.py 的角色; Redis 为 broker)
+apalis = "0.7"
+apalis-redis = "0.7"
 
 # ############################# 内部 crate #############################
 # 公共包(对齐 Python src/common)

@@ -14,3 +14,6 @@ tokio.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
+# MinerU 引擎: 远程/本地服务调用与结果 zip 解包
+reqwest.workspace = true
+zip.workspace = true

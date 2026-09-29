@@ -1,10 +1,11 @@
 //! module-task —— 任务队列模块(对齐 Python module_task)
 //!
-//! 通用任务队列: 类型注册表 + 双引擎派发(local 进程内协程 / celery 未实现) + worker 自愈轮询。
+//! 通用任务队列: 类型注册表 + 双引擎派发(local 进程内协程 / celery 经 Apalis Redis 队列
+//! 由 app_task worker 进程消费, 对齐 Python Celery + app_task.py) + worker 自愈。
 //! 路由挂载在 /task 前缀(由 app 主入口 nest): /task/tasks/{registry,stats,list,{id},...}。
 //!
 //! 执行器 IoC: 本 crate 不依赖业务模块, rag/agent 等经 register_local_runner 注入本地执行器;
-//! worker 轮询经 start_worker 启动(app 启动期调用一次)。
+//! API 进程经 start_worker 启动 local 引擎自愈轮询, app_task worker 经 recover_pending_tasks 启动自愈。
 
 pub mod controllers;
 pub mod dao;
@@ -19,7 +20,10 @@ pub mod do_;
 use axum::Router;
 use common::runtime::AppState;
 
-pub use tasks::{register_local_runner, registered_task_types, LocalTaskRunner};
+pub use tasks::{
+    dispatch_task, recover_pending_tasks, register_local_runner, registered_task_types,
+    run_local_task, update_task_fields, LocalTaskRunner, TaskFieldUpdate, TaskJob,
+};
 
 /// 模块路由(由 app 主入口 nest 到 /task 前缀, 对齐 Python app.mount("/task") + prefix="/tasks")
 pub fn router() -> Router<AppState> {

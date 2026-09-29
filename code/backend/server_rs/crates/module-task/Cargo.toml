@@ -17,3 +17,6 @@ serde_json = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
 tracing = { workspace = true }
+# celery 引擎派发(Apalis Redis 任务消息入队, 由 app_task worker 消费)
+apalis.workspace = true
+apalis-redis.workspace = true

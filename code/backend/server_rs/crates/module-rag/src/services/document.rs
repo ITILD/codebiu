@@ -3,7 +3,9 @@
 //!
 //! 降级约定:
 //! - 文本类文件(txt/md/csv/py/java)原生读取 + 简单滑动窗口分块;
-//!   pdf/docx 等二进制格式解析引擎未实现 → 任务失败回写提示
+//!   pdf/doc/docx/ppt/pptx 版式文档经 module-office 的 MinerU 引擎解析
+//!   (远程 mineru.net API / 本地 docker 部署, 对齐 Python 默认引擎);
+//!   xlsx 的 docling 引擎未实现 → 任务失败回写提示
 //! - 向量化真实调用 module-ai embeddings, 但向量库引擎未实现 → 跳过向量写入,
 //!   步骤置 skipped 并注明, 分块文本落 project_document_chunk 关系表
 
@@ -478,6 +480,14 @@ fn split_chunks(text: &str) -> Vec<String> {
     chunks
 }
 
+/// 落表分块口径(内容 + 类型/位置/元数据, 对齐 Python chunked_items 落表字段)
+struct ParsedChunk {
+    content: String,
+    content_types: serde_json::Value,
+    position: serde_json::Value,
+    metadata: Option<serde_json::Value>,
+}
+
 /// 文档解析管线: 解析 → 分块 → 向量化(降级) → 分块落表, 内部维护 parse_status 与 parse_steps
 ///
 /// 失败时文档置 failed + error_message(截断 1000), 错误上抛由任务层回写任务表
@@ -514,29 +524,55 @@ pub async fn parse_document(
     };
 
     let run = async {
-        // ==================== 步骤1: 解析(文件 → 原始文本) ====================
+        // ==================== 步骤1: 解析(文件 → 原始分块) ====================
         report_progress(progress_cb, base_of(&[]), "正在解析文档").await;
         set_step(state, &document, "parse", "running", 0.0, Some("正在解析文档"), None).await?;
-        let text = if is_text_extension(&document.file_extension) {
-            let file_service =
-                module_file::services::filesystem::FileService::new(state.clone(), false);
-            file_service
-                .read_file_text(document.entry_id.as_deref().unwrap_or(&document.id))
-                .await?
+        let file_service = module_file::services::filesystem::FileService::new(state.clone(), false);
+        let entry_id = document.entry_id.clone().unwrap_or_else(|| document.id.clone());
+        let parsed: Vec<ParsedChunk> = if is_text_extension(&document.file_extension) {
+            // 文本类: 原生读取
+            let text = file_service.read_file_text(&entry_id).await?;
+            set_step(state, &document, "parse", "completed", 100.0, None, None).await?;
+            // ==================== 步骤2: 分块(滑动窗口) ====================
+            report_progress(progress_cb, base_of(&["parse"]), "正在拆分chunk").await;
+            set_step(state, &document, "chunk", "running", 0.0, Some("正在拆分chunk"), None).await?;
+            split_chunks(&text)
+                .into_iter()
+                .map(|content| ParsedChunk {
+                    content,
+                    content_types: serde_json::json!(["text"]),
+                    position: serde_json::json!({}),
+                    metadata: None,
+                })
+                .collect()
         } else {
-            // 二进制格式解析引擎未实现: 任务失败(错误文案供任务表/文档表回写)
-            return Err(AppError::business(format!(
-                "文档解析引擎未支持该格式: {}",
-                document.file_extension
-            )));
+            // 版式文档(pdf/doc/docx/ppt/pptx): module-office MinerU 引擎解析,
+            // 解析即产出带 content_type/position/metadata 的分块(对齐 Python file2chunk)
+            let bytes = file_service.read_file_bytes(&entry_id).await?;
+            let chunks = module_office::services::document_parse::file2chunk(
+                &document.name, bytes,
+            )
+            .await?;
+            set_step(state, &document, "parse", "completed", 100.0, None, None).await?;
+            report_progress(progress_cb, base_of(&["parse"]), "正在拆分chunk").await;
+            set_step(state, &document, "chunk", "running", 0.0, Some("正在拆分chunk"), None).await?;
+            chunks
+                .into_iter()
+                .filter_map(|c| {
+                    let content = c.content?;
+                    let ct = serde_json::to_value(c.content_type)
+                        .unwrap_or_else(|_| serde_json::json!("text"));
+                    Some(ParsedChunk {
+                        content,
+                        content_types: serde_json::json!([ct]),
+                        position: serde_json::to_value(&c.position)
+                            .unwrap_or_else(|_| serde_json::json!({})),
+                        metadata: c.metadata.map(serde_json::Value::Object),
+                    })
+                })
+                .collect()
         };
-        set_step(state, &document, "parse", "completed", 100.0, None, None).await?;
-
-        // ==================== 步骤2: 分块(滑动窗口) ====================
-        report_progress(progress_cb, base_of(&["parse"]), "正在拆分chunk").await;
-        set_step(state, &document, "chunk", "running", 0.0, Some("正在拆分chunk"), None).await?;
-        let chunks = split_chunks(&text);
-        if chunks.is_empty() {
+        if parsed.is_empty() {
             return Err(AppError::business("文档内容为空, 无法解析"));
         }
         set_step(state, &document, "chunk", "completed", 100.0, None, None).await?;
@@ -565,14 +601,14 @@ pub async fn parse_document(
         };
         // 分批向量化(单批 16 条, 对齐常规 embedding 批量上限)
         let mut vectors = 0usize;
-        for batch in chunks.chunks(16) {
-            let batch_vec: Vec<String> = batch.to_vec();
+        for batch in parsed.chunks(16) {
+            let batch_vec: Vec<String> = batch.iter().map(|c| c.content.clone()).collect();
             module_ai::utils::llm::embed(&state.http, &target, &batch_vec).await?;
             vectors += batch_vec.len();
-            let p = if chunks.is_empty() {
+            let p = if parsed.is_empty() {
                 100.0
             } else {
-                vectors as f64 / chunks.len() as f64 * 100.0
+                vectors as f64 / parsed.len() as f64 * 100.0
             };
             set_step(state, &document, "embed", "running", p, Some("正在向量化"), None).await?;
         }
@@ -590,18 +626,18 @@ pub async fn parse_document(
 
         // ==================== 分块落表(替换式) ====================
         doc_dao::chunk_delete_by_document(&state.db, &document.id).await?;
-        let mut rows = Vec::with_capacity(chunks.len());
-        for (i, c) in chunks.iter().enumerate() {
+        let mut rows = Vec::with_capacity(parsed.len());
+        for (i, c) in parsed.iter().enumerate() {
             rows.push(project_document_chunk::ActiveModel {
                 id: Set(new_id()),
                 sort: Set(i as i32),
                 document_id: Set(document.id.clone()),
                 project_id: Set(document.project_id.clone()),
-                content: Set(c.clone()),
+                content: Set(c.content.clone()),
                 source: Set(document.name.clone()),
-                content_types: Set(serde_json::json!(["text"])),
-                position: Set(serde_json::json!({})),
-                metadata: Set(None),
+                content_types: Set(c.content_types.clone()),
+                position: Set(c.position.clone()),
+                metadata: Set(c.metadata.clone()),
             });
         }
         doc_dao::chunk_add_batch(&state.db, rows).await?;

@@ -45,6 +45,29 @@ middleware:
 
 # 出网代理(可选, 不配直连): proxy: {type: http, host: 127.0.0.1, port: 18081}
 
+# ############################# 文档解析引擎配置 #############################
+# module_office 文档解析默认引擎 mineru(ParserFactory 可选 docling)
+# 密钥管理: token 只放 gitignored 层(config.seed.yaml / CODEBIU_MINERU__TOKEN)
+mineru:
+  # 部署模式: remote(mineru.net 远程 API, 默认, 支持批量) / local(本地 docker mineru-api)
+  mode: remote
+  # 远程 API 地址与 token(https://mineru.net/apiManage/docs 申请)
+  remote_base_url: https://mineru.net/api/v4
+  token: ""
+  # 本地 docker mineru-api 地址; 端点默认为 2.x 契约 /file_parse, 版本差异可调
+  local_base_url: http://127.0.0.1:8000
+  local_endpoint: /file_parse
+  # 解析参数
+  model_version: pipeline   # pipeline / vlm
+  language: ch
+  is_ocr: false             # false 自动判断是否 OCR
+  enable_formula: true
+  enable_table: true
+  # 网络与轮询(秒)
+  timeout: 300              # 单次 HTTP 请求超时
+  poll_interval: 5          # 远程结果轮询间隔
+  poll_timeout: 1800        # 远程任务最长等待
+
 # ############################# 目录配置 #############################
 dir:
   # 基础根目录
