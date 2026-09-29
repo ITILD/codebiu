@@ -70,7 +70,30 @@
             "env": {
                 "PATH": "/home/here/.local/share/fnm/aliases/default/bin:${env:PATH}"
             }
+        },
+        {
+    "//": "Rust 后端(axum) Ubuntu 调试: cppdbg(GDB) 挂 target/debug/server_rs; 端口 2003 避让 Python 服务(2001)",
+    "name": "▶UBUNTU Backend: server_rs (rust)",
+    "type": "cppdbg",
+    "request": "launch",
+    "program": "${workspaceFolder}/code/backend/server_rs/target/debug/server_rs",
+    "args": [],
+    "stopAtEntry": false,
+    "cwd": "${workspaceFolder}/code/backend/server_rs",
+    "environment": [
+        { "name": "CODEBIU_SERVER__PORT", "value": "2003" }
+    ],
+    "externalConsole": false,
+    "MIMode": "gdb",
+    "setupCommands": [
+        {
+            "description": "为 gdb 启用自动求值",
+            "text": "-enable-pretty-printing",
+            "ignoreFailures": true
         }
+    ],
+    "preLaunchTask": "build server_rs (debug)"
+}
     ],
     "compounds": [
         {
