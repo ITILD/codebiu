@@ -99,11 +99,18 @@ async def recognize_all(
     return result
 
 
-@router.get("/languages", status_code=status.HTTP_201_CREATED, summary="返回可用语言列表")
+@router.get("/languages", status_code=status.HTTP_200_OK, summary="返回可用语言列表")
 def get_languages():
-    """读取 OCR 配置中支持的语言，返回 [{code, name}] 列表，供前端选择识别语言"""
-    result = [{"code": key, "name": val["name"]} for key, val in get_ocr_languages().items()]
-    return result
+    """读取 OCR 配置中支持的语言，返回 [{code, name}] 列表，供前端选择识别语言
+
+    未配置 ocr 配置节时返回空列表(对齐 rust 端契约, OCR 未启用不视为服务故障)
+    """
+    try:
+        languages = get_ocr_languages()
+    except RuntimeError:
+        # 缺少 ocr 配置节 -> 语言列表为空, 识别类接口仍会因配置缺失报错
+        return []
+    return [{"code": key, "name": val["name"]} for key, val in languages.items()]
 
 
 @router.post(

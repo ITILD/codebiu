@@ -16,8 +16,8 @@ from module_websearch.controller import websearch
 from module_authorization.controller import token, casbin_rule, permission, role, user,auth,dept
 # # 业务模块
 from module_template.controller import static,template,template_ex,template_async_learn
-from module_ai.controller import static as ai_static,model_config,llm,rerank,voice
-# # ,ocr 
+# AI 服务模块(模型配置/LLM/重排/语音/OCR: 导入即向 /ai 子应用注册路由)
+from module_ai.controller import static as ai_static, model_config, llm, rerank, voice, ocr
 from module_dev_tools.controller import template_string
 # # 个人小站模块(博客/备忘/记账 三条业务线, 由原 module_blog + module_little_utils 合并)
 from module_site.controller import blog, todolist, ledger

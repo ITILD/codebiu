@@ -185,8 +185,8 @@ export const API_CASES: ApiCase[] = [
   c('geometry', 'feature.ts', 'updateGeoFeature', 'PUT', '/geometry/features/{featureId}', { allow404: true }),
   c('geometry', 'feature.ts', 'deleteGeoFeature', 'DELETE', '/geometry/features/{featureId}', { allow404: true }),
 
-  // ==================== 生活工具(后端模块未启用) ====================
-  c('life', 'baby_name.ts', 'predictBabyNameStream', 'POST', '/life/baby-names/predict-baby-info-base', { skip: true, note: 'SSE 流式, 后端模块未启用' }),
+  // ==================== 生活工具 ====================
+  c('life', 'baby_name.ts', 'predictBabyNameStream', 'POST', '/life/baby-names/predict-baby-info-base', { skip: true, note: 'SSE 流式 + 真实调用 LLM, 仅手动验证' }),
 
   // ==================== 个人小站(博客/备忘/记账 三条业务线) ====================
   // 博客(markdown 在线编辑 / 关联 URL 发布展示)
@@ -299,13 +299,13 @@ export const API_CASES: ApiCase[] = [
   c('task', 'task.ts', 'retryTask', 'POST', '/task/tasks/{id}/retry', { allow404: true }),
   c('task', 'task.ts', 'deleteTask', 'DELETE', '/task/tasks/{id}', { allow404: true }),
 
-  // ==================== 模板示例(后端模块未启用) ====================
-  c('template', 'template.ts', 'createTemplate', 'POST', '/template/templates', { skip: true, note: '后端模块未启用' }),
-  c('template', 'template.ts', 'deleteTemplate', 'DELETE', '/template/templates/{id}', { skip: true, note: '后端模块未启用' }),
-  c('template', 'template.ts', 'updateTemplate', 'PUT', '/template/templates/{id}', { skip: true, note: '后端模块未启用' }),
-  c('template', 'template.ts', 'getTemplate', 'GET', '/template/templates/{id}', { skip: true, note: '后端模块未启用' }),
-  c('template', 'template.ts', 'listTemplates', 'GET', '/template/templates/list', { skip: true, note: '后端模块未启用' }),
-  c('template', 'template.ts', 'infiniteScrollTemplates', 'GET', '/template/templates/scroll', { skip: true, note: '后端模块未启用' }),
+  // ==================== 模板示例 ====================
+  c('template', 'template.ts', 'createTemplate', 'POST', '/template/templates', { note: '创建模板' }),
+  c('template', 'template.ts', 'deleteTemplate', 'DELETE', '/template/templates/{id}', { allow404: true }),
+  c('template', 'template.ts', 'updateTemplate', 'PUT', '/template/templates/{id}', { allow404: true }),
+  c('template', 'template.ts', 'getTemplate', 'GET', '/template/templates/{id}', { allow404: true }),
+  c('template', 'template.ts', 'listTemplates', 'GET', '/template/templates/list'),
+  c('template', 'template.ts', 'infiniteScrollTemplates', 'GET', '/template/templates/scroll'),
   // 人脸特征(纯前端函数, 非 HTTP 接口, 仅做覆盖登记)
   c('template', 'face.ts', 'extractFaceFeature', 'GET', '/template/face/feature', { skip: true, note: '纯前端函数: 从 blendshapes 提取标准化特征向量' }),
   c('template', 'face.ts', 'normalizeVector', 'GET', '/template/face/feature', { skip: true, note: '纯前端函数: 向量 L2 归一化' }),
