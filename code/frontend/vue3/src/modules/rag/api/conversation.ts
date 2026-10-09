@@ -1,8 +1,9 @@
 // src/modules/rag/api/conversation.ts
 // 知识库对话 API(对话管理 + RAG 流式聊天)
+// 流式聊天统一走 AG-UI 协议(官方 ag-ui-protocol 事件流, 见 @/common/api/aguiStream)
 import { http_base_server } from '@/common/api/http';
-import { fetchEventSource } from '@microsoft/fetch-event-source';
-import { useAuthStore } from '@/common/stores/auth';
+import { streamAguiEvents } from '@/common/api/aguiStream';
+import type { AguiStreamCallbacks } from '@/common/api/aguiStream';
 import type { PaginationParams, PaginationResponse } from '@/common/types/common';
 import type {
   Conversation,
@@ -12,7 +13,6 @@ import type {
   RagChatRequest,
   ConversationSummary,
 } from '../types';
-import type { ChatStreamEvent } from '@/common/types/chat';
 
 /**
  * 创建对话
@@ -93,75 +93,22 @@ export const summarizeConversation = (conversationId: string) => {
 };
 
 /**
- * RAG 流式聊天(SSE)
+ * RAG 流式聊天(AG-UI 协议 SSE)
+ * 事件为 AG-UI 标准事件流(RUN_STARTED / TEXT_MESSAGE / TOOL_CALL / CUSTOM 等),
+ * 由 useAguiMessages 聚合为消息内容; 交互卡片响应通过 interaction_response 续跑流程
  * @param conversationId 对话ID
- * @param request 聊天请求(消息内容/关联知识库/深度思考)
- * @param onChunk 流式内容回调(兼容旧签名, 仅正式回答与过程片段文本)
- * @param onError 错误回调
- * @param onComplete 完成回调
- * @param onController 中止控制器回调(用于页面"停止生成")
- * @param onEvent 完整事件回调(含 node_name/stream_event_type, 供过程区块分组)
+ * @param request 聊天请求
+ * @param callbacks 事件回调组
+ * @returns 中止控制器
  */
-export const sendRagChatStream = async (
+export const sendRagChatAguiStream = async (
   conversationId: string,
   request: RagChatRequest,
-  onChunk: (content: string) => void,
-  onError?: (error: string) => void,
-  onComplete?: () => void,
-  onController?: (controller: AbortController) => void,
-  onEvent?: (event: ChatStreamEvent) => void
+  callbacks: AguiStreamCallbacks
 ) => {
-  // 从认证 store 读取访问令牌(SSE 请求需手动携带)
-  let token = '';
-  try {
-    const authStore = useAuthStore();
-    token = authStore.authState.tokens.access.token || '';
-  } catch {
-    // Pinia 未初始化时忽略
-  }
-
-  const controller = new AbortController();
-  // 立即交给调用方, 供流式期间中止
-  onController?.(controller);
-  await fetchEventSource(
+  return streamAguiEvents(
     `/base_server/rag/rag-chat/${conversationId}/chat`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify(request),
-      signal: controller.signal,
-      onmessage: (event) => {
-        try {
-          const parsed = JSON.parse(event.data) as ChatStreamEvent;
-          if (parsed.status === 'error') {
-            onError?.(parsed.content || '未知错误');
-            return;
-          }
-          // 有内容即回调(含纯空白块: 空行/缩进是格式的一部分, trim 会丢换行)
-          if (parsed.content) {
-            onChunk(parsed.content);
-          }
-          // 透传完整事件(供页面按事件类型分组过程区块)
-          onEvent?.(parsed);
-          if (parsed.status === 'end') {
-            onComplete?.();
-          }
-        } catch (e) {
-          console.warn('解析SSE数据失败:', e);
-        }
-      },
-      onerror: (error) => {
-        console.error('流式请求失败:', error);
-        onError?.(error.message || '请求失败');
-        throw error;
-      },
-      onclose: () => {
-        onComplete?.();
-      },
-    }
+    request,
+    callbacks
   );
-  return controller;
 };

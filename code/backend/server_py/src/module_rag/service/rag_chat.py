@@ -23,6 +23,7 @@ from module_rag.config.checkpointer import get_checkpointer
 from module_rag.dao.rag_chat_prompt import (
     RAG_CHAT_SYSTEM_PROMPT,
     RAG_CHAT_SYSTEM_PROMPT_TEMPLATE,
+    RAG_SUPPLEMENT_CONTEXT_TEMPLATE,
     INTENT_ANALYSIS_SYSTEM_PROMPT,
     SUMMARIZE_SYSTEM_PROMPT,
 )
@@ -30,6 +31,9 @@ from module_rag.do.chat_message import ChatMessageCreate
 from module_rag.do.conversation import ChatRequest, ConversationUpdate
 from module_rag.do.rag_chat import (
     ConversationSummary,
+    InteractionKind,
+    InteractionOption,
+    InteractionSpec,
     RagChatState,
     RagHelpInfo,
     StreamEventType,
@@ -91,35 +95,70 @@ class RagChatService:
     # ──────────────────────────────────────────────
 
     def _build_chat_graph(self) -> StateGraph:
-        """构建聊天 graph: [intent_analysis] → (需检索?) [knowledge_search] → chat → END"""
+        """构建聊天 graph:
+        [intent_analysis] → (需澄清?) [clarify_interaction] → END
+                          → (需检索?) [knowledge_search] → (无结果?) [knowledge_gap] → END
+                          → [chat] → END
+        交互节点为"伪中断": 本次 run 结束并落 pending_interaction,
+        用户下一条消息携带 interaction_response 续跑(经 checkpointer 共享 state)
+        """
 
         graph = StateGraph(RagChatState)
         graph.add_node(GraphNode.INTENT, self._intent_analysis_node)
         graph.add_node(GraphNode.SEARCH, self._knowledge_search_node)
         graph.add_node(GraphNode.CHAT, self._chat_node)
+        graph.add_node(GraphNode.CLARIFY, self._clarify_interaction_node)
+        graph.add_node(GraphNode.GAP, self._knowledge_gap_node)
 
-        # 条件路由: 有知识库 → 意图分析; 否则直接对话
-        graph.add_conditional_edges(
-            START,
-            lambda state: (
-                GraphNode.INTENT if state.get("project_ids") else GraphNode.CHAT
-            ),
-        )
-        # 条件路由: 意图分析判定需要外部信息才进入检索节点,
-        # 否则直接对话(不执行检索, 也就不会产生"正在检索知识库…"/"未检索到相关片段"等过程事件)
+        # 条件路由(起点): 知识缺口响应(supplement/answer_directly)跳过意图与检索直接对话;
+        # 有知识库 → 意图分析; 否则直接对话
+        graph.add_conditional_edges(START, self._route_start)
+        # 条件路由: 意图分析判定需要澄清 → 澄清交互; 需要外部信息才检索, 否则直接对话
         graph.add_conditional_edges(GraphNode.INTENT, self._route_after_intent)
-        graph.add_edge(GraphNode.SEARCH, GraphNode.CHAT)
+        # 条件路由: 检索正常但无结果 → 知识缺口交互(邀请用户补充缺失内容)
+        graph.add_conditional_edges(GraphNode.SEARCH, self._route_after_search)
         graph.add_edge(GraphNode.CHAT, END)
+        graph.add_edge(GraphNode.CLARIFY, END)
+        graph.add_edge(GraphNode.GAP, END)
         return graph
 
     @staticmethod
+    def _route_start(state: RagChatState) -> GraphNode:
+        """起点路由: 知识缺口交互的补充/直接回答响应直接进对话节点, 其余按常规流程"""
+        resp = state.get("interaction_response")
+        if (
+            isinstance(resp, dict)
+            and resp.get("kind") == InteractionKind.KNOWLEDGE_GAP
+            and resp.get("action") in ("supplement", "answer_directly")
+        ):
+            return GraphNode.CHAT
+        return GraphNode.INTENT if state.get("project_ids") else GraphNode.CHAT
+
+    @staticmethod
     def _route_after_intent(state: RagChatState) -> GraphNode:
-        """意图分析后的路由: 判定需要外部信息且有知识库才检索, 否则直接对话"""
+        """意图分析后的路由: 信息不足→澄清交互; 需外部信息且有知识库→检索; 否则直接对话"""
         info: RagHelpInfo | None = state.get("rag_help_info")
+        # 同一轮待澄清请求只问一次(防止响应后仍判定需澄清造成循环打断)
+        pending = state.get("pending_interaction")
+        already_asked = isinstance(pending, dict) and pending.get("kind") == InteractionKind.CLARIFY
+        if (
+            info
+            and info.needs_clarification
+            and info.clarify_question
+            and not already_asked
+        ):
+            return GraphNode.CLARIFY
         need_search = bool(state.get("project_ids")) and bool(
             info and info.is_need_external_info
         )
         return GraphNode.SEARCH if need_search else GraphNode.CHAT
+
+    @staticmethod
+    def _route_after_search(state: RagChatState) -> GraphNode:
+        """检索后路由: 检索正常但零命中 → 知识缺口交互(用户可补充缺失内容)"""
+        if not state.get("search_error") and not (state.get("knowledge_context_list") or []):
+            return GraphNode.GAP
+        return GraphNode.CHAT
 
     async def _intent_analysis_node(self, state: RagChatState) -> dict:
         """意图分析: 提取检索关键词 & 判断是否需要外部知识"""
@@ -184,6 +223,61 @@ class RagChatService:
 
         return {"knowledge_context_list": knowledge_context_list, "search_error": None}
 
+    async def _clarify_interaction_node(self, state: RagChatState) -> dict:
+        """澄清交互节点: 问题信息不足, 结束本次 run 请求用户补充(伪中断)
+
+        下一条消息携带 interaction_response(kind=clarify) 后重新走意图分析并检索
+        """
+        info: RagHelpInfo | None = state.get("rag_help_info")
+        question = (
+            info.clarify_question
+            if info and info.clarify_question
+            else "为了更准确地回答您的问题，能否补充一些关键信息？"
+        )
+        spec = InteractionSpec(
+            kind=InteractionKind.CLARIFY,
+            title="需要补充信息",
+            question=question,
+            options=[],
+            allow_text=True,
+            text_placeholder="请输入补充信息（如具体的项目/实体/时间范围等）",
+            context={"intent": info.intent if info else ""},
+        )
+        return {"pending_interaction": spec.model_dump(), "interaction_response": None}
+
+    async def _knowledge_gap_node(self, state: RagChatState) -> dict:
+        """知识缺口交互节点: 检索零命中, 邀请用户补充缺失内容或选择继续方式(伪中断)"""
+        info: RagHelpInfo | None = state.get("rag_help_info")
+        spec = InteractionSpec(
+            kind=InteractionKind.KNOWLEDGE_GAP,
+            title="知识库中未找到相关内容",
+            question="知识库中未检索到与该问题匹配的内容，您希望如何继续？",
+            options=[
+                InteractionOption(
+                    label="补充相关内容",
+                    value="supplement",
+                    description="粘贴您掌握的相关资料，回答将结合补充内容生成",
+                ),
+                InteractionOption(
+                    label="直接用 AI 知识回答",
+                    value="answer_directly",
+                    description="跳过知识库，使用模型自身知识回答",
+                ),
+                InteractionOption(
+                    label="换个问法重新检索",
+                    value="rephrase",
+                    description="调整问题表述后重新检索知识库",
+                ),
+            ],
+            allow_text=True,
+            text_placeholder="选择「补充相关内容」或「换个问法」后，在此输入资料/新问题",
+            context={
+                "query": info.vector_search if info else "",
+                "project_ids": state.get("project_ids", []),
+            },
+        )
+        return {"pending_interaction": spec.model_dump(), "interaction_response": None}
+
     async def _chat_node(self, state: RagChatState) -> dict:
         """LLM 对话节点: 拼接 system prompt + 历史消息 → 生成回复"""
         user_id: str = state["user_id"]
@@ -207,11 +301,77 @@ class RagChatService:
             system_prompt += RAG_CHAT_SYSTEM_PROMPT_TEMPLATE.format(
                 knowledge_context=knowledge_context
             )
+        # 用户补充的缺失内容(knowledge_gap 交互)作为额外参考注入
+        supplement_content: str | None = state.get("supplement_content")
+        if supplement_content:
+            system_prompt += RAG_SUPPLEMENT_CONTEXT_TEMPLATE.format(
+                supplement_content=supplement_content
+            )
 
         full_response = await llm.ainvoke(
             [SystemMessage(content=system_prompt)] + messages
         )
-        return {"messages": [full_response]}
+        return {
+            "messages": [full_response],
+            # 清理交互状态: 本轮流交互闭环, 防止残留影响后续问题
+            "pending_interaction": None,
+            "interaction_response": None,
+            "supplement_content": None,
+        }
+
+    # ──────────────────────────────────────────────
+    # 交互响应处理
+    # ──────────────────────────────────────────────
+
+    async def _validate_interaction_response(
+        self, config: RunnableConfig, interaction_response: dict | None
+    ) -> dict | None:
+        """校验交互响应与 checkpointer 中待响应请求匹配(防过期/伪造), 返回归一化响应"""
+        if not isinstance(interaction_response, dict) or not interaction_response.get("interaction_id"):
+            return None
+        pending: dict | None = None
+        try:
+            snapshot = await self.chat_compiled_graph.aget_state(config)
+            values = getattr(snapshot, "values", None)
+            pending = values.get("pending_interaction") if isinstance(values, dict) else None
+        except Exception as e:
+            logger.warning(f"读取待响应交互状态失败: {e}")
+        if not isinstance(pending, dict) or pending.get("interaction_id") != interaction_response.get("interaction_id"):
+            logger.info(
+                f"忽略过期/不匹配的交互响应: {interaction_response.get('interaction_id')}"
+            )
+            return None
+        return {
+            "interaction_id": pending.get("interaction_id"),
+            "kind": str(pending.get("kind") or ""),
+            "action": str(interaction_response.get("action") or "submit"),
+            "value": str(interaction_response.get("value") or ""),
+        }
+
+    @staticmethod
+    def _interaction_store_message(
+        message: str, normalized_response: dict | None
+    ) -> str:
+        """交互响应用户消息的可读兜底(空输入时生成自然语言, 避免历史出现协议噪音)"""
+        if message:
+            return message
+        if not normalized_response:
+            return message
+        kind = normalized_response.get("kind")
+        action = normalized_response.get("action")
+        value = normalized_response.get("value", "")
+        if kind == InteractionKind.CLARIFY:
+            if action == "skip":
+                return "（跳过补充，请基于现有信息回答）"
+            return value or "（补充信息）"
+        if kind == InteractionKind.KNOWLEDGE_GAP:
+            if action == "supplement":
+                return value or "（补充内容）"
+            if action == "answer_directly":
+                return "（无需知识库，请直接用你的知识回答我的上一个问题）"
+            if action == "rephrase":
+                return value or "请基于知识库重新检索并回答我之前的问题"
+        return value or f"（{kind} 响应: {action}）"
 
     # ──────────────────────────────────────────────
     # 流式聊天入口
@@ -227,26 +387,51 @@ class RagChatService:
         流式聊天生成器，按事件类型 yield StreamOne:
         - STATUS:          阶段提示 (意图分析中 / 检索中)
         - AGENT_THINKING:  意图分析结果
-        - TOOL_CALL:       知识库检索结果
+        - TOOL_CALL:       知识库检索结果(含结构化 data)
         - LLM_THINKING:    LLM reasoning tokens (若模型支持)
         - ANSWER:          正式回答 token
+        - INTERACTION:     用户交互请求(澄清/知识缺口补充)
         - ERROR:           异常
         """
-        # 1. 持久化用户消息
+        raw_message = (chat_request.message or "").strip()
+        interaction_response: dict | None = getattr(chat_request, "interaction_response", None)
+
+        if not raw_message and not interaction_response:
+            yield StreamOne(
+                content="消息内容不能为空",
+                stream_event_type=StreamEventType.ERROR,
+            )
+            return
+
+        # 1. 校验交互响应(与待响应请求匹配才生效, 否则按普通消息处理)
+        config: RunnableConfig = {"configurable": {"thread_id": conversation_id}}
+        normalized_response = await self._validate_interaction_response(
+            config, interaction_response
+        )
+
+        # 2. 持久化用户消息(交互响应空输入时用可读兜底文案)
+        store_message = self._interaction_store_message(raw_message, normalized_response)
         chat_message_user = ChatMessageCreate(
             conversation_id=conversation_id,
             role=RoleType.USER,
-            content=chat_request.message,
+            content=store_message,
         )
         await self.chat_message_service.add(chat_message_user)
 
-        config: RunnableConfig = {"configurable": {"thread_id": conversation_id}}
         input_state: RagChatState = {
-            "messages": [HumanMessage(content=chat_request.message)],
+            "messages": [HumanMessage(content=store_message)],
             "project_ids": chat_request.project_ids or [],
             "user_id": user_id,
             "deep_thinking": chat_request.deep_thinking,
             "rerank_limit": getattr(chat_request, 'rerank_limit', 20), # 传递精排数量
+            "interaction_response": normalized_response,
+            "supplement_content": (
+                normalized_response.get("value")
+                if normalized_response
+                and normalized_response.get("kind") == InteractionKind.KNOWLEDGE_GAP
+                and normalized_response.get("action") == "supplement"
+                else None
+            ),
         }
 
         full_response = ""
@@ -291,7 +476,8 @@ class RagChatService:
             # 持久化助手消息(含过程区块，便于重新打开时恢复思考链路显示)
             # 客户端中止(停止生成)时生成器被 GeneratorExit 关闭, except Exception 捕获不到,
             # 必须放 finally 才能保证已生成的部分回答落库
-            if full_response:
+            # 交互-only run(澄清/知识缺口, 无正文回答)也需落库: blocks 中含交互卡片供历史恢复
+            if full_response or process_blocks:
                 # 落库协程用 shield 脱离外层取消: 客户端断开时 sse-starlette 会取消流式任务,
                 # finally 里直接 await 会被再次注入的 CancelledError 打断导致部分回答丢失
                 persist_task = asyncio.create_task(
@@ -317,25 +503,33 @@ class RagChatService:
                 except Exception as e:
                     logger.error(f"助手消息持久化失败: {e}", exc_info=True)
                 # 首次问答结束后自动生成会话标题(后台任务, 失败静默; 客户端中止也执行)
-                asyncio.create_task(
-                    maybe_auto_title(conversation_id, user_id, chat_request.message, full_response)
-                )
+                # 交互响应的原文可能是空字符串(卡片点击提交), 用可读兜底文案生成标题
+                if full_response:
+                    asyncio.create_task(
+                        maybe_auto_title(conversation_id, user_id, store_message, full_response)
+                    )
                 if cancelled:
                     raise
 
     @staticmethod
     def _accumulate_process_block(blocks: list[dict], item: StreamOne) -> None:
-        """按 stream_event_type 累积过程区块(供前端折叠区恢复显示)"""
+        """按 stream_event_type 累积过程区块(供前端折叠区恢复显示)
+
+        data(结构化检索结果/交互请求等)随首条事件写入, 同类型合并时补写缺失键
+        """
         evt = item.stream_event_type.value
         for b in blocks:
             if b.get("stream_event_type") == evt:
                 b["content"] += item.content
+                if item.data is not None and "data" not in b:
+                    b["data"] = item.data
                 return
         blocks.append(
             {
                 "node_name": item.node_name,
                 "stream_event_type": evt,
                 "content": item.content,
+                **({"data": item.data} if item.data is not None else {}),
             }
         )
 

@@ -48,6 +48,8 @@ class ChatRequest(BaseModel):
         ..., description="消息内容(字符串或消息列表, 列表项可为 dict/Message/LangChain 消息)"
     )
     streaming: bool = Field(False, description="是否启用流式响应")
+    # 流式事件协议: legacy(旧 StreamChunkResponse) | agui(AG-UI 标准事件)
+    event_protocol: str = Field("legacy", description="流式事件协议(legacy/agui)")
 
     @field_validator("messages", mode="before")
     @classmethod

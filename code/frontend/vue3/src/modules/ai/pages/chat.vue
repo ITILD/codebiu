@@ -75,10 +75,10 @@
 import { ChatDotRound, EditPen, DataAnalysis, Cpu, List } from '@element-plus/icons-vue'
 import type { PaginationParams, PaginationResponse } from '@/common/types/common'
 import type { ModelConfig } from '../types/model_config'
-import type { ChatMessageWithBlocks, MessageBlock } from '@/common/types/chat'
-import { StreamEventType } from '@/common/types/chat'
+import type { ChatMessageWithBlocks } from '@/common/types/chat'
 import { listModelConfigs } from '../api/model_config'
-import { sendChatMessageStream } from '../api/chat'
+import { sendChatMessageAguiStream } from '../api/chat'
+import { useAguiMessages } from '@/common/composables/useAguiMessages'
 import LLMSelect from '../components/LLMSelect.vue'
 import ChatMessageList from '@/common/components/chat/ChatMessageList.vue'
 import ChatComposer from '@/common/components/chat/ChatComposer.vue'
@@ -123,43 +123,14 @@ const applySuggestion = (question: string) => {
   handleSend()
 }
 
-// ===== 流式事件分组 =====
-// 按 (stream_event_type + node_name) 把过程内容(推理等)累积到 blocks; answer 归入正文
-let currentBlock: MessageBlock | null = null
+// ===== 发送/停止(AG-UI 协议) =====
+// AG-UI 事件聚合器: 流式期间把事件聚合为 content/blocks
+const {
+  message: aguiMessage,
+  applyEvent: applyAguiEvent,
+  reset: resetAguiMessage,
+} = useAguiMessages()
 
-const appendEvent = (msg: ChatMessageWithBlocks, event: {
-  content?: string | null
-  node_name?: string | null
-  stream_event_type?: string | null
-}) => {
-  const content = event.content ?? ''
-  if (!content) return
-  const type = event.stream_event_type
-  // 正式回答(或未分类事件) → 正文
-  if (!type || type === StreamEventType.ANSWER) {
-    msg.content += content
-    currentBlock = null
-    return
-  }
-  // 过程内容(推理过程等) → 过程区块
-  if (
-    !currentBlock
-    || currentBlock.stream_event_type !== type
-    || currentBlock.node_name !== (event.node_name ?? '')
-  ) {
-    currentBlock = {
-      id: `blk-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      node_name: event.node_name ?? '',
-      type: 'process',
-      content: '',
-      stream_event_type: type,
-    }
-    msg.blocks = [...(msg.blocks ?? []), currentBlock]
-  }
-  currentBlock.content += content
-}
-
-// ===== 发送/停止 =====
 const handleSend = async () => {
   const message = inputMessage.value.trim()
   if (!message || !model_id.value || isSending.value) return
@@ -189,7 +160,7 @@ const handleSend = async () => {
   isSending.value = true
   stopRequested = false
   abortController = null
-  currentBlock = null
+  resetAguiMessage()
 
   // 结束收尾(幂等)
   const finishStream = () => {
@@ -203,7 +174,7 @@ const handleSend = async () => {
   }
 
   try {
-    await sendChatMessageStream(
+    await sendChatMessageAguiStream(
       {
         model_id: model_id.value,
         // 携带历史上下文(排除流式中的占位消息)
@@ -212,25 +183,26 @@ const handleSend = async () => {
           .map((m) => ({ role: m.role as 'user' | 'assistant' | 'system', content: m.content })),
         streaming: true,
       },
-      // 流式内容回调(兼容旧签名, 正文由 onEvent 统一处理)
-      () => {},
-      // 错误回调
-      (error: string) => {
-        if (!stopRequested) assistantMsg.content = `> [错误] ${error}`
-        finishStream()
+      {
+        // 事件聚合 → 同步到助手占位消息
+        onEvent: (event) => {
+          applyAguiEvent(event)
+          assistantMsg.content = aguiMessage.content
+          assistantMsg.blocks = aguiMessage.blocks
+        },
+        onError: (error: string) => {
+          if (!stopRequested) assistantMsg.content = `> [错误] ${error}`
+        },
+        onComplete: () => {},
+        onController: (controller: AbortController) => {
+          abortController = controller
+        },
       },
-      // 完成回调
-      () => finishStream(),
-      // 中止控制器(供"停止生成")
-      (controller: AbortController) => {
-        abortController = controller
-      },
-      // 完整事件回调: 按事件类型分组(正文/推理过程)
-      (event) => appendEvent(assistantMsg, event),
     )
   } catch (error) {
     console.error('发送消息失败:', error)
     if (!stopRequested) assistantMsg.content = '发送失败，请重试'
+  } finally {
     finishStream()
   }
 }

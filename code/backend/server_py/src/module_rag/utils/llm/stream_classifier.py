@@ -123,6 +123,7 @@ class StreamEventClassifier:
                     content=self._format_intent(info),
                     node_name=node_name,
                     stream_event_type=StreamEventType.AGENT_THINKING_CONCLUSION,
+                    data=self._structured_intent(info),
                 )
 
         elif node_name == GraphNode.SEARCH:
@@ -130,7 +131,18 @@ class StreamEventClassifier:
                 content=self._format_search(output),
                 node_name=node_name,
                 stream_event_type=StreamEventType.TOOL_CALL,
+                data=self._structured_search(output),
             )
+
+        elif node_name in (GraphNode.CLARIFY, GraphNode.GAP):
+            spec = output.get("pending_interaction")
+            if isinstance(spec, dict):
+                yield StreamOne(
+                    content=str(spec.get("question", "")),
+                    node_name=node_name,
+                    stream_event_type=StreamEventType.INTERACTION,
+                    data=spec,
+                )
 
     @staticmethod
     def _event_data(event: StreamEvent) -> dict:
@@ -182,6 +194,44 @@ class StreamEventClassifier:
         """格式化意图分析结果"""
         return f"""意图: {info.intent}
         需要检索: {info.is_need_external_info}"""
+
+    @staticmethod
+    def _structured_intent(info: RagHelpInfo) -> dict:
+        """意图分析结论的结构化载荷(AG-UI CUSTOM rag.intent_result)"""
+        return {
+            "tool_name": "intent_analysis",
+            "intent": info.intent,
+            "vector_search": info.vector_search,
+            "full_text_search": info.full_text_search,
+            "is_need_external_info": info.is_need_external_info,
+            "needs_clarification": info.needs_clarification,
+        }
+
+    @staticmethod
+    def _structured_search(output: dict) -> dict:
+        """知识检索结果的结构化载荷(AG-UI TOOL_CALL_RESULT, 前端免正则解析)"""
+        search_error = output.get("search_error")
+        knowledge_context_list = output.get("knowledge_context_list") or []
+        results = []
+        for chunk in knowledge_context_list:
+            content = (getattr(chunk, "content", "") or "").replace("\n", " ")
+            results.append(
+                {
+                    "source": getattr(chunk, "source", "") or "未知来源",
+                    "score": getattr(chunk, "score", None),
+                    "document_id": getattr(chunk, "document_id", None),
+                    "chunk_id": getattr(chunk, "id", None),
+                    "project_id": getattr(chunk, "project_id", None),
+                    "summary": content[:120] + ("…" if len(content) > 120 else ""),
+                    "content": content[:400] + ("…" if len(content) > 400 else ""),
+                }
+            )
+        return {
+            "tool_name": "knowledge_search",
+            "hit_count": len(knowledge_context_list),
+            "search_error": search_error,
+            "results": results,
+        }
 
     @staticmethod
     def _format_search(output: dict) -> str:

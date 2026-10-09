@@ -7,6 +7,7 @@
 import { computed, ref, watch } from 'vue'
 import type { MessageBlock } from '@/common/types/chat'
 import { StreamEventType, STREAM_TYPE_LABELS } from '@/common/types/chat'
+import type { KnowledgeSearchData } from '@/common/types/agui'
 import {
   MagicStick, Search, DataLine, Link, Document, Warning, ArrowRight,
 } from '@element-plus/icons-vue'
@@ -73,12 +74,34 @@ const parseCitations = (content: string): CitationGroup | null => {
   return citations.length > 0 ? { overview: lines[0], citations } : null
 }
 
-/** 各区块的引用解析结果(type → group) */
+/** 结构化检索数据(AG-UI TOOL_CALL_RESULT) → 引用组; 无结果返回 null 走文本回退 */
+const fromStructured = (
+  data: Record<string, unknown> | null | undefined
+): CitationGroup | null => {
+  if (!data || typeof data !== 'object') return null
+  const d = data as unknown as KnowledgeSearchData
+  if (d.search_error) {
+    return { overview: `知识库检索失败: ${d.search_error}`, citations: [] }
+  }
+  const results = Array.isArray(d.results) ? d.results : []
+  if (!results.length) return null
+  return {
+    overview: `检索到 ${d.hit_count ?? results.length} 条相关片段`,
+    citations: results.map((r) => ({
+      source: r.source || '未知来源',
+      score:
+        typeof r.score === 'number' ? r.score.toFixed(3) : String(r.score ?? '-'),
+      summary: r.summary || r.content || '',
+    })),
+  }
+}
+
+/** 各区块的引用解析结果(type → group): 结构化 data 优先, 文本正则回退(legacy) */
 const citationMap = computed(() => {
   const map = new Map<string, CitationGroup>()
   for (const block of props.blocks ?? []) {
     if (block.stream_event_type === StreamEventType.TOOL_CALL) {
-      const group = parseCitations(block.content)
+      const group = fromStructured(block.data) ?? parseCitations(block.content)
       if (group) map.set(block.id, group)
     }
   }

@@ -103,12 +103,13 @@
         </h2>
       </header>
 
-      <!-- 消息流: 居中阅读宽度(过程区块 + 引用溯源 + 富文本) -->
+      <!-- 消息流: 居中阅读宽度(过程区块/引用溯源/交互卡片 + 富文本) -->
       <ChatMessageList
         ref="messageListRef"
         :messages="messages"
         :streaming-message-id="streamingMessageId"
         flex-1
+        @interact="handleInteraction"
       >
         <!-- 空状态: 问候 + 建议问题卡片 -->
         <template #empty>
@@ -191,14 +192,20 @@ import {
   updateConversation,
   deleteConversation,
   listConversationMessages,
-  sendRagChatStream,
+  sendRagChatAguiStream,
 } from '../api/conversation'
 import { listMyProjects } from '../api/member'
 import ChatMessageList from '@/common/components/chat/ChatMessageList.vue'
 import ChatComposer from '@/common/components/chat/ChatComposer.vue'
+import { useAguiMessages } from '@/common/composables/useAguiMessages'
 import { StreamEventType } from '@/common/types/chat'
 import type { MessageBlock } from '@/common/types/chat'
-import type { Conversation, ChatMessage, MyProject } from '../types'
+import type {
+  InteractionResponsePayload,
+  InteractionSpec,
+  MessageInteraction,
+} from '@/common/types/agui'
+import type { Conversation, ChatMessage, MyProject, RagChatRequest } from '../types'
 
 const { hasPerm } = usePermission()
 
@@ -294,15 +301,34 @@ const loadConversations = async () => {
   }
 }
 
-/** 历史消息 blocks 归一化: 后端存 {node_name, stream_event_type, content}, 补齐 id/type */
-const normalizeBlocks = (msg: ChatMessage): MessageBlock[] =>
-  (msg.blocks ?? []).map((blk, i): MessageBlock => ({
-    id: blk.id ?? `hist-${msg.id}-${i}`,
-    node_name: blk.node_name ?? '',
-    type: 'process',
-    content: blk.content ?? '',
-    stream_event_type: blk.stream_event_type,
-  })).filter((blk) => blk.content)
+/** 历史消息 blocks 归一化: 后端存 {node_name, stream_event_type, content, data},
+ * 补齐 id/type; interaction 块(data 为 InteractionSpec)重建为交互卡片(只读紧凑态) */
+const normalizeBlocks = (
+  msg: ChatMessage
+): { blocks: MessageBlock[]; interactions: MessageInteraction[] } => {
+  const blocks: MessageBlock[] = []
+  const interactions: MessageInteraction[] = []
+  ;(msg.blocks ?? []).forEach((blk, i) => {
+    if (blk.stream_event_type === StreamEventType.INTERACTION && blk.data) {
+      interactions.push({
+        spec: blk.data as unknown as InteractionSpec,
+        responded: true,
+        response: null,
+      })
+      return
+    }
+    if (!blk.content) return
+    blocks.push({
+      id: blk.id ?? `hist-${msg.id}-${i}`,
+      node_name: blk.node_name ?? '',
+      type: 'process',
+      content: blk.content ?? '',
+      stream_event_type: blk.stream_event_type,
+      data: blk.data ?? null,
+    })
+  })
+  return { blocks, interactions }
+}
 
 // ===== 会话操作 =====
 const handleCreateConversation = async () => {
@@ -331,12 +357,13 @@ const selectConversation = async (conversationId: string) => {
     if (conv?.project_ids?.length) {
       selectedProjectIds.value = conv.project_ids
     }
-    // 历史消息(倒序接口按时间正序展示, blocks 归一化供折叠区恢复)
+    // 历史消息(倒序接口按时间正序展示, blocks 归一化 + 交互卡片重建)
     const res = await listConversationMessages(conversationId, { page: 1, size: 200 })
-    messages.value = [...res.items].reverse().map((msg) => ({
-      ...msg,
-      blocks: msg.role === 'assistant' ? normalizeBlocks(msg) : null,
-    }))
+    messages.value = [...res.items].reverse().map((msg) => {
+      if (msg.role !== 'assistant') return msg
+      const { blocks, interactions } = normalizeBlocks(msg)
+      return { ...msg, blocks, interactions: interactions.length ? interactions : null }
+    })
     messageListRef.value?.scrollToBottom(true)
   } catch (error) {
     console.error('加载对话失败:', error)
@@ -391,43 +418,97 @@ const applySuggestion = (question: string) => {
   handleSend()
 }
 
-// ===== 流式事件分组 =====
-// 按 (stream_event_type + node_name) 把过程内容累积到 blocks; answer 归入正文
-let currentBlock: MessageBlock | null = null
+// ===== 发送/停止(AG-UI 协议) =====
+// AG-UI 事件聚合器: 流式期间把事件聚合为 content/blocks/interactions
+const {
+  message: aguiMessage,
+  applyEvent: applyAguiEvent,
+  reset: resetAguiMessage,
+} = useAguiMessages()
 
-const appendEvent = (msg: ChatMessage, event: {
-  content?: string | null
-  node_name?: string | null
-  stream_event_type?: string | null
-}) => {
-  const content = event.content ?? ''
-  if (!content) return
-  const type = event.stream_event_type
-  // 正式回答(或未分类事件) → 正文, 关闭当前过程块
-  if (!type || type === StreamEventType.ANSWER) {
-    msg.content += content
-    currentBlock = null
-    return
-  }
-  // 过程内容(思考/检索/文件生成等) → 过程区块
-  if (
-    !currentBlock
-    || currentBlock.stream_event_type !== type
-    || currentBlock.node_name !== (event.node_name ?? '')
-  ) {
-    currentBlock = {
-      id: `blk-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      node_name: event.node_name ?? '',
-      type: 'process',
-      content: '',
-      stream_event_type: type,
-    }
-    msg.blocks = [...(msg.blocks ?? []), currentBlock]
-  }
-  currentBlock.content += content
+/** 交互响应在用户侧的展示文案(与后端可读兜底一致, 历史与实时观感统一) */
+const interactionDisplayText = (payload: InteractionResponsePayload): string => {
+  if (payload.value) return payload.value
+  if (payload.action === 'skip') return '（跳过补充，请基于现有信息回答）'
+  if (payload.action === 'answer_directly')
+    return '（无需知识库，请直接用你的知识回答我的上一个问题）'
+  if (payload.action === 'rephrase') return '请基于知识库重新检索并回答我之前的问题'
+  return '（补充信息）'
 }
 
-// ===== 发送/停止 =====
+/** 发起一次 AG-UI 流式请求(普通提问 / 交互响应续跑共用) */
+const startStream = async (request: RagChatRequest, userDisplay: string) => {
+  if (!currentConversationId.value || isSending.value) return
+
+  // 用户消息(交互响应时为可读兜底文案)
+  messages.value.push({
+    id: `local-${Date.now()}`,
+    conversation_id: currentConversationId.value,
+    role: 'user',
+    content: userDisplay,
+    created_at: new Date().toISOString(),
+  })
+
+  // 助手消息占位(流式填充正文/过程区块/交互卡片)
+  const assistantMsg: ChatMessage = reactive({
+    id: `local-${Date.now() + 1}`,
+    conversation_id: currentConversationId.value,
+    role: 'assistant',
+    content: '',
+    created_at: new Date().toISOString(),
+    blocks: [],
+    interactions: [],
+  })
+  messages.value.push(assistantMsg)
+  streamingMessageId.value = assistantMsg.id
+  isSending.value = true
+  stopRequested = false
+  abortController = null
+  resetAguiMessage()
+
+  // 结束收尾(幂等)
+  const finishStream = () => {
+    streamingMessageId.value = null
+    isSending.value = false
+    // 空回复兜底提示(交互-only run 有交互卡片, 不算空回复)
+    if (
+      !assistantMsg.content &&
+      !(assistantMsg.blocks?.length) &&
+      !(assistantMsg.interactions?.length)
+    ) {
+      assistantMsg.content = stopRequested ? '（已停止生成）' : '（未收到回复，请重试）'
+    }
+    messageListRef.value?.scrollToBottom(true)
+  }
+
+  try {
+    await sendRagChatAguiStream(currentConversationId.value, request, {
+      // 事件聚合 → 同步到助手占位消息
+      onEvent: (event) => {
+        applyAguiEvent(event)
+        assistantMsg.content = aguiMessage.content
+        assistantMsg.blocks = aguiMessage.blocks
+        assistantMsg.interactions = aguiMessage.interactions
+      },
+      onError: (error: string) => {
+        if (!stopRequested) assistantMsg.content += `\n\n> [错误] ${error}`
+      },
+      onComplete: () => {
+        loadConversations()
+        // 首次问答后后端异步生成标题, 延迟再刷新一次让侧栏标题跟进
+        if (messages.value.length === 2) window.setTimeout(loadConversations, 3000)
+      },
+      onController: (controller: AbortController) => {
+        abortController = controller
+      },
+    })
+  } catch {
+    if (!stopRequested) assistantMsg.content += '\n\n> [发送失败，请重试]'
+  } finally {
+    finishStream()
+  }
+}
+
 // 发送消息(流式接收; 无会话时自动创建)
 const handleSend = async () => {
   const message = inputMessage.value.trim()
@@ -449,76 +530,31 @@ const handleSend = async () => {
     }
   }
 
-  // 追加用户消息
-  messages.value.push({
-    id: `local-${Date.now()}`,
-    conversation_id: currentConversationId.value,
-    role: 'user',
-    content: message,
-    created_at: new Date().toISOString(),
-  })
   inputMessage.value = ''
+  await startStream(
+    {
+      message,
+      project_ids: selectedProjectIds.value,
+      deep_thinking: deepThinking.value,
+    },
+    message,
+  )
+}
 
-  // 助手消息占位(流式填充正文与过程区块)
-  const assistantMsg: ChatMessage = reactive({
-    id: `local-${Date.now() + 1}`,
-    conversation_id: currentConversationId.value,
-    role: 'assistant',
-    content: '',
-    created_at: new Date().toISOString(),
-    blocks: [],
-  })
-  messages.value.push(assistantMsg)
-  streamingMessageId.value = assistantMsg.id
-  isSending.value = true
-  stopRequested = false
-  abortController = null
-  currentBlock = null
-
-  // 结束收尾(幂等)
-  const finishStream = () => {
-    streamingMessageId.value = null
-    isSending.value = false
-    // 空回复兜底提示
-    if (!assistantMsg.content && !(assistantMsg.blocks?.length)) {
-      assistantMsg.content = stopRequested ? '（已停止生成）' : '（未收到回复，请重试）'
-    }
-    messageListRef.value?.scrollToBottom(true)
-  }
-
-  try {
-    await sendRagChatStream(
-      currentConversationId.value,
-      {
-        message,
-        project_ids: selectedProjectIds.value,
-        deep_thinking: deepThinking.value,
-      },
-      // 流式内容回调(仅正文, 兼容旧签名)
-      () => {},
-      // 错误回调(主动停止时不追加错误文案)
-      (error: string) => {
-        if (!stopRequested) assistantMsg.content += `\n\n> [错误] ${error}`
-        finishStream()
-      },
-      // 完成回调(刷新会话列表, 标题可能被自动总结更新)
-      () => {
-        finishStream()
-        loadConversations()
-        // 首次问答后后端异步生成标题, 延迟再刷新一次让侧栏标题跟进
-        if (messages.value.length === 2) window.setTimeout(loadConversations, 3000)
-      },
-      // 拿到中止控制器(供"停止生成")
-      (controller: AbortController) => {
-        abortController = controller
-      },
-      // 完整事件回调: 按事件类型分组(正文/过程区块)
-      (event) => appendEvent(assistantMsg, event),
-    )
-  } catch (error) {
-    if (!stopRequested) assistantMsg.content += '\n\n> [发送失败，请重试]'
-    finishStream()
-  }
+/** 交互卡片响应回传(伪中断续跑): 标记已响应后以 interaction_response 发起流 */
+const handleInteraction = (messageId: string, payload: InteractionResponsePayload) => {
+  if (isSending.value) return
+  const msg = messages.value.find((m) => m.id === messageId)
+  const ia = msg?.interactions?.find(
+    (i) => i.spec.interaction_id === payload.interaction_id,
+  )
+  if (!ia || ia.responded) return
+  ia.responded = true
+  ia.response = payload
+  startStream(
+    { message: '', interaction_response: { ...payload } },
+    interactionDisplayText(payload),
+  )
 }
 
 // 停止生成(中止 SSE 请求)

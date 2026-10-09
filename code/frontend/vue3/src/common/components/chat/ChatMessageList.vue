@@ -9,8 +9,10 @@ import { MagicStick, CopyDocument, Promotion, Document } from '@element-plus/ico
 import { ElMessage } from 'element-plus'
 import MarkdownContent from './MarkdownContent.vue'
 import ProcessBlock from './ProcessBlock.vue'
+import InteractiveCard from './InteractiveCard.vue'
 import { copyToClipboard, exportMarkdownToDocx, exportMarkdownToPdf } from '@/common/utils/export'
 import type { DisplayMessage } from '@/common/types/chat'
+import type { InteractionResponsePayload } from '@/common/types/agui'
 
 interface Props {
   messages: DisplayMessage[]
@@ -22,6 +24,8 @@ const props = defineProps<Props>()
 
 const emit = defineEmits<{
   (e: 'copy', text: string): void
+  /** 用户响应交互卡片(澄清/知识缺口补充), 由页面回传后端续跑流程 */
+  (e: 'interact', messageId: string, payload: InteractionResponsePayload): void
 }>()
 
 // 滚动容器
@@ -50,7 +54,7 @@ watch(
 )
 // 流式内容增长时跟随(长度签名变化即触发, 避免深度监听)
 watch(
-  () => props.messages.map((m) => `${m.content.length}-${m.blocks?.length ?? 0}`).join(','),
+  () => props.messages.map((m) => `${m.content.length}-${m.blocks?.length ?? 0}-${m.interactions?.length ?? 0}`).join(','),
   () => scrollToBottom(),
 )
 
@@ -108,6 +112,15 @@ const handleExportPdf = async (msg: DisplayMessage) => {
             <ProcessBlock
               :blocks="msg.blocks ?? []"
               :streaming="msg.id === streamingMessageId"
+            />
+
+            <!-- 交互卡片(澄清/知识缺口补充, 已响应后收起为紧凑态) -->
+            <InteractiveCard
+              v-for="ia in msg.interactions ?? []"
+              :key="ia.spec.interaction_id"
+              :interaction="ia"
+              :disabled="msg.id === streamingMessageId"
+              @respond="(payload) => emit('interact', msg.id, payload)"
             />
 
             <!-- 等待首个 token: 思考动画 -->

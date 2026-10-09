@@ -1,5 +1,7 @@
 // AI聊天相关类型定义
 
+import type { MessageInteraction } from './agui'
+
 export interface ChatHistory {
   id: string
   title: string
@@ -33,6 +35,8 @@ export interface ChatRequest {
     content: string
   }>
   streaming?: boolean
+  /** 流式事件协议: legacy(默认) / agui */
+  event_protocol?: string
 }
 
 export interface ChatResponse {
@@ -105,6 +109,8 @@ enum StreamEventType {
   ANSWER = 'answer',
   /** 状态提示(阶段性进度) */
   STATUS = 'status',
+  /** 用户交互请求(澄清/知识缺口补充) */
+  INTERACTION = 'interaction',
   /** 错误 */
   ERROR = 'error',
 }
@@ -143,6 +149,8 @@ interface MessageBlock {
   content: string
   /** 后端流式事件分类(answer/llm_thinking/tool_call/status...) */
   stream_event_type?: string
+  /** 结构化数据(AG-UI: 检索结果/意图结论/交互请求等) */
+  data?: Record<string, unknown> | null
 }
 
 /** 带过程区块的聊天消息(助手消息) */
@@ -159,6 +167,8 @@ interface DisplayMessage {
   content: string
   /** 助手消息的过程区块(思考/检索等, 折叠展示) */
   blocks?: MessageBlock[] | null
+  /** 助手消息的交互卡片(澄清/知识缺口补充) */
+  interactions?: MessageInteraction[] | null
   created_at?: string
 }
 
@@ -170,6 +180,7 @@ const STREAM_TYPE_LABELS: Record<string, string> = {
   [StreamEventType.TOOL_CALL]: '知识检索',
   [StreamEventType.FILE_GEN]: '文件生成',
   [StreamEventType.STATUS]: '进度',
+  [StreamEventType.INTERACTION]: '交互请求',
   [StreamEventType.ERROR]: '错误信息',
 }
 

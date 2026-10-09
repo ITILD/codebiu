@@ -1,6 +1,7 @@
 // src/modules/rag/types/index.ts
 // 知识库(RAG)模块类型定义
 import type { MessageBlock } from '@/common/types/chat';
+import type { MessageInteraction } from '@/common/types/agui';
 
 // 知识库分类: 个人/项目/公司
 enum KbCategory {
@@ -228,14 +229,24 @@ interface ChatMessage {
   created_at: string;
   /** 助手消息的过程区块(思考/检索等, 折叠展示) */
   blocks?: MessageBlock[] | null;
+  /** 助手消息的交互卡片(澄清/知识缺口补充, 历史恢复时从 interaction 块重建) */
+  interactions?: MessageInteraction[] | null;
 }
 
 // RAG 聊天请求(对应后端 ChatRequest)
 interface RagChatRequest {
-  message: string;
+  /** 交互卡片响应时可为空(纯点击提交) */
+  message?: string;
   project_ids?: string[];
   deep_thinking?: boolean;
   rerank_limit?: number;
+  /** 交互卡片响应 {interaction_id, action, value} */
+  interaction_response?: {
+    interaction_id: string;
+    action: string;
+    value?: string;
+  } | null;
+  // 注: 接口已统一 AG-UI 协议事件流, 无需再声明流式协议参数
 }
 
 // 对话总结结果

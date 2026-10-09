@@ -13,7 +13,7 @@ from module_ai.do.llm import (
 from module_ai.config.server import module_app
 from module_ai.do.model_config import ModelConfigCreateRequest
 from sse_starlette import EventSourceResponse, ServerSentEvent
-from module_ai.utils.llm.stream.sse import event_generator
+from module_ai.utils.llm.stream.sse import agui_event_generator, event_generator
 
 import logging
 
@@ -70,24 +70,39 @@ async def test_by_model_id(
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.post("/chat", summary="聊天接口 支持流式SSE")
+@router.post("/chat", summary="聊天接口 支持流式SSE(legacy/agui 双协议)")
 async def chat_completion(
+    chat_http_request: Request,
     request: ChatRequest, llm_service: LLMService = Depends(get_llm_service)
 ):
     """
-    聊天完成接口
+    聊天完成接口(直连 LLM, 无 RAG/图编排)
+
+    协议定位:
+    - **event_protocol=agui**(推荐): AG-UI 标准事件流(官方 SDK ag-ui-protocol,
+      正文 TEXT_MESSAGE_* / 推理 REASONING_*), 供前端聊天页等标准客户端消费
+    - **event_protocol=legacy**(默认): 旧 StreamChunkResponse 协议,
+      定位为简单 AI 问答工具接口(外部脚本/调试直连场景), 不含过程事件语义
 
     - **model_id**: 模型配置ID或模型标识名称
     - **messages**: 消息内容，可以是字符串或消息列表
     - **streaming**: 是否启用流式响应 返回SSE事件流
+    - **event_protocol**: 流式事件协议 legacy(默认) | agui
     """
     try:
         # 调用LLM服务
         responses = await llm_service.chat_completion(request)
         if request.streaming:
             # 流式响应SSE事件流
+            if request.event_protocol == "agui":
+                return EventSourceResponse(
+                    agui_event_generator(
+                        responses, chat_http_request, raw_llm_chunks=True
+                    ),
+                    media_type="text/event-stream",
+                )
             return EventSourceResponse(
-                event_generator(responses), media_type="text/event-stream"
+                event_generator(responses, chat_http_request), media_type="text/event-stream"
             )
         else:
             # 非流式响应

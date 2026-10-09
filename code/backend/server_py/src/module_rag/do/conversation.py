@@ -74,10 +74,16 @@ class ConversationResponse(SQLModel):
 class ChatRequest(BaseModel):
     """聊天请求"""
 
-    message: str
+    # 交互卡片响应时可为空(纯点击提交), 由 service 生成可读兜底文案
+    message: str = ""
     project_ids: list[str] = []
     deep_thinking: bool = False
     rerank_limit: int = Field(default=20, description="Rerank精排返回的最大结果数") # 新增
+    # 交互响应: {interaction_id, action, value}, 需与 checkpointer 中待响应请求匹配才生效
+    interaction_response: dict | None = Field(
+        default=None, description="交互卡片响应(澄清/知识缺口补充)"
+    )
+    # 注: 本接口已统一输出 AG-UI 协议事件流(官方 SDK ag-ui-protocol), 不再有旧协议分支
 
 class ConversationSummary(BaseModel):
     """对话摘要结构化模型"""

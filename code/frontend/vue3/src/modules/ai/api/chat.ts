@@ -3,6 +3,8 @@
  */
 import { http_base_server } from '@/common/api/http'
 import { fetchEventSource } from '@microsoft/fetch-event-source'
+import { streamAguiEvents } from '@/common/api/aguiStream'
+import type { AguiStreamCallbacks } from '@/common/api/aguiStream'
 import type {
   ChatRequest,
   ChatResponse,
@@ -80,6 +82,23 @@ export const sendChatMessageStream = async (
     }
   })
   return controller
+}
+
+/**
+ * 流式发送聊天消息 (AG-UI 协议 SSE)
+ * 事件为 AG-UI 标准事件流(TEXT_MESSAGE / REASONING 等), 由 useAguiMessages 聚合
+ * @param request 聊天请求(自动附带 event_protocol: 'agui')
+ * @param callbacks 事件回调组
+ */
+export const sendChatMessageAguiStream = async (
+  request: ChatRequest,
+  callbacks: AguiStreamCallbacks
+) => {
+  return streamAguiEvents(
+    '/base_server/ai/llm/chat',
+    { ...request, event_protocol: 'agui' },
+    callbacks
+  )
 }
 
 /**
