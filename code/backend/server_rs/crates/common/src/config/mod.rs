@@ -516,8 +516,8 @@ fn apply_env_overrides(merged: &mut serde_json::Value) {
     }
 }
 
-/// 完整加载流程: .env → 分层 yaml 深合并 → CODEBIU_* 覆盖 → 强类型 Config
-pub fn load() -> Result<Config, String> {
+/// 分层合并 + CODEBIU_* 覆盖(唯一加载路径, load/load_raw 共用)
+fn load_merged() -> Result<serde_json::Value, String> {
     // .env 自动加载(真实环境变量优先, 不覆盖)
     let _ = dotenvy::dotenv();
     let mut merged = serde_json::Value::Object(serde_json::Map::new());
@@ -526,9 +526,12 @@ pub fn load() -> Result<Config, String> {
         deep_merge(&mut merged, &layer);
     }
     apply_env_overrides(&mut merged);
-    let config: Config =
-        serde_json::from_value(merged).map_err(|e| format!("配置结构校验失败: {e}"))?;
-    Ok(config)
+    Ok(merged)
+}
+
+/// 强类型配置(结构校验失败即启动失败)
+pub fn load() -> Result<Config, String> {
+    serde_json::from_value(load_merged()?).map_err(|e| format!("配置结构校验失败: {e}"))
 }
 
 /// 全局配置单例(启动时初始化一次; 运行期只读)
@@ -553,16 +556,9 @@ pub fn raw_json() -> &'static serde_json::Value {
     RAW_JSON.get_or_init(|| load_raw().unwrap_or_else(|e| panic!("配置加载失败: {e}")))
 }
 
-/// 仅加载原始合并 JSON(与 load() 同流程, 不做强类型校验)
+/// 仅加载原始合并 JSON(动态配置中心 seed_from_yaml 读取同名节用, 不做强类型校验)
 fn load_raw() -> Result<serde_json::Value, String> {
-    let _ = dotenvy::dotenv();
-    let mut merged = serde_json::Value::Object(serde_json::Map::new());
-    for file in resolve_layer_files()? {
-        let layer = read_layer(&file)?;
-        deep_merge(&mut merged, &layer);
-    }
-    apply_env_overrides(&mut merged);
-    Ok(merged)
+    load_merged()
 }
 
 #[cfg(test)]
