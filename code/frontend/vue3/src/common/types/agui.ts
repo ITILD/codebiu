@@ -1,202 +1,66 @@
 // AG-UI 协议(Agent User Interaction Protocol)前端类型定义
-// 对齐后端 module_ai/utils/llm/stream/agui.py 输出的官方 SDK 事件流
-// (Python 官方包 `ag-ui-protocol`, 每条 data 为 camelCase JSON, 以大写 type 判别)
-// 规范参考: https://docs.ag-ui.com/concepts/events
+// 事件类型/枚举直接 re-export 官方 TS SDK `@ag-ui/core`(由 1.0 规范 schema 生成),
+// 与后端官方 Python SDK(ag-ui-protocol)的序列化输出逐字段一致:
+// 每条 SSE data 为 camelCase JSON(可选字段缺省时省略), 以大写 type 判别。
+// 规范: https://docs.ag-ui.com/concepts/events
 //
-// 关于官方 TS SDK:
-// 前端官方包为 `@ag-ui/core`(事件/消息类型)与 `@ag-ui/client`(HttpAgent 客户端,
-// 自带事件订阅/状态合成/中断恢复)。本文件类型与 @ag-ui/core 1.0 的事件形状
-// 逐字段对齐(camelCase, 可选字段可缺省), 当前以零依赖的自实现类型运行;
-// 后续如需接入 CopilotKit 等标准客户端, 可 `pnpm add @ag-ui/core @ag-ui/client`
-// 后将本文件替换为官方类型 re-export, 下游(aguiStream/useAguiMessages)无需改动。
-
-/** AG-UI 标准事件类型 */
-export type AguiEventType =
-  | 'RUN_STARTED'
-  | 'RUN_FINISHED'
-  | 'RUN_ERROR'
-  | 'STEP_STARTED'
-  | 'STEP_FINISHED'
-  | 'TEXT_MESSAGE_START'
-  | 'TEXT_MESSAGE_CONTENT'
-  | 'TEXT_MESSAGE_END'
-  | 'TOOL_CALL_START'
-  | 'TOOL_CALL_ARGS'
-  | 'TOOL_CALL_END'
-  | 'TOOL_CALL_RESULT'
-  | 'STATE_SNAPSHOT'
-  | 'REASONING_START'
-  | 'REASONING_MESSAGE_START'
-  | 'REASONING_MESSAGE_CONTENT'
-  | 'REASONING_MESSAGE_END'
-  | 'REASONING_END'
-  | 'CUSTOM'
-
-/** AG-UI 事件公共字段 */
-export interface AguiBaseEvent {
-  type: AguiEventType
-  /** Unix 时间戳(秒) */
-  timestamp: number
-}
+// 官方包定位:
+// - @ag-ui/core  : 协议类型/事件判别联合(Event)与 EventType 枚举, 本文件来源
+// - @ag-ui/client: 标准客户端(HttpAgent/MessageQueue), 面向 RunAgentInput 标准
+//   端点(threadId/runId/messages/tools/...)。本项目后端为自定义请求体
+//   (RagChatRequest/ChatRequest)且需注入鉴权 token, 故传输层用自研
+//   aguiStream.ts + useAguiMessages.ts(语义对标官方), 类型层用官方;
+//   后端若对齐标准 RunAgentInput 端点, 可切换 HttpAgent 无缝接入
+//   CopilotKit 等标准前端。
 
 // ──────────────────────────────────────────────
-// 生命周期事件
+// 官方协议类型 re-export(@ag-ui/core)
 // ──────────────────────────────────────────────
 
-export interface RunStartedEvent extends AguiBaseEvent {
-  type: 'RUN_STARTED'
-  threadId: string
-  runId: string
-}
+/** 事件类型判别枚举(31 种标准事件, 字符串枚举) */
+export { EventType } from '@ag-ui/core'
 
-export interface RunFinishedEvent extends AguiBaseEvent {
-  type: 'RUN_FINISHED'
-  threadId: string
-  runId: string
-}
+/** 官方事件判别联合(全量标准事件的 closed union) */
+export type { Event as AguiEvent } from '@ag-ui/core'
 
-export interface RunErrorEvent extends AguiBaseEvent {
-  type: 'RUN_ERROR'
-  message: string
-  code?: string | null
-}
+// 生命周期
+export type {
+  RunStartedEvent,
+  RunFinishedEvent,
+  RunErrorEvent,
+  StepStartedEvent,
+  StepFinishedEvent,
+} from '@ag-ui/core'
 
-export interface StepStartedEvent extends AguiBaseEvent {
-  type: 'STEP_STARTED'
-  /** 步骤名(后端图节点名, 如 intent_analysis/knowledge_search/chat) */
-  stepName: string
-}
+// 文本消息流
+export type {
+  TextMessageStartEvent,
+  TextMessageContentEvent,
+  TextMessageEndEvent,
+} from '@ag-ui/core'
 
-export interface StepFinishedEvent extends AguiBaseEvent {
-  type: 'STEP_FINISHED'
-  stepName: string
-}
+// 工具调用流
+export type {
+  ToolCallStartEvent,
+  ToolCallArgsEvent,
+  ToolCallEndEvent,
+  ToolCallResultEvent,
+} from '@ag-ui/core'
 
-// ──────────────────────────────────────────────
-// 文本消息事件(正式回答流)
-// ──────────────────────────────────────────────
+// 状态快照
+export type { StateSnapshotEvent } from '@ag-ui/core'
 
-export interface TextMessageStartEvent extends AguiBaseEvent {
-  type: 'TEXT_MESSAGE_START'
-  messageId: string
-  role: string
-}
+// 推理过程流
+export type {
+  ReasoningStartEvent,
+  ReasoningMessageStartEvent,
+  ReasoningMessageContentEvent,
+  ReasoningMessageEndEvent,
+  ReasoningEndEvent,
+} from '@ag-ui/core'
 
-export interface TextMessageContentEvent extends AguiBaseEvent {
-  type: 'TEXT_MESSAGE_CONTENT'
-  messageId: string
-  delta: string
-}
-
-export interface TextMessageEndEvent extends AguiBaseEvent {
-  type: 'TEXT_MESSAGE_END'
-  messageId: string
-}
-
-// ──────────────────────────────────────────────
-// 工具调用事件(知识库检索等)
-// ──────────────────────────────────────────────
-
-export interface ToolCallStartEvent extends AguiBaseEvent {
-  type: 'TOOL_CALL_START'
-  toolCallId: string
-  toolCallName: string
-  /** 调用入参(JSON 字符串) */
-  input?: string
-}
-
-export interface ToolCallArgsEvent extends AguiBaseEvent {
-  type: 'TOOL_CALL_ARGS'
-  toolCallId: string
-  delta: string
-}
-
-export interface ToolCallEndEvent extends AguiBaseEvent {
-  type: 'TOOL_CALL_END'
-  toolCallId: string
-}
-
-export interface ToolCallResultEvent extends AguiBaseEvent {
-  type: 'TOOL_CALL_RESULT'
-  messageId: string
-  toolCallId: string
-  role: string
-  /** 工具结果(JSON 字符串或文本) */
-  content: string
-}
-
-// ──────────────────────────────────────────────
-// 状态快照事件
-// ──────────────────────────────────────────────
-
-export interface StateSnapshotEvent extends AguiBaseEvent {
-  type: 'STATE_SNAPSHOT'
-  snapshot: Record<string, unknown>
-}
-
-// ──────────────────────────────────────────────
-// 推理过程事件(思考流)
-// ──────────────────────────────────────────────
-
-export interface ReasoningStartEvent extends AguiBaseEvent {
-  type: 'REASONING_START'
-  id: string
-}
-
-export interface ReasoningMessageStartEvent extends AguiBaseEvent {
-  type: 'REASONING_MESSAGE_START'
-  id: string
-}
-
-export interface ReasoningMessageContentEvent extends AguiBaseEvent {
-  type: 'REASONING_MESSAGE_CONTENT'
-  id: string
-  delta: string
-}
-
-export interface ReasoningMessageEndEvent extends AguiBaseEvent {
-  type: 'REASONING_MESSAGE_END'
-  id: string
-}
-
-export interface ReasoningEndEvent extends AguiBaseEvent {
-  type: 'REASONING_END'
-  id: string
-}
-
-// ──────────────────────────────────────────────
-// 特殊事件(自定义业务载荷)
-// ──────────────────────────────────────────────
-
-/** CUSTOM 事件(避免与 DOM 全局 CustomEvent 类型冲突) */
-export interface AguiCustomEvent extends AguiBaseEvent {
-  type: 'CUSTOM'
-  /** 自定义事件名(命名空间.事件) */
-  name: string
-  value: Record<string, unknown>
-}
-
-/** AG-UI 事件联合类型 */
-export type AguiEvent =
-  | RunStartedEvent
-  | RunFinishedEvent
-  | RunErrorEvent
-  | StepStartedEvent
-  | StepFinishedEvent
-  | TextMessageStartEvent
-  | TextMessageContentEvent
-  | TextMessageEndEvent
-  | ToolCallStartEvent
-  | ToolCallArgsEvent
-  | ToolCallEndEvent
-  | ToolCallResultEvent
-  | StateSnapshotEvent
-  | ReasoningStartEvent
-  | ReasoningMessageStartEvent
-  | ReasoningMessageContentEvent
-  | ReasoningMessageEndEvent
-  | ReasoningEndEvent
-  | AguiCustomEvent
+// 官方名为 CustomEvent, 重命名避免与 DOM 全局 CustomEvent 类型冲突
+export type { CustomEvent as AguiCustomEvent } from '@ag-ui/core'
 
 /** CUSTOM 事件名约定(与后端 agui.py 的 CUSTOM_NAME_* 一致) */
 export const AGUI_CUSTOM_NAME = {
@@ -209,7 +73,7 @@ export const AGUI_CUSTOM_NAME = {
 } as const
 
 // ──────────────────────────────────────────────
-// 用户交互(澄清 / 知识缺口补充)
+// 用户交互(澄清 / 知识缺口补充) — 本项目业务扩展, 非协议部分
 // ──────────────────────────────────────────────
 
 /** 交互类型: clarify=信息不足澄清, knowledge_gap=检索零命中补充 */
@@ -261,7 +125,7 @@ export interface MessageInteraction {
 }
 
 // ──────────────────────────────────────────────
-// 结构化业务载荷(TOOL_CALL_RESULT / CUSTOM value)
+// 结构化业务载荷(TOOL_CALL_RESULT content / CUSTOM value)
 // ──────────────────────────────────────────────
 
 /** 知识库检索单条结果(引用溯源) */

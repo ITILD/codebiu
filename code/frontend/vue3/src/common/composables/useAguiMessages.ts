@@ -12,6 +12,7 @@
 import { reactive } from 'vue'
 import {
   AGUI_CUSTOM_NAME,
+  EventType,
   type AguiEvent,
   type InteractionSpec,
   type MessageInteraction,
@@ -71,16 +72,17 @@ class AguiMessageAggregator {
   }
 
   applyEvent(event: AguiEvent): void {
+    // switch 以官方 EventType 枚举判别, TS 对官方事件联合自动收窄
     switch (event.type) {
-      case 'STEP_STARTED':
+      case EventType.STEP_STARTED:
         this.currentStep = event.stepName
         break
 
-      case 'TEXT_MESSAGE_CONTENT':
+      case EventType.TEXT_MESSAGE_CONTENT:
         this.content += event.delta
         break
 
-      case 'REASONING_MESSAGE_CONTENT': {
+      case EventType.REASONING_MESSAGE_CONTENT: {
         // 意图分析阶段的推理沿用 agent_thinking 标签, 其余归 llm_thinking
         const eventType =
           this.currentStep === INTENT_STEP ? 'agent_thinking' : 'llm_thinking'
@@ -88,26 +90,27 @@ class AguiMessageAggregator {
         break
       }
 
-      case 'TOOL_CALL_START': {
+      case EventType.TOOL_CALL_START: {
         const block = this.appendBlock('tool_call', event.toolCallName, '')
         this.toolBlocks.set(event.toolCallId, block)
         break
       }
 
-      case 'TOOL_CALL_ARGS': {
+      case EventType.TOOL_CALL_ARGS: {
         // 入参增量追加到对应工具调用块
         const block = this.toolBlocks.get(event.toolCallId)
         if (block) block.content += event.delta
         break
       }
 
-      case 'TOOL_CALL_END':
+      case EventType.TOOL_CALL_END:
         break
 
-      case 'TOOL_CALL_RESULT': {
+      case EventType.TOOL_CALL_RESULT: {
         // 结构化检索结果: 解析 JSON 写入块 data(渲染优先于文本)
+        // 官方 1.0 的 content 支持 string | ContentPart[](多模态), 本后端仅发 JSON 字符串
         const block = this.toolBlocks.get(event.toolCallId)
-        if (block) {
+        if (block && typeof event.content === 'string') {
           try {
             block.data = JSON.parse(event.content) as unknown as Record<string, unknown>
           } catch {
@@ -117,12 +120,12 @@ class AguiMessageAggregator {
         break
       }
 
-      case 'CUSTOM': {
+      case EventType.CUSTOM: {
         this.applyCustom(event.name, event.value)
         break
       }
 
-      case 'RUN_ERROR':
+      case EventType.RUN_ERROR:
         this.error = event.message
         this.appendBlock('error', '', event.message)
         break

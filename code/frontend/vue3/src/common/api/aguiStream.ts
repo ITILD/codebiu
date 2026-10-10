@@ -7,6 +7,7 @@
 // 项目现有的回调式 API 形态并叠加认证 token 注入, 语义与官方一致。
 import { fetchEventSource } from '@microsoft/fetch-event-source'
 import { useAuthStore } from '@/common/stores/auth'
+import { EventType } from '@/common/types/agui'
 import type { AguiEvent } from '@/common/types/agui'
 
 export interface AguiStreamCallbacks {
@@ -67,10 +68,10 @@ export async function streamAguiEvents(
         try {
           const parsed = JSON.parse(event.data) as AguiEvent
           callbacks.onEvent(parsed)
-          if (parsed.type === 'RUN_ERROR') {
+          if (parsed.type === EventType.RUN_ERROR) {
             errored = true
             callbacks.onError?.(parsed.message || '未知错误')
-          } else if (parsed.type === 'RUN_FINISHED') {
+          } else if (parsed.type === EventType.RUN_FINISHED) {
             finish()
           }
         } catch (e) {
