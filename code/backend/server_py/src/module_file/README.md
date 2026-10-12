@@ -28,7 +28,7 @@ config/filesystem.py: 按 conf.file_system.storage_type 启动时构建全局存
 
 ## 2. 存储根目录语义
 
-- `storage_type: local`：本地目录 `base_dir` 作为文件系统根目录（未配置时默认 `dir.base_child.upload`），物理键 `uploads/{date}/{hash}{ext}` 解析为 `base_dir/uploads/...`。
+- `storage_type: local`：本地目录 `base_dir` 作为文件系统根目录（未配置时默认 `dir.base_child.upload`），物理键 `{hash}{ext}` 解析为 `base_dir/{hash}{ext}`。
 - `storage_type: s3`：bucket（如 `bucket0`）作为根目录，物理键即 bucket 内的 object key。
 
 `config.dev.yaml`:

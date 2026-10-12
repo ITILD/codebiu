@@ -6,7 +6,6 @@ import inspect
 import io
 import hashlib
 import logging
-from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote
 from module_file.utils.multi_storage.session.interface.strorage_interface import (
@@ -276,10 +275,9 @@ class S3StorageInterface(StorageInterface):
                 async for chunk in resp["Body"].iter_chunks(1024 * 1024):
                     hasher.update(chunk)
             real_hash, ext_src = hasher.hexdigest(), key
-        # 按内容哈希生成最终物理键(与直传 uploads/{date}/{hash}{ext} 规则一致)
+        # 按内容哈希生成最终物理键(与直传 {hash}{ext} 规则一致,内容寻址跨天确定性去重)
         ext = Path(ext_src).suffix
-        date_str = datetime.now().strftime("%Y%m%d")
-        final_key = f"uploads/{date_str}/{real_hash}{ext}"
+        final_key = f"{real_hash}{ext}"
         if final_key != key:
             async with self._get_client() as client:
                 if await self.exists(final_key):

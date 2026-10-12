@@ -3,7 +3,6 @@ from __future__ import annotations
 import hashlib
 import shutil
 import uuid
-from datetime import datetime
 from pathlib import Path
 from typing import AsyncIterator
 import aiofiles
@@ -151,10 +150,9 @@ class LocalStorageInterface(StorageInterface):
                         hasher.update(chunk)
                         total += len(chunk)
                         await out.write(chunk)
-        # 按内容哈希生成最终物理键(与直传 uploads/{date}/{hash}{ext} 规则一致)
+        # 按内容哈希生成最终物理键(与直传 {hash}{ext} 规则一致,内容寻址跨天确定性去重)
         ext = Path(key).suffix
-        date_str = datetime.now().strftime("%Y%m%d")
-        final_key = f"uploads/{date_str}/{hasher.hexdigest()}{ext}"
+        final_key = f"{hasher.hexdigest()}{ext}"
         final_path = self.base_dir / final_key
         final_path.parent.mkdir(parents=True, exist_ok=True)
         if final_path.exists():

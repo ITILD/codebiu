@@ -102,7 +102,7 @@ class FakeS3Storage(S3StorageInterface):
         )
         real_hash = hashlib.sha256(merged).hexdigest()
         final_hash = expected_hash or real_hash
-        final_key = f"uploads/20260906/{final_hash}{Path(key).suffix}"
+        final_key = f"{final_hash}{Path(key).suffix}"
         self.objects[final_key] = merged
         return final_hash, len(merged), final_key
 

@@ -40,7 +40,6 @@ from common.config.dynamic.schemas import FileSystemSettings, TokenSettings
 from pathlib import Path
 import logging
 from common.config.path import DIR_UPLOAD
-from datetime import datetime
 from common.enum.task import TaskStatus
 
 # 配置日志
@@ -635,9 +634,8 @@ class FileService:
         if file_content and file_content.content_status == TaskStatus.SUCCESS:
             physical_storage = file_content.physical_storage
         else:
-            # 新内容或上次上传中断: 覆盖写入物理存储(哈希命名,日期分目录)
-            date_str = datetime.now().strftime("%Y%m%d")
-            physical_storage = f"uploads/{date_str}/{content_hash}{file_ext}"
+            # 新内容或上次上传中断: 覆盖写入物理存储(内容哈希命名,纯拍平桶根)
+            physical_storage = f"{content_hash}{file_ext}"
             await self.storage.save(physical_storage, content)
             if not file_content:
                 await self.file_content_dao.add(
@@ -688,10 +686,8 @@ class FileService:
         if existing:
             physical_key = existing.physical_storage
         else:
-            physical_key = (
-                f"uploads/{datetime.now().strftime('%Y%m%d')}/{uuid.uuid4().hex}"
-                f"{Path(req.filename).suffix}"
-            )
+            # 临时键用uuid(避免同哈希并发会话互踩),完成时按内容哈希归位
+            physical_key = f"{uuid.uuid4().hex}{Path(req.filename).suffix}"
             await self.file_content_dao.add(
                 FileContentCreate(
                     content_hash=req.content_hash,
