@@ -3,8 +3,10 @@
 //! 本模块实体所需枚举(自集中 entities crate 下沉至各模块, 仅保留本模块子集)。
 //!
 //! 对齐说明: chat_message.role 与 Python module_ai.utils.llm.types.RoleType
-//! (str Enum, 值为小写 system/user/assistant)共用同一数据库列, 故 string_value
-//! 与 serde 序列化均采用小写, 保证跨语言数据互通。
+//! (str Enum)共用同一数据库列。Python 侧 SQLAlchemy 按枚举**名**建 pg 枚举
+//! (大写 SYSTEM/USER/ASSISTANT, 见库中 roletype 类型), 故数据库口径用大写;
+//! API/LLM 口径仍为小写 system/user/assistant(serde rename_all + as_str),
+//! 保证跨语言数据互通与 API 契约一致。
 
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -13,16 +15,17 @@ use serde::{Deserialize, Serialize};
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "roletype")]
 #[serde(rename_all = "lowercase")]
 pub enum Roletype {
-    #[sea_orm(string_value = "system")]
+    #[sea_orm(string_value = "SYSTEM")]
     System,
-    #[sea_orm(string_value = "user")]
+    #[sea_orm(string_value = "USER")]
     User,
-    #[sea_orm(string_value = "assistant")]
+    #[sea_orm(string_value = "ASSISTANT")]
     Assistant,
 }
 
 impl Roletype {
-    /// 数据库/序列化口径的小写字符串(对齐 Python RoleType 枚举值)
+    /// API/LLM 序列化口径的小写字符串(对齐 Python RoleType 枚举值;
+    /// 数据库口径为大写, 由上方 string_value 定义, 勿用本方法拼 SQL)
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::System => "system",

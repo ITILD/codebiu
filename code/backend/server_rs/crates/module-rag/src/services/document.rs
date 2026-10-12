@@ -47,6 +47,17 @@ fn new_id() -> String {
     uuid::Uuid::new_v4().simple().to_string()
 }
 
+/// Json 值转字符串列表(向量库 Array<VarChar> 写入口径; 非数组/元素非字符串时返回空)
+fn json_str_list(v: &serde_json::Value) -> Vec<String> {
+    v.as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|i| i.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 /// 上传前置校验: 项目存在 + 文件类型允许, 返回小写扩展名(不含点)
 pub async fn validate_upload(state: &AppState, project_id: &str, filename: &str) -> Result<String, AppError> {
     if crate::dao::project::project_get(&state.db, project_id).await?.is_none() {
@@ -73,7 +84,7 @@ async fn validate_folder_in_project(
     project_id: &str,
     folder_id: &str,
 ) -> Result<(), AppError> {
-    let file_service = module_file::services::filesystem::FileService::new(state.clone(), true);
+    let file_service = module_file::services::filesystem::FileService::new(state.clone(), false);
     let entry = file_service
         .get_file_entry(folder_id)
         .await?
@@ -117,7 +128,7 @@ pub async fn upload_document(
         }
         None => root_id,
     };
-    let file_service = module_file::services::filesystem::FileService::new(state.clone(), true);
+    let file_service = module_file::services::filesystem::FileService::new(state.clone(), false);
     let entry = file_service
         .upload_file(
             filename,
@@ -252,7 +263,7 @@ pub async fn create_folder(
         }
         None => root_id,
     };
-    let file_service = module_file::services::filesystem::FileService::new(state.clone(), true);
+    let file_service = module_file::services::filesystem::FileService::new(state.clone(), false);
     let folder = file_service.create_folder(name.to_string(), Some(&target_pid), Some(owner), None).await?;
     Ok(folder.id)
 }
@@ -270,7 +281,7 @@ pub async fn rename_folder(
         return Err(AppError::business("项目根文件夹名称请通过修改项目名称变更"));
     }
     validate_folder_in_project(state, project_id, folder_id).await?;
-    let file_service = module_file::services::filesystem::FileService::new(state.clone(), true);
+    let file_service = module_file::services::filesystem::FileService::new(state.clone(), false);
     file_service.rename(folder_id, name).await?;
     Ok(())
 }
@@ -287,7 +298,7 @@ pub async fn delete_folder(
         return Err(AppError::business("不能删除项目根文件夹"));
     }
     validate_folder_in_project(state, project_id, folder_id).await?;
-    let file_service = module_file::services::filesystem::FileService::new(state.clone(), true);
+    let file_service = module_file::services::filesystem::FileService::new(state.clone(), false);
     file_service.delete_folder(folder_id).await?;
     Ok(())
 }
@@ -353,7 +364,7 @@ pub async fn update_document(
     .await?;
     // 名称/描述变更同步文件条目(条目级口径)
     if let Some(entry_id) = &document.entry_id {
-        let file_service = module_file::services::filesystem::FileService::new(state.clone(), true);
+        let file_service = module_file::services::filesystem::FileService::new(state.clone(), false);
         let name = req.name.clone();
         let desc = req.description.clone();
         if name.is_some() || desc.is_some() {
@@ -371,13 +382,19 @@ pub async fn update_document(
 /// 删除文档(物理内容引用释放 + 分块清理 + 记录删除)
 pub async fn delete_document(state: &AppState, document_id: &str) -> Result<(), AppError> {
     let document = get_document(state, document_id).await?;
-    let file_service = module_file::services::filesystem::FileService::new(state.clone(), true);
+    let file_service = module_file::services::filesystem::FileService::new(state.clone(), false);
     if let Some(entry_id) = &document.entry_id {
         if let Err(e) = file_service.delete_file(entry_id).await {
             tracing::warn!("删除文档条目失败 {entry_id}: {e}");
         }
     } else if let Some(hash) = &document.content_hash {
         file_service.release_content_public(Some(hash)).await?;
+    }
+    // 向量库分块同步清理(未启用向量库时跳过; 失败仅告警不阻断删除)
+    if let Some(client) = common::utils::db_vector::get(state).await {
+        if let Err(e) = client.delete_by_document(document_id).await {
+            tracing::warn!("清理文档向量失败 {document_id}: {e}");
+        }
     }
     doc_dao::chunk_delete_by_document(&state.db, document_id).await?;
     doc_dao::document_delete(&state.db, document_id).await?;
@@ -532,6 +549,8 @@ pub async fn parse_document(
         let parsed: Vec<ParsedChunk> = if is_text_extension(&document.file_extension) {
             // 文本类: 原生读取
             let text = file_service.read_file_text(&entry_id).await?;
+            // 去除 UTF-8 BOM 前缀(Windows 编辑器常见, 避免污染首个分块的分词)
+            let text = text.strip_prefix('\u{feff}').map(String::from).unwrap_or(text);
             set_step(state, &document, "parse", "completed", 100.0, None, None).await?;
             // ==================== 步骤2: 分块(滑动窗口) ====================
             report_progress(progress_cb, base_of(&["parse"]), "正在拆分chunk").await;
@@ -577,7 +596,7 @@ pub async fn parse_document(
         }
         set_step(state, &document, "chunk", "completed", 100.0, None, None).await?;
 
-        // ==================== 步骤3: 向量化(真实调用, 跳过向量写入) ====================
+        // ==================== 步骤3: 向量化(真实调用 + 写入 Milvus) ====================
         report_progress(progress_cb, base_of(&["parse", "chunk"]), "正在向量化").await;
         set_step(
             state,
@@ -599,37 +618,66 @@ pub async fn parse_document(
         else {
             return Err(AppError::business(format!("加载向量化模型失败: {embed_model_id}")));
         };
-        // 分批向量化(单批 16 条, 对齐常规 embedding 批量上限)
-        let mut vectors = 0usize;
+        // 预生成分块ID(关系表与向量库同 id, 两边数据可互查)
+        let chunk_ids: Vec<String> = (0..parsed.len()).map(|_| new_id()).collect();
+        // 分批向量化(单批 16 条, 对齐常规 embedding 批量上限), 收集向量待写入
+        let mut all_vectors: Vec<Vec<f64>> = Vec::with_capacity(parsed.len());
         for batch in parsed.chunks(16) {
             let batch_vec: Vec<String> = batch.iter().map(|c| c.content.clone()).collect();
-            module_ai::utils::llm::embed(&state.http, &target, &batch_vec).await?;
-            vectors += batch_vec.len();
+            let vectors = module_ai::utils::llm::embed(&state.http, &target, &batch_vec).await?;
+            all_vectors.extend(vectors);
             let p = if parsed.is_empty() {
                 100.0
             } else {
-                vectors as f64 / parsed.len() as f64 * 100.0
+                all_vectors.len() as f64 / parsed.len() as f64 * 100.0
             };
             set_step(state, &document, "embed", "running", p, Some("正在向量化"), None).await?;
         }
-        // 向量库引擎未实现: 步骤置 skipped, 分块文本落关系表
-        set_step(
-            state,
-            &document,
-            "embed",
-            "skipped",
-            100.0,
-            Some("向量库引擎暂未在 Rust 服务实现， 已跳过向量写入"),
-            None,
-        )
-        .await?;
+        // 写入 Milvus 向量库(未启用向量库时步骤置 skipped 降级, 分块文本仍落关系表)
+        match common::utils::db_vector::get(state).await {
+            Some(client) => {
+                let rows: Vec<common::utils::db_vector::ChunkRow> = parsed
+                    .iter()
+                    .zip(chunk_ids.iter())
+                    .zip(all_vectors.iter())
+                    .map(|((c, id), vec)| common::utils::db_vector::ChunkRow {
+                        id: id.clone(),
+                        sort: 0,
+                        document_id: document.id.clone(),
+                        project_id: document.project_id.clone(),
+                        content: c.content.clone(),
+                        source: document.name.clone(),
+                        content_types: json_str_list(&c.content_types),
+                        position: c.position.clone(),
+                        metadata: c.metadata.clone().unwrap_or(serde_json::json!({})),
+                        embedding: vec.clone(),
+                    })
+                    .collect();
+                // 替换式写入: 先清旧向量再插入(与关系表 chunk_delete_by_document 同语义)
+                let _ = client.delete_by_document(&document.id).await;
+                client.insert_chunks(rows).await.map_err(AppError::business)?;
+                set_step(state, &document, "embed", "completed", 100.0, None, None).await?;
+            }
+            None => {
+                set_step(
+                    state,
+                    &document,
+                    "embed",
+                    "skipped",
+                    100.0,
+                    Some("向量库未启用，已跳过向量写入"),
+                    None,
+                )
+                .await?;
+            }
+        }
 
         // ==================== 分块落表(替换式) ====================
         doc_dao::chunk_delete_by_document(&state.db, &document.id).await?;
         let mut rows = Vec::with_capacity(parsed.len());
-        for (i, c) in parsed.iter().enumerate() {
+        for (i, (c, id)) in parsed.iter().zip(chunk_ids.iter()).enumerate() {
             rows.push(project_document_chunk::ActiveModel {
-                id: Set(new_id()),
+                id: Set(id.clone()),
                 sort: Set(i as i32),
                 document_id: Set(document.id.clone()),
                 project_id: Set(document.project_id.clone()),
@@ -682,18 +730,256 @@ pub async fn parse_document(
     }
 }
 
-// ==================== 分块服务(search/revectorize, 向量库降级口径) ====================
+// ==================== 分块服务(search/revectorize) ====================
 
-/// 按问题检索分块(向量库引擎未实现 → 400 降级提示, 对齐任务书口径)
+/// 按问题检索分块(向量+BM25 混合检索 RRF 融合 → 可选 rerank 精排 → 拼接上下文)
+///
+/// 对齐 Python service.search: 响应为 SearchResult 数组
+/// (rid/content/metadata/score/previous_content/next_content/content_types)。
 pub async fn search_by_question(
-    _state: &AppState,
-    _user_id: &str,
-    _req: crate::do_::document::SearchByQuestionRequest,
-) -> Result<(), AppError> {
-    Err(AppError::business("向量库引擎暂未在 Rust 服务实现"))
+    state: &AppState,
+    user_id: &str,
+    req: crate::do_::document::SearchByQuestionRequest,
+) -> Result<serde_json::Value, AppError> {
+    use common::utils::db_vector as vector;
+
+    // 1) 解析向量化模型并生成查询向量(query_content 在前拼接, 对齐 aembed_query 口径)
+    let resolved = um_service::resolve_model(state, user_id, model_type::EMBEDDINGS).await?;
+    let model_id = resolved.model_id.ok_or_else(|| {
+        AppError::business("无可用向量化模型, 请在设置中绑定或由管理员配置默认向量化模型")
+    })?;
+    let target = module_ai::services::llm::get_llm(&state.db, &model_id, false)
+        .await?
+        .ok_or_else(|| AppError::business(format!("加载向量化模型失败: {model_id}")))?;
+    let query_text = if req.query_content.is_empty() {
+        req.query_text.clone()
+    } else if req.query_text.is_empty() {
+        req.query_content.clone()
+    } else {
+        format!("{}\n{}", req.query_content, req.query_text)
+    };
+    if query_text.trim().is_empty() {
+        return Ok(serde_json::json!([]));
+    }
+    let vectors = module_ai::utils::llm::embed(&state.http, &target, &[query_text.clone()]).await?;
+    let Some(query_vector) = vectors.into_iter().next() else {
+        return Err(AppError::business("向量化模型未返回查询向量"));
+    };
+
+    // 2) 混合检索(稠密向量 + 稀疏 BM25, 服务端 RRF 融合)
+    let client = vector::get(state)
+        .await
+        .ok_or_else(|| AppError::business("向量库未启用, 无法执行相似检索"))?;
+    let mut hits = client
+        .hybrid_search_chunks(&query_text, &query_vector, &req.project_ids, req.limit)
+        .await
+        .map_err(AppError::business)?;
+
+    // 3) 可选 rerank 精排(引擎获取失败时降级保留 RRF 序, 不阻断检索)
+    if req.enable_rerank && hits.len() > 1 {
+        match module_ai::services::rerank::get_reranker(&state.db, None).await {
+            Ok(engine) => {
+                let texts: Vec<String> = hits.iter().map(|h| h.content.clone()).collect();
+                let top_n = if req.rerank_limit > 0 {
+                    Some(req.rerank_limit as usize)
+                } else {
+                    None
+                };
+                match engine
+                    .arerank(&state.http, &query_text, &texts, top_n)
+                    .await
+                {
+                    Ok(ranked) => {
+                        let mut reindexed: Vec<vector::ChunkHit> = Vec::with_capacity(ranked.len());
+                        for item in &ranked {
+                            let idx = item
+                                .get("index")
+                                .and_then(|i| i.as_u64())
+                                .map(|v| v as usize)
+                                .unwrap_or(0);
+                            let score = item
+                                .get("relevance_score")
+                                .or_else(|| item.get("score"))
+                                .and_then(|s| s.as_f64())
+                                .unwrap_or(0.0);
+                            if let Some(mut hit) = hits.get(idx).cloned() {
+                                hit.score = score;
+                                reindexed.push(hit);
+                            }
+                        }
+                        // 阈值仅过滤 rerank 归一化分数(0~1), 对齐 Python:
+                        // score_threshold 只在 enable_rerank 时传入 _rerank 生效,
+                        // 粗排(RRF 融合分约 1/61)不受该阈值影响
+                        if req.score_threshold > 0.0 {
+                            reindexed.retain(|h| h.score >= req.score_threshold);
+                        }
+                        hits = reindexed;
+                    }
+                    Err(e) => tracing::warn!("rerank 精排失败, 保留 RRF 排序: {e}"),
+                }
+            }
+            Err(e) => tracing::warn!("rerank 引擎不可用, 保留 RRF 排序: {e}"),
+        }
+    }
+
+    // 4) 拼接前后分块内容(同文档按 sort 定位, 对齐 Python previous/next_content)
+    let results = build_search_results(state, hits).await?;
+    Ok(serde_json::json!(results))
 }
 
-/// 全库重向量化任务执行体(向量库引擎未实现 → 任务失败)
-pub async fn revectorize_all(_state: &AppState, _model_id: Option<String>) -> Result<(), String> {
-    Err("向量库引擎暂未在 Rust 服务实现".to_string())
+/// 检索命中 → 响应结构(查关系表补齐同文档前后分块文本)
+///
+/// 注: 分数阈值过滤已在 rerank 分支内完成(仅过滤归一化精排分), 此处不再过滤。
+async fn build_search_results(
+    state: &AppState,
+    hits: Vec<common::utils::db_vector::ChunkHit>,
+) -> Result<Vec<serde_json::Value>, AppError> {
+    let mut results = Vec::with_capacity(hits.len());
+    for hit in hits {
+        let chunks = doc_dao::chunk_list_by_document(&state.db, &hit.document_id).await?;
+        let index = chunks.iter().position(|c| c.id == hit.id);
+        let (previous_content, next_content) = match index {
+            Some(i) => (
+                i.checked_sub(1).and_then(|p| chunks.get(p)).map(|c| c.content.clone()),
+                chunks.get(i + 1).map(|c| c.content.clone()),
+            ),
+            None => (None, None),
+        };
+        results.push(serde_json::json!({
+            "rid": hit.id,
+            "content": hit.content,
+            "metadata": hit.metadata,
+            "score": hit.score,
+            "previous_content": previous_content.unwrap_or_default(),
+            "next_content": next_content.unwrap_or_default(),
+            "content_types": hit.content_types,
+        }));
+    }
+    Ok(results)
+}
+
+/// 全库重向量化任务执行体
+///
+/// 对齐 Python service.revectorize: 关系表全量分块 → 按新模型逐批向量化;
+/// 集合维度与模型不一致时重建集合(旧向量随 drop 清空), 一致时原地 upsert。
+pub async fn revectorize_all(
+    state: &AppState,
+    user_id: &str,
+    model_id: Option<String>,
+) -> Result<(), String> {
+    use common::utils::db_vector as vector;
+
+    // 1) 解析向量化模型(显式指定优先, 否则用户绑定→默认公共回退)
+    let resolved = um_service::resolve_model(state, user_id, model_type::EMBEDDINGS)
+        .await
+        .map_err(|e| format!("解析向量化模型失败: {e}"))?;
+    let mid = model_id
+        .or(resolved.model_id)
+        .ok_or("无可用向量化模型, 请先绑定或配置默认公共向量化模型")?;
+    let target = module_ai::services::llm::get_llm(&state.db, &mid, false)
+        .await
+        .map_err(|e| format!("加载向量化模型失败: {e}"))?
+        .ok_or_else(|| format!("向量化模型配置不存在: {mid}"))?;
+
+    let client = vector::get(state)
+        .await
+        .ok_or("向量库未启用, 无法执行全库重向量化")?;
+
+    // 2) 关系表全量分块(空库直接成功)
+    let rows = doc_dao::chunk_list_all(&state.db)
+        .await
+        .map_err(|e| format!("读取分块失败: {e}"))?;
+    if rows.is_empty() {
+        return Ok(());
+    }
+
+    // 3) 维度探测: 首批向量确定目标维度, 与现有集合比对决定 upsert 或重建
+    let first_batch: Vec<&project_document_chunk::Model> = rows.iter().take(16).collect();
+    let first_texts: Vec<String> = first_batch.iter().map(|c| c.content.clone()).collect();
+    let first_vectors = module_ai::utils::llm::embed(&state.http, &target, &first_texts)
+        .await
+        .map_err(|e| format!("向量化首批分块失败: {e}"))?;
+    let new_dim = first_vectors
+        .first()
+        .map(|v| v.len() as i64)
+        .unwrap_or(vector::DEFAULT_EMBEDDING_DIM);
+
+    let exists = client
+        .has_collection(vector::CHUNK_COLLECTION)
+        .await
+        .unwrap_or(false);
+    if exists {
+        let current_dim = client
+            .collection_dim(vector::CHUNK_COLLECTION, "embedding")
+            .await;
+        if current_dim != Some(new_dim) {
+            // 维度变更: 重建集合(对齐 Python drop_collection + create_table)
+            client
+                .drop_collection(vector::CHUNK_COLLECTION)
+                .await
+                .map_err(|e| format!("删除旧向量集合失败: {e}"))?;
+            client
+                .create_chunk_collection(new_dim)
+                .await
+                .map_err(|e| format!("重建向量集合失败: {e}"))?;
+            tracing::info!("向量集合维度变更 {current_dim:?} → {new_dim}, 已重建");
+        }
+    } else {
+        client
+            .create_chunk_collection(new_dim)
+            .await
+            .map_err(|e| format!("创建向量集合失败: {e}"))?;
+    }
+
+    // 4) 逐批向量化并写入(首批复用探测结果)
+    let mut written = 0usize;
+    let mut vector_rows: Vec<vector::ChunkRow> = first_batch
+        .iter()
+        .zip(first_vectors.iter())
+        .map(|(c, vec)| chunk_model_to_row(c, vec))
+        .collect();
+    client
+        .upsert_chunks(std::mem::take(&mut vector_rows))
+        .await
+        .map_err(|e| format!("向量写入失败: {e}"))?;
+    written += first_batch.len();
+
+    for batch in rows.iter().skip(16).collect::<Vec<_>>().chunks(16) {
+        let texts: Vec<String> = batch.iter().map(|c| c.content.clone()).collect();
+        let vectors = module_ai::utils::llm::embed(&state.http, &target, &texts)
+            .await
+            .map_err(|e| format!("向量化失败(第 {} 条起): {e}", written))?;
+        let rows_to_write: Vec<vector::ChunkRow> = batch
+            .iter()
+            .zip(vectors.iter())
+            .map(|(c, vec)| chunk_model_to_row(c, vec))
+            .collect();
+        client
+            .upsert_chunks(rows_to_write)
+            .await
+            .map_err(|e| format!("向量写入失败(第 {} 条起): {e}", written))?;
+        written += batch.len();
+        tracing::info!("全库重向量化进度: {}/{}", written, rows.len());
+    }
+    tracing::info!("全库重向量化完成: 共 {written} 条");
+    Ok(())
+}
+
+/// 关系表分块模型 → 向量库写入行
+fn chunk_model_to_row(
+    c: &project_document_chunk::Model,
+    vec: &[f64],
+) -> common::utils::db_vector::ChunkRow {
+    common::utils::db_vector::ChunkRow {
+        id: c.id.clone(),
+        sort: c.sort as i64,
+        document_id: c.document_id.clone(),
+        project_id: c.project_id.clone(),
+        content: c.content.clone(),
+        source: c.source.clone(),
+        content_types: json_str_list(&c.content_types),
+        position: c.position.clone(),
+        metadata: c.metadata.clone().unwrap_or(serde_json::json!({})),
+        embedding: vec.to_vec(),
+    }
 }

@@ -1,12 +1,13 @@
 //! 项目/成员/部门授权控制器(对齐 Python module_rag/controller/project.py、
 //! project_member.py、project_dept.py; 挂载前缀 /rag)
 
-use axum::extract::{Path, Query, State};
+use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::routing::{get, post, put};
 use axum::{Json, Router};
 use common::runtime::AppState;
 use common::utils::error::AppError;
+use common::utils::extract::AppQuery;
 use common::utils::pagination::{PaginationParams, PaginationResponse};
 use serde::Deserialize;
 
@@ -79,7 +80,7 @@ async fn create_project(
 async fn list_projects(
     State(state): State<AppState>,
     user: AuthUserId,
-    Query(q): Query<ListQuery>,
+    AppQuery(q): AppQuery<ListQuery>,
 ) -> Result<Json<PaginationResponse<ProjectResponse>>, AppError> {
     require_perm(&user, "project", "read").await?;
     if let Some(c) = &q.kb_category {
@@ -159,7 +160,7 @@ async fn add_project_member(
 async fn list_my_projects(
     State(state): State<AppState>,
     user: AuthUserId,
-    Query(p): Query<PaginationParams>,
+    AppQuery(p): AppQuery<PaginationParams>,
 ) -> Result<Json<PaginationResponse<MyProjectResponse>>, AppError> {
     p.validate()?;
     let items = svc::my_projects(&state, &user.0).await?;
@@ -171,7 +172,7 @@ async fn list_project_members(
     State(state): State<AppState>,
     user: AuthUserId,
     Path(project_id): Path<String>,
-    Query(q): Query<MemberListQuery>,
+    AppQuery(q): AppQuery<MemberListQuery>,
 ) -> Result<Json<PaginationResponse<ProjectMemberWithUser>>, AppError> {
     enforce_project_permission(&state, &user.0, &project_id, "member", "read").await?;
     let items = svc::member_list_by_project(&state, &project_id, q.role, q.user_keyword).await?;
@@ -245,7 +246,7 @@ async fn list_project_depts(
     State(state): State<AppState>,
     user: AuthUserId,
     Path(project_id): Path<String>,
-    Query(q): Query<DeptListQuery>,
+    AppQuery(q): AppQuery<DeptListQuery>,
 ) -> Result<Json<PaginationResponse<ProjectDeptWithDept>>, AppError> {
     enforce_project_permission(&state, &user.0, &project_id, "member", "read").await?;
     let items = svc::dept_list_by_project(&state, &project_id, q.role).await?;

@@ -290,8 +290,69 @@ pub async fn chat_stream(
     let response_id = start.response_id.clone();
     let _ = tx.send(Ok(serde_json::to_string(&start).unwrap_or_default())).await;
 
-    // 3. STATUS 提示: 检索退化说明 + (可选)回退提示
-    let mut status_text = String::from("知识库检索引擎暂未在 Rust 服务实现, 将基于会话历史直接回答");
+    // 3. 知识检索(会话关联项目混合检索 top 5; 未启用/无结果/失败均降级直答)
+    let project_ids: Vec<String> = dao::conversation_get(&state.db, &conversation_id)
+        .await
+        .ok()
+        .flatten()
+        .map(|c| {
+            c.project_ids
+                .as_array()
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect()
+                })
+                .unwrap_or_default()
+        })
+        .unwrap_or_default();
+    let mut system_prompt = crate::do_::prompts::RAG_CHAT_SYSTEM_PROMPT.to_string();
+    let mut status_text = String::from("向量库未启用， 将基于会话历史直接回答");
+    if !project_ids.is_empty() {
+        match crate::services::document::search_by_question(
+            &state,
+            &user_id,
+            crate::do_::document::SearchByQuestionRequest {
+                project_ids,
+                query_content: String::new(),
+                query_text: req.message.clone(),
+                limit: 5,
+                score_threshold: 0.0,
+                enable_rerank: false,
+                rerank_limit: 0,
+            },
+        )
+        .await
+        {
+            Ok(hits) => {
+                let arr = hits.as_array().cloned().unwrap_or_default();
+                if arr.is_empty() {
+                    status_text = String::from("知识库中未检索到相关内容， 将基于会话历史直接回答");
+                } else {
+                    status_text = format!("已检索到 {} 条知识片段， 正在结合知识库回答", arr.len());
+                    // 知识片段编号拼接进 system prompt(对齐 Python knowledge prompt 口径)
+                    let ctx: Vec<String> = arr
+                        .iter()
+                        .enumerate()
+                        .map(|(i, hit)| {
+                            format!(
+                                "[{}] {}",
+                                i + 1,
+                                hit.get("content").and_then(|c| c.as_str()).unwrap_or("")
+                            )
+                        })
+                        .collect();
+                    system_prompt.push_str(&format!(
+                        "\n\n以下是检索到的知识库内容片段， 请优先依据这些内容回答用户问题， 引用知识时标注片段编号:\n{}",
+                        ctx.join("\n\n")
+                    ));
+                }
+            }
+            Err(e) => {
+                status_text = format!("知识检索失败({e})， 将基于会话历史直接回答");
+            }
+        }
+    }
     if resolved.fallback_used && !resolved.binding_unset {
         status_text.push_str("; 绑定的对话模型不可用，已回退系统公共模型（数据将由公共模型处理，可在设置中调整）");
     }
@@ -315,7 +376,7 @@ pub async fn chat_stream(
     let mut messages: Vec<module_ai::do_::llm::Message> =
         vec![module_ai::do_::llm::Message {
             role: "system".to_string(),
-            content: crate::do_::prompts::RAG_CHAT_SYSTEM_PROMPT.to_string(),
+            content: system_prompt,
             additional_kwargs: serde_json::Value::Null,
         }];
     for m in &history {

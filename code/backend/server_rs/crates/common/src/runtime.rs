@@ -54,6 +54,10 @@ pub struct AppState {
     pub settings: std::sync::Arc<crate::config::dynamic::SettingsService>,
     /// 全局 HTTP 客户端(LLM 调用/网页搜索等出网复用)
     pub http: reqwest::Client,
+    /// 向量库客户端(db_vector 动态配置组启用时由启动钩子装配; 未启用为 None)
+    pub db_vector: std::sync::Arc<
+        tokio::sync::RwLock<Option<std::sync::Arc<crate::utils::db_vector::MilvusClient>>>,
+    >,
 }
 
 impl AppState {
@@ -71,6 +75,7 @@ impl AppState {
             token_blacklist: std::sync::Arc::new(blacklist),
             settings: crate::config::dynamic::SettingsService::new(db),
             http,
+            db_vector: std::sync::Arc::new(tokio::sync::RwLock::new(None)),
         })
     }
 }

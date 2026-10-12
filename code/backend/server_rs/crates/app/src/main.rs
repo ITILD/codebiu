@@ -10,11 +10,12 @@ use common::config;
 
 #[tokio::main]
 async fn main() {
-    // 日志初始化(RUST_LOG 优先, 默认 info)
+    // 日志初始化(RUST_LOG 优先, 默认 info; sqlx 降为 warn 静音逐条 SQL 日志,
+    // 对齐 Python 侧 NOISY_PREFIXES 对 sqlalchemy.engine 的过滤, 需查 SQL 时设 RUST_LOG=sqlx=debug)
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info,sqlx=warn")),
         )
         .init();
 
@@ -145,6 +146,9 @@ async fn run_boot_hooks(state: &AppState) {
 
     // 12) 任务队列 worker 启动(本地引擎轮询执行, 放在执行器注册之后)
     module_task::start_worker(state.clone()).await;
+
+    // 13) 向量库客户端装配(db_vector 动态配置启用时; 连接失败仅告警, 检索降级直答)
+    common::utils::db_vector::bootstrap(state).await;
 }
 
 /// 组装总路由(各模块 Router 在此挂载, 对应 Python app.mount 前缀)

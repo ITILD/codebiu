@@ -23,6 +23,8 @@ reqwest = { workspace = true }
 moka = { workspace = true }
 # SSE 流式响应的流适配(ReceiverStream → axum Sse)
 tokio-stream = { workspace = true }
+# TTS PCM 切片流(Body::from_stream 的迭代器适配)
+futures = { workspace = true }
 # OCR 图片 base64 Data URL 编码(对齐 Python base64 模块)
 base64 = { workspace = true }
 tower-http = { workspace = true }

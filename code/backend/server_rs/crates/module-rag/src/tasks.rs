@@ -81,5 +81,5 @@ async fn run_revectorize(
         .get("model_id")
         .and_then(serde_json::Value::as_str)
         .map(str::to_string);
-    doc_svc::revectorize_all(&state, model_id).await
+    doc_svc::revectorize_all(&state, &user_id, model_id).await
 }

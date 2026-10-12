@@ -2,7 +2,8 @@
 //!
 //! 二进制版式文档(pdf/doc/docx/ppt/pptx)走 MinerU 引擎(远程 mineru.net API
 //! 或本地 docker 部署, 配置 mineru.mode; 对齐 Python 侧默认引擎);
-//! xlsx 的 docling 引擎在 Rust 服务未实现; 文本与代码后缀由原生解析器处理。
+//! xlsx 由 calamine 引擎解析(sheet 标题 + markdown 表格分块);
+//! 文本与代码后缀由原生解析器处理。
 
 use common::utils::error::AppError;
 
@@ -11,6 +12,7 @@ use crate::do_::chunk::Chunk;
 pub mod code;
 pub mod markdown;
 pub mod mineru;
+pub mod xlsx;
 
 /// docling 引擎未实现的二进制格式错误(文案对齐任务约定)
 pub fn docling_unsupported() -> AppError {
@@ -87,8 +89,8 @@ pub async fn create_and_extract(filename: &str, bytes: &[u8]) -> Result<Vec<Chun
         ".py" | ".java" => code::extract(&ext, bytes, filename),
         // 版式文档: MinerU 引擎(远程/本地双支持, 对齐 Python 默认引擎)
         ".pdf" | ".docx" | ".doc" | ".pptx" | ".ppt" => mineru::parser::extract(filename, bytes).await,
-        // xlsx: docling 引擎未在 Rust 服务实现
-        ".xlsx" => Err(docling_unsupported()),
+        // xlsx: calamine 引擎(sheet 标题 + markdown 表格分块)
+        ".xlsx" => xlsx::extract(bytes),
         _ => Err(AppError::business(format!("不支持的文件类型: {ext}"))),
     }
 }

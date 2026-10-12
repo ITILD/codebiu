@@ -16,11 +16,11 @@ use module_task::TaskJob;
 
 #[tokio::main]
 async fn main() {
-    // 日志初始化(RUST_LOG 优先, 默认 info)
+    // 日志初始化(RUST_LOG 优先, 默认 info; sqlx 降为 warn 静音逐条 SQL 日志, 对齐 API 进程)
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info,sqlx=warn")),
         )
         .init();
 

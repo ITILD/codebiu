@@ -1,13 +1,14 @@
 //! 对话/知识库问答控制器(对齐 Python module_rag/controller/conversation.py、
 //! rag_chat.py; 挂载前缀 /rag)
 
-use axum::extract::{Path, Query, State};
+use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::sse::{Event, KeepAlive, KeepAliveStream, Sse};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use common::runtime::AppState;
 use common::utils::error::AppError;
+use common::utils::extract::AppQuery;
 use common::utils::pagination::{PaginationParams, PaginationResponse};
 use futures::StreamExt;
 use serde::Deserialize;
@@ -90,7 +91,7 @@ async fn create_conversation(
 async fn list_my_conversations(
     State(state): State<AppState>,
     user: AuthUserId,
-    Query(q): Query<MyListQuery>,
+    AppQuery(q): AppQuery<MyListQuery>,
 ) -> Result<Json<PaginationResponse<ConversationResponse>>, AppError> {
     Ok(Json(
         svc::conversation_list_my(&state, &user.0, &q.scope, &q.pagination).await?,
@@ -132,7 +133,7 @@ async fn list_messages(
     State(state): State<AppState>,
     _user: AuthUserId,
     Path(conversation_id): Path<String>,
-    Query(q): Query<MessageListQuery>,
+    AppQuery(q): AppQuery<MessageListQuery>,
 ) -> Result<Json<PaginationResponse<ChatMessageResponse>>, AppError> {
     q.validate()?;
     let items = svc::message_list(&state, &conversation_id).await?;

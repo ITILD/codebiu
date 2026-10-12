@@ -44,8 +44,75 @@ where
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
         match Query::<T>::from_request_parts(parts, state).await {
             Ok(Query(value)) => Ok(Self(value)),
-            Err(rejection) => Err(map_query_rejection(rejection)),
+            Err(rejection) => {
+                // 宽松重试: serde_urlencoded 对 #[serde(flatten)] 结构无法将字符串
+                // 转为数字/布尔(对齐 FastAPI 的 query 类型自动转换语义);
+                // 将 pairs 解析为类型推断后的 JSON 再反序列化, 仍失败才报 422。
+                if let Some(q) = parts.uri.query() {
+                    if let Ok(value) = loose_query_deserialize::<T>(q) {
+                        return Ok(Self(value));
+                    }
+                }
+                Err(map_query_rejection(rejection))
+            }
         }
+    }
+}
+
+/// 宽松查询串反序列化: 先按类型推断(数字/布尔)尝试, 失败后再按纯字符串尝试
+///
+/// 两次尝试分别覆盖: flatten 结构的数字字段(page=1→i64)与
+/// 值恰为纯数字的字符串字段(name=123→String); 重复 key 聚合为数组。
+fn loose_query_deserialize<T: DeserializeOwned>(q: &str) -> Result<T, ()> {
+    let pairs: Vec<(String, String)> =
+        form_urlencoded::parse(q.as_bytes()).map(|(k, v)| (k.into_owned(), v.into_owned())).collect();
+    // 尝试一: 值类型推断(数字/布尔/null), 覆盖 flatten 数字字段
+    let coerced = build_query_json(&pairs, true);
+    if let Ok(v) = serde_json::from_value::<T>(coerced) {
+        return Ok(v);
+    }
+    // 尝试二: 值全部保持字符串, 覆盖纯数字字符串字段
+    let raw = build_query_json(&pairs, false);
+    serde_json::from_value::<T>(raw).map_err(|_| ())
+}
+
+/// 将 pairs 构建为 JSON 对象(coerce=true 时做数字/布尔/null 类型推断)
+fn build_query_json(pairs: &[(String, String)], coerce: bool) -> serde_json::Value {
+    use serde_json::map::Entry;
+    let mut map = serde_json::Map::new();
+    for (k, v) in pairs {
+        let val = if coerce { coerce_query_value(v) } else { serde_json::Value::String(v.clone()) };
+        match map.entry(k.clone()) {
+            // 重复 key 聚合为数组(对齐 serde_urlencoded 的 seq 语义)
+            Entry::Occupied(mut e) => match e.get_mut() {
+                serde_json::Value::Array(arr) => arr.push(val),
+                single => {
+                    let prev = single.take();
+                    *e.get_mut() = serde_json::Value::Array(vec![prev, val]);
+                }
+            },
+            Entry::Vacant(e) => {
+                e.insert(val);
+            }
+        }
+    }
+    serde_json::Value::Object(map)
+}
+
+/// 查询值类型推断(FastAPI 语义: "1"→int, "true"→bool, "null"→null, 其余字符串)
+fn coerce_query_value(v: &str) -> serde_json::Value {
+    if let Ok(i) = v.parse::<i64>() {
+        serde_json::Value::from(i)
+    } else if let Ok(f) = v.parse::<f64>() {
+        serde_json::Value::from(f)
+    } else if v == "true" {
+        serde_json::Value::Bool(true)
+    } else if v == "false" {
+        serde_json::Value::Bool(false)
+    } else if v == "null" {
+        serde_json::Value::Null
+    } else {
+        serde_json::Value::String(v.to_string())
     }
 }
 

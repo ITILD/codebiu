@@ -225,6 +225,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "atoi_simd"
+version = "0.16.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c2a49e05797ca52e312a0c658938b7d00693ef037799ef7187678f212d7684cf"
+dependencies = [
+ "debug_unsafe",
+]
+
+[[package]]
 name = "atomic-waker"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -793,6 +802,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "calamine"
+version = "0.28.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "15e02a18e79de779a78b0a6ec84a3deed1ff0607dd970a11369f993263f99f1a"
+dependencies = [
+ "atoi_simd",
+ "byteorder",
+ "codepage",
+ "encoding_rs",
+ "fast-float2",
+ "log",
+ "quick-xml",
+ "serde",
+ "zip 4.6.1",
+]
+
+[[package]]
 name = "casbin"
 version = "2.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -885,6 +911,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c9ea0ac24bc397ab3c98583a3c9ba74fa56b09a4449bbe172b9b1ddb016027a"
 
 [[package]]
+name = "codepage"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bdff162541cd8b79de82e2edcc7eff3a8c2a6dc3d75152636028f96d93de3b26"
+dependencies = [
+ "encoding_rs",
+]
+
+[[package]]
 name = "combine"
 version = "4.6.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -907,6 +942,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "dotenvy",
+ "form_urlencoded",
  "jsonwebtoken",
  "moka",
  "reqwest",
@@ -1165,6 +1201,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4583a4551df46e2792f82ceeac45e850d2e2d5debba0b91f102385cda5b11f06"
 
 [[package]]
+name = "debug_unsafe"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7eed2c4702fa172d1ce21078faa7c5203e69f5394d48cc436d25928394a867a2"
+
+[[package]]
 name = "der"
 version = "0.7.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1405,6 +1447,12 @@ dependencies = [
  "parking",
  "pin-project-lite",
 ]
+
+[[package]]
+name = "fast-float2"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c6e8948ce679d00a02a94739ea185595dca7118ed04feb991127e443bd3d761f"
 
 [[package]]
 name = "fastrand"
@@ -2482,6 +2530,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "common",
+ "futures",
  "module-authorization",
  "moka",
  "reqwest",
@@ -2647,6 +2696,7 @@ name = "module-office"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "calamine",
  "common",
  "module-authorization",
  "reqwest",
@@ -2654,7 +2704,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tracing",
- "zip",
+ "zip 2.4.2",
 ]
 
 [[package]]
@@ -3268,6 +3318,16 @@ dependencies = [
  "syn 2.0.119",
  "version_check",
  "yansi",
+]
+
+[[package]]
+name = "quick-xml"
+version = "0.37.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "331e97a1af0bf59823e6eadffe373d7b27f485be8748f71471c662c1f269b7fb"
+dependencies = [
+ "encoding_rs",
+ "memchr",
 ]
 
 [[package]]
@@ -5743,6 +5803,20 @@ dependencies = [
  "indexmap",
  "memchr",
  "thiserror 2.0.21",
+ "zopfli",
+]
+
+[[package]]
+name = "zip"
+version = "4.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "caa8cd6af31c3b31c6631b8f483848b91589021b28fffe50adada48d4f4d2ed1"
+dependencies = [
+ "arbitrary",
+ "crc32fast",
+ "flate2",
+ "indexmap",
+ "memchr",
  "zopfli",
 ]
 

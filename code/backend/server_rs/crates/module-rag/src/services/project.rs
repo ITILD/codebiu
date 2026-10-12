@@ -43,7 +43,7 @@ pub async fn ensure_project_folder(
     let project_model = dao::project_get(&state.db, project_id)
         .await?
         .ok_or_else(|| AppError::not_found(format!("项目 {project_id} 不存在")))?;
-    let file_service = module_file::services::filesystem::FileService::new(state.clone(), true);
+    let file_service = module_file::services::filesystem::FileService::new(state.clone(), false);
     if let Some(root_id) = &project_model.root_entry_id {
         // 已关联的条目可能被外部删除 → 失效时重新补建
         if let Some(entry) = file_service.get_file_entry(root_id).await? {
@@ -126,9 +126,14 @@ pub async fn project_add(state: &AppState, req: ProjectCreate, user_id: &str) ->
 pub async fn project_delete(state: &AppState, project_id: &str) -> Result<(), AppError> {
     let project_model = dao::project_get(&state.db, project_id).await?;
     let docs = crate::dao::document::document_list_all_by_project(&state.db, project_id).await?;
-    let file_service = module_file::services::filesystem::FileService::new(state.clone(), true);
+    let file_service = module_file::services::filesystem::FileService::new(state.clone(), false);
 
-    // 1. 删向量库(向量库引擎暂未在 Rust 服务实现, 分块表随文档记录级联清理)
+    // 1. 删向量库分块(未启用向量库时跳过; 失败仅告警, 关系表分块随下方级联清理)
+    if let Some(client) = common::utils::db_vector::get(state).await {
+        if let Err(e) = client.delete_by_project(project_id).await {
+            tracing::warn!("清理项目向量失败 {project_id}: {e}");
+        }
+    }
     crate::dao::document::chunk_delete_by_project(&state.db, project_id).await?;
 
     // 2. 删项目根文件夹(条目级文档的内容引用随子树删除统一释放)
@@ -198,7 +203,7 @@ pub async fn project_update(
         if let Some(p) = dao::project_get(&state.db, project_id).await? {
             if let Some(root_id) = p.root_entry_id {
                 let file_service =
-                    module_file::services::filesystem::FileService::new(state.clone(), true);
+                    module_file::services::filesystem::FileService::new(state.clone(), false);
                 if let Err(e) = file_service.rename(&root_id, name).await {
                     tracing::warn!("项目文件夹重命名失败(可能同名) project={project_id}: {e}");
                 }

@@ -158,3 +158,12 @@ pub async fn chunk_list_by_document(
         .all(db)
         .await
 }
+
+/// 全库分块列表(按文档+sort 升序, 全库重向量化用)
+pub async fn chunk_list_all(db: &DatabaseConnection) -> Result<Vec<project_document_chunk::Model>, DbErr> {
+    project_document_chunk::Entity::find()
+        .order_by_asc(project_document_chunk::Column::DocumentId)
+        .order_by_asc(project_document_chunk::Column::Sort)
+        .all(db)
+        .await
+}

@@ -59,8 +59,8 @@ async fn tables(
 }
 
 /// GET /vector —— 向量库表清单(未接入时 type 为 null)
-async fn vector_tables() -> Json<serde_json::Value> {
-    Json(db_meta::vector_tables().await)
+async fn vector_tables(State(state): State<AppState>) -> Json<serde_json::Value> {
+    Json(db_meta::vector_tables(&state).await)
 }
 
 /// GET /cache —— 缓存数据库信息(未接入时 type 为 null)

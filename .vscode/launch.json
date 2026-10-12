@@ -43,21 +43,17 @@
             "console": "integratedTerminal"
         },
         {
-            "//": "Rust 后端(axum): 先执行 preLaunchTask 编译, 再用 cppvsdbg 挂到 target/debug/server_rs.exe; 端口 2003 避让 Python 服务(2001)",
+            "//": "Rust 后端(axum): 先执行 preLaunchTask 编译, 再用 CodeLLDB 挂到 target/debug/server_rs.exe; 端口 2003 避让 Python 服务(2001)",
             "name": "▶ WIN Backend: server_rs (rust)",
-            "type": "cppvsdbg",
+            "type": "lldb",
             "request": "launch",
             "program": "${workspaceFolder}/code/backend/server_rs/target/debug/server_rs.exe",
             "cwd": "${workspaceFolder}/code/backend/server_rs",
             "args": [],
-            "stopAtEntry": false,
+            "stopOnEntry": false,
             "console": "integratedTerminal",
-            "symbolOptions": {
-                "searchPaths": [],
-                "searchMicrosoftSymbolServer": false
-            },
             "env": {
-                "CODEBIU_SERVER__PORT": "2003"
+                "CODEBIU_SERVER__PORT": "2001"
             },
             "preLaunchTask": "build server_rs (debug)"
         },
@@ -72,28 +68,20 @@
             }
         },
         {
-    "//": "Rust 后端(axum) Ubuntu 调试: cppdbg(GDB) 挂 target/debug/server_rs; 端口 2003 避让 Python 服务(2001)",
-    "name": "▶UBUNTU Backend: server_rs (rust)",
-    "type": "cppdbg",
-    "request": "launch",
-    "program": "${workspaceFolder}/code/backend/server_rs/target/debug/server_rs",
-    "args": [],
-    "stopAtEntry": false,
-    "cwd": "${workspaceFolder}/code/backend/server_rs",
-    "environment": [
-        { "name": "CODEBIU_SERVER__PORT", "value": "2003" }
-    ],
-    "externalConsole": false,
-    "MIMode": "gdb",
-    "setupCommands": [
-        {
-            "description": "为 gdb 启用自动求值",
-            "text": "-enable-pretty-printing",
-            "ignoreFailures": true
+            "//": "Rust 后端(axum) Ubuntu 调试: CodeLLDB 挂 target/debug/server_rs; 端口 2003 避让 Python 服务(2001)",
+            "name": "▶UBUNTU Backend: server_rs (rust)",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/code/backend/server_rs/target/debug/server_rs",
+            "cwd": "${workspaceFolder}/code/backend/server_rs",
+            "args": [],
+            "stopOnEntry": false,
+            "console": "integratedTerminal",
+            "env": {
+                "CODEBIU_SERVER__PORT": "2003"
+            },
+            "preLaunchTask": "build server_rs (debug)"
         }
-    ],
-    "preLaunchTask": "build server_rs (debug)"
-}
     ],
     "compounds": [
         {
@@ -122,3 +110,4 @@
         }
     ]
 }
+

@@ -2,13 +2,14 @@
 //! project_document_chunk.py; 挂载前缀 /rag)
 
 use axum::body::{Body, Bytes};
-use axum::extract::{Multipart, Path, Query, State};
+use axum::extract::{Multipart, Path, State};
 use axum::http::{header, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post, put};
 use axum::{Json, Router};
 use common::runtime::AppState;
 use common::utils::error::AppError;
+use common::utils::extract::AppQuery;
 use common::utils::pagination::{PaginationParams, PaginationResponse};
 use percent_encoding::utf8_percent_encode;
 use serde::Deserialize;
@@ -159,7 +160,7 @@ async fn list_project_documents(
     State(state): State<AppState>,
     Path(project_id): Path<String>,
     user: AuthUserId,
-    Query(q): Query<DocListQuery>,
+    AppQuery(q): AppQuery<DocListQuery>,
 ) -> Result<Json<PaginationResponse<ProjectDocumentResponse>>, AppError> {
     require_project_perm(&state, &user.0, &project_id, "doc", "read").await?;
     if let Some(s) = q.parse_status.as_deref() {
@@ -220,7 +221,7 @@ async fn list_project_entries(
     State(state): State<AppState>,
     Path(project_id): Path<String>,
     user: AuthUserId,
-    Query(q): Query<EntryListQuery>,
+    AppQuery(q): AppQuery<EntryListQuery>,
 ) -> Result<Json<PaginationResponse<DocumentEntryItem>>, AppError> {
     require_project_perm(&state, &user.0, &project_id, "doc", "read").await?;
     let items = svc::list_entries(&state, &project_id, q.pid, q.name).await?;
@@ -232,7 +233,7 @@ async fn create_project_folder(
     State(state): State<AppState>,
     Path(project_id): Path<String>,
     user: AuthUserId,
-    Query(q): Query<FolderNameQuery>,
+    AppQuery(q): AppQuery<FolderNameQuery>,
 ) -> Result<(StatusCode, Json<module_file::do_::filesystem::FileEntryResp>), AppError> {
     require_project_perm(&state, &user.0, &project_id, "doc", "upload").await?;
     if q.name.trim().is_empty() {
@@ -252,7 +253,7 @@ async fn rename_project_folder(
     State(state): State<AppState>,
     Path((project_id, folder_id)): Path<(String, String)>,
     user: AuthUserId,
-    Query(q): Query<RenameFolderQuery>,
+    AppQuery(q): AppQuery<RenameFolderQuery>,
 ) -> Result<Json<module_file::do_::filesystem::FileEntryResp>, AppError> {
     require_project_perm(&state, &user.0, &project_id, "doc", "update").await?;
     if q.name.trim().is_empty() {
@@ -431,13 +432,14 @@ async fn reparse_project_document_task(
 
 // ==================== 分块检索与全库重向量化(/rag/project-document-chunks) ====================
 
-/// 按问题检索项目相似文档块(向量库引擎未实现 → 400 降级提示)
+/// 按问题检索项目相似文档块(混合检索 + 可选 rerank 精排)
 async fn chunks_by_question(
-    State(_state): State<AppState>,
-    _user: AuthUserId,
-    Json(_req): Json<SearchByQuestionRequest>,
+    State(state): State<AppState>,
+    user: AuthUserId,
+    Json(req): Json<SearchByQuestionRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    Err(AppError::business("向量库引擎暂未在 Rust 服务实现"))
+    let results = svc::search_by_question(&state, &user.0, req).await?;
+    Ok(Json(results))
 }
 
 /// task_queue 库中状态 → Celery 状态(status 接口响应格式兼容)
