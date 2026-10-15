@@ -26,6 +26,7 @@ from module_file.dao.file_content_dao import FileContentDao
 from module_file.utils.multi_storage.do.storage_config import StorageType
 # 模块属性访问(非 import 快照): 启动钩子装配 storage_config 后始终读到最新
 from module_file.config import filesystem as fs_conf
+import asyncio
 import base64
 import hashlib
 import hmac
@@ -626,7 +627,10 @@ class FileService:
                 f"文件大小超过直传限制: {fs_conf.storage_config.max_size}MB, 请使用分片上传"
             )
         mime_type = self._guess_mime(filename)
-        content_hash = hashlib.sha256(content).hexdigest()
+        # SHA-256 为同步 CPU 计算(直传上限内最大几十 MB), 挪入线程避免阻塞事件循环
+        content_hash = await asyncio.to_thread(
+            lambda: hashlib.sha256(content).hexdigest()
+        )
         file_content = await self.file_content_dao.get_by_content_hash(
             content_hash, session
         )

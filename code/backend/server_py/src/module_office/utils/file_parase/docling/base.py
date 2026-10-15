@@ -4,7 +4,9 @@
 子类可覆盖 ``_get_converter`` 提供格式专用配置(如 PDFParser 的 do_ocr 智能选择)。
 """
 
+import asyncio
 import base64
+import concurrent.futures
 import logging
 import os
 from io import BytesIO
@@ -46,6 +48,18 @@ _TABLE_LARGE_THRESHOLD = 2000
 # 重新追踪致极慢(纯 layout 57s→4.3s，13x 加速)。docling 用 eager 模式，无副作用。
 os.environ.setdefault("TORCHDYNAMO_DISABLE", "1")
 
+# docling 转换专用单线程执行器: convert(含模型懒加载与 OCR 推理)是重度同步
+# CPU/GPU 代码, 若直接在事件循环上执行, 解析期间(文本型 PDF ~5s、扫描件可达
+# 分钟级、首次还需加载模型)该 worker 进程上的所有请求都会被阻塞。
+# 单线程(max_workers=1)串行化的原因:
+# 1. DocumentConverter 非线程安全且为类级共享(_shared_converter*), 并发 convert
+#    会竞态(结果错乱/崩溃);
+# 2. 串行天然限流 GPU 显存与内存(多文档同时上传按到达顺序排队解析,
+#    配合 ingest 进度上报 _report 各文档可独立展示解析状态)。
+_PARSE_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
+    max_workers=1, thread_name_prefix="docling-parse"
+)
+
 
 class DoclingBaseParser(BaseParser):
     """docling 引擎解析器基类。
@@ -78,7 +92,11 @@ class DoclingBaseParser(BaseParser):
     # 公共接口
     async def extract(self, file: Path) -> list[Chunk]:
         """解析文件，按文档元素顺序生成带位置信息的 Chunk。"""
-        doc = self._get_converter(file).convert(file).document
+        # convert(含 PDF 文本层检测/模型懒加载/推理)为同步阻塞重计算,
+        # 交由专用单线程执行器运行, 避免阻塞事件循环拖垮同进程其他请求
+        doc = await asyncio.get_running_loop().run_in_executor(
+            _PARSE_EXECUTOR, self._convert_sync, file
+        )
 
         # 表格子项 self_ref 集合：表格整体已通过 export_to_markdown 输出，
         # 其单元格子项需跳过以避免重复
@@ -102,6 +120,14 @@ class DoclingBaseParser(BaseParser):
         # 合并连续的 TABLE chunk (跨页表格被 docling 拆分为多个 TableItem)
         raw_chunks = self._merge_consecutive_tables(raw_chunks)
         return raw_chunks
+
+    def _convert_sync(self, file: Path):
+        """同步执行 docling 转换(仅应在 _PARSE_EXECUTOR 线程中调用)。
+
+        涵盖三段阻塞代码: 文本层检测(子类 _get_converter 内, 如 PDFParser)、
+        converter/模型懒加载、convert 推理。
+        """
+        return self._get_converter(file).convert(file).document
 
     # Chunk 构建
     async def _build_chunk(
@@ -178,8 +204,10 @@ class DoclingBaseParser(BaseParser):
              直接提取为 markdown 表格，避免冗余 VLM OCR。
           2. 回退：无结构化数据时用 ocr_llm(VLM) 提取。
         """
-        # 保存图片
-        img_path: str | None = self._save_picture(item, doc, media_dir)
+        # 保存图片(PIL 编解码为阻塞操作, 挪入线程避免多图累积卡顿)
+        img_path: str | None = await asyncio.to_thread(
+            self._save_picture, item, doc, media_dir
+        )
         if img_path:
             chunk.metadata["image_path"] = img_path
 
@@ -201,7 +229,7 @@ class DoclingBaseParser(BaseParser):
         # 2. IMAGE_CONTENT：优先用结构化图表数据，无则用 VLM 提取
         content_text = self._extract_chart_table_md(item)
         if not content_text and self.ocr_llm:
-            pil_img = item.get_image(doc=doc)
+            pil_img = await asyncio.to_thread(item.get_image, doc=doc)
             if pil_img is not None:
                 content_text = await self._extract_image_content(pil_img)
 
@@ -276,7 +304,7 @@ class DoclingBaseParser(BaseParser):
         if not self.ocr_llm:
             return ""
         try:
-            img_base64 = pil_to_base64(pil_img)
+            img_base64 = await asyncio.to_thread(pil_to_base64, pil_img)
             image_url = base64_to_url(img_base64)
             messages = [
                 SystemMessage(content=OCR_SYSTEM_PROMPT),
