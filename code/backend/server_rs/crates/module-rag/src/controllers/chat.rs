@@ -156,9 +156,10 @@ pub(crate) fn conversations_router() -> Router<AppState> {
 /// SSE 响应体类型(keep-alive 包装后的 mpsc 接收流)
 type SseResponse = Sse<KeepAliveStream<ReceiverStream<Result<Event, std::convert::Infallible>>>>;
 
-/// 流式聊天(SSE): 每帧为一条 data 事件, 内容为 StreamChunkResponse JSON
+/// 流式聊天(SSE, AG-UI 协议): 每帧为一条 data 事件, 内容为官方 AG-UI 事件 JSON
 ///
-/// 流式体内的异常转为 ERROR 事件推送(对齐 Python event_generator 行为)
+/// 事件序列: RUN_STARTED(+STATE_SNAPSHOT) → rag.status 进度 / REASONING_* 思考流 /
+/// TEXT_MESSAGE_* 正文流 → RUN_FINISHED(或 RUN_ERROR, 对齐 Python agui_event_generator)
 async fn chat_stream(
     State(state): State<AppState>,
     user: AuthUserId,
@@ -176,7 +177,7 @@ async fn chat_stream(
         while let Some(item) = stream.next().await {
             let event = match item {
                 Ok(frame) => Ok(axum::response::sse::Event::default().data(frame)),
-                // 流式体内异常 → ERROR 事件(对齐 Python event_generator)
+                // 流式体内异常 → RUN_ERROR 事件(对齐 Python agui_event_generator 兜底)
                 Err(e) => Ok(axum::response::sse::Event::default()
                     .data(svc::error_frame(&e.to_string()))),
             };

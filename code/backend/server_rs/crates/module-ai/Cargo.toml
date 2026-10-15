@@ -28,3 +28,9 @@ futures = { workspace = true }
 # OCR 图片 base64 Data URL 编码(对齐 Python base64 模块)
 base64 = { workspace = true }
 tower-http = { workspace = true }
+# AG-UI 协议事件模型(RAG/Agent 聊天 SSE 统一切 AG-UI, 对齐 Python ag_ui.core)
+ag-ui-protocol = { workspace = true }
+# LangChain 接口层(LLM trait 适配器包裹自有 HTTP 客户端)
+langchain-rust = { workspace = true }
+# LLM trait 的 #[async_trait] 声明(langchain_llm 适配器)
+async-trait = { workspace = true }

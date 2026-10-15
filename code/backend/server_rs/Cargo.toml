@@ -97,6 +97,21 @@ aws-sdk-s3 = "1"
 apalis = "0.7"
 apalis-redis = "0.7"
 
+# ############################# LLM 编排/AG-UI 协议 #############################
+# AG-UI 协议官方事件模型(wire 兼容官方 TS/Python SDK: camelCase 字段 + None 省略,
+# 对齐 Python 端 ag-ui-protocol>=1.0.0 的事件层)
+ag-ui-protocol = "0.1"
+# LangGraph 状态图引擎(StateGraph/channels/checkpointer/astream 流式执行)
+langgraph = "0.2"
+# LangGraph Postgres checkpointer(langgraph 0.2 配套, 写 checkpoints 四张表;
+# postgres 部署复用 sea-orm 连接池)
+langgraph-checkpoint-postgres-rs = "0.2"
+# LangGraph Sqlite checkpointer(langgraph 0.2 配套; sqlite 部署复用 sea-orm 连接池)
+langgraph-checkpoint-sqlite-rs = "0.2"
+# LangChain Rust 生态(LLM trait 接口层; 以适配器包裹自有 HTTP 客户端,
+# 保留 enable_thinking/reasoning_content 思考流定制, 对齐 Python ChatQwenWithReasoning)
+langchain-rust = "4.6"
+
 # ############################# 内部 crate #############################
 # 公共包(对齐 Python src/common)
 common = { path = "crates/common" }

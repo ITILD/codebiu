@@ -25,3 +25,11 @@ chrono = { workspace = true }
 tracing = { workspace = true }
 # 模型调用 HTTP 客户端类型(state.http)
 reqwest = { workspace = true }
+# LangGraph 状态图引擎(agent 聊天改单节点图 + checkpointer thread_id 持久化)
+langgraph = { workspace = true }
+# Postgres checkpointer(checkpoints 表; postgres 部署复用 sea-orm 连接池)
+langgraph-checkpoint-postgres-rs = { workspace = true }
+# Sqlite checkpointer(sqlite 部署复用 sea-orm 连接池)
+langgraph-checkpoint-sqlite-rs = { workspace = true }
+# AG-UI 协议事件模型(agent 聊天 SSE 切 AG-UI 输出)
+ag-ui-protocol = { workspace = true }

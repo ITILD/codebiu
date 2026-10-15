@@ -24,3 +24,5 @@ tokio-stream.workspace = true
 futures.workspace = true
 bytes.workspace = true
 percent-encoding.workspace = true
+# AG-UI 协议事件模型(RAG 聊天 SSE 切 AG-UI 输出)
+ag-ui-protocol = { workspace = true }

@@ -2,14 +2,20 @@
 //! chat_message.py、conversation_title.py、rag_chat.py)
 //!
 //! 降级约定: 向量检索/意图分析图未在 Rust 服务实现, 问答采用
-//! "会话历史 + 用户问题直连对话模型"的退化链路, start 事件的 status 区块向
-//! 前端注明该口径; SSE 事件结构与 Python 保持同构。
+//! "会话历史 + 用户问题直连对话模型"的退化链路, rag.status 事件向
+//! 前端注明该口径。
+//!
+//! SSE 事件协议为官方 AG-UI(见 module_ai::utils::agui): RUN_STARTED(+
+//! STATE_SNAPSHOT 初始状态) → rag.status 进度/REASONING 思考流/
+//! TEXT_MESSAGE_* 正文流 → RUN_FINISHED/RUN_ERROR; threadId 即 conversation_id。
 
 use common::runtime::AppState;
 use common::utils::error::AppError;
 use common::utils::pagination::{PaginationParams, PaginationResponse};
 use sea_orm::Set;
 use tokio_stream::wrappers::ReceiverStream;
+
+use module_ai::utils::agui::{AguiStreamItem, AguiStreamTransformer};
 
 use crate::dao::chat as dao;
 use crate::do_::chat::{
@@ -149,26 +155,16 @@ pub async fn message_list(state: &AppState, conversation_id: &str) -> Result<Vec
         .collect())
 }
 
-// ==================== 知识库问答(SSE, 降级链路) ====================
+// ==================== 知识库问答(SSE, AG-UI 协议) ====================
 
-/// 构造 SSE 数据帧(复用 module-ai 的 StreamChunkResponse 结构, 自定义节点/事件语义)
-fn sse_chunk(
-    status: module_ai::utils::llm::StreamStatus,
-    response_id: &str,
-    content: Option<String>,
-    node_name: Option<&str>,
-    event_type: Option<&str>,
-) -> String {
-    let payload = module_ai::utils::llm::StreamChunkResponse {
-        status,
-        role: "assistant",
-        content,
-        response_id: response_id.to_string(),
-        timestamp: 0.0,
-        node_name: node_name.map(str::to_string),
-        stream_event_type: event_type.map(str::to_string),
-    };
-    payload.to_json()
+/// 发送一组已编码 AG-UI 帧到 SSE 通道; 发送失败(客户端断开)返回 false
+async fn send_frames(tx: &tokio::sync::mpsc::Sender<Result<String, AppError>>, frames: Vec<String>) -> bool {
+    for frame in frames {
+        if tx.send(Ok(frame)).await.is_err() {
+            return false;
+        }
+    }
+    true
 }
 
 /// 自动标题(首轮问答完成后执行): 标题仍为默认值时, 由 LLM 生成不超过 20 字的标题
@@ -242,16 +238,25 @@ async fn maybe_auto_title(state: &AppState, conversation_id: &str) {
     }
 }
 
-/// 知识库问答主流程(SSE 流): 存用户消息 → 模型解析提示 → 会话历史直连 LLM →
+/// 知识库问答主流程(SSE 流, AG-UI 协议): 存用户消息 → 模型解析提示 → 会话历史直连 LLM →
 /// 流式回答 → 落库 assistant 消息 → 自动标题
 ///
-/// 返回事件流(每项为 SSE data 的 JSON 字符串)
+/// 返回事件流(每项为 SSE data 的官方 AG-UI 事件 JSON, 见 module_ai::utils::agui)
 pub async fn chat_stream(
     state: AppState,
     conversation_id: String,
     user_id: String,
     req: ChatRequest,
 ) -> Result<ReceiverStream<Result<String, AppError>>, AppError> {
+    // 0. AG-UI 转换器(threadId 即 conversation_id, 附初始状态快照供前端恢复上下文)
+    let mut transformer = AguiStreamTransformer::new(&conversation_id).with_initial_state(
+        serde_json::json!({
+            "conversationId": conversation_id,
+            "projectIds": req.project_ids,
+            "deepThinking": req.deep_thinking,
+        }),
+    );
+
     // 1. 存用户消息
     message_add(&state, &conversation_id, Roletype::User, req.message.clone(), None).await?;
 
@@ -265,7 +270,7 @@ pub async fn chat_stream(
     let stream_model_id = match model_id {
         Some(id) => id,
         None => {
-            // 无可用模型: ERROR 事件 + 落库空 assistant 消息(带过程区块, 对齐 Python finally 口径)
+            // 无可用模型: RUN_STARTED + RUN_ERROR 终止 + 落库空 assistant 消息(带过程区块, 对齐 Python finally 口径)
             let msg = "没有可用的对话模型(绑定失效且无默认公共模型可回退)， 请在设置中绑定模型或联系管理员配置默认模型";
             process_blocks.push(ProcessBlock {
                 event_type: crate::do_::chat::stream_event_type::ERROR.to_string(),
@@ -280,15 +285,15 @@ pub async fn chat_stream(
                 Some(process_blocks.clone()),
             )
             .await;
-            let _ = tx.send(Err(AppError::business(msg))).await;
+            let mut frames = transformer.start_frames();
+            frames.extend(transformer.fail(msg));
+            let _ = send_frames(&tx, frames).await;
             return Ok(ReceiverStream::new(rx));
         }
     };
 
-    // start 帧
-    let start = module_ai::utils::llm::StreamChunkResponse::start();
-    let response_id = start.response_id.clone();
-    let _ = tx.send(Ok(serde_json::to_string(&start).unwrap_or_default())).await;
+    // start 帧: RUN_STARTED(+STATE_SNAPSHOT)
+    let _ = send_frames(&tx, transformer.start_frames()).await;
 
     // 3. 知识检索(会话关联项目混合检索 top 5; 未启用/无结果/失败均降级直答)
     let project_ids: Vec<String> = dao::conversation_get(&state.db, &conversation_id)
@@ -361,15 +366,15 @@ pub async fn chat_stream(
         node_name: String::new(),
         content: status_text.clone(),
     });
-    let _ = tx
-        .send(Ok(sse_chunk(
-            module_ai::utils::llm::StreamStatus::Stream,
-            &response_id,
-            Some(status_text),
-            None,
-            Some(crate::do_::chat::stream_event_type::STATUS),
-        )))
-        .await;
+    // 检索/回退提示: CUSTOM(rag.status)
+    let _ = send_frames(
+        &tx,
+        transformer.handle_item(&AguiStreamItem::Status {
+            node: String::new(),
+            message: status_text.clone(),
+        }),
+    )
+    .await;
 
     // 4. 会话历史(最近 20 条, 含刚存入的用户消息)直连 LLM
     let history = dao::message_list_recent(&state.db, &conversation_id, 20).await?;
@@ -411,15 +416,8 @@ pub async fn chat_stream(
                 Some(process_blocks.clone()),
             )
             .await;
-            let _ = tx
-                .send(Ok(sse_chunk(
-                    module_ai::utils::llm::StreamStatus::Error,
-                    &new_id(),
-                    Some(msg),
-                    None,
-                    Some(crate::do_::chat::stream_event_type::ERROR),
-                )))
-                .await;
+            // RUN_ERROR 即运行终态, 不再发 RUN_FINISHED
+            let _ = send_frames(&tx, transformer.fail(&msg)).await;
             return Ok(ReceiverStream::new(rx));
         }
     };
@@ -429,43 +427,67 @@ pub async fn chat_stream(
     let title_state = state.clone();
     let node_name = crate::do_::chat::graph_node::CHAT.to_string();
     tokio::spawn(async move {
+        let mut transformer = transformer;
         let mut full_response = String::new();
+        let mut thinking_text = String::new();
         let mut errored = false;
+
+        // chat 节点开始: 步骤切换(STEP_STARTED) + 进度提示(对齐 NODE_STATUS_MAP["chat"])
+        if !send_frames(
+            &tx,
+            transformer.handle_item(&AguiStreamItem::Status {
+                node: node_name.clone(),
+                message: node_status(&node_name).to_string(),
+            }),
+        )
+        .await
+        {
+            return; // 客户端断开
+        }
+
+        // 拉流转发: 思考增量 → REASONING 流, 正文增量 → TEXT_MESSAGE 流
         let mut rx_stream = stream;
         while let Some(item) = rx_stream.recv().await {
             match item {
-                Ok(text) => {
+                Ok(module_ai::utils::llm::StreamDelta::Content(text)) => {
                     full_response.push_str(&text);
-                    let frame = sse_chunk(
-                        module_ai::utils::llm::StreamStatus::Stream,
-                        &response_id,
-                        Some(text),
-                        Some(&node_name),
-                        Some(crate::do_::chat::stream_event_type::ANSWER),
-                    );
-                    if tx.send(Ok(frame)).await.is_err() {
+                    let frames =
+                        transformer.handle_item(&AguiStreamItem::Answer { delta: text });
+                    if !send_frames(&tx, frames).await {
+                        return; // 客户端断开
+                    }
+                }
+                Ok(module_ai::utils::llm::StreamDelta::Reasoning(text)) => {
+                    thinking_text.push_str(&text);
+                    let frames = transformer.handle_item(&AguiStreamItem::Reasoning {
+                        node: node_name.clone(),
+                        delta: text,
+                    });
+                    if !send_frames(&tx, frames).await {
                         return; // 客户端断开
                     }
                 }
                 Err(e) => {
                     errored = true;
-                    let msg = e.to_string();
-                    let frame = sse_chunk(
-                        module_ai::utils::llm::StreamStatus::Error,
-                        &new_id(),
-                        Some(msg.clone()),
-                        None,
-                        Some(crate::do_::chat::stream_event_type::ERROR),
-                    );
-                    let _ = tx.send(Ok(frame)).await;
+                    // RUN_ERROR 即运行终态
+                    let _ = send_frames(
+                        &tx,
+                        transformer.handle_item(&AguiStreamItem::Error { message: e.to_string() }),
+                    )
+                    .await;
                     break;
                 }
             }
         }
-        // end 帧(正常结束)
-        if !errored {
-            let end = module_ai::utils::llm::StreamChunkResponse::end();
-            let _ = tx.send(Ok(serde_json::to_string(&end).unwrap_or_default())).await;
+        // 收尾帧(正常: 闭消息/推理段/步骤 + RUN_FINISHED; 已错误: 不再发)
+        let _ = send_frames(&tx, transformer.finalize()).await;
+        // 思考过程落 blocks(前端折叠区恢复)
+        if !thinking_text.is_empty() {
+            process_blocks.push(ProcessBlock {
+                event_type: crate::do_::chat::stream_event_type::LLM_THINKING.to_string(),
+                node_name: node_name.clone(),
+                content: thinking_text,
+            });
         }
         // 6. 落库 assistant 消息(content + 过程区块)
         if !full_response.is_empty() || errored {
@@ -585,18 +607,11 @@ async fn try_summarize(
     })
 }
 
-/// 构造 ERROR 事件帧(controller 层流式异常降级用, 对齐 Python event_generator 行为)
+/// 构造 RUN_ERROR 事件帧(controller 层流式异常降级用, 对齐 Python agui_event_generator 兜底)
 pub fn error_frame(msg: &str) -> String {
-    sse_chunk(
-        module_ai::utils::llm::StreamStatus::Error,
-        &new_id(),
-        Some(msg.to_string()),
-        None,
-        Some(crate::do_::chat::stream_event_type::ERROR),
-    )
-}
-
-/// 状态提示文案(节点名 → 前端提示, 供控制器复用)
-pub fn status_of(node: &str) -> String {
-    node_status(node).to_string()
+    module_ai::utils::agui::encode_agui_event(module_ai::utils::agui::RunErrorEvent {
+        base: module_ai::utils::agui::BaseEvent::default(),
+        message: msg.to_string(),
+        code: None,
+    })
 }

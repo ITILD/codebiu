@@ -1,0 +1,6 @@
+# 临时 OpenSSL 布局: langchain-rust 传递依赖(reqwest native-tls → openssl-sys)需要
+# libssl-dev 头文件; 在系统安装 libssl-dev 前, 以解包的开发文件 + 指向系统
+# libssl.so.3 运行时的软链提供(见 ~/.local/openssl)。
+# 已执行 `sudo apt-get install -y libssl-dev` 后可删除本文件恢复系统默认发现。
+[env]
+OPENSSL_DIR = "/home/hrzn/.local/openssl"

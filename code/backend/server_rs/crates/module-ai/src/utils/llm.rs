@@ -408,12 +408,21 @@ fn stream_http() -> &'static reqwest::Client {
     })
 }
 
+/// 流式增量分类(等价 Python normalize_llm_chunk 的两类产出)
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StreamDelta {
+    /// 助手正文增量(delta.content / message.content)
+    Content(String),
+    /// 思考过程增量(delta.reasoning_content / message.thinking, 供 AG-UI REASONING_* 流)
+    Reasoning(String),
+}
+
 /// 单行流式数据的解析结果
 enum StreamLine {
     /// 注释/心跳等无意义行
     Ignore,
-    /// 内容片段(可能为空串: 角色帧/finish_reason 帧)
-    Content(String),
+    /// 内容片段(可能为空: 角色帧/finish_reason 帧; 同帧可同时携带思考与正文)
+    Deltas(Vec<StreamDelta>),
     /// 流结束(data: [DONE] 或 ollama done=true)
     Done,
 }
@@ -436,26 +445,41 @@ fn parse_stream_line(line: &str) -> StreamLine {
     if value.get("done") == Some(&Value::Bool(true)) {
         return StreamLine::Done;
     }
-    let content = value
-        .pointer("/choices/0/delta/content")
-        .or_else(|| value.pointer("/message/content"))
+    // 消息载体: openai choices[0].delta / ollama message
+    let msg = value
+        .pointer("/choices/0/delta")
+        .or_else(|| value.pointer("/message"))
+        .cloned()
+        .unwrap_or(Value::Null);
+    let mut deltas = Vec::new();
+    // 思考增量: openai 兼容 reasoning_content(dashscope/qwen 等), ollama 新版 thinking
+    let reasoning = msg
+        .get("reasoning_content")
+        .or_else(|| msg.get("reasoning"))
+        .or_else(|| msg.get("thinking"))
         .and_then(Value::as_str)
-        .unwrap_or("")
-        .to_string();
-    StreamLine::Content(content)
+        .unwrap_or("");
+    if !reasoning.is_empty() {
+        deltas.push(StreamDelta::Reasoning(reasoning.to_string()));
+    }
+    let content = msg.get("content").and_then(Value::as_str).unwrap_or("");
+    if !content.is_empty() {
+        deltas.push(StreamDelta::Content(content.to_string()));
+    }
+    StreamLine::Deltas(deltas)
 }
 
-/// 流式对话: 启动后台任务解析 SSE/NDJSON, 经通道返回内容片段
+/// 流式对话: 启动后台任务解析 SSE/NDJSON, 经通道返回内容增量(正文/思考分类)
 ///
 /// - Err 项对应建连失败或中途异常(调用方转为 SSE error 事件后终止)
 /// - 建连阶段的"方案未实现"错误在本函数同步返回(调用方映射 404)
 pub fn chat_stream(
     target: LlmTarget,
     messages: &[Message],
-) -> Result<mpsc::Receiver<Result<String, AppError>>, AppError> {
+) -> Result<mpsc::Receiver<Result<StreamDelta, AppError>>, AppError> {
     ensure_chat_supported(&target)?;
     let messages = wire_messages(messages);
-    let (tx, rx) = mpsc::channel::<Result<String, AppError>>(64);
+    let (tx, rx) = mpsc::channel::<Result<StreamDelta, AppError>>(64);
     tokio::spawn(async move {
         let http = stream_http();
         let mut enable_thinking = initial_enable_thinking(&target);
@@ -484,10 +508,12 @@ pub fn chat_stream(
                         let line: String = buffer.drain(..=pos).collect();
                         match parse_stream_line(line.trim_end()) {
                             StreamLine::Ignore => {}
-                            StreamLine::Content(text) => {
-                                if !text.is_empty() && tx.send(Ok(text)).await.is_err() {
-                                    // 接收端已关闭(客户端断开), 终止拉流
-                                    return;
+                            StreamLine::Deltas(deltas) => {
+                                for delta in deltas {
+                                    if tx.send(Ok(delta)).await.is_err() {
+                                        // 接收端已关闭(客户端断开), 终止拉流
+                                        return;
+                                    }
                                 }
                             }
                             StreamLine::Done => return,
@@ -505,9 +531,11 @@ pub fn chat_stream(
         }
         // 冲刷无换行结尾的残余行
         if !buffer.trim().is_empty() {
-            if let StreamLine::Content(text) = parse_stream_line(buffer.trim()) {
-                if !text.is_empty() {
-                    let _ = tx.send(Ok(text)).await;
+            if let StreamLine::Deltas(deltas) = parse_stream_line(buffer.trim()) {
+                for delta in deltas {
+                    if tx.send(Ok(delta)).await.is_err() {
+                        return;
+                    }
                 }
             }
         }
@@ -652,14 +680,32 @@ mod tests {
             parse_stream_line(": ping"),
             StreamLine::Ignore
         ));
-        let openai = parse_stream_line(
-            r#"data: {"choices":[{"delta":{"content":"你"}}]}"#,
-        );
-        assert!(matches!(openai, StreamLine::Content(c) if c == "你"));
+        let openai = parse_stream_line(r#"data: {"choices":[{"delta":{"content":"你"}}]}"#);
+        let StreamLine::Deltas(deltas) = openai else {
+            panic!("openai 行应产出 Deltas");
+        };
+        assert_eq!(deltas, vec![StreamDelta::Content("你".to_string())]);
         let ollama_done =
             parse_stream_line(r#"{"model":"qwen","done":true,"message":{"content":""}}"#);
         assert!(matches!(ollama_done, StreamLine::Done));
         let ollama = parse_stream_line(r#"{"message":{"role":"assistant","content":"好"}}"#);
-        assert!(matches!(ollama, StreamLine::Content(c) if c == "好"));
+        let StreamLine::Deltas(deltas) = ollama else {
+            panic!("ollama 行应产出 Deltas");
+        };
+        assert_eq!(deltas, vec![StreamDelta::Content("好".to_string())]);
+        // 同帧思考在前正文在后(对齐 normalize_llm_chunk 顺序)
+        let both = parse_stream_line(
+            r#"data: {"choices":[{"delta":{"reasoning_content":"想","content":"答"}}]}"#,
+        );
+        let StreamLine::Deltas(deltas) = both else {
+            panic!("同帧行应产出 Deltas");
+        };
+        assert_eq!(
+            deltas,
+            vec![
+                StreamDelta::Reasoning("想".to_string()),
+                StreamDelta::Content("答".to_string())
+            ]
+        );
     }
 }

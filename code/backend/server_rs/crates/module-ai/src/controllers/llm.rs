@@ -100,7 +100,8 @@ pub async fn chat_completion(
             let mut errored = false;
             while let Some(item) = chunks.recv().await {
                 match item {
-                    Ok(text) => {
+                    // 旧协议仅转发正文增量; 思考增量(REASONING)供 AG-UI 链路, 此处忽略
+                    Ok(crate::utils::llm::StreamDelta::Content(text)) => {
                         let chunk = StreamChunkResponse::chunk(&response_id, text);
                         if send(Ok(Event::default().data(chunk.to_json())))
                             .await
@@ -110,6 +111,7 @@ pub async fn chat_completion(
                             return;
                         }
                     }
+                    Ok(crate::utils::llm::StreamDelta::Reasoning(_)) => {}
                     Err(e) => {
                         // 中途异常转为 SSE error 事件(载荷携带错误文案)
                         let err = StreamChunkResponse::error(e.to_string());
